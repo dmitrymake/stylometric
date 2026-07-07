@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stylo"
+version = "0.4.0"
+description = "Reproducible Russian-prose authorship-attribution framework with honest leakage-free evaluation"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Dmitry Purtov" }]
+
+# Core dependencies. Exact, reproducible pins live in requirements.lock
+# (generated via `python -m pip freeze`). The spaCy Russian model
+# `ru_core_news_lg==3.8.0` must be installed separately:
+#   python -m spacy download ru_core_news_lg
+dependencies = [
+    "spacy>=3.8,<3.9",
+    "scikit-learn>=1.7,<1.8",
+    "numpy>=2.0",
+    "scipy>=1.16",
+    "pandas>=2.0",
+    "joblib>=1.5",
+    "pyyaml>=6.0",
+    "matplotlib>=3.10",
+    "seaborn>=0.13",
+    "umap-learn>=0.5",
+]
+
+[project.optional-dependencies]
+# Neural contextual embeddings (ruBERT). Heavy; only needed for the
+# topic-controlled embedding experiment (features/embeddings.py).
+embeddings = [
+    "torch>=2.0",
+    "transformers>=4.50",
+    "sentence-transformers>=5.0",
+]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+stylo = "stylo.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

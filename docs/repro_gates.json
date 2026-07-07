@@ -1,0 +1,46 @@
+{
+  "method": "независимый перепрогон gate-скриптов с BLAS-пиннингом (по одному), восстановление закоммиченных docs/cases/*.json и побайтная сверка diff",
+  "source": "docs/publication_readiness_audit.md §3 «Сверка чисел перепрогоном гейтов»",
+  "gates": [
+    {
+      "id": "calibration",
+      "label_ru": "калибровочная пара",
+      "script": "run_calibration_pair.py",
+      "output": "cases/calibration_reference.json",
+      "seconds": 83,
+      "bit_exact": true
+    },
+    {
+      "id": "nekrasov_panaeva",
+      "label_ru": "Некрасов и Панаева",
+      "script": "run_nekrasov_panaeva_gate.py",
+      "output": "cases/nekrasov_panaeva.json",
+      "seconds": 53,
+      "bit_exact": true
+    },
+    {
+      "id": "petersburg",
+      "label_ru": "«Петербургская летопись»",
+      "script": "run_petersburg_chronicle_gate.py",
+      "output": "cases/dostoevsky_petersburg_chronicle.json",
+      "seconds": 60,
+      "bit_exact": true
+    },
+    {
+      "id": "kolokol",
+      "label_ru": "«Колокол»",
+      "script": "run_kolokol_gate.py",
+      "output": "cases/kolokol_herzen_ogaryov.json",
+      "seconds": 210,
+      "bit_exact": true
+    },
+    {
+      "id": "sovremennik",
+      "label_ru": "Современник",
+      "script": "run_sovremennik_gate.py",
+      "output": "cases/sovremennik.json",
+      "seconds": 820,
+      "bit_exact": true
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+case_id: taras_control_turgenev_holdout_v2_fw_2000
+title: "Control v2: held-out Отцы и дети (suspects v2)"
+hypothesis: "Control: a held-out Turgenev work must attribute to Turgenev."
+target_description: "Отцы и дети (Turgenev, held out)"
+claim: "Контроль: изъятые «Отцы и дети» должны вернуться к Тургеневу."
+limitations:
+  - "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  annenkov_1840s: ../../../../input_cases/taras_bulba/cand_annenkov_1840s
+  turgenev:
+    path: ../../../../input_clean/turgenev
+    exclude:
+      - ../../../../input_clean/turgenev/отцы_и_дети.txt
+  dostoevsky: ../../../../input_clean/dostoevsky
+target: ../../../../input_clean/turgenev/отцы_и_дети.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+  - ../../../../input_clean/turgenev/отцы_и_дети.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_turgenev_holdout_v2_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json"
+notes: "Контрольная батарея v2 4/4 (вместо пушкинского контроля: Пушкин вне v2-панели)."

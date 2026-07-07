@@ -1,0 +1,55 @@
+{
+  "params": {
+    "CAP": 6,
+    "MIN_CH": 6,
+    "feature": "funcwords⊕char_wb(3-5,Hashing 2**18), L2, leak-free"
+  },
+  "per_author": {
+    "sholohov": {
+      "mean_pair_cos": 0.1416,
+      "silhouette": 0.0002,
+      "n_books": 14
+    },
+    "bunin": {
+      "mean_pair_cos": 0.1337,
+      "silhouette": -0.0082,
+      "n_books": 9
+    },
+    "chehov": {
+      "mean_pair_cos": 0.1226,
+      "silhouette": -0.0055,
+      "n_books": 13
+    },
+    "turgenev": {
+      "mean_pair_cos": 0.1659,
+      "silhouette": -0.0137,
+      "n_books": 12
+    },
+    "dostoevsky": {
+      "mean_pair_cos": 0.1297,
+      "silhouette": -0.0273,
+      "n_books": 9
+    }
+  },
+  "sholohov_vs_controls": {
+    "mean_pair_cos": {
+      "sholohov": 0.1416,
+      "ctrl_mean": 0.138,
+      "ctrl_std": 0.0166,
+      "z": 0.218
+    },
+    "silhouette": {
+      "sholohov": 0.0002,
+      "ctrl_mean": -0.0137,
+      "ctrl_std": 0.0084,
+      "z": 1.651
+    }
+  },
+  "rank_mean_pair_cos": [
+    "turgenev",
+    "sholohov",
+    "bunin",
+    "dostoevsky",
+    "chehov"
+  ]
+}

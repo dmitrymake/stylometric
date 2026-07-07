@@ -1,0 +1,34 @@
+case_id: taras_bulba_additions_strict_char3_masked_500
+title: "Taras Bulba 1842 strict additions, char3 diagnostic on symmetrically masked texts"
+hypothesis: "Character-level replication: the fw_fixed attribution of the large 1842 additions holds in an independent character channel."
+target_description: "strict additions (NER-masked), char3 diagnostic channel"
+claim: "Диагностический канал char3 на симметрично маскированных текстах: перекрёстная проверка fw_fixed-атрибуции независимым признаковым пространством."
+limitations:
+  - "Diagnostic channel: char3 несёт лексику/тему сильнее служебных слов, поэтому канал не является proof-каналом кейса."
+  - "Анкоры input_clean и панель masked/ маскированы одинаково (PERSON -> @): без симметричной маскировки канал недействителен."
+  - "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+language: ru
+unit: work
+feature_sets: [char3]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 500
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  annenkov_1840s: ../../../../input_cases/taras_bulba/masked/cand_annenkov_1840s
+  turgenev: ../../../../input_clean/turgenev
+  dostoevsky: ../../../../input_clean/dostoevsky
+target: ../../../../input_cases/taras_bulba/masked/dobavleniya1842_strict.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data (masked/ = scripts/mask_taras_case_texts.py), cleaned benchmark anchors, curated az.lib panel."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_char3_masked_500.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_char3_masked_500.passport.json"
+notes: "Метод-репликация 2/2 (после Delta): suspects v2 панель, канал char3, случайных перестановок 500 (канал дорогой)."

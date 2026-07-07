@@ -1,0 +1,31 @@
+case_id: taras_bulba_diag_prokopovich_letters_fw_2000
+title: "Prokopovich 1843 letters diagnostic: fw_fixed random_2000"
+hypothesis: "Diagnostic only: locating Prokopovich's letters relative to Gogol and Annenkov voices."
+target_description: "Prokopovich letters to Shevyryov, 1843"
+claim: "Prokopovich cannot be a candidate (no usable prose corpus); his 1843 letters are placed diagnostically on the Gogol/Annenkov axis."
+limitations:
+  - "Diagnostic only: epistolary register differs from narrative prose; no attribution claim is made."
+  - "Single short text; single-chunk targets cannot receive a strong verdict."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  annenkov_1840s: ../../../../input_cases/taras_bulba/cand_annenkov_1840s
+target: ../../../../input_cases/taras_bulba/prokopovich_letters_1843.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_diag_prokopovich_letters_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json"
+notes: "Documented-but-unmodelled подозреваемый: письма как диагностический target."

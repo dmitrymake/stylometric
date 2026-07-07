@@ -1,0 +1,58 @@
+{
+  "p7_panel": {
+    "sholohov": 4.536,
+    "n_panel": 16,
+    "rank": 5,
+    "percentile": 25,
+    "panel_disps": {
+      "dostoevsky": 4.798,
+      "turgenev": 4.61,
+      "bunin": 4.91,
+      "gorky": 4.385,
+      "bulgakov": 5.111,
+      "platonov": 4.421,
+      "tolstoy": 4.739,
+      "sasha_sokolov": 5.004,
+      "prokhanov": 4.656,
+      "radov": 4.825,
+      "elizarov": 4.58,
+      "victor_erofeev": 4.948,
+      "akunun": 4.416,
+      "mamleev": 4.35,
+      "volcheck": 4.82,
+      "zoshenko": 4.9
+    }
+  },
+  "p6_diff_ci": [
+    {
+      "work": "Тихий Дон",
+      "diff_median": 0.823,
+      "diff_ci": [
+        0.58,
+        1.042
+      ],
+      "frac_pos": 1.0,
+      "ci_excludes_0": true
+    },
+    {
+      "work": "Поднятая целина",
+      "diff_median": 0.236,
+      "diff_ci": [
+        -0.035,
+        0.499
+      ],
+      "frac_pos": 0.953,
+      "ci_excludes_0": false
+    }
+  ],
+  "p8_silhouette_negative": {
+    "_STALE": true,
+    "_SUPERSEDED_BY": "rigor11/rigor12 (book-balanced, все 4 тома ТД)",
+    "old_value": {
+      "obs_silhouette_median": 0.121,
+      "null_p95": 0.0378,
+      "exceeds_null": true,
+      "ari_between_seeds": 0.983
+    }
+  }
+}

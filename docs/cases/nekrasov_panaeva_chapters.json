@@ -1,0 +1,992 @@
+{
+  "case": "nekrasov_panaeva_chapters",
+  "title": "Поглавная демонстрация автор≡тема: «Три страны света» и «Мёртвое озеро»",
+  "note": "Каждая глава классифицирована к соло-центроиду Некрасова или Панаевой дважды: по ЧИСТЫМ служебным словам (идиолект, тема-нейтрально) и по ЧИСТЫМ char-3gram (содержание). Ключевые числа — согласие двух признаков по главам (≈половина = они расходятся, ловят разное) и жанровый перекос char-3gram (роман, где почти все главы уходят к более «романному» соло-автору). Без поглавного ground truth это иллюстрация, а не атрибуция: метод не восстанавливает раздел труда — char-3gram несёт жанр/тему, служебные слова смещены профилем.",
+  "novels": {
+    "Три страны света": {
+      "chapters": 67,
+      "char3_split": {
+        "panaeva": 35,
+        "nekrasov": 32
+      },
+      "fw_split": {
+        "nekrasov": 50,
+        "panaeva": 17
+      },
+      "char3_fw_agreement": "49/67",
+      "char3_fw_kappa": 0.474,
+      "switches_char3": 28,
+      "switches_fw": 17,
+      "char3_sequence": "ПНПППНПППППНННПНПНПНПНННППНННППНННННННННПППППНППНПППППННПНННППННППП",
+      "fw_sequence": "ННПННННППНННННННННПНПНННПННННППНННННННННПППППННННППННННННННННННННПП",
+      "per_chapter": [
+        {
+          "ch": 1,
+          "words": 3462,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 2,
+          "words": 2422,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 3,
+          "words": 2610,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 4,
+          "words": 3331,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 5,
+          "words": 2770,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 6,
+          "words": 5581,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 7,
+          "words": 2728,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 8,
+          "words": 3423,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 9,
+          "words": 2953,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 10,
+          "words": 4245,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 11,
+          "words": 1969,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 12,
+          "words": 4486,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 13,
+          "words": 1866,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 14,
+          "words": 2955,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 15,
+          "words": 4550,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 16,
+          "words": 4604,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 17,
+          "words": 5293,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 18,
+          "words": 2105,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 19,
+          "words": 10086,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 20,
+          "words": 1957,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 21,
+          "words": 2640,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 22,
+          "words": 3145,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 23,
+          "words": 2764,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 24,
+          "words": 2895,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 25,
+          "words": 3854,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 26,
+          "words": 2329,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 27,
+          "words": 2232,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 28,
+          "words": 3579,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 29,
+          "words": 3358,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 30,
+          "words": 2076,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 31,
+          "words": 2072,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 32,
+          "words": 5312,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 33,
+          "words": 1883,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 34,
+          "words": 3889,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 35,
+          "words": 2068,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 36,
+          "words": 21406,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 37,
+          "words": 3824,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 38,
+          "words": 2217,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 39,
+          "words": 3162,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 40,
+          "words": 1856,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 41,
+          "words": 2367,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 42,
+          "words": 3418,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 43,
+          "words": 2339,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 44,
+          "words": 9862,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 45,
+          "words": 3096,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 46,
+          "words": 3093,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 47,
+          "words": 2723,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 48,
+          "words": 2072,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 49,
+          "words": 2446,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 50,
+          "words": 2546,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 51,
+          "words": 1957,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 52,
+          "words": 1469,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 53,
+          "words": 2464,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 54,
+          "words": 3405,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 55,
+          "words": 720,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 56,
+          "words": 2656,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 57,
+          "words": 1650,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 58,
+          "words": 3333,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 59,
+          "words": 4724,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 60,
+          "words": 2384,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 61,
+          "words": 2725,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 62,
+          "words": 2386,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 63,
+          "words": 2731,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 64,
+          "words": 1728,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 65,
+          "words": 3997,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 66,
+          "words": 2663,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 67,
+          "words": 4495,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        }
+      ]
+    },
+    "Мёртвое озеро": {
+      "chapters": 67,
+      "char3_split": {
+        "panaeva": 63,
+        "nekrasov": 4
+      },
+      "fw_split": {
+        "nekrasov": 55,
+        "panaeva": 12
+      },
+      "char3_fw_agreement": "16/67",
+      "char3_fw_kappa": 0.027,
+      "switches_char3": 7,
+      "switches_fw": 16,
+      "char3_sequence": "ПППППППППППППНПППППНППППППППППППППППНПППППППППППППППППППППППППППППН",
+      "fw_sequence": "НННННННННННННННННПНННННПНННННННННППННННПННННПППННННННННННННППНПНПНН",
+      "per_chapter": [
+        {
+          "ch": 1,
+          "words": 2156,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 2,
+          "words": 3998,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 3,
+          "words": 1294,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 4,
+          "words": 3240,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 5,
+          "words": 2294,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 6,
+          "words": 3126,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 7,
+          "words": 1839,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 8,
+          "words": 2859,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 9,
+          "words": 1864,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 10,
+          "words": 2750,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 11,
+          "words": 1570,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 12,
+          "words": 2061,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 13,
+          "words": 2403,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 14,
+          "words": 3277,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 15,
+          "words": 1841,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 16,
+          "words": 1847,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 17,
+          "words": 2414,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 18,
+          "words": 3904,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 19,
+          "words": 2265,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 20,
+          "words": 1294,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 21,
+          "words": 1387,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 22,
+          "words": 2134,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 23,
+          "words": 2106,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 24,
+          "words": 4487,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 25,
+          "words": 3150,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 26,
+          "words": 3048,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 27,
+          "words": 2804,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 28,
+          "words": 1487,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 29,
+          "words": 4424,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 30,
+          "words": 2677,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 31,
+          "words": 4952,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 32,
+          "words": 3610,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 33,
+          "words": 3135,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 34,
+          "words": 2236,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 35,
+          "words": 4834,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 36,
+          "words": 3227,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 37,
+          "words": 1753,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        },
+        {
+          "ch": 38,
+          "words": 2126,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 39,
+          "words": 2541,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 40,
+          "words": 1704,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 41,
+          "words": 1345,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 42,
+          "words": 4350,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 43,
+          "words": 2581,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 44,
+          "words": 3100,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 45,
+          "words": 3512,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 46,
+          "words": 3629,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 47,
+          "words": 2709,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 48,
+          "words": 2935,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 49,
+          "words": 3904,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 50,
+          "words": 5290,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 51,
+          "words": 3399,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 52,
+          "words": 2624,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 53,
+          "words": 3742,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 54,
+          "words": 2241,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 55,
+          "words": 2767,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 56,
+          "words": 2266,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 57,
+          "words": 5105,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 58,
+          "words": 3304,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 59,
+          "words": 1674,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 60,
+          "words": 2993,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 61,
+          "words": 1899,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 62,
+          "words": 2629,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 63,
+          "words": 19658,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 64,
+          "words": 1607,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 65,
+          "words": 3829,
+          "fw_winner": "panaeva",
+          "char3_winner": "panaeva",
+          "agree": true
+        },
+        {
+          "ch": 66,
+          "words": 1982,
+          "fw_winner": "nekrasov",
+          "char3_winner": "panaeva",
+          "agree": false
+        },
+        {
+          "ch": 67,
+          "words": 23893,
+          "fw_winner": "nekrasov",
+          "char3_winner": "nekrasov",
+          "agree": true
+        }
+      ]
+    }
+  },
+  "summary": {
+    "total_chapters": 134,
+    "char3_fw_agreement": "65/134",
+    "char3_fw_kappa": 0.184,
+    "kappa_note": "Cohen's kappa — совпадение двух разметок (по служебным словам и по char-3gram) с поправкой на случайные совпадения: kappa = (po − pe)/(1 − pe), где po — доля глав с одинаковым вердиктом, pe — доля совпадений, ожидаемая при случайной разметке с теми же долями классов. При несбалансированных долях классов «сырое» согласие завышено, kappa его поправляет. kappa≈0 — согласие на уровне случая, отрицательное — ниже случая.",
+    "switches_char3_total": 35,
+    "switches_fw_total": 33
+  },
+  "verdict": "На 134 главах двух романов два признака дают РАЗНУЮ разметку: согласие char-3gram и служебных слов всего 65/134 (≈49% глав). «Сырое» согласие обманчиво при несбалансированных долях классов (служебные слова почти везде указывают на Некрасова), поэтому считается Cohen's kappa — совпадение двух разметок с поправкой на случайные совпадения: kappa = 0.18 по обоим романам (слабое согласие, лишь чуть выше случайного; kappa≈0 — уровень случая, отрицательное — ниже). Согласие неоднородно: в романе «Мёртвое озеро» kappa = 0.03 (на уровне случая — char-3gram сводит 63 из 67 глав к «Панаевой», чья соло-проза ближе по ЖАНРУ, то есть несёт жанр/тему, а не руку), в романе «Три страны света» kappa = 0.47. Служебные слова (идиолект) разметку дают иную и смещённую к более центральному соло-профилю. НИ ОДИН признак не восстанавливает задокументированный раздел труда соавторов: один несёт жанр и тему, другой смещён профилем, а согласие между ними на уровне случая или слабее. Это прямая иллюстрация предела автор≡тема на самих романах: поглавная атрибуция соавторского текста этим методом неинтерпретируема, а не атрибуция конкретных глав."
+}

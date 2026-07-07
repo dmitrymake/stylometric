@@ -1,0 +1,55 @@
+{
+  "method": "UNMASKING (Koppel-Schler) + IMPOSTERS (Koppel-Winter) на ТД, переиспользуя log/unmasking.py и log/imposters.py; 3-е и 4-е независимые семейства",
+  "unmasking_anchors": {
+    "same_sholokhov": 0.372,
+    "diff_sholokhov_vs_krukov": 0.696,
+    "calibration_separates": true
+  },
+  "unmasking_td": [
+    {
+      "vol": "tihiy_don_1",
+      "unmask_vs_sholokhov": 0.689,
+      "unmask_vs_krukov": 0.539,
+      "closer": "Крюков?"
+    },
+    {
+      "vol": "tihiy_don_2",
+      "unmask_vs_sholokhov": 0.686,
+      "unmask_vs_krukov": 0.539,
+      "closer": "Крюков?"
+    },
+    {
+      "vol": "tihiy_don_3",
+      "unmask_vs_sholokhov": 0.655,
+      "unmask_vs_krukov": 0.548,
+      "closer": "Крюков?"
+    },
+    {
+      "vol": "tihiy_don_4",
+      "unmask_vs_sholokhov": 0.617,
+      "unmask_vs_krukov": 0.587,
+      "closer": "Крюков?"
+    }
+  ],
+  "unmasking_td_to_sholokhov": "0/4",
+  "imposters_td": [
+    {
+      "vol": "tihiy_don_1",
+      "imposters_score": 0.11
+    },
+    {
+      "vol": "tihiy_don_2",
+      "imposters_score": 0.1
+    },
+    {
+      "vol": "tihiy_don_3",
+      "imposters_score": 0.23
+    },
+    {
+      "vol": "tihiy_don_4",
+      "imposters_score": 0.475
+    }
+  ],
+  "imposters_verified_sholokhov": "0/4",
+  "verdict": "Топик-чувствительные unmasking (0/4) и imposters (0/4) кладут ТД ближе к Крюкову (unmasking ТД↔Шолохов≈0.66 при DIFF-якоре 0.70; ТД↔Крюков≈0.55; imposters 0.11–0.48<0.5), что расходится с топик-робастными сегментным-LR и supervised-AV; вероятная причина — общий донской топик и советски-перегруженный эталон. Метод валиден только при топик-контроле (genre-matched + FW_ONLY)."
+}

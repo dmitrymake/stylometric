@@ -1,0 +1,197 @@
+{
+  "method": "LinearSVC (один для всех каналов) + StratifiedGroupKFold(5) book-level, векторизаторы fit ВНУТРИ фолда (leak-free); headline-ансамбль = РАВНОВЕСНОЕ усреднение softmax каналов (веса не зависят от теста, leak-free); reliability^p — справочная диагностика с весами, выведенными по тесту",
+  "corpus_mode": "full_research",
+  "corpus_note": "полный исследовательский корпус ВКЛЮЧАЕТ копирайтных/живых авторов — НЕ редистрибутируемо; для публикуемого числа используйте --pd-only",
+  "headline_ensemble": "АНСАМБЛЬ (равновес.)",
+  "seed": 42,
+  "cap_chunks_per_book": 35,
+  "n_authors": 43,
+  "n_books": 251,
+  "n_chunks": 6790,
+  "chance_micro": 0.0233,
+  "headline_macro_f1": 0.833,
+  "macro_f1_authorclustered_CI": [
+    0.617,
+    0.827
+  ],
+  "ensemble_top1": 0.892,
+  "ensemble_top3": 0.94,
+  "channels": {
+    "char (2-5)": {
+      "top1": 0.873,
+      "top3": 0.956,
+      "macro_f1": 0.821
+    },
+    "word (1-2)": {
+      "top1": 0.841,
+      "top3": 0.892,
+      "macro_f1": 0.783
+    },
+    "syntax (dep+pos+syn)": {
+      "top1": 0.869,
+      "top3": 0.96,
+      "macro_f1": 0.823
+    },
+    "dependency": {
+      "top1": 0.681,
+      "top3": 0.821,
+      "macro_f1": 0.635
+    },
+    "function_words": {
+      "top1": 0.857,
+      "top3": 0.912,
+      "macro_f1": 0.806
+    },
+    "morphology": {
+      "top1": 0.633,
+      "top3": 0.769,
+      "macro_f1": 0.588
+    },
+    "DSP (suffixes)": {
+      "top1": 0.263,
+      "top3": 0.478,
+      "macro_f1": 0.221
+    },
+    "АНСАМБЛЬ (равновес.)": {
+      "top1": 0.892,
+      "top3": 0.94,
+      "macro_f1": 0.833
+    }
+  },
+  "per_author_recall": {
+    "kataev": 0.0,
+    "olesha": 0.0,
+    "zoshenko": 0.0,
+    "prutkov": 0.5,
+    "volcheck": 0.5,
+    "sevsky": 0.6,
+    "tolstoy_an": 0.67,
+    "babel": 0.75,
+    "elizarov": 0.75,
+    "nabokov": 0.75,
+    "gumilev": 0.78,
+    "serafimovich": 0.78,
+    "kumov": 0.8,
+    "leskov": 0.83,
+    "tolstoy": 0.89,
+    "bunin": 0.9,
+    "garshin": 0.9,
+    "akunun": 1.0,
+    "andreev": 1.0,
+    "bulgakov": 1.0,
+    "chehov": 1.0,
+    "dostoevsky": 1.0,
+    "furmanov": 1.0,
+    "gazdanov": 1.0,
+    "gogol": 1.0,
+    "gorky": 1.0,
+    "grin": 1.0,
+    "korolenko": 1.0,
+    "krukov": 1.0,
+    "kuprin": 1.0,
+    "mamleev": 1.0,
+    "novikov_priboy": 1.0,
+    "pilnyak": 1.0,
+    "platonov": 1.0,
+    "prokhanov": 1.0,
+    "pushkin": 1.0,
+    "radov": 1.0,
+    "saltykov": 1.0,
+    "sasha_sokolov": 1.0,
+    "sorokin": 1.0,
+    "turgenev": 1.0,
+    "uspensky": 1.0,
+    "victor_erofeev": 1.0
+  },
+  "low_recall_authors": [
+    "kataev",
+    "olesha",
+    "zoshenko",
+    "prutkov",
+    "volcheck"
+  ],
+  "_diagnostic_test_leaked": {
+    "_warning": "веса этих ансамблей выведены по ТЕСТУ (leak) — НЕ headline, только справочно",
+    "reliability^2": {
+      "top1": 0.9,
+      "top3": 0.952,
+      "macro_f1": 0.85
+    },
+    "reliability^4": {
+      "top1": 0.904,
+      "top3": 0.96,
+      "macro_f1": 0.854
+    },
+    "reliability^6": {
+      "top1": 0.904,
+      "top3": 0.964,
+      "macro_f1": 0.854
+    }
+  },
+  "top_confusions": [
+    "zoshenko->leskovx2",
+    "babel->pilnyakx1",
+    "bunin->bulgakovx1",
+    "elizarov->victor_erofeevx1",
+    "garshin->krukovx1",
+    "gumilev->garshinx1",
+    "gumilev->grinx1",
+    "kataev->bulgakovx1",
+    "kataev->tolstoy_anx1",
+    "kumov->chehovx1",
+    "leskov->turgenevx1",
+    "nabokov->oleshax1"
+  ],
+  "authors": [
+    "akunun",
+    "andreev",
+    "babel",
+    "bulgakov",
+    "bunin",
+    "chehov",
+    "dostoevsky",
+    "elizarov",
+    "furmanov",
+    "garshin",
+    "gazdanov",
+    "gogol",
+    "gorky",
+    "grin",
+    "gumilev",
+    "kataev",
+    "korolenko",
+    "krukov",
+    "kumov",
+    "kuprin",
+    "leskov",
+    "mamleev",
+    "nabokov",
+    "novikov_priboy",
+    "olesha",
+    "pilnyak",
+    "platonov",
+    "prokhanov",
+    "prutkov",
+    "pushkin",
+    "radov",
+    "saltykov",
+    "sasha_sokolov",
+    "serafimovich",
+    "sevsky",
+    "sorokin",
+    "tolstoy",
+    "tolstoy_an",
+    "turgenev",
+    "uspensky",
+    "victor_erofeev",
+    "volcheck",
+    "zoshenko"
+  ],
+  "notes": [
+    "Честное сравнение: ВСЕ каналы под одним классификатором (LinearSVC); смена nearest-centroid→SVM сама по себе даёт прибавку — это вклад классификатора, не признаков.",
+    "Топик-инвариантный синтаксис НЕ превосходит char-n-граммы по точности (trade-off, не преимущество по accuracy).",
+    "Бенчмарк на собственном корпусе, НЕ на стандартном PAN/RusProfiling — claim 'SOTA' не делается.",
+    "headline-ансамбль = РАВНОВЕСНЫЙ (веса не зависят от теста, leak-free); reliability^p — справочная диагностика, её веса выведены по тесту, поэтому headline'ом она быть не может.",
+    "Воспроизводимо: python scripts/run_benchmark.py [--pd-only] (требует собранного корпуса; seed фиксирован)."
+  ]
+}

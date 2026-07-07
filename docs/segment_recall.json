@@ -1,0 +1,138 @@
+{
+  "method": "rolling per-chunk LR-атрибуция + детекция контигуальных сегментов (stylo.eval.segment); позитив-контроль = синтетическая склейка двух авторов, recall = доля случаев, где найден сегмент чужого после точки склейки",
+  "params": {
+    "win": 5,
+    "conf": 0.6,
+    "min_run": 3
+  },
+  "recall_dissimilar": {
+    "recall": 1.0,
+    "n_pairs": 6,
+    "detected": 6,
+    "pairs": [
+      {
+        "host": "dostoevsky",
+        "intruder": "sorokin",
+        "splice_at": 819,
+        "n_chunks": 870,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "chehov",
+        "intruder": "prokhanov",
+        "splice_at": 81,
+        "n_chunks": 425,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "turgenev",
+        "intruder": "mamleev",
+        "splice_at": 275,
+        "n_chunks": 372,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "gogol",
+        "intruder": "nabokov",
+        "splice_at": 304,
+        "n_chunks": 455,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "bunin",
+        "intruder": "radov",
+        "splice_at": 228,
+        "n_chunks": 476,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "tolstoy",
+        "intruder": "victor_erofeev",
+        "splice_at": 717,
+        "n_chunks": 839,
+        "detected": true,
+        "n_foreign_segments": 1
+      }
+    ]
+  },
+  "recall_similar_ceiling": {
+    "recall": 1.0,
+    "n_pairs": 3,
+    "detected": 3,
+    "pairs": [
+      {
+        "host": "krukov",
+        "intruder": "serafimovich",
+        "splice_at": 82,
+        "n_chunks": 198,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "bunin",
+        "intruder": "kuprin",
+        "splice_at": 228,
+        "n_chunks": 435,
+        "detected": true,
+        "n_foreign_segments": 1
+      },
+      {
+        "host": "chehov",
+        "intruder": "bunin",
+        "splice_at": 81,
+        "n_chunks": 309,
+        "detected": true,
+        "n_foreign_segments": 1
+      }
+    ]
+  },
+  "fpr_single_author": {
+    "fpr": 0.0,
+    "n_books": 63,
+    "false_positive_books": 0,
+    "mean_foreign_fraction": 0.0
+  },
+  "recall_at_admixture": [
+    {
+      "admix_pct": 0,
+      "foreign_fraction": 0.0,
+      "detected": false
+    },
+    {
+      "admix_pct": 10,
+      "foreign_fraction": 0.098,
+      "detected": true
+    },
+    {
+      "admix_pct": 25,
+      "foreign_fraction": 0.255,
+      "detected": true
+    },
+    {
+      "admix_pct": 40,
+      "foreign_fraction": 0.392,
+      "detected": true
+    },
+    {
+      "admix_pct": 50,
+      "foreign_fraction": 0.51,
+      "detected": true
+    },
+    {
+      "admix_pct": 75,
+      "foreign_fraction": 0.745,
+      "detected": true
+    },
+    {
+      "admix_pct": 100,
+      "foreign_fraction": 1.0,
+      "detected": true
+    }
+  ],
+  "verdict": "детектор демонстративно ловит известную склейку РАЗНЫХ авторов (recall>0) при низком FPR на одноавторских книгах; склейка ПОХОЖИХ авторов и малая доля подмеса — за пределом мощности (честный потолок)."
+}

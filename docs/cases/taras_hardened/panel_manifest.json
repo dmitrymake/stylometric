@@ -1,0 +1,313 @@
+{
+  "case_id": "taras_bulba_1842_additions",
+  "panel_policy": "Кураторские whitelist-ы; тексты об авторах, критика поздних периодов, стихи и переводы исключены.",
+  "candidates": {
+    "annenkov_1840s": {
+      "files": [
+        {
+          "path": "input_cases/taras_bulba/cand_annenkov_1840s/письма_из_за_границы__0030.txt",
+          "sha256": "f7d3703123a4e673e95d8fd6052151af12e8fc4a1e2087cb34e0ba3d299012bd",
+          "words": 48713,
+          "source_url": "http://az.lib.ru/a/annenkow_p_w/text_0030.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_annenkov_1840s/парижские_письма__0040.txt",
+          "sha256": "7e3c832f7850bcf77023840620ef2a46f79d594ed2683623b3212fab92e9defe",
+          "words": 48427,
+          "source_url": "http://az.lib.ru/a/annenkow_p_w/text_0040.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_annenkov_1840s/путевые_записки__0060.txt",
+          "sha256": "672b5000add486ab730f31809f860d8e116f6de096911eb756d2ebc352615050",
+          "words": 24178,
+          "source_url": "http://az.lib.ru/a/annenkow_p_w/text_0060.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_annenkov_1840s/февраль_и_март_в_париже_1848_года__0050.txt",
+          "sha256": "1c5f60264d43cc338d98a069e0cd7be50c5533183e3dc63577d595cc84125829",
+          "words": 34923,
+          "source_url": "http://az.lib.ru/a/annenkow_p_w/text_0050.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_annenkov_1840s/записки_о_французской_революции_1848_года__0070.txt",
+          "sha256": "7ee9c01884307026f7f7b1e5ca95ad6fa1273a6280d8a980eb1749aaa80d8bc0",
+          "words": 82498,
+          "source_url": "http://az.lib.ru/a/annenkow_p_w/text_0070.shtml",
+          "modernized_orthography": false
+        }
+      ],
+      "works": 5,
+      "words": 238739
+    },
+    "somov": {
+      "files": [
+        {
+          "path": "input_cases/taras_bulba/cand_somov/гайдамак__0010.txt",
+          "sha256": "74779de1e96b07a6a8c3f5eec154716613fad4a291d00c4d6eec2ac64f01aea9",
+          "words": 21510,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0010.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/юродивый__0020.txt",
+          "sha256": "c3434f8c9e81009b5c2653437dad7457b2909cf5ba4520b59b2d3088e62e76b7",
+          "words": 6380,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0020.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/оборотень__0030.txt",
+          "sha256": "927331fa477668ca545696e205f4adaac462b0fe75db40f7601cb8085d6a3ac4",
+          "words": 3989,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0030.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/кикимора__0040.txt",
+          "sha256": "989bf1e59846c0177b25de9410885d2c1f1cbacb80f52b2b6a01d2c6fe23ebd7",
+          "words": 3765,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0040.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/матушка_и_сынок__0050.txt",
+          "sha256": "3b08b208a51413a4794b4c2f85dc70db31e4d3c07a535b7065bf476bcac1ef88",
+          "words": 7183,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0050.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/роман_в_двух_письмах__0060.txt",
+          "sha256": "79eda9be416ff2566b822f8fe0bfc83910d51149ada61956b068017813d16827",
+          "words": 8112,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0060.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/сватовство__0070.txt",
+          "sha256": "81a89b24662fbbb6a2787fa16426719710f10632030a9457038ca04657bb9367",
+          "words": 9333,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0070.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/бродящий_огонь__0080.txt",
+          "sha256": "1a949f2ee181d3344847f61754b6985c894dc3e84ba2f3fc0391b9fb3fd4a25f",
+          "words": 442,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0080.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/в_поле_съезжаются_родом_не_считаются__0090.txt",
+          "sha256": "2cb1c977da158b654471711463f247ace54ada43d09b34b37ab70bc3b71a1449",
+          "words": 645,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0090.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/киевские_ведьмы__0100.txt",
+          "sha256": "c7c2ab89d218bc1b8eb8ed2efe0bf7158545b312a7e1f22038c1bb02e92ec4cb",
+          "words": 4428,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0100.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/русалка__0110.txt",
+          "sha256": "003ba7f0725d910b900976751142bc9d95c45ee576f6c3ceb077dd928190a1e2",
+          "words": 2670,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0110.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/сказание_о_храбром_витязе_укроме_табунщике__0120.txt",
+          "sha256": "ca687ea3d02fa4ad9da7b022c86d8496047141c3f6c08a2a4fd777caba3efd5c",
+          "words": 728,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0120.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/сказка_о_никите_вдовиниче__0140.txt",
+          "sha256": "259e17a820455d909b665c85eaa0cc1c964211debd3311aa4f32cabbc97c8ba5",
+          "words": 5078,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0140.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/сказки_о_кладах__0150.txt",
+          "sha256": "34677d250f4c41ad844334d590619000662365a636ee5a0be9e5500451923a32",
+          "words": 19929,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0150.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/вывеска__0160.txt",
+          "sha256": "c15b225ac1f28c18b674834f0c9070be4b371818cd87992addef8ff3d55ebb83",
+          "words": 10867,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0160.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/почтовый_дом_в_шато_тьерри__0170.txt",
+          "sha256": "de41734700656250d1e5961195d4668233b27a43ca7a0b5362a3ae1f3c62522e",
+          "words": 5660,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0170.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/приказ_с_того_света__0180.txt",
+          "sha256": "909b97b25b648f9501492f0197816f8bafa93c5437a87f4a0de28dabe911e900",
+          "words": 6118,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0180.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/странный_поединок__0190.txt",
+          "sha256": "27d08f8669162f23d52ca72f67ae28a406c0b1932bb604b903764901ce28baad",
+          "words": 3841,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0190.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/купалов_вечер__0280.txt",
+          "sha256": "d7320e8bf43661cf4b3ca43ab448c6eaf6fe0fcd4516ae05b16875a331a40bc0",
+          "words": 722,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0280.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_somov/недобрый_глаз__0290.txt",
+          "sha256": "82679cdf5af42ae6bf3969876e47fb5f2353770c3fab270f923d693cbb8a7b3c",
+          "words": 1727,
+          "source_url": "http://az.lib.ru/s/somow_o_m/text_0290.shtml",
+          "modernized_orthography": false
+        }
+      ],
+      "works": 20,
+      "words": 123127
+    },
+    "narezhny": {
+      "files": [
+        {
+          "path": "input_cases/taras_bulba/cand_narezhny/бурсак__0020.txt",
+          "sha256": "a30354f542c44e8c08f8bfa45e7967d0b43797ebff5cf57f2c7fe5843d529321",
+          "words": 95805,
+          "source_url": "http://az.lib.ru/n/narezhnyj_w/text_0020.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_narezhny/гаркуша_малороссийский_разбойник__0030.txt",
+          "sha256": "9848a96999250f753c3b96d7642d9907b51b15029decf8284fca5c9224b3888c",
+          "words": 46810,
+          "source_url": "http://az.lib.ru/n/narezhnyj_w/text_0030.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_narezhny/запорожец__0070.txt",
+          "sha256": "12be649ec89d42c7f4b5ab4378d5e6573a788019696b7e6ba56fe44cb3a04889",
+          "words": 21276,
+          "source_url": "http://az.lib.ru/n/narezhnyj_w/text_0070.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_narezhny/два_ивана_или_страсть_к_тяжбам__0040.txt",
+          "sha256": "22b3cfd56de738e2e7ffe47a13a860cfb22d9691865bd0df6f62ecfee5078daa",
+          "words": 49615,
+          "source_url": "http://az.lib.ru/n/narezhnyj_w/text_0040.shtml",
+          "modernized_orthography": false
+        }
+      ],
+      "works": 4,
+      "words": 213506
+    },
+    "grebenka": {
+      "files": [
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/чайковский__1843_chaykovskiy.txt",
+          "sha256": "523bd3a97d97fe22881c7b2ad3ef049e8052bae2bfc41be720d4d81df832f413",
+          "words": 40288,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1843_chaykovskiy.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/нежинский_полковник_золотаренко__1842_polkovnik_zolotarenko.txt",
+          "sha256": "3cb62ffa401a0e68dd85224b13655090a135db804812bb20c7c59b3ceba42672",
+          "words": 5695,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1842_polkovnik_zolotarenko_oldorfo.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/кулик__0050.txt",
+          "sha256": "e40f8469371f5c946b1c14235ca2a37e56118e713935d3460b80239dedbb9b66",
+          "words": 8373,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_0050.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/злой_человек__1844_zloy_chelovek.txt",
+          "sha256": "61b204dbf152822c12c8b90b339ff2e648e038fdd7268acbc16a963b9a732702",
+          "words": 4652,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1844_zloy_chelovek.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/страшный_зверь__1835_zver.txt",
+          "sha256": "6656b510a43a61f6ce3dfbf5e47a528c139ef646e7a9cdd1c5397445d3d5e299",
+          "words": 1961,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1835_zver.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/странная_перепелка__1844_perepelka.txt",
+          "sha256": "760f4955fc9ae765899da7137b086585651d2d6521ca8e547bcfe1e2e5138351",
+          "words": 5947,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1844_perepelka.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/хвастун__1846_havastun.txt",
+          "sha256": "9df21fa23512d600fab6737b9e6cca24c720512a21cd6fe8863e6d8c5d2dfc01",
+          "words": 4921,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1846_havastun.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/сеня__1841_senya.txt",
+          "sha256": "c958203b5dec8039287e5ee284561ff68e87b32d952b6217969834eb3d8d45a0",
+          "words": 20727,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1841_senya.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/заборов__1848_zaborov.txt",
+          "sha256": "a5a2dbd9ba1d2a8ff6c347520e6f9167aef5596ca61c2c8eced9bae19b905980",
+          "words": 7968,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1848_zaborov.shtml",
+          "modernized_orthography": false
+        },
+        {
+          "path": "input_cases/taras_bulba/cand_grebenka/рассказ__1846_rasskaz.txt",
+          "sha256": "f8369b92a557533ed9e6f7ba028cca170f94b5e7b99c778a30f947e66d453e3f",
+          "words": 2842,
+          "source_url": "http://az.lib.ru/g/grebenka_e_p/text_1846_rasskaz_oldorfo.shtml",
+          "modernized_orthography": true
+        }
+      ],
+      "works": 10,
+      "words": 103374
+    }
+  },
+  "diagnostic_targets": {
+    "prokopovich_letters_1843": {
+      "path": "input_cases/taras_bulba/prokopovich_letters_1843.txt",
+      "sha256": "66d01cc0f0030f544f5d798facdbf3ce316007690daa0feabf2729246d9c098f",
+      "words": 1470,
+      "source_url": "http://az.lib.ru/p/prokopowich_n_j/text_1843_letters_to_shevyrev.shtml",
+      "modernized_orthography": false,
+      "note": "Письма Н. Я. Прокоповича к С. П. Шевырёву (1843). Прозы для кандидатской панели у Прокоповича нет (documented-but-unmodelled); письма идут отдельным диагностическим target."
+    }
+  }
+}

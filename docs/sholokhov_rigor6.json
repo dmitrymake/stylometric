@@ -1,0 +1,67 @@
+{
+  "p10_dispersion": {
+    "undisputed": 4.655,
+    "disputed_TD_PC": 4.582,
+    "control_mean": 4.724,
+    "control_std": 0.27,
+    "z_undisputed": -0.25,
+    "z_disputed": -0.52
+  },
+  "p5p6_symmetric_boot": [
+    {
+      "book": "tihiy_don_1",
+      "frac_closer_sholohov": 0.996
+    },
+    {
+      "book": "tihiy_don_2",
+      "frac_closer_sholohov": 0.976
+    },
+    {
+      "book": "tihiy_don_3",
+      "frac_closer_sholohov": 0.992
+    },
+    {
+      "book": "tihiy_don_4",
+      "frac_closer_sholohov": 0.87
+    },
+    {
+      "book": "podnyataya_celina_1",
+      "frac_closer_sholohov": 0.904
+    }
+  ],
+  "p6_genre_matched": [
+    {
+      "book": "tihiy_don_1",
+      "d_undisp": 2.262,
+      "d_krukov_don": 3.889,
+      "closer": "Шолохов"
+    },
+    {
+      "book": "tihiy_don_2",
+      "d_undisp": 2.129,
+      "d_krukov_don": 3.424,
+      "closer": "Шолохов"
+    },
+    {
+      "book": "tihiy_don_3",
+      "d_undisp": 1.748,
+      "d_krukov_don": 3.21,
+      "closer": "Шолохов"
+    },
+    {
+      "book": "tihiy_don_4",
+      "d_undisp": 2.131,
+      "d_krukov_don": 3.323,
+      "closer": "Шолохов"
+    }
+  ],
+  "b2_binomial": {
+    "k": 5,
+    "n": 5,
+    "ci": [
+      0.478,
+      1.0
+    ],
+    "null_base": 0.125
+  }
+}

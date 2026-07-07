@@ -1,0 +1,373 @@
+{
+  "summary": {
+    "n_authors": 51,
+    "n_books": 290,
+    "total_words": 10417640,
+    "imbalance_ratio": 684.4
+  },
+  "authors": {
+    "akunun": {
+      "books": 5,
+      "words": 368879
+    },
+    "andreev": {
+      "books": 5,
+      "words": 89632
+    },
+    "babel": {
+      "books": 2,
+      "words": 67392
+    },
+    "bulgakov": {
+      "books": 5,
+      "words": 451214
+    },
+    "bunin": {
+      "books": 10,
+      "words": 298562
+    },
+    "chehov": {
+      "books": 13,
+      "words": 142016
+    },
+    "dostoevsky": {
+      "books": 10,
+      "words": 1239436
+    },
+    "elizarov": {
+      "books": 4,
+      "words": 100081
+    },
+    "furmanov": {
+      "books": 4,
+      "words": 221186
+    },
+    "garshin": {
+      "books": 10,
+      "words": 69596
+    },
+    "gazdanov": {
+      "books": 3,
+      "words": 143023
+    },
+    "gogol": {
+      "books": 11,
+      "words": 261684
+    },
+    "goncharov": {
+      "books": 1,
+      "words": 120395
+    },
+    "gorky": {
+      "books": 6,
+      "words": 511776
+    },
+    "grigorovich": {
+      "books": 1,
+      "words": 19268
+    },
+    "grin": {
+      "books": 6,
+      "words": 329155
+    },
+    "gumilev": {
+      "books": 11,
+      "words": 37218
+    },
+    "ilf-petrov": {
+      "books": 7,
+      "words": 353484
+    },
+    "kataev": {
+      "books": 3,
+      "words": 114933
+    },
+    "korolenko": {
+      "books": 7,
+      "words": 246271
+    },
+    "krukov": {
+      "books": 4,
+      "words": 92769
+    },
+    "kumov": {
+      "books": 7,
+      "words": 24245
+    },
+    "kuprin": {
+      "books": 7,
+      "words": 283545
+    },
+    "leskov": {
+      "books": 3,
+      "words": 30554
+    },
+    "mamleev": {
+      "books": 3,
+      "words": 109792
+    },
+    "nabokov": {
+      "books": 4,
+      "words": 181423
+    },
+    "nikolas2": {
+      "books": 12,
+      "words": 251382
+    },
+    "novikov_priboy": {
+      "books": 8,
+      "words": 156121
+    },
+    "olesha": {
+      "books": 2,
+      "words": 128733
+    },
+    "pilnyak": {
+      "books": 2,
+      "words": 37013
+    },
+    "platonov": {
+      "books": 4,
+      "words": 191979
+    },
+    "prokhanov": {
+      "books": 3,
+      "words": 284601
+    },
+    "prutkov": {
+      "books": 4,
+      "words": 13052
+    },
+    "pushkin": {
+      "books": 6,
+      "words": 77584
+    },
+    "radov": {
+      "books": 4,
+      "words": 180357
+    },
+    "reshetnikov": {
+      "books": 1,
+      "words": 40744
+    },
+    "saltykov": {
+      "books": 4,
+      "words": 154536
+    },
+    "sasha_sokolov": {
+      "books": 4,
+      "words": 212381
+    },
+    "serafimovich": {
+      "books": 9,
+      "words": 76261
+    },
+    "sevsky": {
+      "books": 9,
+      "words": 22896
+    },
+    "sholohov": {
+      "books": 15,
+      "words": 658808
+    },
+    "sorokin": {
+      "books": 5,
+      "words": 72416
+    },
+    "tolstoy": {
+      "books": 10,
+      "words": 556958
+    },
+    "tolstoy_an": {
+      "books": 6,
+      "words": 283087
+    },
+    "turgenev": {
+      "books": 12,
+      "words": 437336
+    },
+    "unknown": {
+      "books": 1,
+      "words": 98941
+    },
+    "uspensky": {
+      "books": 5,
+      "words": 230590
+    },
+    "victor_erofeev": {
+      "books": 4,
+      "words": 138440
+    },
+    "volcheck": {
+      "books": 4,
+      "words": 111275
+    },
+    "voloshin": {
+      "books": 1,
+      "words": 1811
+    },
+    "zoshenko": {
+      "books": 3,
+      "words": 92809
+    }
+  },
+  "findings": [
+    {
+      "severity": "info",
+      "code": "noise",
+      "message": "dostoevsky/братья_карамазовы: возможный издательский/OCR-шум {'copyright': 6}"
+    },
+    {
+      "severity": "info",
+      "code": "noise",
+      "message": "elizarov/bibliotekar: возможный издательский/OCR-шум {'copyright': 29}"
+    },
+    {
+      "severity": "info",
+      "code": "noise",
+      "message": "grin/бегущая_по_волнам: возможный издательский/OCR-шум {'copyright': 8}"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate garshin/сигнал ~ garshin/трус (cos=0.58)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate garshin/сигнал ~ garshin/художники (cos=0.65)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate garshin/трус ~ garshin/художники (cos=0.49)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate nikolas2/1895 ~ nikolas2/1896 (cos=0.45)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate nikolas2/1905 ~ nikolas2/1906 (cos=0.53)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate nikolas2/1906 ~ nikolas2/1907 (cos=0.44)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate nikolas2/1913 ~ nikolas2/1914 (cos=0.59)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate nikolas2/1914 ~ nikolas2/1916 (cos=0.41)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate prutkov/выдержки_из_записок_деда ~ prutkov/плоды_раздумья (cos=0.94)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate prutkov/выдержки_из_записок_деда ~ prutkov/проект_о_введении_единомыслия_в_россии (cos=0.95)"
+    },
+    {
+      "severity": "warn",
+      "code": "near_dup",
+      "message": "near-duplicate prutkov/плоды_раздумья ~ prutkov/проект_о_введении_единомыслия_в_россии (cos=0.96)"
+    },
+    {
+      "severity": "warn",
+      "code": "few_books",
+      "message": "goncharov: 1 книг(и) (<2) — LOBO ненадёжен/невозможен"
+    },
+    {
+      "severity": "warn",
+      "code": "few_books",
+      "message": "grigorovich: 1 книг(и) (<2) — LOBO ненадёжен/невозможен"
+    },
+    {
+      "severity": "warn",
+      "code": "few_books",
+      "message": "reshetnikov: 1 книг(и) (<2) — LOBO ненадёжен/невозможен"
+    },
+    {
+      "severity": "warn",
+      "code": "few_books",
+      "message": "unknown: 1 книг(и) (<2) — LOBO ненадёжен/невозможен"
+    },
+    {
+      "severity": "warn",
+      "code": "few_books",
+      "message": "voloshin: 1 книг(и) (<2) — LOBO ненадёжен/невозможен"
+    },
+    {
+      "severity": "warn",
+      "code": "imbalance",
+      "message": "дисбаланс 684× по объёму (max/min слов на автора)"
+    }
+  ],
+  "duplicates": [
+    [
+      "garshin/сигнал",
+      "garshin/трус",
+      0.5817018263699641
+    ],
+    [
+      "garshin/сигнал",
+      "garshin/художники",
+      0.649545362969391
+    ],
+    [
+      "garshin/трус",
+      "garshin/художники",
+      0.48863446734448346
+    ],
+    [
+      "nikolas2/1895",
+      "nikolas2/1896",
+      0.45058013775365163
+    ],
+    [
+      "nikolas2/1905",
+      "nikolas2/1906",
+      0.5295974036850396
+    ],
+    [
+      "nikolas2/1906",
+      "nikolas2/1907",
+      0.4437286226044302
+    ],
+    [
+      "nikolas2/1913",
+      "nikolas2/1914",
+      0.587624562768712
+    ],
+    [
+      "nikolas2/1914",
+      "nikolas2/1916",
+      0.40994291961948526
+    ],
+    [
+      "prutkov/выдержки_из_записок_деда",
+      "prutkov/плоды_раздумья",
+      0.9408904039327282
+    ],
+    [
+      "prutkov/выдержки_из_записок_деда",
+      "prutkov/проект_о_введении_единомыслия_в_россии",
+      0.9515659951026846
+    ],
+    [
+      "prutkov/плоды_раздумья",
+      "prutkov/проект_о_введении_единомыслия_в_россии",
+      0.9564280441797522
+    ]
+  ]
+}

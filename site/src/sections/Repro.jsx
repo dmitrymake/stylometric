@@ -1,0 +1,94 @@
+import { Card, CodeBlock } from "@dmitrymake/rk-ui";
+import { REPRO, BENCH } from "../segdata.js";
+import { LOBO_STRICT } from "../data.js";
+import { CORPUS } from "../corpus.js";
+import { fmtScore, fmtPct } from "../format.js";
+
+const GUARANTEES = [
+  {
+    title: "Повторяемо",
+    accent: "var(--success)",
+    body: `Один файл настроек (configs/default.yaml) и замороженные версии библиотек (requirements.lock). Тот же снимок кода даёт тот же вердикт. Все ${REPRO.gatesBitExact} контрольных прогонов спорных кейсов повторяются бит-в-бит. Самый тяжёлый (${REPRO.longestGateName}) считается дольше остальных, но сверяется так же точно.`,
+  },
+  {
+    title: "Быстро",
+    accent: "var(--icon-blue)",
+    body: "Языковой разбор текста делается один раз и ложится на диск, признаки отрывков считаются заранее. Тяжёлую часть машина не повторяет — каждый следующий прогон только разгоняется.",
+  },
+  {
+    title: "Честно",
+    accent: "var(--gold)",
+    body: "Автотесты стерегут одно правило: проверяемая книга не попадает в обучение ни одним отрывком. Проверка идёт по целым книгам — по одной отложенной за раз, а не по удобным случайным кускам одного романа.",
+  },
+];
+
+export default function Repro() {
+  return (
+    <section className="section" id="repro">
+      <div className="wrap flow">
+        <div className="section-head reveal">
+          <p className="eyebrow">Можно повторить у себя</p>
+          <h2>От корпуса до вердикта за один прогон</h2>
+          <p className="prose lead muted">
+            Хороший результат — тот, который перепроверит кто угодно. Здесь нет скрытого шага, что
+            срабатывает лишь на чужой машине. Весь путь — от сборки корпуса до готового отчёта —
+            запускается одной командой. На чистой машине скрипт докачивает классиков по
+            списку-манифесту, заново собирает открытую часть корпуса и получает ровно ту же точность,
+            что заявлена, — {fmtScore(BENCH.topTop1, 3)}, около {fmtPct(BENCH.topTop1)} верных
+            попаданий. Та же команда — тот же результат, ничего не спрятано.
+          </p>
+          <p className="prose muted">
+            Эта открытая часть меньше и различимее: {BENCH.nAuthors} автора, {BENCH.nBooks} книг, и
+            все они — хорошо узнаваемые классики. Оттого и число на ней выше. Но это не выбранная напоказ цифра: полное публикуемое число даже чуть ниже —{" "}
+            {fmtScore(LOBO_STRICT.styloFullLobo, 3)}. Ниже — не потому, что метод слабее. В полный
+            срез входит больше имён ({CORPUS.benchmark.authors} против {BENCH.nAuthors}) и другой
+            состав. На большем и пёстром наборе число закономерно другое. Эти два числа считают на
+            разных наборах авторов — сравнивать их напрямую нельзя.
+          </p>
+          <p className="prose muted">
+            В полный срез входят ещё и книги под защитой авторских прав. Они живут только на локальной
+            машине, в общий корпус не отдаются. Можете добавить их самостоятельно.
+          </p>
+        </div>
+
+        {/* Полный пайплайн */}
+        <div className="module reveal" style={{ display: "grid", gap: 16 }}>
+          <CodeBlock language="bash" title="весь прогон одной командой">
+            {`./run.sh all   # validate → split → warm → train → sweep → evaluate → predict → report`}
+          </CodeBlock>
+
+          <p className="prose muted" style={{ margin: 0, fontSize: 13.5 }}>
+            Восемь стадий: проверка данных → нарезка книг на отрывки → прогрев кэша
+            признаков → обучение → отбор признаков → оценка → предсказание → отчёт.
+          </p>
+
+          <CodeBlock language="bash" title="по шагам">
+            {`./run.sh sweep      # отключаем признаки по одному — что реально работает
+./run.sh evaluate   # проверка по целым книгам + простые методы-ориентиры для сравнения (классическая Дельта)
+./run.sh predict    # определяем автора неизвестного текста по профилям авторов`}
+          </CodeBlock>
+        </div>
+
+        {/* Гарантии */}
+        <div className="grid cols-3 module reveal">
+          {GUARANTEES.map((g) => (
+            <Card key={g.title} padding={22} style={{ borderTop: `3px solid ${g.accent}` }}>
+              <h3 style={{ margin: "0 0 8px", fontSize: "1.2rem", color: g.accent }}>{g.title}</h3>
+              <p className="prose muted" style={{ margin: 0, fontSize: 14.5 }}>
+                {g.body}
+              </p>
+            </Card>
+          ))}
+        </div>
+
+        {/* Инвариант no-leakage */}
+        <p className="verdict reveal">
+          Главный тест держит ровно одно правило: на каждом шаге проверки модель
+          <strong style={{ color: "var(--cinnabar)" }}> не видела проверяемую книгу</strong>.
+          Подсмотреть ответ в проверяемом тексте завышает точность, ничего не говоря о стиле.
+          Здесь такая подсказка роняет сборку.
+        </p>
+      </div>
+    </section>
+  );
+}

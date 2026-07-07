@@ -1,0 +1,53 @@
+# Batch 2: разнообразные PD-авторы (самостоятельные классы) + коллективное/спорное авторство.
+# Надёжные одностраничные произведения (без глубоко-вложенных романов).
+
+# ── Пушкин (проза) ──
+- {author: pushkin, title: "Капитанская дочка", source: "Капитанская дочка (Пушкин)"}
+- {author: pushkin, title: "Пиковая дама", source: "Пиковая дама (Пушкин)"}
+- {author: pushkin, title: "Дубровский", source: "Дубровский (Пушкин)"}
+- {author: pushkin, title: "Станционный смотритель", source: "Станционный смотритель (Пушкин)"}
+- {author: pushkin, title: "Метель", source: "Метель (Пушкин)"}
+- {author: pushkin, title: "Выстрел", source: "Выстрел (Пушкин)"}
+- {author: pushkin, title: "Барышня-крестьянка", source: "Барышня-крестьянка (Пушкин)"}
+
+# ── Лермонтов (проза) ──
+- {author: lermontov, title: "Княжна Мери", source: "Княжна Мери (Лермонтов)"}
+- {author: lermontov, title: "Бэла", source: "Бэла (Лермонтов)"}
+- {author: lermontov, title: "Тамань", source: "Тамань (Лермонтов)"}
+- {author: lermontov, title: "Фаталист", source: "Фаталист (Лермонтов)"}
+- {author: lermontov, title: "Максим Максимыч", source: "Максим Максимыч (Лермонтов)"}
+
+# ── Лесков ──
+- {author: leskov, title: "Левша", source: "Левша (Лесков)"}
+- {author: leskov, title: "Леди Макбет Мценского уезда", source: "Леди Макбет Мценского уезда (Лесков)"}
+- {author: leskov, title: "Очарованный странник", source: "Очарованный странник (Лесков)"}
+- {author: leskov, title: "Тупейный художник", source: "Тупейный художник (Лесков)"}
+- {author: leskov, title: "Запечатлённый ангел", source: "Запечатлённый ангел (Лесков)"}
+
+# ── Салтыков-Щедрин ──
+- {author: saltykov, title: "Господа Головлёвы", source: "Господа Головлёвы (Салтыков-Щедрин)"}
+- {author: saltykov, title: "История одного города", source: "История одного города (Салтыков-Щедрин)"}
+- {author: saltykov, title: "Премудрый пискарь", source: "Премудрый пискарь (Салтыков-Щедрин)"}
+- {author: saltykov, title: "Дикий помещик", source: "Дикий помещик (Салтыков-Щедрин)"}
+
+# ── Короленко ──
+- {author: korolenko, title: "Слепой музыкант", source: "Слепой музыкант (Короленко)"}
+- {author: korolenko, title: "Дети подземелья", source: "В дурном обществе (Короленко)"}
+- {author: korolenko, title: "Сон Макара", source: "Сон Макара (Короленко)"}
+- {author: korolenko, title: "Река играет", source: "Река играет (Короленко)"}
+
+# ── Гаршин ──
+- {author: garshin, title: "Красный цветок", source: "Красный цветок (Гаршин)"}
+- {author: garshin, title: "Четыре дня", source: "Четыре дня (Гаршин)"}
+- {author: garshin, title: "Трус", source: "Трус (Гаршин)"}
+- {author: garshin, title: "Сигнал", source: "Сигнал (Гаршин)"}
+- {author: garshin, title: "Attalea princeps", source: "Attalea princeps (Гаршин)"}
+
+# ── Гончаров ──
+- {author: goncharov, title: "Обломов", source: "Обломов (Гончаров)"}
+- {author: goncharov, title: "Обыкновенная история", source: "Обыкновенная история (Гончаров)"}
+
+# ── Козьма Прутков (коллективный псевдоним — спорное/совместное авторство) ──
+- {author: prutkov, title: "Плоды раздумья", source: "Плоды раздумья (Прутков)"}
+- {author: prutkov, title: "Мысли и афоризмы", source: "Мысли и афоризмы (Прутков)"}
+- {author: prutkov, title: "Выдержки из записок деда", source: "Выдержки из записок моего деда (Прутков)"}

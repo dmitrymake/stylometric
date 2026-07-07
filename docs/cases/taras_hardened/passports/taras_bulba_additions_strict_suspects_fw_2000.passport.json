@@ -1,0 +1,212 @@
+{
+  "case_id": "taras_bulba_additions_strict_suspects_fw_2000",
+  "title": "Taras Bulba 1842 strict additions vs historical suspects: fw_fixed random_2000",
+  "hypothesis": "Large 1842 additions were written by the documented editorial circle (Annenkov as copyist), not by Gogol.",
+  "target_description": "strict additions vs suspects panel",
+  "claim": "In this protocol the panel includes the documented 1840s prose of Annenkov; attribution of the large additions is read against the actual suspect, not only against generic controls.",
+  "limitations": [
+    "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+    "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "fail",
+  "verdict": "Feasibility gate не пройден: work_macro_recall=0.79, permutation_p=0.0005. Атрибуцию давать нельзя.",
+  "confidence": "low",
+  "evidence_score": 85.13,
+  "gate_pass": false,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "fail",
+      "gate_pass": false,
+      "work_macro_recall": 0.79,
+      "chunk_weighted_recall": 0.625,
+      "work_recall": {
+        "annenkov_1840s": "5/5",
+        "dostoevsky": "9/10",
+        "gogol": "8/10",
+        "pushkin": "3/6",
+        "turgenev": "9/12"
+      },
+      "chunk_recall": {
+        "annenkov_1840s": "151/162",
+        "dostoevsky": "491/778",
+        "gogol": "98/144",
+        "pushkin": "17/51",
+        "turgenev": "148/270"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "annenkov_1840s": {
+          "annenkov_1840s": 151,
+          "dostoevsky": 1,
+          "gogol": 5,
+          "pushkin": 5,
+          "turgenev": 0
+        },
+        "dostoevsky": {
+          "annenkov_1840s": 14,
+          "dostoevsky": 491,
+          "gogol": 194,
+          "pushkin": 8,
+          "turgenev": 71
+        },
+        "gogol": {
+          "annenkov_1840s": 9,
+          "dostoevsky": 26,
+          "gogol": 98,
+          "pushkin": 5,
+          "turgenev": 6
+        },
+        "pushkin": {
+          "annenkov_1840s": 16,
+          "dostoevsky": 1,
+          "gogol": 3,
+          "pushkin": 17,
+          "turgenev": 14
+        },
+        "turgenev": {
+          "annenkov_1840s": 1,
+          "dostoevsky": 48,
+          "gogol": 49,
+          "pushkin": 24,
+          "turgenev": 148
+        }
+      },
+      "n_works": 43,
+      "n_chunks": 1405,
+      "failure_modes": [
+        "work_macro_recall_below_0_80"
+      ]
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "pushkin",
+      "margin": 0.022902,
+      "margin_ci95": [
+        0.014007,
+        0.029963
+      ],
+      "winner_share": {
+        "gogol": 0.812,
+        "pushkin": 0.125,
+        "annenkov_1840s": 0.062
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.968105
+        },
+        {
+          "candidate": "pushkin",
+          "cos": 0.945203
+        },
+        {
+          "candidate": "annenkov_1840s",
+          "cos": 0.93623
+        },
+        {
+          "candidate": "turgenev",
+          "cos": 0.934503
+        },
+        {
+          "candidate": "dostoevsky",
+          "cos": 0.930844
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 13,
+        "pushkin": 2,
+        "annenkov_1840s": 1
+      },
+      "n_chunks": 16
+    }
+  ],
+  "failure_modes": [
+    "work_macro_recall_below_0_80"
+  ],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "annenkov_1840s",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "pushkin",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/pushkin"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "turgenev",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "dostoevsky",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/dostoevsky"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 43,
+    "n_candidate_chunks": 1405,
+    "works_per_author": {
+      "annenkov_1840s": 5,
+      "dostoevsky": 10,
+      "gogol": 10,
+      "pushkin": 6,
+      "turgenev": 12
+    },
+    "target_chunks": 16
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_suspects_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_suspects_fw_2000.passport.json"
+  },
+  "notes": "Historical-suspects panel: Annenkov 1840s prose (Письма из-за границы 1841-43 и др.). Prokopovich has no usable prose corpus (documented-but-unmodelled)."
+}

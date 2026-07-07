@@ -1,0 +1,128 @@
+{
+  "case_id": "taras_bulba_diag_prokopovich_letters_fw_2000",
+  "title": "Prokopovich 1843 letters diagnostic: fw_fixed random_2000",
+  "hypothesis": "Diagnostic only: locating Prokopovich's letters relative to Gogol and Annenkov voices.",
+  "target_description": "Prokopovich letters to Shevyryov, 1843",
+  "claim": "Prokopovich cannot be a candidate (no usable prose corpus); his 1843 letters are placed diagnostically on the Gogol/Annenkov axis.",
+  "limitations": [
+    "Diagnostic only: epistolary register differs from narrative prose; no attribution claim is made.",
+    "Single short text; single-chunk targets cannot receive a strong verdict."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target из одного chunk диагностически ближе к gogol, но single-chunk target не может получить strong verdict (winner_share=1.0, margin=0.030512).",
+  "confidence": "medium",
+  "evidence_score": 91.1,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 1.0,
+      "chunk_weighted_recall": 0.9406,
+      "work_recall": {
+        "annenkov_1840s": "5/5",
+        "gogol": "10/10"
+      },
+      "chunk_recall": {
+        "annenkov_1840s": "154/162",
+        "gogol": "134/144"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": 0.00033,
+      "confusion": {
+        "annenkov_1840s": {
+          "annenkov_1840s": 154,
+          "gogol": 8
+        },
+        "gogol": {
+          "annenkov_1840s": 10,
+          "gogol": 134
+        }
+      },
+      "n_works": 15,
+      "n_chunks": 306,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "annenkov_1840s",
+      "margin": 0.030512,
+      "margin_ci95": null,
+      "winner_share": {
+        "gogol": 1.0
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.907727
+        },
+        {
+          "candidate": "annenkov_1840s",
+          "cos": 0.877215
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 1
+      },
+      "n_chunks": 1
+    }
+  ],
+  "failure_modes": [
+    "target_single_chunk_no_strong_verdict"
+  ],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "annenkov_1840s",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/prokopovich_letters_1843.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 15,
+    "n_candidate_chunks": 306,
+    "works_per_author": {
+      "annenkov_1840s": 5,
+      "gogol": 10
+    },
+    "target_chunks": 1
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_diag_prokopovich_letters_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json"
+  },
+  "notes": "Documented-but-unmodelled подозреваемый: письма как диагностический target."
+}

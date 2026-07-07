@@ -1,0 +1,123 @@
+{
+  "dataset": "Reuters C50 / CCAT50 (UCI Reuter_50_50)",
+  "protocol": "fixed train(2500)/test(2500), 50 авторов, top-1; LinearSVC, C выбран 5-fold OOF-CV на train (C-свип {0.3,1,3,10}); пер-канальная калибровка (identity/temperature/Platt) выбрана по OOF-NLL; вариант слияния (равновесный/val-взвешенный/OOF-стекинг) выбран по OOF top-1 на train; C мета-LR по 3-fold CV на OOF-матрице; summary-канал исключён из слияния. Все решения на train/OOF, тест головного числа не выбирает (предрегистрация docs/prereg_2026Q3.md).",
+  "channels": {
+    "char (2-5)": {
+      "top1": 0.734,
+      "macro_f1": 0.731,
+      "bestC": 10.0,
+      "cv_top1": 0.875
+    },
+    "word (1-2)": {
+      "top1": 0.744,
+      "macro_f1": 0.74,
+      "bestC": 10.0,
+      "cv_top1": 0.874
+    },
+    "summary (стиль-скаляры)": {
+      "top1": 0.317,
+      "macro_f1": 0.294,
+      "bestC": 0.3,
+      "cv_top1": 0.385
+    },
+    "POS-n-граммы (1-4)": {
+      "top1": 0.628,
+      "macro_f1": 0.621,
+      "bestC": 3.0,
+      "cv_top1": 0.811
+    },
+    "АНСАМБЛЬ равновес. (сырые)": {
+      "top1": 0.773,
+      "macro_f1": 0.769,
+      "oof_top1": 0.889
+    },
+    "АНСАМБЛЬ val-взвеш. (сырые)": {
+      "top1": 0.77,
+      "macro_f1": 0.766,
+      "oof_top1": 0.888
+    },
+    "АНСАМБЛЬ OOF-стекинг (сырые)": {
+      "top1": 0.762,
+      "macro_f1": 0.756,
+      "oof_top1": 0.876
+    },
+    "АНСАМБЛЬ равновес. (калибр.)": {
+      "top1": 0.761,
+      "macro_f1": 0.756,
+      "oof_top1": 0.882
+    },
+    "АНСАМБЛЬ val-взвеш. (калибр.)": {
+      "top1": 0.759,
+      "macro_f1": 0.755,
+      "oof_top1": 0.884
+    },
+    "АНСАМБЛЬ OOF-стекинг (калибр.)": {
+      "top1": 0.762,
+      "macro_f1": 0.761,
+      "oof_top1": 0.881
+    },
+    "АНСАМБЛЬ": {
+      "top1": 0.773,
+      "macro_f1": 0.769,
+      "oof_top1": 0.889
+    },
+    "headline_ensemble": "АНСАМБЛЬ равновес. (сырые)"
+  },
+  "ens_channels": [
+    "char (2-5)",
+    "word (1-2)",
+    "POS-n-граммы (1-4)"
+  ],
+  "ensemble_top1": 0.773,
+  "ensemble_macro_f1": 0.769,
+  "canonical_reference": "канонич. фикс. сплит CCAT50: Ngram_A 0.767, BERT_A 0.657 (Valla / Tyo,Dhingra,Lipton 2022). Нейро 0.82-0.83 (Style-HAN и др.) считаны на ДРУГОМ протоколе (60/20/20 + 10-fold CV) — несопоставимо.",
+  "note": "Языко-независимые каналы (char/word) + POS-n-граммы. Канонический режим top-1 на фикс. сплите; сопоставим только с Ngram_A 0.767, не с CV-нейро 0.82+. Русские морфо/синт-каналы — на русском корпусе (docs/validation.json).",
+  "selection": {
+    "headline_selection": "по OOF top-1 на train (предрегистрировано docs/prereg_2026Q3.md); тестовые числа остальных вариантов — диагностика",
+    "meta_C": {
+      "сырые": 3.0,
+      "калибр.": 1.0
+    },
+    "calibration": {
+      "char (2-5)": {
+        "method": "temperature",
+        "params": {
+          "scale": 6.7039
+        },
+        "selection": "held-out треть OOF",
+        "heldout_nll": {
+          "identity": 2.5885,
+          "temperature": 0.4746,
+          "platt": 0.5349,
+          "isotonic": 0.56
+        }
+      },
+      "word (1-2)": {
+        "method": "temperature",
+        "params": {
+          "scale": 9.3826
+        },
+        "selection": "held-out треть OOF",
+        "heldout_nll": {
+          "identity": 2.8059,
+          "temperature": 0.4932,
+          "platt": 0.6523,
+          "isotonic": 0.5203
+        }
+      },
+      "POS-n-граммы (1-4)": {
+        "method": "temperature",
+        "params": {
+          "scale": 10.7896
+        },
+        "selection": "held-out треть OOF",
+        "heldout_nll": {
+          "identity": 2.9913,
+          "temperature": 0.7029,
+          "platt": 0.9648,
+          "isotonic": 0.9176
+        }
+      }
+    }
+  }
+}

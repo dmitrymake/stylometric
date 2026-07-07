@@ -1,0 +1,15 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Плакат"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<path d="M30 20 H90 V100 H30 Z" fill="#F4EFE3" fill-opacity="0.9"></path>
+<path d="M30 20 L78 20 L30 76 Z" fill="#D43A2C" fill-opacity="0.72"></path>
+<circle cx="74" cy="40" r="12" fill="#1A1A22" fill-opacity="0.8"></circle>
+<path d="M38 84 H82 M38 90 H72" stroke="#1A1A22" stroke-width="3" stroke-opacity="0.7" stroke-linecap="round"></path>
+<path d="M30 64 L90 52" stroke="#D6A41E" stroke-width="3" stroke-opacity="0.7"></path>
+<path d="M30 20 H90 V100 H30 Z" fill="none" stroke="#1F1B26" stroke-width="1.3" stroke-opacity="0.4"></path></g><g filter="url(#grain)" opacity="0.55"><path d="M30 20 H90 V100 H30 Z" fill="#fff"></path></g></svg>

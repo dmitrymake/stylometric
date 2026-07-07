@@ -1,0 +1,159 @@
+"""OOF-стекинг каналов внутри train-фолда LOBO.
+
+Внутри fit: StratifiedGroupKFold(inner_folds) ПО КНИГАМ train-фолда даёт
+out-of-fold decision-скоры каждого канала (chunk-level). На этих OOF:
+  1) выбирается калибратор канала (identity/temperature/Platt/isotonic,
+     held-out NLL — stylo.eval.calibration.choose_calibrator);
+  2) выбирается режим слияния (равновесный vs мета-LR стекинг) по book-level
+     top-1 на OOF: для стекинга — вложенный 3-fold CV по книгам над OOF-матрицей.
+Тестовая книга LOBO нигде не участвует: полный fit каналов и скоринг теста
+происходят в predict_proba (векторизаторы каналов фолд-локальны).
+
+Инвариант leak-free тот же, что у lobo.py: всё обучаемое живёт внутри train.
+"""
+from __future__ import annotations
+
+import logging
+from collections import defaultdict
+from typing import Dict, List, Optional
+
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedGroupKFold
+from sklearn.svm import LinearSVC
+
+from ..eval.calibration import choose_calibrator
+from .channels import make_channels
+
+log = logging.getLogger("stylo.models.stacked")
+
+
+def _book_level(probs: np.ndarray, groups: np.ndarray) -> Dict[str, np.ndarray]:
+    out: Dict[str, List[int]] = defaultdict(list)
+    for i, g in enumerate(groups):
+        out[g].append(i)
+    return {g: probs[idx].mean(axis=0) for g, idx in out.items()}
+
+
+def _book_top1(probs: np.ndarray, y: np.ndarray, groups: np.ndarray) -> float:
+    hits, total = 0, 0
+    for g, mean_p in _book_level(probs, groups).items():
+        yb = y[groups == g][0]
+        hits += int(mean_p.argmax() == yb)
+        total += 1
+    return hits / max(1, total)
+
+
+class StackedChannelClassifier:
+    """fit(texts, y, groups) / predict_proba(texts) / classes_ (локальные индексы)."""
+
+    needs_groups = True
+
+    def __init__(self, cfg, inner_folds: int = 3, svc_c: float = 1.0,
+                 meta_c: float = 1.0, seed: int = 42):
+        self.cfg = cfg
+        self.inner_folds = inner_folds
+        self.svc_c = svc_c
+        self.meta_c = meta_c
+        self.seed = seed
+        self.passport_: Dict = {}
+
+    # -- внутренние помощники ------------------------------------------------
+    def _svc(self):
+        return LinearSVC(C=self.svc_c, class_weight="balanced", max_iter=3000,
+                         random_state=self.seed)
+
+    def _decision_full(self, clf, X, n_classes: int, class_map: np.ndarray) -> np.ndarray:
+        d = clf.decision_function(X)
+        if d.ndim == 1:  # бинарный случай
+            d = np.column_stack([-d, d])
+        full = np.full((X.shape[0], n_classes), -30.0)
+        for j, c in enumerate(class_map):
+            full[:, int(np.searchsorted(self._classes_sorted, c))] = d[:, j]
+        return full
+
+    # -- sklearn-подобный интерфейс -------------------------------------------
+    def fit(self, texts, y, groups=None):
+        if groups is None:
+            raise ValueError("stylo_stack требует groups (book id каждого чанка)")
+        texts = list(texts)
+        y = np.asarray(y)
+        groups = np.asarray(groups)
+        self.classes_ = np.unique(y)
+        self._classes_sorted = self.classes_
+        n_cls = len(self.classes_)
+        y_local = np.searchsorted(self.classes_, y)
+
+        channels = make_channels(self.cfg)
+        skf = StratifiedGroupKFold(self.inner_folds, shuffle=True, random_state=self.seed)
+        splits = list(skf.split(np.zeros(len(y)), y, groups))
+
+        oof: Dict[str, np.ndarray] = {}
+        for name, fn in channels.items():
+            scores = np.full((len(y), n_cls), -30.0)
+            for tr_i, te_i in splits:
+                Xtr, Xte = fn([texts[i] for i in tr_i], [texts[i] for i in te_i])
+                clf = self._svc().fit(Xtr, y[tr_i])
+                scores[te_i] = self._decision_full(clf, Xte, n_cls, clf.classes_)
+            oof[name] = scores
+
+        # калибратор каждого канала — по held-out NLL внутри OOF
+        self._calibrators = {}
+        cal_passports = {}
+        oof_probs = {}
+        for name in channels:
+            cal, passport = choose_calibrator(oof[name], y_local, seed=self.seed)
+            self._calibrators[name] = cal
+            cal_passports[name] = passport
+            oof_probs[name] = cal(oof[name])
+
+        # режим слияния по book-level top-1 на OOF
+        eq_oof = np.mean(list(oof_probs.values()), axis=0)
+        eq_acc = _book_top1(eq_oof, y_local, groups)
+        Moof = np.hstack([oof_probs[n] for n in channels])
+        stack_hits, stack_total = 0, 0
+        inner = StratifiedGroupKFold(3, shuffle=True, random_state=self.seed)
+        for tr_i, te_i in inner.split(np.zeros(len(y)), y, groups):
+            meta = LogisticRegression(C=self.meta_c, max_iter=2000,
+                                      class_weight="balanced", random_state=self.seed)
+            meta.fit(Moof[tr_i], y_local[tr_i])
+            proba = np.zeros((len(te_i), n_cls))
+            proba[:, meta.classes_] = meta.predict_proba(Moof[te_i])
+            for g, mean_p in _book_level(proba, groups[te_i]).items():
+                yb = y_local[groups == g][0]
+                stack_hits += int(mean_p.argmax() == yb)
+                stack_total += 1
+        stack_acc = stack_hits / max(1, stack_total)
+
+        self.mode_ = "stacked" if stack_acc > eq_acc else "equal"
+        self.meta_ = None
+        if self.mode_ == "stacked":
+            self.meta_ = LogisticRegression(C=self.meta_c, max_iter=2000,
+                                            class_weight="balanced",
+                                            random_state=self.seed).fit(Moof, y_local)
+        self._train_texts = texts
+        self._train_y = y
+        self._channel_names = list(channels)
+        self.passport_ = {
+            "mode": self.mode_,
+            "inner_oof_book_top1": {"equal": round(eq_acc, 4), "stacked": round(stack_acc, 4)},
+            "calibration": cal_passports,
+        }
+        return self
+
+    def predict_proba(self, texts) -> np.ndarray:
+        texts = list(texts)
+        channels = make_channels(self.cfg)
+        n_cls = len(self.classes_)
+        te_probs = {}
+        for name in self._channel_names:
+            Xtr, Xte = channels[name](self._train_texts, texts)
+            clf = self._svc().fit(Xtr, self._train_y)
+            scores = self._decision_full(clf, Xte, n_cls, clf.classes_)
+            te_probs[name] = self._calibrators[name](scores)
+        if self.mode_ == "equal":
+            return np.mean(list(te_probs.values()), axis=0)
+        Mte = np.hstack([te_probs[n] for n in self._channel_names])
+        proba = np.zeros((len(texts), n_cls))
+        proba[:, self.meta_.classes_] = self.meta_.predict_proba(Mte)
+        return proba

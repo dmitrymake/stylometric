@@ -1,0 +1,127 @@
+{
+  "metric": "within-author силуэт (book-balanced, чистый ансамбль dep+pos+syntax) — НИЗКО=когерентный одиночка",
+  "sholokhov_silhouette": 0.0805,
+  "sholokhov_rank": 16,
+  "n_panel": 18,
+  "indisputable_range": [
+    0.035,
+    0.1
+  ],
+  "indisputable_median": 0.057,
+  "collective_prutkov": 0.3715,
+  "verdict": "Шолохов на ВЫСОКОМ краю одиночек (силуэт 0.0805, ранг 16/18), но В ИХ ДИАПАЗОНЕ: бесспорный Лесков (0.100) разнороднее; Салтыков/А.Н.Толстой/Тургенев рядом. ×4.6 НИЖЕ коллектива (Прутков 0.37). Разнородность = донской vs советский материал (ARI 0.35, жанр/период — не руки). ВЫВОД: повышенная вариативность объяснима широтой 45-летнего разножанрового пути, НЕ коллективным авторством; но Шолохов заметно варьируется сильнее типичного тесного одиночки (честно).",
+  "per_author": [
+    {
+      "author": "chehov",
+      "within_silhouette": 0.0349,
+      "self_rate": "13/13",
+      "n_books": 13
+    },
+    {
+      "author": "platonov",
+      "within_silhouette": 0.0446,
+      "self_rate": "4/4",
+      "n_books": 4
+    },
+    {
+      "author": "gogol",
+      "within_silhouette": 0.0474,
+      "self_rate": "10/10",
+      "n_books": 10
+    },
+    {
+      "author": "bunin",
+      "within_silhouette": 0.0484,
+      "self_rate": "7/10",
+      "n_books": 10
+    },
+    {
+      "author": "gorky",
+      "within_silhouette": 0.0491,
+      "self_rate": "5/6",
+      "n_books": 6
+    },
+    {
+      "author": "pilnyak",
+      "within_silhouette": 0.0522,
+      "self_rate": "2/2",
+      "n_books": 2
+    },
+    {
+      "author": "babel",
+      "within_silhouette": 0.0549,
+      "self_rate": "2/2",
+      "n_books": 2
+    },
+    {
+      "author": "dostoevsky",
+      "within_silhouette": 0.0564,
+      "self_rate": "9/9",
+      "n_books": 9
+    },
+    {
+      "author": "tolstoy",
+      "within_silhouette": 0.0569,
+      "self_rate": "8/9",
+      "n_books": 9
+    },
+    {
+      "author": "kuprin",
+      "within_silhouette": 0.0618,
+      "self_rate": "4/5",
+      "n_books": 5
+    },
+    {
+      "author": "grin",
+      "within_silhouette": 0.0625,
+      "self_rate": "6/6",
+      "n_books": 6
+    },
+    {
+      "author": "nabokov",
+      "within_silhouette": 0.0676,
+      "self_rate": "3/4",
+      "n_books": 4
+    },
+    {
+      "author": "turgenev",
+      "within_silhouette": 0.0708,
+      "self_rate": "9/12",
+      "n_books": 12
+    },
+    {
+      "author": "tolstoy_an",
+      "within_silhouette": 0.0717,
+      "self_rate": "5/6",
+      "n_books": 6
+    },
+    {
+      "author": "saltykov",
+      "within_silhouette": 0.0771,
+      "self_rate": "1/4",
+      "n_books": 4
+    },
+    {
+      "author": "sholohov",
+      "within_silhouette": 0.0805,
+      "self_rate": "10/15",
+      "n_books": 15
+    },
+    {
+      "author": "leskov",
+      "within_silhouette": 0.0998,
+      "self_rate": "2/3",
+      "n_books": 3
+    },
+    {
+      "author": "prutkov",
+      "within_silhouette": 0.3715,
+      "self_rate": "3/4",
+      "n_books": 4
+    }
+  ],
+  "more_heterogeneous_singles": [
+    "leskov"
+  ],
+  "sholokhov_self_rate": "10/15"
+}

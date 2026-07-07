@@ -1,0 +1,48 @@
+{
+  "N_min": 244,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "td": [
+    {
+      "seed": 1,
+      "full": 0.795,
+      "topic": 0.952
+    },
+    {
+      "seed": 2,
+      "full": 0.912,
+      "topic": 0.963
+    },
+    {
+      "seed": 3,
+      "full": 0.944,
+      "topic": 0.965
+    }
+  ],
+  "pc": [
+    {
+      "seed": 1,
+      "full": 0.896,
+      "topic": 0.972
+    },
+    {
+      "seed": 2,
+      "full": 0.916,
+      "topic": 0.972
+    },
+    {
+      "seed": 3,
+      "full": 0.972,
+      "topic": 0.984
+    }
+  ],
+  "td_full_median": 0.912,
+  "td_full_range": [
+    0.795,
+    0.944
+  ],
+  "td_topic_median": 0.963
+}

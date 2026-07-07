@@ -1,0 +1,31 @@
+case_id: taras_bulba_additions_strict_somov_binary_fw_2000
+title: "Taras Bulba 1842 strict additions, Gogol vs Somov binary: fw_fixed random_2000"
+hypothesis: "Binary check: is the Somov attraction of the additions a panel-crowding artifact or a real signal?"
+target_description: "strict additions, binary Gogol vs Somov"
+claim: "Бинарная постановка Гоголь-Сомов: изолирует somov-притяжение от эффекта многоклассовой панели."
+limitations:
+  - "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions."
+  - "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  somov: ../../../../input_cases/taras_bulba/cand_somov
+target: ../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_somov_binary_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_somov_binary_fw_2000.passport.json"
+notes: "Диагностика somov-притяжения."

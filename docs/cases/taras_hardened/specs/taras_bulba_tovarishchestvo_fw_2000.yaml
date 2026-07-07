@@ -1,0 +1,32 @@
+case_id: taras_bulba_tovarishchestvo_fw_2000
+title: "Taras Bulba 1842 speech on товарищество: focused fw_fixed diagnostic"
+hypothesis: "The famous speech on товарищество was written by a non-Gogol editorial hand."
+target_description: "speech on товарищество · focused diagnostic"
+claim: "Focused diagnostic for the famous speech; because the passage is one short target chunk, it cannot carry the headline claim."
+limitations:
+  - "Single short passage: diagnostic only, never a strong verdict in this protocol."
+  - "Applies only to this extracted passage, not to all 1842 additions."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  pushkin: ../../../../input_clean/pushkin
+  turgenev: ../../../../input_clean/turgenev
+  dostoevsky: ../../../../input_clean/dostoevsky
+target: ../../../../input_cases/taras_bulba/tovarishchestvo_speech.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data and cleaned benchmark anchors."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_tovarishchestvo_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json"
+notes: "Extracted from loose 1842 additions by sentinel phrases; single-chunk diagnostic only."

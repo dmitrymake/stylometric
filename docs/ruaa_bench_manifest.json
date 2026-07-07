@@ -1,0 +1,1006 @@
+{
+  "name": "RuAA-Bench",
+  "version": "1.0",
+  "task": "closed-set book-level authorship attribution, Russian",
+  "n_authors": 22,
+  "n_books": 137,
+  "legal": "PUBLIC_DOMAIN_CLEAR: смерть+70, реабилитационные продления исключены (gumilev, pilnyak)",
+  "authors": {
+    "andreev": {
+      "death_year": 1919,
+      "n_books": 4,
+      "books": [
+        {
+          "book": "бездна",
+          "sha256": "acaff8b7999f0bd909a73af96b36b47f1ef3ca00902ffeb3116e9befde181fae",
+          "words": 6363,
+          "source": "ru.wikisource.org: Бездна (Андреев)"
+        },
+        {
+          "book": "жизнь_василия_фивейского",
+          "sha256": "529e3b810be9666d92ef6d959d769bfabea9e717165484f36bd897521d701177",
+          "words": 22209,
+          "source": "ru.wikisource.org: Жизнь Василия Фивейского (Андреев)"
+        },
+        {
+          "book": "красный_смех",
+          "sha256": "1febc369da805d8d75548b08f978f3ec33dc0f37bdac18c8efdf9ea70f55b83c",
+          "words": 18137,
+          "source": "ru.wikisource.org: Красный смех (Андреев)"
+        },
+        {
+          "book": "рассказ_о_семи_повешенных",
+          "sha256": "efe11d38b73a4594923a14b952ed3d86c6c0615b2e9ffe7c9b7cd5818e4a8e69",
+          "words": 20706,
+          "source": "ru.wikisource.org: Рассказ о семи повешенных (Андреев)"
+        }
+      ]
+    },
+    "bunin": {
+      "death_year": 1953,
+      "n_books": 2,
+      "books": [
+        {
+          "book": "деревня",
+          "sha256": "0fae8f15454be984e240e024f91e236930d6ac64fdaa9bde2e824d1d1d24535e",
+          "words": 35143,
+          "source": "ru.wikisource.org: Деревня (Бунин)"
+        },
+        {
+          "book": "суходол",
+          "sha256": "3e641221c806c1fceb426a48ac65a71899bac1599ceb9fd41facaa9f05d5b40d",
+          "words": 16400,
+          "source": "ru.wikisource.org: Суходол (Бунин)"
+        }
+      ]
+    },
+    "chehov": {
+      "death_year": 1904,
+      "n_books": 4,
+      "books": [
+        {
+          "book": "дуэль",
+          "sha256": "1d9a47b734d693e3d0818007c7528307e3fca8f0b9f7fc9e44c0f161e268af73",
+          "words": 30487,
+          "source": "ru.wikisource.org: Дуэль (Чехов)"
+        },
+        {
+          "book": "палата_6",
+          "sha256": "fcd9b41c6d627bd7105b9526d8d54b34d3d0aadd665cee1b6a0e508d42384981",
+          "words": 16193,
+          "source": "ru.wikisource.org: Палата № 6 (Чехов)"
+        },
+        {
+          "book": "скучная_история",
+          "sha256": "7e6344e3da116ba8bc4d451d262af56caf09994fa5f47c96f1b5dd1f0628a9f3",
+          "words": 18200,
+          "source": "ru.wikisource.org: Скучная история (Чехов)"
+        },
+        {
+          "book": "степь",
+          "sha256": "c83b5c22461bfa26f011bea3f693b12b596bc2335146ebe8f0174b2742cbfb32",
+          "words": 28041,
+          "source": "ru.wikisource.org: Степь (Чехов)"
+        }
+      ]
+    },
+    "dostoevsky": {
+      "death_year": 1881,
+      "n_books": 8,
+      "books": [
+        {
+          "book": "бедные_люди",
+          "sha256": "2449bcc722e18d5df48613f55abbea1fb14057ff685e25e80d2425b82e4dcb05",
+          "words": 88059,
+          "source": "ru.wikisource.org: Бедные люди (Достоевский)"
+        },
+        {
+          "book": "бесы",
+          "sha256": "7f1e9f612be41890161217958a317be8bef09219e08564ae42d8b19dace55661",
+          "words": 204596,
+          "source": "ru.wikisource.org: Бесы (Достоевский)"
+        },
+        {
+          "book": "братья_карамазовы",
+          "sha256": "fe72df9f0951f14c86ade7fd10e17f95f7c1a67add4cd71924de366911bf2093",
+          "words": 307083,
+          "source": "ru.wikisource.org: Братья Карамазовы (Достоевский)"
+        },
+        {
+          "book": "записки_из_подполья",
+          "sha256": "81a629ff82d0355cbf90538c4af075d64ac217c51f649efbfc9889ada394e9f3",
+          "words": 34862,
+          "source": "ru.wikisource.org: Записки из подполья (Достоевский)"
+        },
+        {
+          "book": "игрок",
+          "sha256": "bf0b162b2e4480245dbede2486403f0eb490f32dade25f691e3e3477d76e2c01",
+          "words": 44500,
+          "source": "ru.wikisource.org: Игрок (Достоевский)"
+        },
+        {
+          "book": "идиот",
+          "sha256": "c24188737659a8f827b8aad24fa5f7321506f9ec4b1ccd9223f46efa6a1d2150",
+          "words": 205550,
+          "source": "ru.wikisource.org: Идиот (Достоевский)"
+        },
+        {
+          "book": "преступление_и_наказание",
+          "sha256": "16422057339ebdd836f5eb28ab0f01f3d4608b1eef9203dde00f6cecba5c6c06",
+          "words": 170091,
+          "source": "ru.wikisource.org: Преступление и наказание (Достоевский)"
+        },
+        {
+          "book": "униженные_и_оскорблённые",
+          "sha256": "7d31b0babe1953c648dc60191d5c4732f8a94b3440f141f07b7b45dcab20f022",
+          "words": 118144,
+          "source": "ru.wikisource.org: Униженные и оскорблённые (Достоевский)"
+        }
+      ]
+    },
+    "furmanov": {
+      "death_year": 1926,
+      "n_books": 4,
+      "books": [
+        {
+          "book": "в_восемнадцатом_году",
+          "sha256": "22095223ccf403739cd0539dc1d3e01d15d5d4aee139bedc231319cfb698b54c",
+          "words": 20386,
+          "source": "ru.wikisource.org: В восемнадцатом году (Фурманов)"
+        },
+        {
+          "book": "красный_десант",
+          "sha256": "5a105432ff27c36b8381432aad468e1d7851fa28973d1ba197ea5c5199f8fbe6",
+          "words": 7866,
+          "source": "ru.wikisource.org: Красный десант (Фурманов)"
+        },
+        {
+          "book": "мятеж",
+          "sha256": "9eab7e737179548b47d73eabe81048462e345c775155e3cc11f61093cba5707d",
+          "words": 101340,
+          "source": "ru.wikisource.org: Мятеж (Фурманов)"
+        },
+        {
+          "book": "чапаев",
+          "sha256": "595cd25a2a96c876725b90d80488eca51d780df32518b787cc4cf4c57b2756e6",
+          "words": 80972,
+          "source": "ru.wikisource.org: Чапаев (Фурманов)"
+        }
+      ]
+    },
+    "garshin": {
+      "death_year": 1888,
+      "n_books": 10,
+      "books": [
+        {
+          "book": "attalea_princeps",
+          "sha256": "de292e4e1d71983e67f8532d5ef9053b2307e1ce6002dbd36dbfb682c692fdbd",
+          "words": 2218,
+          "source": "ru.wikisource.org: Attalea princeps (Гаршин)"
+        },
+        {
+          "book": "денщик_и_офицер",
+          "sha256": "5fba60301654a68cc6459342dd392deeb710b4f8ae92220be21ebd4875dc120b",
+          "words": 4128,
+          "source": "ru.wikisource.org: Денщик и офицер (Гаршин)"
+        },
+        {
+          "book": "из_воспоминаний_рядового_иванова",
+          "sha256": "15668c353491e2ca055937e2f88a8fa20c7e432124ea8fcb1bb9dd6adb048393",
+          "words": 13777,
+          "source": "ru.wikisource.org: Из воспоминаний рядового Иванова (Гаршин)"
+        },
+        {
+          "book": "красный_цветок",
+          "sha256": "a672e4ee04c5afb1b147c7d4c860d78fbba3efc3e95c35f450cce904b61c10b5",
+          "words": 4679,
+          "source": "ru.wikisource.org: Красный цветок (Гаршин)"
+        },
+        {
+          "book": "медведи",
+          "sha256": "c960f177e7baf30ca58f736f60dcff82c4e517d2c6ea19ffcc5dee008e883bf1",
+          "words": 4837,
+          "source": "ru.wikisource.org: Медведи (Гаршин)"
+        },
+        {
+          "book": "надежда_николаевна",
+          "sha256": "85f6d25be3b7a8504f0e15d175e541e9a3e98859bd7ae02efbd59a58db156be8",
+          "words": 19465,
+          "source": "ru.wikisource.org: Надежда Николаевна (Гаршин)"
+        },
+        {
+          "book": "сигнал",
+          "sha256": "bfb64caf95d549b30d578411c5a9f474685d4260df6d024b1e995735013c6695",
+          "words": 2817,
+          "source": "ru.wikisource.org: Сигнал (Гаршин)"
+        },
+        {
+          "book": "трус",
+          "sha256": "c5c401a9bdb52382826c45ef3af15448e890f670b3b74754f42d00f68ea1c66a",
+          "words": 6446,
+          "source": "ru.wikisource.org: Трус (Гаршин)"
+        },
+        {
+          "book": "художники",
+          "sha256": "ee1e04fa9a403d3d7456c3564c12d4d9c5266bb52868cca292e841af3674b493",
+          "words": 5660,
+          "source": "ru.wikisource.org: Художники (Гаршин)"
+        },
+        {
+          "book": "четыре_дня",
+          "sha256": "23da8d913b845a46bd1937e948ff5b0867ef649ccf0b042a34c7045111a30998",
+          "words": 3654,
+          "source": "ru.wikisource.org: Четыре дня (Гаршин)"
+        }
+      ]
+    },
+    "gogol": {
+      "death_year": 1852,
+      "n_books": 7,
+      "books": [
+        {
+          "book": "записки_сумасшедшего",
+          "sha256": "67769277524b40d80d40e44c17d660cb0664030954389432918ac62c8e9f8cb2",
+          "words": 6677,
+          "source": "ru.wikisource.org: Записки сумасшедшего (Гоголь)"
+        },
+        {
+          "book": "майская_ночь",
+          "sha256": "20a1de2d2bab5b3c6fa007d8e11b370eb42f31184732f739cab4ea53c770426f",
+          "words": 8238,
+          "source": "ru.wikisource.org: Майская ночь, или Утопленница (Гоголь)"
+        },
+        {
+          "book": "мёртвые_души",
+          "sha256": "f32dffb599d89a38ed001df6d743dfe29f87db46396a58ff90dbcc0f24666908",
+          "words": 112502,
+          "source": "ru.wikisource.org: Мёртвые души (Гоголь)"
+        },
+        {
+          "book": "ночь_перед_рождеством",
+          "sha256": "b71237aecb643e00c8dcefc5fe404fdb9d00914627f6501080e06a8f59ab455b",
+          "words": 13142,
+          "source": "ru.wikisource.org: Ночь перед Рождеством (Гоголь)"
+        },
+        {
+          "book": "старосветские_помещики",
+          "sha256": "4638538b874fa92f61ef6c31e98feedadcad4343fc398801f727449c33f196ff",
+          "words": 7166,
+          "source": "ru.wikisource.org: Старосветские помещики (Гоголь)"
+        },
+        {
+          "book": "тарас_бульба",
+          "sha256": "35d25323a7c6d0f12bc57d0d234680ab673a68724c9fe411aa568d873612c717",
+          "words": 42695,
+          "source": "ru.wikisource.org: Тарас Бульба (Гоголь)"
+        },
+        {
+          "book": "шинель",
+          "sha256": "7c0c8c137eaef0765751fc6f5dd03b3775b9b1a7f13de829ecc08922e388d1f9",
+          "words": 20064,
+          "source": "ru.wikisource.org: Шинель (Гоголь)"
+        }
+      ]
+    },
+    "grin": {
+      "death_year": 1932,
+      "n_books": 6,
+      "books": [
+        {
+          "book": "алые_паруса",
+          "sha256": "4fb58d24872f41e5d1533c9ee654f21b7cfd59b23038eabd24977a6f81ca6b3d",
+          "words": 39730,
+          "source": "ru.wikisource.org: Алые паруса (Грин)"
+        },
+        {
+          "book": "бегущая_по_волнам",
+          "sha256": "70f222ffe562f8d724a083caf66d76f34e4d6bece4ebb9355e549ceb43668e1e",
+          "words": 111343,
+          "source": "ru.wikisource.org: Бегущая по волнам (Грин)"
+        },
+        {
+          "book": "блистающий_мир",
+          "sha256": "0866eaa8ef8356fdd201fa22092f53e56df2fe09581e7ca91164dc040d452e46",
+          "words": 68020,
+          "source": "ru.wikisource.org: Блистающий мир (Грин)"
+        },
+        {
+          "book": "джесси_и_моргиана",
+          "sha256": "44203daf11b5dec9ee4e6adddaf62d5689cf85637b6386d4e3a58116892acfa0",
+          "words": 45340,
+          "source": "ru.wikisource.org: Джесси и Моргиана (Грин)"
+        },
+        {
+          "book": "дорога_никуда",
+          "sha256": "517771065e6041939b94ccb6cde62641859e730bee34fbf92b5d2fdb34401697",
+          "words": 8199,
+          "source": "ru.wikisource.org: Дорога никуда (Грин)"
+        },
+        {
+          "book": "золотая_цепь",
+          "sha256": "e16c8be290846e775938d3e63743738d468b6a1ff2c5e5fce12ef761b98ec1e2",
+          "words": 39147,
+          "source": "ru.wikisource.org: Золотая цепь (Грин)"
+        }
+      ]
+    },
+    "korolenko": {
+      "death_year": 1921,
+      "n_books": 7,
+      "books": [
+        {
+          "book": "без_языка",
+          "sha256": "b8f18b129998b9695f762eccd4c7d5abb2333adfad9b07a74f00598b97a9c52a",
+          "words": 44291,
+          "source": "ru.wikisource.org: Без языка (Короленко)"
+        },
+        {
+          "book": "дети_подземелья",
+          "sha256": "992bee8ac797e68012ce8eac1dc7cefc86c3ea640bf5298b4d205d5d38e8887e",
+          "words": 35581,
+          "source": "ru.wikisource.org: В дурном обществе (Короленко)"
+        },
+        {
+          "book": "мгновение",
+          "sha256": "e9973721ebb6a237d5e7ae0fc388e384d8b822f4705619d19afbf5122ad41138",
+          "words": 5447,
+          "source": "ru.wikisource.org: Мгновение (Короленко)"
+        },
+        {
+          "book": "река_играет",
+          "sha256": "0f09207415caccd6eabd7d926fbba90665008bd585645a26a37646261fff8baa",
+          "words": 14955,
+          "source": "ru.wikisource.org: Река играет (Короленко)"
+        },
+        {
+          "book": "слепой_музыкант",
+          "sha256": "ca8e793675648bc84202330233a58eda40c2d3e0cbb1634a6acff9807c6e508d",
+          "words": 107858,
+          "source": "ru.wikisource.org: Слепой музыкант (Короленко)"
+        },
+        {
+          "book": "соколинец",
+          "sha256": "1591cef590d78b1f989858638ca6c039aa9670f65afecc098d5a65993187e1b0",
+          "words": 13363,
+          "source": "ru.wikisource.org: Соколинец (Короленко)"
+        },
+        {
+          "book": "сон_макара",
+          "sha256": "e26b04204cc3bb9fca13d9318c179eb0bc066813341d32fb6b3b31f7f5ffab3f",
+          "words": 16110,
+          "source": "ru.wikisource.org: Сон Макара (Короленко)"
+        }
+      ]
+    },
+    "kumov": {
+      "death_year": 1919,
+      "n_books": 7,
+      "books": [
+        {
+          "book": "бессмертники",
+          "sha256": "8b67b0d95fb5ddb3e11ecb1bc15e11e3685f5a84efeb71ef3be4c76201d0ba3d",
+          "words": 779,
+          "source": "ru.wikisource.org: Бессмертники (Кумов)"
+        },
+        {
+          "book": "в_глуши",
+          "sha256": "e7769ffa5e9761a6861523921b0cd6a15eb36003f2afbecd045763ed005d2395",
+          "words": 1037,
+          "source": "ru.wikisource.org: В глуши (Кумов)"
+        },
+        {
+          "book": "мужики",
+          "sha256": "49d1a60be683b4c646186bd7cac92d0ca0c2ca024f661b9cd072f8dd31a58eff",
+          "words": 1674,
+          "source": "ru.wikisource.org: Мужики (Кумов)"
+        },
+        {
+          "book": "отец_георгий",
+          "sha256": "faa5b7444d531802afde00cb171e801a7e6b1e2f3bb1b4d713dc7171bc88579f",
+          "words": 13444,
+          "source": "ru.wikisource.org: Отец Георгий (Кумов)"
+        },
+        {
+          "book": "степной_батюшка",
+          "sha256": "9395c57c2cb73a77916d4e2a7ceae0c3f260053a9a74f0c8f3bebb5c3467937d",
+          "words": 2394,
+          "source": "ru.wikisource.org: Степной батюшка (Кумов)"
+        },
+        {
+          "book": "стояние",
+          "sha256": "2a910e842b490b8219099ccf20b07d8461b70192d7ebeea5d7d7318152b0af0e",
+          "words": 842,
+          "source": "ru.wikisource.org: Стояние (Кумов)"
+        },
+        {
+          "book": "учительница",
+          "sha256": "7187cee12d37ddf98ab4ee5973510b675e526555d143f7436cf54b3b6739e34c",
+          "words": 2850,
+          "source": "ru.wikisource.org: Учительница (Кумов)"
+        }
+      ]
+    },
+    "kuprin": {
+      "death_year": 1938,
+      "n_books": 7,
+      "books": [
+        {
+          "book": "гамбринус",
+          "sha256": "8e0f4d19cc7eb4f27cc817277d3132d425a6001acd7eab512bfd5efb917a55be",
+          "words": 7005,
+          "source": "ru.wikisource.org: Гамбринус (Куприн)"
+        },
+        {
+          "book": "гранатовый_браслет",
+          "sha256": "00a7c88dead72c7a008dd1cfefaf336aeec8f82c2de1bc0e1cbd8af83d5d8263",
+          "words": 27786,
+          "source": "ru.wikisource.org: Гранатовый браслет (Куприн)"
+        },
+        {
+          "book": "молох",
+          "sha256": "ce075cdb8d05c15fb34435af0b011b885b2749c181277d0dded1101604e4a515",
+          "words": 22369,
+          "source": "ru.wikisource.org: Молох (Куприн)"
+        },
+        {
+          "book": "олеся",
+          "sha256": "55927a9207486ec098d1843d2b998a3e84b4a5dc8032c0735d0a3d2e01ae2ac7",
+          "words": 44290,
+          "source": "ru.wikisource.org: Олеся (Куприн)"
+        },
+        {
+          "book": "поединок",
+          "sha256": "9e7aebd85da6c9ce1668d3acd65487d7ee545164bc67598657c2725698cc0e03",
+          "words": 76319,
+          "source": "ru.wikisource.org: Поединок (Куприн)"
+        },
+        {
+          "book": "суламифь",
+          "sha256": "f9b8864b13add019a12fbc995a7e11e61593db81d3ff8f34a088bca4c5b325a0",
+          "words": 15983,
+          "source": "ru.wikisource.org: Суламифь (Куприн)"
+        },
+        {
+          "book": "яма",
+          "sha256": "7add1fcfcdc5d7d5ebc53bcdf02c069b1aa248141cc8178141af83f7b466ef34",
+          "words": 76549,
+          "source": "ru.wikisource.org: Яма (Куприн)"
+        }
+      ]
+    },
+    "leskov": {
+      "death_year": 1895,
+      "n_books": 3,
+      "books": [
+        {
+          "book": "левша",
+          "sha256": "2dfc0406f66b5b25206ae1a5152daf409be0e00e131fb2fd32daec6525cb7b4b",
+          "words": 9031,
+          "source": "ru.wikisource.org: Левша (Лесков)"
+        },
+        {
+          "book": "леди_макбет_мценского_уезда",
+          "sha256": "90dd1183c5b861035113e52d66b84ad2175ca43f738804b42961a90daf94b185",
+          "words": 13811,
+          "source": "ru.wikisource.org: Леди Макбет Мценского уезда (Лесков)"
+        },
+        {
+          "book": "тупейный_художник",
+          "sha256": "6c250861c57b65c270b63b11e79e7805c16890e9026370f919bc54ad80015de6",
+          "words": 6535,
+          "source": "ru.wikisource.org: Тупейный художник (Лесков)"
+        }
+      ]
+    },
+    "novikov_priboy": {
+      "death_year": 1944,
+      "n_books": 8,
+      "books": [
+        {
+          "book": "женщина_в_море",
+          "sha256": "c0ca13a5e8948ec5b54b304392a09fbb8367d97ccd66e737528ddcbb89c37250",
+          "words": 27036,
+          "source": "ru.wikisource.org: Женщина в море (Новиков-Прибой)"
+        },
+        {
+          "book": "лишний",
+          "sha256": "f518ee660f1297a5e6eb26ed84a9721393993530819965eddb391b62f4382716",
+          "words": 9595,
+          "source": "ru.wikisource.org: Лишний (Новиков-Прибой)"
+        },
+        {
+          "book": "море_зовёт",
+          "sha256": "29eb630e662faca4af4dfae1b03c29e4362dc783f72f3bd9841af1e5725498c5",
+          "words": 15183,
+          "source": "ru.wikisource.org: Море зовёт (Новиков-Прибой)"
+        },
+        {
+          "book": "по_тёмному",
+          "sha256": "b52cbd6649406dbe6b41892d0105ab04bfb4109412e30a792df1a02a8aa547cf",
+          "words": 6087,
+          "source": "ru.wikisource.org: По-тёмному (Новиков-Прибой)"
+        },
+        {
+          "book": "подводники",
+          "sha256": "24e1f45bb943ce2ac9c64c5f64b2ab61885b1581eb0501c2e0d0f92717bdbd5f",
+          "words": 24974,
+          "source": "ru.wikisource.org: Подводники (Новиков-Прибой)"
+        },
+        {
+          "book": "солёная_купель",
+          "sha256": "9385ddb0e37230366d1573409cb2b8ab394a0e5f4258789cb285a1e47a890de2",
+          "words": 46159,
+          "source": "ru.wikisource.org: Солёная купель (Новиков-Прибой)"
+        },
+        {
+          "book": "ухабы",
+          "sha256": "accd514c5d8d23827838185530c91a05ffe6def04e3e75f1e28bf17fadd03f56",
+          "words": 15590,
+          "source": "ru.wikisource.org: Ухабы (Новиков-Прибой)"
+        },
+        {
+          "book": "цусима",
+          "sha256": "dc9432430ac40493a933c3ef4d29be1d568a12752f96b51dcf68dc216abcd506",
+          "words": 5436,
+          "source": "ru.wikisource.org: Цусима (Новиков-Прибой)"
+        }
+      ]
+    },
+    "prutkov": {
+      "death_year": 1908,
+      "n_books": 4,
+      "books": [
+        {
+          "book": "выдержки_из_записок_деда",
+          "sha256": "8acf219e8773dd239b4d54aa69c08f7a3c8b8413485d4380c7dca2d9332a4e99",
+          "words": 3108,
+          "source": "ru.wikisource.org: Выдержки из записок моего деда (Прутков)"
+        },
+        {
+          "book": "плоды_раздумья",
+          "sha256": "cf8cba7e482889023e1456a6c9685130ee56b4c040e8dd68cb790b284074ae71",
+          "words": 3600,
+          "source": "ru.wikisource.org: Плоды раздумья (Прутков)"
+        },
+        {
+          "book": "проект_о_введении_единомыслия_в_россии",
+          "sha256": "a63654f7d6601f7d08985b03e3ae09479d3431012fe1b73d5c73dfb95216777e",
+          "words": 1351,
+          "source": "ru.wikisource.org: Проект: о введении единомыслия в России (Прутков)"
+        },
+        {
+          "book": "фантазия",
+          "sha256": "04c9a16809f9d321068662a5834e397431b5fa264362e4fd1bcc00cee10f0642",
+          "words": 4782,
+          "source": "ru.wikisource.org: Фантазия (Прутков)"
+        }
+      ]
+    },
+    "pushkin": {
+      "death_year": 1837,
+      "n_books": 6,
+      "books": [
+        {
+          "book": "арап_петра_великого",
+          "sha256": "5bb8ee0a34f4c59224f9dfca5c9e5efc7084492b09b4d344954cb1ba6c46d5b4",
+          "words": 10061,
+          "source": "ru.wikisource.org: Арап Петра Великого (Пушкин)"
+        },
+        {
+          "book": "дубровский",
+          "sha256": "8fc49849105b7aaf1ec0afe73b56dc3a0fc1510d538294de5071b8cec3402d05",
+          "words": 20543,
+          "source": "ru.wikisource.org: Дубровский (Пушкин)"
+        },
+        {
+          "book": "египетские_ночи",
+          "sha256": "01f50185c8315b6ae834e3dcc1525c337acf0146b2bc2eef75b7ce93abef6eeb",
+          "words": 3683,
+          "source": "ru.wikisource.org: Египетские ночи (Пушкин)"
+        },
+        {
+          "book": "история_пугачёва",
+          "sha256": "0c06a9e70e90a0ae030368e573d8206aa6701812e1af8bca36907a0c1fa23f43",
+          "words": 7586,
+          "source": "ru.wikisource.org: История Пугачёва (Пушкин)"
+        },
+        {
+          "book": "пиковая_дама",
+          "sha256": "7d4768181fe351913e3c8eb5cecec402d12daa9201ee660d1a7ba7c916a3bf0d",
+          "words": 7241,
+          "source": "ru.wikisource.org: Пиковая дама (Пушкин)"
+        },
+        {
+          "book": "путешествие_в_арзрум",
+          "sha256": "5fdd9a5c072d8f8aca96af94747f5cc2508da3bd57d98971aecd7d5fa9684791",
+          "words": 26323,
+          "source": "ru.wikisource.org: Путешествие в Арзрум во время похода 1829 года (Пушкин)"
+        }
+      ]
+    },
+    "saltykov": {
+      "death_year": 1889,
+      "n_books": 4,
+      "books": [
+        {
+          "book": "господа_головлёвы",
+          "sha256": "1c5b07a500d0fa78640f3f873d90b3c713eef373a64ba456833bcf27b976ffd3",
+          "words": 89261,
+          "source": "ru.wikisource.org: Господа Головлёвы (Салтыков-Щедрин)"
+        },
+        {
+          "book": "дикий_помещик",
+          "sha256": "11993cf8588ed16e4e86b66066886a27ca89179df7f17c93d01b9958c26bbd89",
+          "words": 2336,
+          "source": "ru.wikisource.org: Дикий помещик (Салтыков-Щедрин)"
+        },
+        {
+          "book": "история_одного_города",
+          "sha256": "98bf5484f59de469810a515d4ac4c222c8bae218ce023d53211fc3af60a3d763",
+          "words": 55744,
+          "source": "ru.wikisource.org: История одного города (Салтыков-Щедрин)"
+        },
+        {
+          "book": "премудрый_пискарь",
+          "sha256": "802c5d4fb9c37e967b7ce3db4142e0e75fd1bb788ee68d750728da504b163a01",
+          "words": 1877,
+          "source": "ru.wikisource.org: Премудрый пискарь (Салтыков-Щедрин)"
+        }
+      ]
+    },
+    "serafimovich": {
+      "death_year": 1949,
+      "n_books": 9,
+      "books": [
+        {
+          "book": "бомбы",
+          "sha256": "28563022b8d29d89b116324305539895ac6c00ef06c190d71083714d1f18628f",
+          "words": 2336,
+          "source": "ru.wikisource.org: Бомбы (Серафимович)"
+        },
+        {
+          "book": "железный_поток",
+          "sha256": "884cc4fc6d5b31390c01257652479e8bd81086777015031fa6a231c9f7e953a2",
+          "words": 41289,
+          "source": "ru.wikisource.org: Железный поток (Серафимович)"
+        },
+        {
+          "book": "как_он_умер",
+          "sha256": "5f3be8d96dae3ddcd7ae5811dc09f714c46ebccd1af107b00c642940666832ab",
+          "words": 2929,
+          "source": "ru.wikisource.org: Как он умер (Серафимович)"
+        },
+        {
+          "book": "лихорадка",
+          "sha256": "138d2a02f1d648de3de895f1549a6bdc54afbec1f80db98f7cdf13c55bd1cf7a",
+          "words": 2869,
+          "source": "ru.wikisource.org: Лихорадка (Серафимович)"
+        },
+        {
+          "book": "на_льдине",
+          "sha256": "f5fca1352ee6e56fd4883f4ca15c564603dbb7730e542d24987b1511bce71493",
+          "words": 3445,
+          "source": "ru.wikisource.org: На льдине (Серафимович)"
+        },
+        {
+          "book": "пески",
+          "sha256": "ab978f69840ec3aadc4efdcba968fad40aa3d920224893b46e33fcc48cc15f84",
+          "words": 7589,
+          "source": "ru.wikisource.org: Пески (Серафимович)"
+        },
+        {
+          "book": "степные_люди",
+          "sha256": "82efc5ebc13a91f85778bffd5e17e8744c0907cb77f1f916c4a754dd1c57679d",
+          "words": 7705,
+          "source": "ru.wikisource.org: Степные люди (Серафимович)"
+        },
+        {
+          "book": "стрелочник",
+          "sha256": "4232b795251f764a4410a60f7afdca6ca0377cb53e0e4cb71423f205b760df57",
+          "words": 4136,
+          "source": "ru.wikisource.org: Стрелочник (Серафимович)"
+        },
+        {
+          "book": "у_нас_и_у_них",
+          "sha256": "af80d9458601be129a675500d63720965aad8b109ddd3d50fc9e5b15a82edaf8",
+          "words": 1327,
+          "source": "ru.wikisource.org: У нас и у них (Серафимович)"
+        }
+      ]
+    },
+    "sevsky": {
+      "death_year": 1920,
+      "n_books": 9,
+      "books": [
+        {
+          "book": "без_карболки",
+          "sha256": "bcf2b066eb3ed0059689d4c7999ae2ff712667a5fcb73a565f12701ee395465b",
+          "words": 390,
+          "source": "ru.wikisource.org: Без карболки (Севский)"
+        },
+        {
+          "book": "дворянин_гукасов",
+          "sha256": "f37777873d551cbc73bd653500cc8fa1cc1b26722b99ef86d5f2753f792b6b65",
+          "words": 1368,
+          "source": "ru.wikisource.org: Дворянин Гукасов (Севский)"
+        },
+        {
+          "book": "дон_на_костылях",
+          "sha256": "3583be114a05b9e839f6eb6e7e726fcd51875a5164c5fe6ec85d801668e96520",
+          "words": 14613,
+          "source": "ru.wikisource.org: Дон на костылях (Севский)"
+        },
+        {
+          "book": "дядино_отопление",
+          "sha256": "77ee935729b2e9a451e48f7b7a88a002c24feffc36135ed0e48be3d17cadc4bf",
+          "words": 407,
+          "source": "ru.wikisource.org: Дядино отопление (Севский)/ДО"
+        },
+        {
+          "book": "жорж_корсаров",
+          "sha256": "dfeb6d17066283bfb1805faac61d42207f199b9f48b0efcff8bbe4911f94f79d",
+          "words": 1296,
+          "source": "ru.wikisource.org: Жорж Корсаров (Севский)"
+        },
+        {
+          "book": "игнатов_бугор",
+          "sha256": "ee6fb0470709d93c1e64c5547956b2c4729a6d7d9dd55432a554eabdd3619807",
+          "words": 1312,
+          "source": "ru.wikisource.org: Игнатов бугор (Севский)"
+        },
+        {
+          "book": "пропавшая_грамота",
+          "sha256": "e94768324e88e8444d2a8571620c4cb2d5d8ac7a187dcbf0aab624ddc58a8cc2",
+          "words": 404,
+          "source": "ru.wikisource.org: Пропавшая грамота (Севский)"
+        },
+        {
+          "book": "сквозные_ворота",
+          "sha256": "befd90b25ba690b6079e8a23b2c9531c39410698aff783dacc52a2e9c2970485",
+          "words": 429,
+          "source": "ru.wikisource.org: Сквозные ворота (Севский)"
+        },
+        {
+          "book": "степняки",
+          "sha256": "627b5ffd72572ca44f3cca9a5f18bf9c5b6d8db7b9e7fc843d2706e8bd170900",
+          "words": 1654,
+          "source": "ru.wikisource.org: Степняки (Севский)/ДО"
+        }
+      ]
+    },
+    "tolstoy": {
+      "death_year": 1910,
+      "n_books": 6,
+      "books": [
+        {
+          "book": "анна_каренина",
+          "sha256": "59847005198b1fd6608fa82a3a4e0d87665a454f9f38e8c3fa9d0203929a2b3d",
+          "words": 272173,
+          "source": "ru.wikisource.org: Анна Каренина (Толстой)"
+        },
+        {
+          "book": "война_и_мир",
+          "sha256": "341df26797c4be67ca239b2ebbf4d02c3776052c45fe08955cdf4465cc6dc9e5",
+          "words": 624,
+          "source": "ru.wikisource.org: Война и мир (Толстой)"
+        },
+        {
+          "book": "воскресение",
+          "sha256": "38142ce77a6b80564f72429f14852268e0a063ae43936562ce5f2e0bb2668235",
+          "words": 136093,
+          "source": "ru.wikisource.org: Воскресение (Толстой)"
+        },
+        {
+          "book": "севастополь_в_декабре_месяце",
+          "sha256": "edbc8b6dae8b297f1e5f32247ddf1fa61bb21a4e3354c2f18650602580ba7007",
+          "words": 4518,
+          "source": "ru.wikisource.org: Севастополь в декабре месяце (Толстой)"
+        },
+        {
+          "book": "севастополь_в_мае",
+          "sha256": "ef08008c375979324dba00e1072846c5dfdcaef27945efbf4aabc6ef2abb2176",
+          "words": 12633,
+          "source": "ru.wikisource.org: Севастополь в мае (Толстой)"
+        },
+        {
+          "book": "хаджи_мурат",
+          "sha256": "b53032aa72776371f07826ca25ae15495195811a940d461b36ae8620731309e5",
+          "words": 34571,
+          "source": "ru.wikisource.org: Хаджи-Мурат (Толстой)"
+        }
+      ]
+    },
+    "tolstoy_an": {
+      "death_year": 1945,
+      "n_books": 6,
+      "books": [
+        {
+          "book": "аэлита",
+          "sha256": "296ceda3a26c0fd8976efd5c92342c94af033b9211a54562ad489ee7f41101e3",
+          "words": 39599,
+          "source": "ru.wikisource.org: Аэлита (Толстой)"
+        },
+        {
+          "book": "гиперболоид_инженера_гарина",
+          "sha256": "8ad665dc6f8a82be500be776abde80e0f259902a49a21ab7b56aa5b6e2b19559",
+          "words": 71779,
+          "source": "ru.wikisource.org: Гиперболоид инженера Гарина (Толстой)"
+        },
+        {
+          "book": "граф_калиостро",
+          "sha256": "a89cfd33295da8f4ff03e9be48d8dca57f6d0085b05593d5eb034c2590334951",
+          "words": 9635,
+          "source": "ru.wikisource.org: Граф Калиостро (Толстой)"
+        },
+        {
+          "book": "хромой_барин",
+          "sha256": "b0dc40d747a7a66b24331706c62ba902f89747b16391b8c91c47dd77081fc760",
+          "words": 36793,
+          "source": "ru.wikisource.org: Хромой барин (Толстой)"
+        },
+        {
+          "book": "чудаки",
+          "sha256": "2abded0a29bbd9210effabc00cabb751b014afcad66125307fb79ba7e61dcb9a",
+          "words": 37335,
+          "source": "ru.wikisource.org: Чудаки (Толстой)"
+        },
+        {
+          "book": "эмигранты",
+          "sha256": "778e475379e84d31eb2b06812afbcd43646c902015adb65f80d3f528b45afa00",
+          "words": 74281,
+          "source": "ru.wikisource.org: Эмигранты (Толстой)"
+        }
+      ]
+    },
+    "turgenev": {
+      "death_year": 1883,
+      "n_books": 11,
+      "books": [
+        {
+          "book": "бирюк",
+          "sha256": "a85195dfabe0bd8fada4335e7ce32cc20d313b5649f20bf47b802e8a97771fdf",
+          "words": 2073,
+          "source": "ru.wikisource.org: Бирюк (Тургенев)"
+        },
+        {
+          "book": "вешние_воды",
+          "sha256": "88b85b735b92b8d38e21b330cbd22a5e67b5dc606674726d5ab79db5c3a68c17",
+          "words": 79635,
+          "source": "ru.wikisource.org: Вешние воды (Тургенев)"
+        },
+        {
+          "book": "дворянское_гнездо",
+          "sha256": "35e97f319416378622375c082e9dd98066533ed10caad755a06e11dfe1fbaec3",
+          "words": 48985,
+          "source": "ru.wikisource.org: Дворянское гнездо (Тургенев)"
+        },
+        {
+          "book": "записки_охотника",
+          "sha256": "1f6f80cea759b55386e0b71847d128ffe8aa5684b66e5a3e9875f792cd567d53",
+          "words": 100268,
+          "source": "ru.wikisource.org: Записки охотника (Тургенев)"
+        },
+        {
+          "book": "муму",
+          "sha256": "547d3a86d7d893f79160c64bbe186565c55084b3a8d9eaab86f3d1eba88b2955",
+          "words": 8434,
+          "source": "ru.wikisource.org: Муму (Тургенев)"
+        },
+        {
+          "book": "накануне",
+          "sha256": "df5b81a6897a5b900135968a724dd8c98d0d98285a0a7d3da471696b19798446",
+          "words": 43626,
+          "source": "ru.wikisource.org: Накануне (Тургенев)"
+        },
+        {
+          "book": "отцы_и_дети",
+          "sha256": "70c7041acbb4cfc9958cf7fd3e21ff71500acebccd3a94ef9afe8c0583b29335",
+          "words": 54091,
+          "source": "ru.wikisource.org: Отцы и дети (Тургенев)"
+        },
+        {
+          "book": "певцы",
+          "sha256": "cd245a40f4a20266110c7052b5daaae28c9fcc286c33edddb0c19aa0c5efac19",
+          "words": 5199,
+          "source": "ru.wikisource.org: Певцы (Тургенев)"
+        },
+        {
+          "book": "первая_любовь",
+          "sha256": "3571ff9f6282368c58529fcbfa7a7ab2dd8d7a66471b50f994babe068370f9b0",
+          "words": 19683,
+          "source": "ru.wikisource.org: Первая любовь (Тургенев)"
+        },
+        {
+          "book": "рудин",
+          "sha256": "ae89edd1884980fb24497ab71a163e53de98c001d245677f642f766a859af205",
+          "words": 35417,
+          "source": "ru.wikisource.org: Рудин (Тургенев)"
+        },
+        {
+          "book": "хорь_и_калиныч",
+          "sha256": "3b03c6686ea36886e95a75d0121493ff29c598219f23ee537a56c2ac55a9a0e2",
+          "words": 3602,
+          "source": "ru.wikisource.org: Хорь и Калиныч (Тургенев)"
+        }
+      ]
+    },
+    "uspensky": {
+      "death_year": 1902,
+      "n_books": 5,
+      "books": [
+        {
+          "book": "бог_грехам_терпит",
+          "sha256": "7ecfa36d25175adb3350e8e59ca783708c77986839daa2dac9a80d845aa291ea",
+          "words": 35758,
+          "source": "ru.wikisource.org: Бог грехам терпит (Успенский)"
+        },
+        {
+          "book": "будка",
+          "sha256": "604aa69fe016f83505caae0aeb6a06d7826f56461388e668b794a7e1cc919225",
+          "words": 7446,
+          "source": "ru.wikisource.org: Будка (Успенский)"
+        },
+        {
+          "book": "власть_земли",
+          "sha256": "1160e7752697123f059e3979cef93ac007418c9923b36cfebf297e65d7c7e220",
+          "words": 35516,
+          "source": "ru.wikisource.org: Власть земли (Успенский)"
+        },
+        {
+          "book": "нравы_растеряевой_улицы",
+          "sha256": "4e473f58d8ac3c77d3ffaa2e4335f1921ef3af200f304f4d62c3e73c9698dbec",
+          "words": 45995,
+          "source": "ru.wikisource.org: Нравы Растеряевой улицы (Успенский)"
+        },
+        {
+          "book": "разоренье",
+          "sha256": "4c694337778b5df3bc74395ce5bdb45acf85a2bd59779dcfe01674b9782f13bc",
+          "words": 96471,
+          "source": "ru.wikisource.org: Разоренье (Успенский)"
+        }
+      ]
+    }
+  },
+  "dropped": {
+    "no_source": [
+      "andreev/иуда_искариот",
+      "bunin/gospodin_iz_san_francisco",
+      "bunin/mitina_lubov",
+      "bunin/na_dache",
+      "bunin/noviy_god",
+      "bunin/okayannie_dni",
+      "bunin/pustinya_diavola",
+      "bunin/ten_ptici",
+      "bunin/zhizn_arseneva",
+      "chehov/анна_на_шее",
+      "chehov/дама_с_собачкой",
+      "chehov/дом_с_мезонином",
+      "chehov/душечка",
+      "chehov/ионыч",
+      "chehov/крыжовник",
+      "chehov/скрипка_ротшильда",
+      "chehov/человек_в_футляре",
+      "chehov/чёрный_монах",
+      "dostoevsky/белые_ночи",
+      "dostoevsky/сон_смешного_человека",
+      "gogol/вий",
+      "gogol/коляска",
+      "gogol/невский_проспект",
+      "gogol/портрет",
+      "tolstoy/дьявол",
+      "tolstoy/крейцерова_соната",
+      "tolstoy/отец_сергий",
+      "tolstoy/смерть_ивана_ильича",
+      "turgenev/ася"
+    ],
+    "too_few_books": [
+      "goncharov/обыкновенная_история",
+      "grigorovich/деревня",
+      "reshetnikov/подлиповцы",
+      "voloshin/путями_каина"
+    ],
+    "excluded": [
+      "ilf-petrov"
+    ]
+  }
+}

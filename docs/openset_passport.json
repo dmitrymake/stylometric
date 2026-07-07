@@ -1,0 +1,36 @@
+{
+  "method": "open-set p(M_out|data) через типичность постериора + author-holdout; проверка калибровки: raw vs held-out isotonic (Boenninghoff covariate-shift)",
+  "outsider_authors": [
+    "bunin",
+    "kumov",
+    "mamleev",
+    "prokhanov",
+    "radov",
+    "victor_erofeev"
+  ],
+  "n_inset_test_books": 41,
+  "n_outsider_books": 31,
+  "outsider_detection_auc": {
+    "max_prob": 0.948,
+    "top2_mass": 0.947,
+    "margin": 0.874,
+    "neg_entropy": 0.946
+  },
+  "median_max_prob": {
+    "inset": 0.347,
+    "outsider": 0.093
+  },
+  "p_Mout": {
+    "median_inset": 0.232,
+    "median_outsider": 0.909,
+    "frac_inset_flagged_p_out_ge0.5": 0.171,
+    "frac_outsider_flagged_p_out_ge0.5": 0.903
+  },
+  "calibration_audit": {
+    "raw_ECE": 0.377,
+    "isotonic_heldout_ECE": 0.1191,
+    "delta": 0.2579,
+    "diagnosis": "isotonic режет ECE 0.377->0.119 (СУЩЕСТВЕННО: uncalibrated bow_lr выигрывает ~3x); остаток 0.119 = covariate/topic-shift floor (Boenninghoff UAL, isotonic не чинит); stylo уже имеет внутренний CalibratedClassifierCV -> прирост там меньше. => H(A|F) из СЫРЫХ постериоров смещён; на калиброванных будет tight"
+  },
+  "headline": "open-set outsider-детекция РАБОТАЕТ (AUC~0.95): 'текст вне набора авторов?' отвечаем хорошо (outsider p(M_out)~0.9). Позитивная capability, ОРТОГОНАЛЬНАЯ disguise-полу (in-set-но-неразличимый -> детекция рушится). Честное различие: outsider ловим, замаскированного in-set - нет."
+}

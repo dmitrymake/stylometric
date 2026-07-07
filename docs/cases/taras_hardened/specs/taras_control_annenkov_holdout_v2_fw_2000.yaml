@@ -1,0 +1,35 @@
+case_id: taras_control_annenkov_holdout_v2_fw_2000
+title: "Control v2: held-out Annenkov work (suspects v2)"
+hypothesis: "Control: a held-out Annenkov work must attribute to Annenkov."
+target_description: "Путевые записки (Annenkov, held out)"
+claim: "Контроль против атаки «метод всегда говорит Гоголь»."
+limitations:
+  - "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  annenkov_1840s:
+    path: ../../../../input_cases/taras_bulba/cand_annenkov_1840s
+    exclude:
+      - ../../../../input_cases/taras_bulba/cand_annenkov_1840s/путевые_записки__0060.txt
+  turgenev: ../../../../input_clean/turgenev
+  dostoevsky: ../../../../input_clean/dostoevsky
+target: ../../../../input_cases/taras_bulba/cand_annenkov_1840s/путевые_записки__0060.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_annenkov_holdout_v2_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json"
+notes: "Контрольная батарея v2 1/4."

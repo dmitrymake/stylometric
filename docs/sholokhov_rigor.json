@@ -1,0 +1,147 @@
+{
+  "budget": 240,
+  "basis": "fit на контролях+кандидатах БЕЗ Шолохова",
+  "testB2": {
+    "n_stay": 10,
+    "n": 12,
+    "books": [
+      {
+        "book": "aleshkino_serdce",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 3.022,
+        "d_krukov": 3.595
+      },
+      {
+        "book": "batraki",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 1.694,
+        "d_krukov": 2.948
+      },
+      {
+        "book": "chuzhaya_krov",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 2.287,
+        "d_krukov": 3.235
+      },
+      {
+        "book": "nauka_nenavisti",
+        "nearest": "bulgakov",
+        "stays": false,
+        "d_rest": 3.591,
+        "d_krukov": 3.626
+      },
+      {
+        "book": "oni_srazhalis",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 2.004,
+        "d_krukov": 2.686
+      },
+      {
+        "book": "podnyataya_celina_2",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 2.318,
+        "d_krukov": 2.839
+      },
+      {
+        "book": "sudba_cheloveka",
+        "nearest": "krukov",
+        "stays": false,
+        "d_rest": 3.678,
+        "d_krukov": 3.544
+      },
+      {
+        "book": "tihiy_don_1",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 2.162,
+        "d_krukov": 3.465
+      },
+      {
+        "book": "tihiy_don_2",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 1.618,
+        "d_krukov": 3.064
+      },
+      {
+        "book": "tihiy_don_3",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 1.004,
+        "d_krukov": 2.854
+      },
+      {
+        "book": "tihiy_don_4",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 1.007,
+        "d_krukov": 2.823
+      },
+      {
+        "book": "podnyataya_celina_1",
+        "nearest": "sholohov_rest",
+        "stays": true,
+        "d_rest": 1.672,
+        "d_krukov": 3.097
+      }
+    ]
+  },
+  "testB1": {
+    "sholohov": 4.962,
+    "ci_books": [
+      4.715,
+      5.16
+    ],
+    "control_mean": 5.868,
+    "control_t_interval": [
+      5.338,
+      6.397
+    ],
+    "n_controls": 7
+  },
+  "power": {
+    "curve": [
+      {
+        "k": 0,
+        "disp": 4.974,
+        "z": -4.41
+      },
+      {
+        "k": 5,
+        "disp": 5.065,
+        "z": -3.96
+      },
+      {
+        "k": 10,
+        "disp": 5.182,
+        "z": -3.39
+      },
+      {
+        "k": 20,
+        "disp": 5.212,
+        "z": -3.24
+      },
+      {
+        "k": 30,
+        "disp": 5.455,
+        "z": -2.04
+      },
+      {
+        "k": 40,
+        "disp": 5.621,
+        "z": -1.21
+      },
+      {
+        "k": 50,
+        "disp": 5.699,
+        "z": -0.83
+      }
+    ],
+    "min_detectable_k_pct": 0
+  }
+}

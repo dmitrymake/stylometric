@@ -1,0 +1,21 @@
+{
+  "dataset": "Proza.ru hard (Hieuman/proza_ru_hard); 50 авторов, PER=14 (урезано для CPU), 50/50, seed=42",
+  "protocol": "LinearSVC поверх L2-norm эмбеддингов; char-SVM = char_wb(2-5)+TFIDF; MAXLEN=128; char-SVM ПЕРЕсчитан на ТОМ ЖЕ срезе",
+  "n_texts": 700,
+  "comparison_top1_macroF1": {
+    "char-SVM (≈stylo)": [
+      0.751,
+      0.741
+    ],
+    "multilingual-style-rep (XLM-R-L, AA)": [
+      0.54,
+      0.519
+    ],
+    "Hieuman/erlas (AA-rep)": null,
+    "char ⊕ multilingual-style-rep (XLM-R-L, AA)": [
+      0.697,
+      0.683
+    ]
+  },
+  "note": "Сильные готовые многоязычные AA/style-эмбеддеры (XLM-R-L, контрастивные) vs char-stylo на русском. PER урезан — числа чуть шумнее полного (PER=60) среза, где char-SVM=0.881; смотреть на РАЗРЫВ, не на абсолют."
+}

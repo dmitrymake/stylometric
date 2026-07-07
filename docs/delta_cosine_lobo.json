@@ -1,0 +1,154 @@
+{
+  "method": "Delta в headline-протоколе (leak-free per-book LOBO, те же исключения, что headline): контроль delta:150; Cosine Delta (тот же MFW-z, угол вместо Manhattan) 150/300/500; книжный Delta (книга = один образец, Manhattan) 150/300/500/1000. Значимость против stylo — McNemar по книгам (антиконсервативная граница) и author-clustered bootstrap разницы accuracy (ресэмпл авторов).",
+  "control_delta150_expected_from_final_csv": 0.47410358565737054,
+  "mechanism_mfw_tail_sparsity_in_chunks": {
+    "mfw_1_150": {
+      "median_share_of_band_present_in_chunk": 0.38666666666666666,
+      "mean_share": 0.3853666867590918
+    },
+    "mfw_151_300": {
+      "median_share_of_band_present_in_chunk": 0.12,
+      "mean_share": 0.12209965842877238
+    },
+    "mfw_301_500": {
+      "median_share_of_band_present_in_chunk": 0.065,
+      "mean_share": 0.06817876517695685
+    }
+  },
+  "chunk_level": {
+    "delta:150": {
+      "accuracy": 0.47410358565737054,
+      "acc_ci95_books": [
+        0.41832669322709165,
+        0.5298804780876494
+      ],
+      "macro_f1": 0.42210171028884474,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 1.3982559545042434e-28,
+        "dacc_stylo_minus_this": 0.40637450199203184,
+        "dacc_authorclustered_ci95": [
+          0.306360043696183,
+          0.5077682235684972
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    },
+    "delta_cos:150": {
+      "accuracy": 0.7131474103585658,
+      "acc_ci95_books": [
+        0.6613545816733067,
+        0.7649402390438247
+      ],
+      "macro_f1": 0.6803097142465894,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 7.455210310203242e-09,
+        "dacc_stylo_minus_this": 0.16733067729083662,
+        "dacc_authorclustered_ci95": [
+          0.09651371583685987,
+          0.23638339920948612
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    },
+    "delta_cos:300": {
+      "accuracy": 0.7768924302788844,
+      "acc_ci95_books": [
+        0.72898406374502,
+        0.8286852589641435
+      ],
+      "macro_f1": 0.718621586058657,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 6.87711149112147e-05,
+        "dacc_stylo_minus_this": 0.10358565737051795,
+        "dacc_authorclustered_ci95": [
+          0.03979803364131727,
+          0.16784783317041388
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    },
+    "delta_cos:500": {
+      "accuracy": 0.7888446215139442,
+      "acc_ci95_books": [
+        0.7410358565737052,
+        0.8366533864541833
+      ],
+      "macro_f1": 0.7221563865412589,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 0.0006061066312668117,
+        "dacc_stylo_minus_this": 0.0916334661354582,
+        "dacc_authorclustered_ci95": [
+          0.017165547852243144,
+          0.16728624535315983
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    }
+  },
+  "book_level": {
+    "delta_book:150": {
+      "accuracy": 0.7250996015936255,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 8.654978955746628e-10,
+        "dacc_stylo_minus_this": 0.15537848605577687,
+        "dacc_authorclustered_ci95": [
+          0.08188263075400108,
+          0.22349873577749677
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    },
+    "delta_book:300": {
+      "accuracy": 0.7609561752988048,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 2.8288777684792876e-06,
+        "dacc_stylo_minus_this": 0.11952191235059761,
+        "dacc_authorclustered_ci95": [
+          0.06128526645768023,
+          0.18046473650188818
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    },
+    "delta_book:500": {
+      "accuracy": 0.749003984063745,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 1.0258372640237212e-07,
+        "dacc_stylo_minus_this": 0.13147410358565736,
+        "dacc_authorclustered_ci95": [
+          0.07238908275174484,
+          0.19141432683270676
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    },
+    "delta_book:1000": {
+      "accuracy": 0.7370517928286853,
+      "n_books": 251,
+      "vs_stylo": {
+        "n_common_books": 251,
+        "mcnemar_p": 1.7051434042514302e-08,
+        "dacc_stylo_minus_this": 0.14342629482071712,
+        "dacc_authorclustered_ci95": [
+          0.08330992509363301,
+          0.19931271477663226
+        ],
+        "dacc_authorclustered_significant": true
+      }
+    }
+  }
+}

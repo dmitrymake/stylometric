@@ -1,0 +1,81 @@
+{
+  "method": "leave-disputed-out: оба романа вне обучения, переатрибуция; нециркулярно",
+  "host": "ilf-petrov",
+  "suspects": [
+    "ilf-petrov",
+    "bulgakov",
+    "kataev",
+    "olesha"
+  ],
+  "novels": {
+    "двенадцать_стульев": {
+      "n_chunks": 208,
+      "openset_host_share": 0.63,
+      "openset_top5": [
+        [
+          "ilf-petrov",
+          0.63
+        ],
+        [
+          "kataev",
+          0.188
+        ],
+        [
+          "tolstoy_an",
+          0.163
+        ],
+        [
+          "bulgakov",
+          0.014
+        ],
+        [
+          "bunin",
+          0.005
+        ]
+      ],
+      "restricted_suspects_share": {
+        "ilf-petrov": 0.688,
+        "bulgakov": 0.111,
+        "kataev": 0.202,
+        "olesha": 0.0
+      },
+      "restricted_winner": "ilf-petrov"
+    },
+    "золотой_телёнок": {
+      "n_chunks": 229,
+      "openset_host_share": 0.934,
+      "openset_top5": [
+        [
+          "ilf-petrov",
+          0.934
+        ],
+        [
+          "tolstoy_an",
+          0.026
+        ],
+        [
+          "kataev",
+          0.017
+        ],
+        [
+          "kuprin",
+          0.013
+        ],
+        [
+          "korolenko",
+          0.009
+        ]
+      ],
+      "restricted_suspects_share": {
+        "ilf-petrov": 0.969,
+        "bulgakov": 0.004,
+        "kataev": 0.026,
+        "olesha": 0.0
+      },
+      "restricted_winner": "ilf-petrov"
+    }
+  },
+  "both_to_ilfpetrov_restricted": true,
+  "verdict": "Оба романа атрибутированы ДУЭТУ Ильф-Петров (нециркулярно, среди подозреваемых) → конспирология об авторстве Булгакова/др. НЕ ПОДДЕРЖАНА",
+  "note": "open-set может уводить к регистр-соседям (как ТД→А.Н.Толстой); решающее — restricted среди реальных подозреваемых + консистентность двух романов"
+}

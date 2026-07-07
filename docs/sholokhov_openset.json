@@ -1,0 +1,106 @@
+{
+  "method": "open-set (full 48-way + инъекция не-кандидата) + блочная permutation; LOBO-режим",
+  "openset_td_full_argmax": [
+    {
+      "vol": "tihiy_don_1",
+      "sholokhov_share_open": 0.054,
+      "top": [
+        [
+          "tolstoy_an",
+          0.767
+        ],
+        [
+          "krukov",
+          0.07
+        ],
+        [
+          "bulgakov",
+          0.062
+        ],
+        [
+          "sholohov",
+          0.054
+        ]
+      ]
+    },
+    {
+      "vol": "tihiy_don_2",
+      "sholokhov_share_open": 0.295,
+      "top": [
+        [
+          "tolstoy_an",
+          0.492
+        ],
+        [
+          "sholohov",
+          0.295
+        ],
+        [
+          "krukov",
+          0.116
+        ],
+        [
+          "novikov_priboy",
+          0.031
+        ]
+      ]
+    },
+    {
+      "vol": "tihiy_don_3",
+      "sholokhov_share_open": 0.638,
+      "top": [
+        [
+          "sholohov",
+          0.638
+        ],
+        [
+          "tolstoy_an",
+          0.221
+        ],
+        [
+          "krukov",
+          0.059
+        ],
+        [
+          "prokhanov",
+          0.028
+        ]
+      ]
+    },
+    {
+      "vol": "tihiy_don_4",
+      "sholokhov_share_open": 0.948,
+      "top": [
+        [
+          "sholohov",
+          0.948
+        ],
+        [
+          "tolstoy_an",
+          0.023
+        ],
+        [
+          "krukov",
+          0.017
+        ],
+        [
+          "serafimovich",
+          0.006
+        ]
+      ]
+    }
+  ],
+  "openset_injection": {
+    "outsider": "platonov",
+    "open_to_self": 1.0,
+    "open_to_sholokhov": 0.0,
+    "restrict3_share_to_sholokhov": 0.011
+  },
+  "td1_block_permutation": {
+    "td1_ff": 0.455,
+    "null_ff": 0.0,
+    "block_perm_p": 0.0006,
+    "win": 5,
+    "note": "moving-block снимает автокорреляцию сглаженных чанков; p честнее точечного 0.0001"
+  }
+}

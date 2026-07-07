@@ -1,0 +1,291 @@
+{
+  "protocol": "StratifiedGroupKFold(5) book-level, leak-free; corpus capped 35 chunks/book (как run_benchmark)",
+  "n_authors": 43,
+  "n_books": 251,
+  "n_chunks": 6790,
+  "per_author_recall": [
+    {
+      "id": "kataev",
+      "recall": 0.0,
+      "books": 2
+    },
+    {
+      "id": "olesha",
+      "recall": 0.0,
+      "books": 2
+    },
+    {
+      "id": "zoshenko",
+      "recall": 0.0,
+      "books": 3
+    },
+    {
+      "id": "prutkov",
+      "recall": 0.25,
+      "books": 4
+    },
+    {
+      "id": "volcheck",
+      "recall": 0.5,
+      "books": 4
+    },
+    {
+      "id": "kumov",
+      "recall": 0.6,
+      "books": 5
+    },
+    {
+      "id": "pilnyak",
+      "recall": 0.6,
+      "books": 5
+    },
+    {
+      "id": "gumilev",
+      "recall": 0.67,
+      "books": 9
+    },
+    {
+      "id": "leskov",
+      "recall": 0.67,
+      "books": 6
+    },
+    {
+      "id": "elizarov",
+      "recall": 0.75,
+      "books": 4
+    },
+    {
+      "id": "nabokov",
+      "recall": 0.75,
+      "books": 4
+    },
+    {
+      "id": "sevsky",
+      "recall": 0.8,
+      "books": 5
+    },
+    {
+      "id": "furmanov",
+      "recall": 0.83,
+      "books": 6
+    },
+    {
+      "id": "gorky",
+      "recall": 0.83,
+      "books": 6
+    },
+    {
+      "id": "serafimovich",
+      "recall": 0.89,
+      "books": 9
+    },
+    {
+      "id": "tolstoy",
+      "recall": 0.89,
+      "books": 9
+    },
+    {
+      "id": "akunun",
+      "recall": 1.0,
+      "books": 5
+    },
+    {
+      "id": "andreev",
+      "recall": 1.0,
+      "books": 5
+    },
+    {
+      "id": "babel",
+      "recall": 1.0,
+      "books": 4
+    },
+    {
+      "id": "bulgakov",
+      "recall": 1.0,
+      "books": 5
+    },
+    {
+      "id": "bunin",
+      "recall": 1.0,
+      "books": 10
+    },
+    {
+      "id": "chehov",
+      "recall": 1.0,
+      "books": 13
+    },
+    {
+      "id": "dostoevsky",
+      "recall": 1.0,
+      "books": 9
+    },
+    {
+      "id": "garshin",
+      "recall": 1.0,
+      "books": 10
+    },
+    {
+      "id": "gazdanov",
+      "recall": 1.0,
+      "books": 3
+    },
+    {
+      "id": "gogol",
+      "recall": 1.0,
+      "books": 10
+    },
+    {
+      "id": "grin",
+      "recall": 1.0,
+      "books": 6
+    },
+    {
+      "id": "korolenko",
+      "recall": 1.0,
+      "books": 7
+    },
+    {
+      "id": "krukov",
+      "recall": 1.0,
+      "books": 7
+    },
+    {
+      "id": "kuprin",
+      "recall": 1.0,
+      "books": 5
+    },
+    {
+      "id": "mamleev",
+      "recall": 1.0,
+      "books": 3
+    },
+    {
+      "id": "novikov_priboy",
+      "recall": 1.0,
+      "books": 6
+    },
+    {
+      "id": "platonov",
+      "recall": 1.0,
+      "books": 4
+    },
+    {
+      "id": "prokhanov",
+      "recall": 1.0,
+      "books": 3
+    },
+    {
+      "id": "pushkin",
+      "recall": 1.0,
+      "books": 6
+    },
+    {
+      "id": "radov",
+      "recall": 1.0,
+      "books": 4
+    },
+    {
+      "id": "saltykov",
+      "recall": 1.0,
+      "books": 7
+    },
+    {
+      "id": "sasha_sokolov",
+      "recall": 1.0,
+      "books": 4
+    },
+    {
+      "id": "sorokin",
+      "recall": 1.0,
+      "books": 5
+    },
+    {
+      "id": "tolstoy_an",
+      "recall": 1.0,
+      "books": 6
+    },
+    {
+      "id": "turgenev",
+      "recall": 1.0,
+      "books": 12
+    },
+    {
+      "id": "uspensky",
+      "recall": 1.0,
+      "books": 5
+    },
+    {
+      "id": "victor_erofeev",
+      "recall": 1.0,
+      "books": 4
+    }
+  ],
+  "top_confusions": [
+    {
+      "true": "gumilev",
+      "pred": "grin",
+      "n": 2
+    },
+    {
+      "true": "olesha",
+      "pred": "volcheck",
+      "n": 2
+    },
+    {
+      "true": "pilnyak",
+      "pred": "tolstoy_an",
+      "n": 2
+    },
+    {
+      "true": "elizarov",
+      "pred": "victor_erofeev",
+      "n": 1
+    },
+    {
+      "true": "leskov",
+      "pred": "turgenev",
+      "n": 1
+    },
+    {
+      "true": "nabokov",
+      "pred": "krukov",
+      "n": 1
+    },
+    {
+      "true": "serafimovich",
+      "pred": "victor_erofeev",
+      "n": 1
+    },
+    {
+      "true": "kataev",
+      "pred": "tolstoy_an",
+      "n": 1
+    },
+    {
+      "true": "kumov",
+      "pred": "andreev",
+      "n": 1
+    },
+    {
+      "true": "kumov",
+      "pred": "kuprin",
+      "n": 1
+    },
+    {
+      "true": "prutkov",
+      "pred": "pushkin",
+      "n": 1
+    },
+    {
+      "true": "prutkov",
+      "pred": "gogol",
+      "n": 1
+    }
+  ],
+  "headline": {
+    "accuracy": 0.888,
+    "macro_f1": 0.828,
+    "top2": 0.912,
+    "ece": 0.297
+  }
+}

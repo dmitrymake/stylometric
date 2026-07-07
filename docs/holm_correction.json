@@ -1,0 +1,316 @@
+{
+  "chekhonte_bilibin_hardening": {
+    "source_file": "docs/cases/chekhonte_bilibin_hardening.json",
+    "family": [
+      {
+        "label": "pooled фельетон, панель alloskolki, fw_only (leak-free): p_cos",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.alloskolki_fw_only.p_cos",
+        "p_raw": 0.0161,
+        "p_holm": 0.0524,
+        "survives_005": false
+      },
+      {
+        "label": "pooled фельетон, панель alloskolki, fw_only (leak-free): p_margin",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.alloskolki_fw_only.p_margin",
+        "p_raw": 0.0031,
+        "p_holm": 0.0155,
+        "survives_005": true
+      },
+      {
+        "label": "pooled фельетон, панель alloskolki, fw_only (leak-free): p_distinctiveness",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.alloskolki_fw_only.p_distinctiveness",
+        "p_raw": 0.0151,
+        "p_holm": 0.0524,
+        "survives_005": false
+      },
+      {
+        "label": "pooled фельетон, панель oskolki, fw_only (leak-free): p_cos",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.oskolki_fw_only.p_cos",
+        "p_raw": 0.0006,
+        "p_holm": 0.0036,
+        "survives_005": true
+      },
+      {
+        "label": "pooled фельетон, панель oskolki, fw_only (leak-free): p_margin",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.oskolki_fw_only.p_margin",
+        "p_raw": 0.0198,
+        "p_holm": 0.0524,
+        "survives_005": false
+      },
+      {
+        "label": "pooled фельетон, панель oskolki, fw_only (leak-free): p_distinctiveness",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.oskolki_fw_only.p_distinctiveness",
+        "p_raw": 0.0131,
+        "p_holm": 0.0524,
+        "survives_005": false
+      }
+    ],
+    "controls_excluded": [
+      {
+        "label": "секция 24 мая, alloskolki fw_only: p_cos — пер-секционная разбивка",
+        "path": "step2_work_label_permutation.target_section_24may_536w.alloskolki_fw_only.p_cos",
+        "p_raw": 0.0092
+      },
+      {
+        "label": "pooled фельетон, alloskolki fw_char3: p_cos — словарь учится на всех данных, диагностика",
+        "path": "step2_work_label_permutation.target_pooled_feuilleton.alloskolki_fw_char3.p_cos",
+        "p_raw": 0.0008
+      }
+    ],
+    "verdict_note": "Влияет частично, вердикт кейса не меняется. Семья — шесть перестановочных p на leak-free признаке (служебные слова) для цельного фельетона на двух панелях; пер-секционные прогоны дат и признак fw_char3 (словарь учится на всех данных, включая цель) — диагностика, в семью не входят. Порог 0.05 после поправки выдерживают 2 из 6 значений: p_cos на панели «Осколков» (0.0036) и p_margin на панели alloskolki (0.0155); остальные четыре получают 0.0524 — чуть выше порога. На каждой панели хотя бы одна статистика остаётся значимой, победитель всюду Билибин, поэтому вердикт «частично» (Билибин — самый похожий, текст составной, не доказанная атрибуция) стоит; слабый позитив-контроль по длине и так держит вывод осторожным."
+  },
+  "chekhonte_brother_confound": {
+    "source_file": "docs/cases/chekhonte_brother_confound.json",
+    "family": [
+      {
+        "label": "различимость братьев: перестановочный тест полного LOO (balanced accuracy)",
+        "path": "positive_control.permutation_null.p_value",
+        "p_raw": 0.0225,
+        "p_holm": 0.0225,
+        "survives_005": true
+      },
+      {
+        "label": "различимость братьев при выровненной длине (окна 500 слов): перестановочный тест",
+        "path": "positive_control.length_matched_retest.brothers.permutation_p",
+        "p_raw": 0.0107,
+        "p_holm": 0.0214,
+        "survives_005": true
+      }
+    ],
+    "controls_excluded": [
+      {
+        "label": "length-only baseline (только длина текста) — конфаунд-контроль, не тест гипотезы",
+        "path": "positive_control.length_only_baseline.permutation_p",
+        "p_raw": 0.0145
+      },
+      {
+        "label": "within-author регистровый контроль (длинный/короткий Антон) — конфаунд-контроль",
+        "path": "positive_control.length_matched_retest.within_author_register_control.permutation_p",
+        "p_raw": 0.0753
+      }
+    ],
+    "verdict_note": "Не влияет. Первичные — два совместных теста одной гипотезы «братья различимы»: полный LOO (0.0225) и length-matched ре-тест (0.0107); оба после поправки остаются ниже 0.05 (0.0225 и 0.0214). Контрольные p — length-only baseline (0.0145) и within-author регистровый контроль (0.0753) — проверяют конфаунды длины и регистра, а не гипотезу авторства, и в семью не входят. Вердикт «непроверяемо/неубедительно» стоит не на значимости, а на регистровом контроле, который воспроизводит большую часть сигнала внутри одного автора — поправка этого не касается."
+  },
+  "sovremennik": {
+    "source_file": "docs/cases/sovremennik.json",
+    "family": [
+      {
+        "label": "ось школ (радикалы против эстетиков), служебные слова: перестановка ярлыков работ",
+        "path": "axis_school_radical_vs_aesthete.fw.perm_p",
+        "p_raw": 0.0005,
+        "p_holm": 0.002,
+        "survives_005": true
+      },
+      {
+        "label": "ось школ (радикалы против эстетиков), char-3gram: перестановка ярлыков работ",
+        "path": "axis_school_radical_vs_aesthete.c3.perm_p",
+        "p_raw": 0.0005,
+        "p_holm": 0.002,
+        "survives_005": true
+      },
+      {
+        "label": "пара Чернышевский-Добролюбов, служебные слова: перестановка ярлыков работ",
+        "path": "axis_pair_chernyshevsky_vs_dobrolyubov.fw.perm_p",
+        "p_raw": 0.0714,
+        "p_holm": 0.1428,
+        "survives_005": false
+      },
+      {
+        "label": "пара Чернышевский-Добролюбов, char-3gram: перестановка ярлыков работ",
+        "path": "axis_pair_chernyshevsky_vs_dobrolyubov.c3.perm_p",
+        "p_raw": 0.1667,
+        "p_holm": 0.1667,
+        "survives_005": false
+      }
+    ],
+    "verdict_note": "Не влияет. Семья — четыре перестановочных p уровня работ (две оси на двух признаках), вердикт цитирует все четыре. После поправки ось школ значима на обоих признаках (0.002 и 0.002), пара учитель-ученик незначима (0.1428 и 0.1667) — тот же расклад, что и без поправки. Валидация на оси школ стоит, предел различимости на паре Чернышевский-Добролюбов остаётся."
+  },
+  "kolokol_herzen_ogaryov": {
+    "source_file": "docs/cases/kolokol_herzen_ogaryov.json",
+    "family": [
+      {
+        "label": "Герцен против Огарёва, служебные слова: перестановка ярлыков работ",
+        "path": "fw_only.work_level_permutation_p",
+        "p_raw": 0.0015,
+        "p_holm": 0.0015,
+        "survives_005": true
+      }
+    ],
+    "single_test": true,
+    "controls_excluded": [
+      {
+        "label": "fw_char3 перестановка — словарь учится на всех данных, диагностика, в решении не участвует",
+        "path": "fw_char3.work_level_permutation_p",
+        "p_raw": 0.0035
+      }
+    ],
+    "verdict_note": "Не влияет: первичный p один (0.0015, leak-free служебные слова), поправка не нужна. Перестановка на fw_char3 (0.0035) — диагностика с обучаемым словарём, вердикт на ней не стоит. Вердикт «панель разделяет» без изменений."
+  },
+  "dostoevsky_petersburg_chronicle": {
+    "source_file": "docs/cases/dostoevsky_petersburg_chronicle.json",
+    "family": [
+      {
+        "label": "позитив-контроль панели: перестановка ярлыков работ",
+        "path": "positive_control.work_level_permutation_p",
+        "p_raw": 0.0005,
+        "p_holm": 0.0005,
+        "survives_005": true
+      }
+    ],
+    "single_test": true,
+    "verdict_note": "Не влияет: первичный p один (0.0005), поправка не нужна. Вердикт (позитив-контроль выполним, фельетоны Ф.Д. уходят к публицистике Достоевского) без изменений."
+  },
+  "nekrasov_panaeva": {
+    "source_file": "docs/cases/nekrasov_panaeva.json",
+    "family": [
+      {
+        "label": "Некрасов против Панаевой, служебные слова: перестановка ярлыков работ",
+        "path": "fw_only.work_level_permutation_p",
+        "p_raw": 0.1364,
+        "p_holm": 0.1364,
+        "survives_005": false
+      },
+      {
+        "label": "Некрасов против Панаевой, char-3gram: перестановка ярлыков работ",
+        "path": "fw_char3.work_level_permutation_p",
+        "p_raw": 0.0303,
+        "p_holm": 0.0606,
+        "survives_005": false
+      }
+    ],
+    "verdict_note": "Влияет на второстепенное утверждение, главный вывод стоит. Вердикт двухчастный, и семья — оба перестановочных p: служебные слова руки НЕ делят (0.1364), содержательные char-3gram делят (0.0303). После поправки fw остаётся незначимым (0.1364), а char-3gram порог 0.05 не выдерживает (0.0606). Главный вывод — тема-нейтральный идиолект соавторов не отделим — не меняется. Утверждение «содержательный признак делит значимо» после поправки формальной значимости не имеет и читается как направление по доле опознаний работ (0.95), согласное с тематическим разделом труда."
+  },
+  "nekrasov_panaeva_chapters": {
+    "source_file": "docs/cases/nekrasov_panaeva_chapters.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: кейс — поглавная иллюстрация на согласии двух разметок (Cohen's kappa), перестановочных тестов не содержит. Поправка не применима."
+  },
+  "konek_gorbunok": {
+    "source_file": "docs/cases/konek_gorbunok.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: вердикт inconclusive стоит на косинусных запасах и негативном контроле (ложное притяжение «Сузге» к Пушкину), без перестановочных тестов. Поправка не применима."
+  },
+  "cherubina": {
+    "source_file": "docs/cases/cherubina.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: вердикт стоит на LOO-точности позитив-контроля (0.88) и косинусном запасе к Дмитриевой, без перестановочных тестов. Поправка не применима."
+  },
+  "prutkov_hands": {
+    "source_file": "docs/cases/prutkov_hands.json",
+    "family": [],
+    "single_test": true,
+    "no_primary_p": true,
+    "verdict_note": "Единственный перестановочный p (0.0055, запас Минаев минус Толстой) записан только в тексте key_findings, отдельного json-поля нет; поправка к одному тесту не нужна. Вердикт inconclusive стоит на бутстрап-интервале запаса, накрывающем ноль ([-0.0087, +0.0341]), и z=1.58 над полем — они перевешивают одиночный значимый p, и поправка этого не меняет. binomtest позитив-контроля (1.3e-76) — контроль различимости панели, не тест атрибуции."
+  },
+  "lenin_testament": {
+    "source_file": "docs/cases/lenin_testament.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: вердикт стоит на LOO-точности (0.89) и косинусных рангах кандидатов, без перестановочных тестов. Поправка не применима."
+  },
+  "taras_bulba": {
+    "source_file": "docs/cases/taras_bulba.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: вердикт refuted стоит на LOO-точности (0.76-0.79) и косинусных запасах к Гоголю, без перестановочных тестов. Поправка не применима."
+  },
+  "vyrubova": {
+    "source_file": "docs/cases/vyrubova.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: вердикт refuted стоит на LOO-точности (0.92) и рангах кандидатов по чанкам, без перестановочных тестов. Поправка не применима."
+  },
+  "veles_book": {
+    "source_file": "docs/cases/veles_book.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: стилометрическая часть — insufficient_data (текст вне признакового пространства современного русского), вердикт «подделка» держится на лингвистике и текстологии. Поправка не применима."
+  },
+  "m2_delta_baseline": {
+    "source_file": "docs/cases/m2_delta_baseline.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Собственных первичных p-значений нет: Delta-baseline даёт только macro-recall без перестановок; поля fw_cosine_gate.perm (0.1364 и 0.0714) — копии значений из кейсов nekrasov_panaeva и sovremennik, учтены в их семьях. Поправка не применима."
+  },
+  "chekhonte": {
+    "source_file": "docs/cases/chekhonte.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: кейс — валидация метода (LOO 0.92, held-out Чехов возвращается к себе), без перестановочных тестов. Поправка не применима."
+  },
+  "chekhonte_15_micro": {
+    "source_file": "docs/cases/chekhonte_15_micro.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: доли побед при пересборках (bootstrap_winner_share, p_bilibin/p_chehov) — устойчивость результата при случайных пересчётах, а не вероятности и не тесты гипотез. Поправка не применима."
+  },
+  "chekhonte_dubia": {
+    "source_file": "docs/cases/chekhonte_dubia.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: сводный кейс Dubia держится на косинусных рангах и бутстрап-долях побед, перестановочных тестов не содержит. Поправка не применима."
+  },
+  "chekhonte_dubia_alloskolki": {
+    "source_file": "docs/cases/chekhonte_dubia_alloskolki.json",
+    "family": [
+      {
+        "label": "гейт панели: перестановочный тест LOO-точности против случайной (fw_only)",
+        "path": "robustness_fw_only.gate_permutation.p_value",
+        "p_raw": 0.002,
+        "p_holm": 0.004,
+        "survives_005": true
+      },
+      {
+        "label": "все 27 Dubia: биномиальный тест «не меньше 4 из 5 длинных к Чехову» против базовой доли",
+        "path": "robustness_fw_only.all_27_attribution.binom_p_ge4of5_chehov",
+        "p_raw": 0.0662,
+        "p_holm": 0.0662,
+        "survives_005": false
+      }
+    ],
+    "verdict_note": "Не влияет. Семья — два теста, на которых стоит чтение кейса: гейт панели (LOO выше случайного, 0.002) и биномиальный тест перевеса Чехова среди длинных Dubia (0.0662). После поправки гейт значим (0.004), перевес Чехова незначим (0.0662) — тот же расклад, что и без поправки. Вердикт «спор набор не решает» без изменений."
+  },
+  "chekhonte_dubia_oskolki": {
+    "source_file": "docs/cases/chekhonte_dubia_oskolki.json",
+    "family": [],
+    "no_primary_p": true,
+    "verdict_note": "Первичных p-значений нет: кейс держится на LOO-точностях и косинусных запасах (same-edition сдвиг к Билибину), без перестановочных тестов. Поправка не применима."
+  },
+  "calibration_reference": {
+    "source_file": "docs/cases/calibration_reference.json",
+    "family": [
+      {
+        "label": "лёгкая пара Достоевский-Чернышевский: точная перестановка ярлыков работ",
+        "path": "pairs.easy_diff_author_register.work_level_permutation_p",
+        "p_raw": 0.0063,
+        "p_holm": 0.0094,
+        "survives_005": true
+      },
+      {
+        "label": "средняя пара Достоевский-Соллогуб: точная перестановка ярлыков работ",
+        "path": "pairs.medium_diff_author_same_era.work_level_permutation_p",
+        "p_raw": 0.0047,
+        "p_holm": 0.0094,
+        "survives_005": true
+      }
+    ],
+    "verdict_note": "Не влияет. Семья — два точных перестановочных p опорных пар шкалы (0.0063 и 0.0047); после поправки оба 0.0094, ниже 0.05. Обе опорные точки «уверенно различимого» стоят."
+  },
+  "nikolai_dynasty": {
+    "source_file": "docs/royal_register.json",
+    "family": [
+      {
+        "label": "панель династии: перестановочный тест кластера престольной линии (силуэт, n=2)",
+        "path": "perm_p",
+        "p_raw": 0.0278,
+        "p_holm": 0.0278,
+        "survives_005": true
+      }
+    ],
+    "single_test": true,
+    "verdict_note": "Не влияет: панель дневников династии публикует один перестановочный тест (p=0.0278, взаимная близость двух дневников престольной линии при силуэте 0.54), семья из одного значения — поправка не нужна. Это же значение показано на сайте (dynastyPanel.permP). docs/nikolai_crossreg.json содержит size-matched z-оценки без p-значений. 0.0278 — пол перестановочного теста для двух точек, и вердикт уже читает его как предел n=2, не как установление «царского регистра» классом."
+  }
+}

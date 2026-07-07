@@ -1,0 +1,44 @@
+{
+  "n_authors_total": 273,
+  "n_fragments": 2184,
+  "win_chars": 15000,
+  "features_buggy": 1064,
+  "features_fixed": 1067,
+  "by_K": {
+    "10": {
+      "buggy_random": 0.484,
+      "buggy_grouped": 0.466,
+      "fixed_random": 0.78,
+      "fixed_grouped": 0.7,
+      "leak_premium_pp": 8.0
+    },
+    "20": {
+      "buggy_random": 0.428,
+      "buggy_grouped": 0.378,
+      "fixed_random": 0.719,
+      "fixed_grouped": 0.614,
+      "leak_premium_pp": 10.5
+    },
+    "50": {
+      "buggy_random": 0.341,
+      "buggy_grouped": 0.28,
+      "fixed_random": 0.654,
+      "fixed_grouped": 0.561,
+      "leak_premium_pp": 9.3
+    },
+    "100": {
+      "buggy_random": 0.304,
+      "buggy_grouped": 0.259,
+      "fixed_random": 0.611,
+      "fixed_grouped": 0.505,
+      "leak_premium_pp": 10.6
+    },
+    "273": {
+      "buggy_random": 0.258,
+      "buggy_grouped": 0.205,
+      "fixed_random": 0.523,
+      "fixed_grouped": NaN,
+      "leak_premium_pp": NaN
+    }
+  }
+}

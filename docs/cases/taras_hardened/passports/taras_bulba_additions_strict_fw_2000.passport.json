@@ -1,0 +1,178 @@
+{
+  "case_id": "taras_bulba_additions_strict_fw_2000",
+  "title": "Taras Bulba 1842 strict additions: fw_fixed hardened random_2000",
+  "hypothesis": "Large 1842 additions to Taras Bulba were written by a non-Gogol editorial hand.",
+  "target_description": "strict additions",
+  "claim": "In this protocol, the large strict 1842 additions are stylistically closest to Gogol; the non-Gogol large-additions hypothesis is not supported.",
+  "limitations": [
+    "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+    "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.875, margin=0.022902).",
+  "confidence": "medium",
+  "evidence_score": 88.39,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8625,
+      "chunk_weighted_recall": 0.6319,
+      "work_recall": {
+        "dostoevsky": "9/10",
+        "gogol": "8/10",
+        "pushkin": "6/6",
+        "turgenev": "9/12"
+      },
+      "chunk_recall": {
+        "dostoevsky": "491/778",
+        "gogol": "101/144",
+        "pushkin": "33/51",
+        "turgenev": "148/270"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "dostoevsky": {
+          "dostoevsky": 491,
+          "gogol": 200,
+          "pushkin": 16,
+          "turgenev": 71
+        },
+        "gogol": {
+          "dostoevsky": 26,
+          "gogol": 101,
+          "pushkin": 11,
+          "turgenev": 6
+        },
+        "pushkin": {
+          "dostoevsky": 1,
+          "gogol": 3,
+          "pushkin": 33,
+          "turgenev": 14
+        },
+        "turgenev": {
+          "dostoevsky": 48,
+          "gogol": 49,
+          "pushkin": 25,
+          "turgenev": 148
+        }
+      },
+      "n_works": 38,
+      "n_chunks": 1243,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "pushkin",
+      "margin": 0.022902,
+      "margin_ci95": [
+        0.014007,
+        0.029963
+      ],
+      "winner_share": {
+        "gogol": 0.875,
+        "pushkin": 0.125
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.968105
+        },
+        {
+          "candidate": "pushkin",
+          "cos": 0.945203
+        },
+        {
+          "candidate": "turgenev",
+          "cos": 0.934503
+        },
+        {
+          "candidate": "dostoevsky",
+          "cos": 0.930844
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 14,
+        "pushkin": 2
+      },
+      "n_chunks": 16
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "pushkin",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/pushkin"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "turgenev",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "dostoevsky",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/dostoevsky"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt",
+    "sources": [
+      "Local Taras Bulba case data and cleaned benchmark anchors."
+    ],
+    "n_candidate_works": 38,
+    "n_candidate_chunks": 1243,
+    "works_per_author": {
+      "dostoevsky": 10,
+      "gogol": 10,
+      "pushkin": 6,
+      "turgenev": 12
+    },
+    "target_chunks": 16
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json"
+  },
+  "notes": "Tests large 1842 additions only; excludes contaminated full Taras from Gogol anchor."
+}

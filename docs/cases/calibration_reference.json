@@ -1,0 +1,89 @@
+{
+  "case": "calibration_reference",
+  "title": "Калибровочная шкала: как выглядит уверенно различимое",
+  "note": "Опорные точки для чтения кейсов каталога. Две РАЗНЫЕ метрики: work_macro_recall (один удержанный текст = один голос, большинство его кусков) — к ней применяется порог 0.80; chunk_weighted_recall (каждый кусок — голос) НЕ work-level (коррелированные куски = много голосов) и приводится как диагностика. Обучение — leave-one-WORK-out; перестановка ярлыков работ точным перечислением (малое число работ). Лёгкая пара (разные эпоха и регистр) — верхний полюс различимости; same-register пара — насколько различимы даже разные авторы одного жанра.",
+  "pairs": {
+    "easy_diff_author_register": {
+      "per_author_recall": {
+        "dostoevsky": "6/7",
+        "chernyshevsky": "5/5"
+      },
+      "macro_recall": 0.9286,
+      "chunk_weighted_recall": 0.82,
+      "chunk_recall": {
+        "dostoevsky": "285/375",
+        "chernyshevsky": "154/175"
+      },
+      "work_level_permutation_p": 0.0063,
+      "permutation_method": "exact_792",
+      "permutation_exact_floor": 0.00126,
+      "cross_author_centroid_cos": 0.9223,
+      "confusion": {
+        "dostoevsky": {
+          "dostoevsky": 285,
+          "chernyshevsky": 90
+        },
+        "chernyshevsky": {
+          "dostoevsky": 21,
+          "chernyshevsky": 154
+        }
+      },
+      "works": {
+        "dostoevsky": 7,
+        "chernyshevsky": 5
+      },
+      "label": "Достоевский (проза 1840-х) ↔ Чернышевский (критика 1850-х) — обе толстые, разные",
+      "status": "separates"
+    },
+    "medium_diff_author_same_era": {
+      "per_author_recall": {
+        "dostoevsky": "5/7",
+        "sollogub": "7/7"
+      },
+      "macro_recall": 0.8571,
+      "chunk_weighted_recall": 0.7694,
+      "chunk_recall": {
+        "dostoevsky": "265/375",
+        "sollogub": "109/131"
+      },
+      "work_level_permutation_p": 0.0047,
+      "permutation_method": "exact_3432",
+      "permutation_exact_floor": 0.00029,
+      "cross_author_centroid_cos": 0.961,
+      "confusion": {
+        "dostoevsky": {
+          "dostoevsky": 265,
+          "sollogub": 110
+        },
+        "sollogub": {
+          "dostoevsky": 22,
+          "sollogub": 109
+        }
+      },
+      "works": {
+        "dostoevsky": 7,
+        "sollogub": 7
+      },
+      "label": "Достоевский (проза 1840-х) ↔ Соллогуб (светская проза 1840-х) — один регистр/эпоха",
+      "status": "separates"
+    }
+  },
+  "scale_reading": "Уверенно различимые авторы. Лёгкая пара (разные эпоха/регистр): доля верных опознаний работ 0.9286 (work-level), перестановка p=0.0063 (exact_792), косинус центроидов 0.9223. Средняя пара (один регистр/эпоха, разные авторы): доля 0.8571, перестановка p=0.0047 (exact_3432), косинус 0.961. Косинусы служебных слов русской прозы вообще высоки, поэтому судить надо по доле опознаний работ и перестановке, а косинус читать относительно этой шкалы.",
+  "verdict": "Калибровка — опорные точки шкалы (уверенное разделение), а НЕ предел кейса. ЛЁГКАЯ пара (разные эпоха и регистр): верные опознания работ {'dostoevsky': '6/7', 'chernyshevsky': '5/5'}, в среднем 0.9286 (work-level, один текст = один голос); chunk-weighted (каждый кусок — голос: длинные работы весят больше, в этом кейсе ниже; диагностика) 0.82; перестановка ярлыков работ p=0.0063 (exact_792, точный пол 0.00126); косинус центроидов 0.9223. СРЕДНЯЯ пара (разные авторы, один регистр/эпоха): верные опознания работ {'dostoevsky': '5/7', 'sollogub': '7/7'}, в среднем 0.8571 (work-level, один текст = один голос); chunk-weighted (каждый кусок — голос: длинные работы весят больше, в этом кейсе ниже; диагностика) 0.7694; перестановка ярлыков работ p=0.0047 (exact_3432, точный пол 0.00029); косинус центроидов 0.961. Обе опорные пары разделяются на work-level выше порога 0.80 со значимой точной перестановкой. Это верхний полюс различимости: косинусы служебных слов русской прозы вообще высоки, поэтому кейсы каталога читаются по доле опознаний и перестановке относительно этих точек, а косинус — относительно этой шкалы.",
+  "data_status": "Все тексты — общественное достояние (Достоевский †1881, Чернышевский †1889, Соллогуб †1882). Чистый текст с az.lib.ru; корпуса переиспользованы из кейсов dostoevsky_petersburg_chronicle и sovremennik. Сырьё в gitignored input_cases/; в git — только скрипты добычи (scripts/fetch_petersburg_chronicle.py, scripts/fetch_sovremennik.py) и этот JSON.",
+  "sources": [
+    {
+      "cite": "Ф. М. Достоевский, ранняя проза 1846-1849 — input_cases/dostoevsky_petersburg_chronicle/cand_dostoevsky",
+      "url": "http://az.lib.ru/d/dostoewskij_f_m/"
+    },
+    {
+      "cite": "Н. Г. Чернышевский, литкритика 1850-х — input_cases/sovremennik/chernyshevsky",
+      "url": "http://az.lib.ru/c/chernyshewskij_n_g/"
+    },
+    {
+      "cite": "В. А. Соллогуб, светская проза 1840-х — input_cases/dostoevsky_petersburg_chronicle/cand_sollogub",
+      "url": "http://az.lib.ru/s/sollogub_w_a/"
+    }
+  ],
+  "analysis_command": "PYTHONPATH=src python3 scripts/run_calibration_pair.py"
+}

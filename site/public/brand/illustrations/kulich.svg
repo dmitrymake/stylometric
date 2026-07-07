@@ -1,0 +1,17 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Кулич"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<path d="M45 58 Q45 53 60 53 Q75 53 75 58 L73 92 Q60 96 47 92 Z" fill="#B98A2E" fill-opacity="0.6"></path>
+<path d="M48 70 Q60 67 72 70" stroke="#8E6A22" stroke-width="1.2" stroke-opacity="0.4" fill="none"></path>
+<path d="M45 57 Q45 49 60 49 Q75 49 75 57 Q70 64 60 61 Q65 68 55 63 Q59 69 50 63 Q46 60 45 57 Z" fill="#FDFCF8" fill-opacity="0.9"></path>
+<circle cx="54" cy="55" r="1.4" fill="#D43A2C" fill-opacity="0.85"></circle>
+<circle cx="62" cy="53" r="1.4" fill="#2B5FA8" fill-opacity="0.8"></circle>
+<circle cx="67" cy="57" r="1.4" fill="#4F8C56" fill-opacity="0.8"></circle>
+<circle cx="59" cy="58" r="1.4" fill="#D6A41E" fill-opacity="0.85"></circle>
+<path d="M45 58 Q45 53 60 53 Q75 53 75 58 L73 92 Q60 96 47 92 Z" fill="none" stroke="#8E6A22" stroke-width="1.2" stroke-opacity="0.5"></path></g><g filter="url(#grain)" opacity="0.5"><path d="M45 58 Q45 53 60 53 Q75 53 75 58 L73 92 Q60 96 47 92 Z" fill="#fff"></path></g></svg>

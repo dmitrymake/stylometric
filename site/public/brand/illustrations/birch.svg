@@ -1,0 +1,16 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Берёза"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<circle cx="58" cy="34" r="17" fill="#4F8C56" fill-opacity="0.45"></circle>
+<circle cx="74" cy="42" r="12" fill="#4F8C56" fill-opacity="0.45"></circle>
+<circle cx="46" cy="44" r="11" fill="#4F8C56" fill-opacity="0.42"></circle>
+<circle cx="62" cy="24" r="12" fill="#3C6B42" fill-opacity="0.4"></circle>
+<path d="M58 98 L56 52 Q60 47 63 52 L62 98 Z" fill="#F4EFE3" fill-opacity="0.92"></path>
+<path d="M57 62 h5 M58 72 h5 M56 82 h6 M59 54 h4" stroke="#1F1B26" stroke-width="2" stroke-opacity="0.6" stroke-linecap="round"></path>
+<path d="M58 98 L56 52 Q60 47 63 52 L62 98 Z" fill="none" stroke="#8E6A22" stroke-width="1" stroke-opacity="0.3"></path></g><g filter="url(#grain)" opacity="0.55"><circle cx="58" cy="36" r="20" fill="#fff"></circle></g></svg>

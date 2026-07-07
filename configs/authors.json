@@ -1,0 +1,146 @@
+{
+  "akunun": {
+    "name": "Борис Акунин",
+    "work": "—"
+  },
+  "bulgakov": {
+    "name": "Михаил Булгаков",
+    "work": "—"
+  },
+  "bunin": {
+    "name": "Иван Бунин",
+    "work": "—"
+  },
+  "chehov": {
+    "name": "Антон Чехов",
+    "work": "—"
+  },
+  "dostoevsky": {
+    "name": "Фёдор Достоевский",
+    "work": "—"
+  },
+  "dovlatov": {
+    "name": "Сергей Довлатов",
+    "work": "—"
+  },
+  "elizarov": {
+    "name": "Михаил Елизаров",
+    "work": "—"
+  },
+  "gazdanov": {
+    "name": "Гайто Газданов",
+    "work": "—"
+  },
+  "gogol": {
+    "name": "Николай Гоголь",
+    "work": "—"
+  },
+  "gorky": {
+    "name": "Максим Горький",
+    "work": "—"
+  },
+  "ilf-petrov": {
+    "name": "Илья Ильф и Евгений Петров",
+    "work": "—"
+  },
+  "kataev": {
+    "name": "Валентин Катаев",
+    "work": "—"
+  },
+  "krukov": {
+    "name": "Фёдор Крюков",
+    "work": "—"
+  },
+  "mamleev": {
+    "name": "Юрий Мамлеев",
+    "work": "—"
+  },
+  "nabokov": {
+    "name": "Владимир Набоков",
+    "work": "—"
+  },
+  "prokhanov": {
+    "name": "Александр Проханов",
+    "work": "—"
+  },
+  "radov": {
+    "name": "Егор Радов",
+    "work": "—"
+  },
+  "rozanov": {
+    "name": "Василий Розанов",
+    "work": "—"
+  },
+  "sasha_sokolov": {
+    "name": "Саша Соколов",
+    "work": "—"
+  },
+  "sholohov": {
+    "name": "Михаил Шолохов",
+    "work": "—"
+  },
+  "sorokin": {
+    "name": "Владимир Сорокин",
+    "work": "—"
+  },
+  "platonov": {
+    "name": "Андрей Платонов",
+    "work": "—"
+  },
+  "unknown": {
+    "name": "Тихий Дон",
+    "work": "-"
+  },
+  "victor_erofeev": {
+    "name": "Виктор Ерофеев",
+    "work": "—"
+  },
+  "volcheck": {
+    "name": "Дмитрий Волчек",
+    "work": "—"
+  },
+  "babel": {
+    "name": "Исаак Бабель",
+    "work": "—"
+  },
+  "zoshenko": {
+    "name": "Михаил Зощенко",
+    "work": "—"
+  },
+  "nikolas2": {
+    "name": "Николай 2",
+    "work": "—"
+  },
+  "olesha": {
+    "name": "Юрий Олеша",
+    "work": "—"
+  },
+  "kargin": {
+    "name": "Константин Каргин",
+    "work": "—"
+  },
+  "andreev": { "name": "Леонид Андреев", "work": "—" },
+  "furmanov": { "name": "Дмитрий Фурманов", "work": "—" },
+  "garshin": { "name": "Всеволод Гаршин", "work": "—" },
+  "grin": { "name": "Александр Грин", "work": "—" },
+  "gumilev": { "name": "Николай Гумилёв", "work": "—" },
+  "korolenko": { "name": "Владимир Короленко", "work": "—" },
+  "kumov": { "name": "Роман Кумов", "work": "—" },
+  "kuprin": { "name": "Александр Куприн", "work": "—" },
+  "leskov": { "name": "Николай Лесков", "work": "—" },
+  "novikov_priboy": { "name": "Алексей Новиков-Прибой", "work": "—" },
+  "pilnyak": { "name": "Борис Пильняк", "work": "—" },
+  "prutkov": { "name": "Козьма Прутков", "work": "коллективный псевдоним" },
+  "pushkin": { "name": "Александр Пушкин", "work": "—" },
+  "saltykov": { "name": "Михаил Салтыков-Щедрин", "work": "—" },
+  "serafimovich": { "name": "Александр Серафимович", "work": "—" },
+  "sevsky": { "name": "Виктор Севский", "work": "—" },
+  "tolstoy": { "name": "Лев Толстой", "work": "—" },
+  "tolstoy_an": { "name": "Алексей Н. Толстой", "work": "—" },
+  "turgenev": { "name": "Иван Тургенев", "work": "—" },
+  "uspensky": { "name": "Глеб Успенский", "work": "—" },
+  "goncharov": { "name": "Иван Гончаров", "work": "—" },
+  "grigorovich": { "name": "Дмитрий Григорович", "work": "—" },
+  "reshetnikov": { "name": "Фёдор Решетников", "work": "—" },
+  "voloshin": { "name": "Максимилиан Волошин", "work": "—" }
+}

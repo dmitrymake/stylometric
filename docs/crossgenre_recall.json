@@ -1,0 +1,915 @@
+{
+  "title": "Кросс-жанровый перенос атрибуции: обучение на прозе, проверка на дневниках и письмах",
+  "method": "Модель обучена только на художественной прозе (все прозаические чанки основного бенчмарка, 47 авторов, штатный пайплайн: стилометрические признаки + логистическая регрессия). Проверка — на дневниках и письмах тех авторов, чья проза есть в обучении; эти тексты модель при обучении не видела, и жанр другой. Каждый файл дневника/писем = документ; он проходит ту же очистку (маскировка имён, унификация тире и орфографии) и ту же нарезку на куски по ~500 слов, что и проза. top-1 recall = доля случаев, когда модель ставит настоящего автора на первое место среди всех кандидатов; top-3 — когда он попадает в первую тройку. Оценка на уровне документа (среднее вероятностей его кусков) и на уровне отдельных кусков.",
+  "date": "2026-07-02",
+  "train": {
+    "source": "data/frags_train (художественная проза основного бенчмарка)",
+    "excluded": [
+      "ilf-petrov",
+      "nikolas2",
+      "sholohov"
+    ],
+    "n_authors": 47,
+    "n_books": 264,
+    "n_chunks": 23779,
+    "chance_top1": 0.0213
+  },
+  "test": {
+    "source": "input_personal/{автор}_{diary|letters}, автор имеет прозу в обучении",
+    "n_authors": 5,
+    "authors": [
+      "bunin",
+      "chehov",
+      "dostoevsky",
+      "pushkin",
+      "tolstoy"
+    ],
+    "n_documents": 26,
+    "n_chunks": 4741,
+    "composition": {
+      "bunin_diary": {
+        "n_docs": 1,
+        "n_chunks": 34
+      },
+      "bunin_letters": {
+        "n_docs": 1,
+        "n_chunks": 406
+      },
+      "chehov_diary": {
+        "n_docs": 1,
+        "n_chunks": 144
+      },
+      "chehov_letters": {
+        "n_docs": 6,
+        "n_chunks": 919
+      },
+      "dostoevsky_letters": {
+        "n_docs": 5,
+        "n_chunks": 1396
+      },
+      "pushkin_diary": {
+        "n_docs": 1,
+        "n_chunks": 22
+      },
+      "pushkin_letters": {
+        "n_docs": 1,
+        "n_chunks": 54
+      },
+      "tolstoy_diary": {
+        "n_docs": 7,
+        "n_chunks": 1202
+      },
+      "tolstoy_letters": {
+        "n_docs": 3,
+        "n_chunks": 564
+      }
+    }
+  },
+  "recall_table": {
+    "bunin": {
+      "diary": {
+        "n_docs": 1,
+        "n_chunks": 34,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.235,
+        "chunk_top3": 0.412,
+        "false_candidates_top3": [
+          "volcheck×7",
+          "kataev×6",
+          "krukov×3"
+        ]
+      },
+      "letters": {
+        "n_docs": 1,
+        "n_chunks": 406,
+        "doc_top1": 0.0,
+        "doc_top3": 0.0,
+        "chunk_top1": 0.037,
+        "chunk_top3": 0.16,
+        "false_candidates_top3": [
+          "dostoevsky×68",
+          "akunun×44",
+          "bulgakov×44"
+        ]
+      }
+    },
+    "chehov": {
+      "diary": {
+        "n_docs": 1,
+        "n_chunks": 144,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.396,
+        "chunk_top3": 0.556,
+        "false_candidates_top3": [
+          "prutkov×16",
+          "kataev×8",
+          "reshetnikov×7"
+        ]
+      },
+      "letters": {
+        "n_docs": 6,
+        "n_chunks": 919,
+        "doc_top1": 0.667,
+        "doc_top3": 0.833,
+        "chunk_top1": 0.249,
+        "chunk_top3": 0.454,
+        "false_candidates_top3": [
+          "akunun×223",
+          "pushkin×105",
+          "zoshenko×56"
+        ]
+      }
+    },
+    "dostoevsky": {
+      "letters": {
+        "n_docs": 5,
+        "n_chunks": 1396,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.854,
+        "chunk_top3": 0.953,
+        "false_candidates_top3": [
+          "akunun×40",
+          "zoshenko×26",
+          "garshin×18"
+        ]
+      }
+    },
+    "pushkin": {
+      "diary": {
+        "n_docs": 1,
+        "n_chunks": 22,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.955,
+        "chunk_top3": 1.0,
+        "false_candidates_top3": [
+          "turgenev×1"
+        ]
+      },
+      "letters": {
+        "n_docs": 1,
+        "n_chunks": 54,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.815,
+        "chunk_top3": 0.981,
+        "false_candidates_top3": [
+          "dostoevsky×4",
+          "turgenev×3",
+          "chehov×2"
+        ]
+      }
+    },
+    "tolstoy": {
+      "diary": {
+        "n_docs": 7,
+        "n_chunks": 1202,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.621,
+        "chunk_top3": 0.808,
+        "false_candidates_top3": [
+          "furmanov×76",
+          "akunun×62",
+          "zoshenko×50"
+        ]
+      },
+      "letters": {
+        "n_docs": 3,
+        "n_chunks": 564,
+        "doc_top1": 1.0,
+        "doc_top3": 1.0,
+        "chunk_top1": 0.778,
+        "chunk_top3": 0.924,
+        "false_candidates_top3": [
+          "pushkin×27",
+          "bulgakov×25",
+          "sasha_sokolov×13"
+        ]
+      }
+    }
+  },
+  "aggregate": {
+    "all": {
+      "n_docs": 26,
+      "doc_top1": 0.885,
+      "doc_top3": 0.923,
+      "n_chunks": 4741,
+      "chunk_top1": 0.58,
+      "chunk_top3": 0.733
+    },
+    "diary": {
+      "n_docs": 10,
+      "doc_top1": 1.0,
+      "doc_top3": 1.0,
+      "n_chunks": 1402,
+      "chunk_top1": 0.594,
+      "chunk_top3": 0.775
+    },
+    "letters": {
+      "n_docs": 16,
+      "doc_top1": 0.812,
+      "doc_top3": 0.875,
+      "n_chunks": 3339,
+      "chunk_top1": 0.575,
+      "chunk_top3": 0.715
+    }
+  },
+  "error_sinks": {
+    "overall_top": [
+      "akunun×378",
+      "bulgakov×175",
+      "zoshenko×168",
+      "pushkin×166",
+      "sasha_sokolov×126",
+      "furmanov×122",
+      "dostoevsky×108",
+      "volcheck×99",
+      "kataev×73",
+      "garshin×73"
+    ],
+    "note_sinks": "Стоки = авторы, которых модель ошибочно называет вместо настоящего (счёт по кускам)."
+  },
+  "documents": [
+    {
+      "author": "bunin",
+      "genre": "diary",
+      "doc": "dnevnik_1917_1918",
+      "n_chunks": 34,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "bunin",
+      "doc_top3_candidates": [
+        [
+          "bunin",
+          0.2098
+        ],
+        [
+          "volcheck",
+          0.1922
+        ],
+        [
+          "kataev",
+          0.1238
+        ]
+      ],
+      "chunk_top1": 0.235,
+      "chunk_top3": 0.412
+    },
+    {
+      "author": "bunin",
+      "genre": "letters",
+      "doc": "pisma_1885_1904",
+      "n_chunks": 406,
+      "doc_rank": 10,
+      "doc_top1": false,
+      "doc_top3": false,
+      "doc_pred": "dostoevsky",
+      "doc_top3_candidates": [
+        [
+          "dostoevsky",
+          0.1297
+        ],
+        [
+          "bulgakov",
+          0.0976
+        ],
+        [
+          "akunun",
+          0.0889
+        ]
+      ],
+      "chunk_top1": 0.037,
+      "chunk_top3": 0.16
+    },
+    {
+      "author": "chehov",
+      "genre": "diary",
+      "doc": "zapisnye_knizhki_dnevnik",
+      "n_chunks": 144,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "chehov",
+      "doc_top3_candidates": [
+        [
+          "chehov",
+          0.3035
+        ],
+        [
+          "prutkov",
+          0.0783
+        ],
+        [
+          "kataev",
+          0.0592
+        ]
+      ],
+      "chunk_top1": 0.396,
+      "chunk_top3": 0.556
+    },
+    {
+      "author": "chehov",
+      "genre": "letters",
+      "doc": "pisma_1875_1886",
+      "n_chunks": 187,
+      "doc_rank": 5,
+      "doc_top1": false,
+      "doc_top3": false,
+      "doc_pred": "akunun",
+      "doc_top3_candidates": [
+        [
+          "akunun",
+          0.2731
+        ],
+        [
+          "pushkin",
+          0.1272
+        ],
+        [
+          "krukov",
+          0.0814
+        ]
+      ],
+      "chunk_top1": 0.064,
+      "chunk_top3": 0.144
+    },
+    {
+      "author": "chehov",
+      "genre": "letters",
+      "doc": "pisma_1887_1888",
+      "n_chunks": 220,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "chehov",
+      "doc_top3_candidates": [
+        [
+          "chehov",
+          0.222
+        ],
+        [
+          "akunun",
+          0.1797
+        ],
+        [
+          "pushkin",
+          0.0906
+        ]
+      ],
+      "chunk_top1": 0.286,
+      "chunk_top3": 0.477
+    },
+    {
+      "author": "chehov",
+      "genre": "letters",
+      "doc": "pisma_1888_1889",
+      "n_chunks": 207,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "chehov",
+      "doc_top3_candidates": [
+        [
+          "chehov",
+          0.274
+        ],
+        [
+          "akunun",
+          0.17
+        ],
+        [
+          "pushkin",
+          0.0927
+        ]
+      ],
+      "chunk_top1": 0.338,
+      "chunk_top3": 0.618
+    },
+    {
+      "author": "chehov",
+      "genre": "letters",
+      "doc": "pisma_1890_1892",
+      "n_chunks": 235,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "chehov",
+      "doc_top3_candidates": [
+        [
+          "chehov",
+          0.2319
+        ],
+        [
+          "akunun",
+          0.1728
+        ],
+        [
+          "pushkin",
+          0.1016
+        ]
+      ],
+      "chunk_top1": 0.289,
+      "chunk_top3": 0.54
+    },
+    {
+      "author": "chehov",
+      "genre": "letters",
+      "doc": "pisma_1892_1903",
+      "n_chunks": 54,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "chehov",
+      "doc_top3_candidates": [
+        [
+          "chehov",
+          0.1769
+        ],
+        [
+          "bulgakov",
+          0.1604
+        ],
+        [
+          "pushkin",
+          0.1097
+        ]
+      ],
+      "chunk_top1": 0.241,
+      "chunk_top3": 0.389
+    },
+    {
+      "author": "chehov",
+      "genre": "letters",
+      "doc": "pisma_1904",
+      "n_chunks": 16,
+      "doc_rank": 2,
+      "doc_top1": false,
+      "doc_top3": true,
+      "doc_pred": "akunun",
+      "doc_top3_candidates": [
+        [
+          "akunun",
+          0.2121
+        ],
+        [
+          "chehov",
+          0.185
+        ],
+        [
+          "bulgakov",
+          0.1157
+        ]
+      ],
+      "chunk_top1": 0.188,
+      "chunk_top3": 0.562
+    },
+    {
+      "author": "dostoevsky",
+      "genre": "letters",
+      "doc": "pisma_1832_1859",
+      "n_chunks": 346,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "dostoevsky",
+      "doc_top3_candidates": [
+        [
+          "dostoevsky",
+          0.6078
+        ],
+        [
+          "garshin",
+          0.0497
+        ],
+        [
+          "zoshenko",
+          0.0405
+        ]
+      ],
+      "chunk_top1": 0.717,
+      "chunk_top3": 0.884
+    },
+    {
+      "author": "dostoevsky",
+      "genre": "letters",
+      "doc": "pisma_1860_1868",
+      "n_chunks": 322,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "dostoevsky",
+      "doc_top3_candidates": [
+        [
+          "dostoevsky",
+          0.8447
+        ],
+        [
+          "zoshenko",
+          0.0265
+        ],
+        [
+          "akunun",
+          0.0211
+        ]
+      ],
+      "chunk_top1": 0.929,
+      "chunk_top3": 0.988
+    },
+    {
+      "author": "dostoevsky",
+      "genre": "letters",
+      "doc": "pisma_1869_1874",
+      "n_chunks": 349,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "dostoevsky",
+      "doc_top3_candidates": [
+        [
+          "dostoevsky",
+          0.8187
+        ],
+        [
+          "akunun",
+          0.0353
+        ],
+        [
+          "saltykov",
+          0.0212
+        ]
+      ],
+      "chunk_top1": 0.92,
+      "chunk_top3": 0.971
+    },
+    {
+      "author": "dostoevsky",
+      "genre": "letters",
+      "doc": "pisma_1875_1877",
+      "n_chunks": 161,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "dostoevsky",
+      "doc_top3_candidates": [
+        [
+          "dostoevsky",
+          0.8399
+        ],
+        [
+          "akunun",
+          0.0442
+        ],
+        [
+          "zoshenko",
+          0.0178
+        ]
+      ],
+      "chunk_top1": 0.938,
+      "chunk_top3": 0.994
+    },
+    {
+      "author": "dostoevsky",
+      "genre": "letters",
+      "doc": "pisma_1878_1879",
+      "n_chunks": 218,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "dostoevsky",
+      "doc_top3_candidates": [
+        [
+          "dostoevsky",
+          0.6778
+        ],
+        [
+          "akunun",
+          0.076
+        ],
+        [
+          "zoshenko",
+          0.044
+        ]
+      ],
+      "chunk_top1": 0.794,
+      "chunk_top3": 0.95
+    },
+    {
+      "author": "pushkin",
+      "genre": "diary",
+      "doc": "dnevnik_1833_1835",
+      "n_chunks": 22,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "pushkin",
+      "doc_top3_candidates": [
+        [
+          "pushkin",
+          0.8598
+        ],
+        [
+          "turgenev",
+          0.0311
+        ],
+        [
+          "gogol",
+          0.0243
+        ]
+      ],
+      "chunk_top1": 0.955,
+      "chunk_top3": 1.0
+    },
+    {
+      "author": "pushkin",
+      "genre": "letters",
+      "doc": "pisma_1833_1836",
+      "n_chunks": 54,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "pushkin",
+      "doc_top3_candidates": [
+        [
+          "pushkin",
+          0.7094
+        ],
+        [
+          "dostoevsky",
+          0.0711
+        ],
+        [
+          "turgenev",
+          0.0703
+        ]
+      ],
+      "chunk_top1": 0.815,
+      "chunk_top3": 0.981
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1881_1887",
+      "n_chunks": 105,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.2826
+        ],
+        [
+          "zoshenko",
+          0.091
+        ],
+        [
+          "akunun",
+          0.09
+        ]
+      ],
+      "chunk_top1": 0.343,
+      "chunk_top3": 0.505
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1888_1889",
+      "n_chunks": 191,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.5433
+        ],
+        [
+          "zoshenko",
+          0.0631
+        ],
+        [
+          "akunun",
+          0.0542
+        ]
+      ],
+      "chunk_top1": 0.665,
+      "chunk_top3": 0.853
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1890",
+      "n_chunks": 118,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.5566
+        ],
+        [
+          "furmanov",
+          0.0744
+        ],
+        [
+          "bulgakov",
+          0.0474
+        ]
+      ],
+      "chunk_top1": 0.695,
+      "chunk_top3": 0.907
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1891_1894",
+      "n_chunks": 175,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.5231
+        ],
+        [
+          "bulgakov",
+          0.0478
+        ],
+        [
+          "furmanov",
+          0.0436
+        ]
+      ],
+      "chunk_top1": 0.646,
+      "chunk_top3": 0.806
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1895_1899",
+      "n_chunks": 262,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.532
+        ],
+        [
+          "furmanov",
+          0.0879
+        ],
+        [
+          "reshetnikov",
+          0.0361
+        ]
+      ],
+      "chunk_top1": 0.672,
+      "chunk_top3": 0.844
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1909",
+      "n_chunks": 195,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.5636
+        ],
+        [
+          "furmanov",
+          0.0638
+        ],
+        [
+          "zoshenko",
+          0.055
+        ]
+      ],
+      "chunk_top1": 0.687,
+      "chunk_top3": 0.887
+    },
+    {
+      "author": "tolstoy",
+      "genre": "diary",
+      "doc": "dnevnik_1910",
+      "n_chunks": 156,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.3825
+        ],
+        [
+          "furmanov",
+          0.0966
+        ],
+        [
+          "akunun",
+          0.0637
+        ]
+      ],
+      "chunk_top1": 0.506,
+      "chunk_top3": 0.724
+    },
+    {
+      "author": "tolstoy",
+      "genre": "letters",
+      "doc": "pisma_1890_1891",
+      "n_chunks": 202,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.6772
+        ],
+        [
+          "bulgakov",
+          0.0349
+        ],
+        [
+          "dostoevsky",
+          0.0344
+        ]
+      ],
+      "chunk_top1": 0.802,
+      "chunk_top3": 0.941
+    },
+    {
+      "author": "tolstoy",
+      "genre": "letters",
+      "doc": "pisma_1894",
+      "n_chunks": 193,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.7207
+        ],
+        [
+          "pushkin",
+          0.032
+        ],
+        [
+          "dostoevsky",
+          0.0297
+        ]
+      ],
+      "chunk_top1": 0.85,
+      "chunk_top3": 0.953
+    },
+    {
+      "author": "tolstoy",
+      "genre": "letters",
+      "doc": "pisma_1898",
+      "n_chunks": 169,
+      "doc_rank": 1,
+      "doc_top1": true,
+      "doc_top3": true,
+      "doc_pred": "tolstoy",
+      "doc_top3_candidates": [
+        [
+          "tolstoy",
+          0.5319
+        ],
+        [
+          "bulgakov",
+          0.1048
+        ],
+        [
+          "pushkin",
+          0.0814
+        ]
+      ],
+      "chunk_top1": 0.669,
+      "chunk_top3": 0.87
+    }
+  ],
+  "note": "Ориентир, не бенчмарк: дневники и письма в открытом доступе есть лишь у 4-5 авторов обучающего набора — те же пределы данных, что зафиксированы в docs/authorship_cases.json (~7 авторов с обоими жанрами, включая авторов вне прозаического бенчмарка). Файлы писем и дневников — редакторские собрания: даты, адресаты и примечания издания входят в текст. Чехов-письма 1875-1886 включают фрагменты рукой брата Николая. Кандидатов в модели 47; случайное попадание top-1 = 0.0213."
+}

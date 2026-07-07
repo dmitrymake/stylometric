@@ -1,0 +1,131 @@
+{
+  "method": "leave-disputed-out: спорные работы исключены из класса sholohov при обучении, затем переатрибутированы; снимает circularity within-training",
+  "candidates": [
+    "sholohov",
+    "krukov",
+    "serafimovich"
+  ],
+  "heldout": [
+    "chuzhaya_krov",
+    "lazorevaya_step",
+    "sudba_cheloveka",
+    "tihiy_don_1",
+    "tihiy_don_2",
+    "tihiy_don_3",
+    "tihiy_don_4"
+  ],
+  "null_solo": {
+    "mean_foreign_fraction": 0.0,
+    "per_book": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "procedure_control": [
+    {
+      "book": "sudba_cheloveka",
+      "n_chunks": 30,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "chunk_winner_counts": {
+        "sholohov": 30,
+        "krukov": 0,
+        "serafimovich": 0
+      },
+      "corpus_argmax": "sholohov"
+    }
+  ],
+  "procedure_valid": true,
+  "don_topic_control": {
+    "books": [
+      {
+        "book": "chuzhaya_krov",
+        "n_chunks": 13,
+        "foreign_fraction": 0.0,
+        "p_emp": 1.0,
+        "n_foreign_segments": 0,
+        "chunk_winner_counts": {
+          "sholohov": 13,
+          "krukov": 0,
+          "serafimovich": 0
+        },
+        "corpus_argmax": "sholohov"
+      },
+      {
+        "book": "lazorevaya_step",
+        "n_chunks": 7,
+        "foreign_fraction": 0.0,
+        "p_emp": 1.0,
+        "n_foreign_segments": 0,
+        "chunk_winner_counts": {
+          "sholohov": 7,
+          "krukov": 0,
+          "serafimovich": 0
+        },
+        "corpus_argmax": "sholohov"
+      }
+    ],
+    "mean_foreign_fraction": 0.0,
+    "interpretation": "ТД-1 ff=0.331 СУЩЕСТВЕННО выше донского контроля 0.000 → сигнал донского слоя в раннем ТД не сводится к жанровому дрейфу; совместим с использованием донских источников, атрибуцию руки не устанавливает"
+  },
+  "disputed_td": [
+    {
+      "book": "tihiy_don_1",
+      "n_chunks": 257,
+      "foreign_fraction": 0.331,
+      "p_emp": 0.167,
+      "n_foreign_segments": 2,
+      "chunk_winner_counts": {
+        "sholohov": 172,
+        "krukov": 44,
+        "serafimovich": 41
+      },
+      "corpus_argmax": "sholohov"
+    },
+    {
+      "book": "tihiy_don_2",
+      "n_chunks": 258,
+      "foreign_fraction": 0.171,
+      "p_emp": 0.167,
+      "n_foreign_segments": 2,
+      "chunk_winner_counts": {
+        "sholohov": 214,
+        "krukov": 30,
+        "serafimovich": 14
+      },
+      "corpus_argmax": "sholohov"
+    },
+    {
+      "book": "tihiy_don_3",
+      "n_chunks": 290,
+      "foreign_fraction": 0.055,
+      "p_emp": 0.167,
+      "n_foreign_segments": 1,
+      "chunk_winner_counts": {
+        "sholohov": 274,
+        "krukov": 15,
+        "serafimovich": 1
+      },
+      "corpus_argmax": "sholohov"
+    },
+    {
+      "book": "tihiy_don_4",
+      "n_chunks": 343,
+      "foreign_fraction": 0.015,
+      "p_emp": 0.167,
+      "n_foreign_segments": 0,
+      "chunk_winner_counts": {
+        "sholohov": 338,
+        "krukov": 4,
+        "serafimovich": 1
+      },
+      "corpus_argmax": "sholohov"
+    }
+  ],
+  "td_attributed_to_sholokhov": "4/4",
+  "verdict": "ВСЕ 4 тома ТД атрибутированы Шолохову вне обучения (нециркулярно, leave-disputed-out) → направленное свидетельство за руку Шолохова; авторство не доказано"
+}

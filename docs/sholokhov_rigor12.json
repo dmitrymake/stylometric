@@ -1,0 +1,74 @@
+{
+  "circularity": {
+    "late_ref": 0.868,
+    "kr_ref": 0.002,
+    "mid": 0.435,
+    "early_to_late": 0.464,
+    "td_to_late": 0.522,
+    "pc1": 0.606,
+    "early_recognized": true,
+    "td_recognized": true,
+    "early_books": {
+      "rodinka": 0.417,
+      "batraki": 0.675,
+      "chuzhaya_krov": 0.388,
+      "aleshkino_serdce": 0.36,
+      "pastuh": 0.388,
+      "zherebenok": 0.683,
+      "lazorevaya_step": 0.34
+    },
+    "td_books": {
+      "tihiy_don_1": 0.301,
+      "tihiy_don_2": 0.404,
+      "tihiy_don_3": 0.529,
+      "tihiy_don_4": 0.853
+    }
+  },
+  "crosstab_ari": {
+    "novel_vs_nonnovel": 0.019,
+    "td_vs_rest": 0.122,
+    "donskoy_vs_soviet": 0.279,
+    "split_explained_by": "donskoy_vs_soviet"
+  },
+  "silhouette_oneauthor_control": {
+    "sholohov": 0.0743,
+    "bunin": 0.0511,
+    "dostoevsky": 0.0491,
+    "turgenev": 0.0648,
+    "gorky": 0.0451,
+    "sholohov_exceeds_controls": true
+  },
+  "test_registry": {
+    "confirmatory": {
+      "test": "ТД→Шолохов (нециркулярный leave-block-out LOBO, градиент чужой доли vs FPR-нуль)",
+      "td_attributed": "4/4",
+      "permutation_p": 0.0001,
+      "survives_0.05": true
+    },
+    "exploratory": [
+      {
+        "observation": "ТД→Шолохов (dependency-ансамбль): доля бутстрепов ЗА",
+        "frac_pos": 0.923
+      },
+      {
+        "observation": "ТД→Шолохов (book-clustered, TOPIC_INV): доля бутстрепов ЗА",
+        "frac_pos": 0.918
+      },
+      {
+        "observation": "ПЦ→Шолохов: доля бутстрепов ЗА",
+        "frac_pos": 0.57
+      },
+      {
+        "observation": "двухмодовость (силуэт) vs гаусс-нуль",
+        "obs": 0.079,
+        "null_p95": 0.0772
+      },
+      {
+        "observation": "дисперсия Шолохова vs норма (ранг)",
+        "rank": 5,
+        "of": 16
+      }
+    ],
+    "note": "1 confirmatory permutation-тест (выживает) + exploratory направленные наблюдения (доли бутстрепов, не p-значения). Вывод: направленное свидетельство за Шолохова; доказать авторство нельзя (n≈2, циркулярность эталона, автор/редактор неразличимы)."
+  }
+}

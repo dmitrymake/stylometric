@@ -1,0 +1,22 @@
+{
+  "tsusima": {
+    "P_novikov": 0.867,
+    "internal_silhouette": 0.0821,
+    "n_chunks": 14
+  },
+  "mentorship": {
+    "early_d_serafimovich": 2.835,
+    "late_d_serafimovich": 2.592,
+    "trace": false
+  },
+  "serafimovich_editor_td": {
+    "distances": {
+      "Шолохов-Дон(ранний)": 1.59,
+      "Крюков": 2.544,
+      "Серафимович": 2.419
+    },
+    "nearest": "Шолохов-Дон(ранний)",
+    "P_sholokhov_vs_serafimovich": 0.689,
+    "serafimovich_hand": false
+  }
+}

@@ -1,0 +1,38 @@
+case_id: taras_bulba_additions_strict_extended_fw_2000
+title: "Taras Bulba 1842 strict additions: extended controls fw_fixed random_2000"
+hypothesis: "Large 1842 additions to Taras Bulba were written by a non-Gogol editorial hand."
+target_description: "strict additions · extended controls"
+claim: "Extended-control stress test for the strict 1842 additions; the headline claim remains the four-author hardened panel."
+limitations:
+  - "Stress test only: the larger panel adds less balanced same-century controls and is not the headline protocol."
+  - "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 3000
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  pushkin: ../../../../input_clean/pushkin
+  turgenev: ../../../../input_clean/turgenev
+  dostoevsky: ../../../../input_clean/dostoevsky
+  tolstoy:
+    path: ../../../../input_clean/tolstoy
+    exclude:
+      - ../../../../input_clean/tolstoy/война_и_мир.txt
+  leskov: ../../../../input_clean/leskov
+  saltykov: ../../../../input_clean/saltykov
+target: ../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data and cleaned benchmark anchors."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_extended_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_extended_fw_2000.passport.json"
+notes: "Stress test with Tolstoy, Leskov, and Saltykov; excludes contaminated full Taras from Gogol anchor."

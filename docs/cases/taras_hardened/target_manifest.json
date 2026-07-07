@@ -1,0 +1,61 @@
+{
+  "case_id": "taras_bulba_1842_additions",
+  "raw_policy": "Raw texts live under ignored input_cases/ and are not committed.",
+  "targets": {
+    "gogol1835_mirgorod": {
+      "path": "input_cases/taras_bulba/gogol1835_mirgorod.txt",
+      "sha256": "2370376ef0aba6da4191f2df7814845310a57d15c8b6bac99a9671ce3c58d50f",
+      "bytes": 240770,
+      "words": 20559
+    },
+    "gogol1842_full": {
+      "path": "input_cases/taras_bulba/gogol1842_full.txt",
+      "sha256": "d2e180376f7b94866f9c4acb9552293060fbe055cd2df8f4e4c4d759a5d92132",
+      "bytes": 419268,
+      "words": 36601
+    },
+    "additions1842_strict": {
+      "path": "input_cases/taras_bulba/dobavleniya1842_strict.txt",
+      "sha256": "256cfd7e519b03b52b871e0d1a2e633090ec987a8a0679b3fc1a3c2c83039489",
+      "bytes": 268291,
+      "words": 23640
+    },
+    "additions1842_loose": {
+      "path": "input_cases/taras_bulba/dobavleniya1842_loose.txt",
+      "sha256": "a4a1e171068a4a5dd66dec9051677cfeb38b6c31a3342bad21758bb5b00bb7b8",
+      "bytes": 275809,
+      "words": 24303
+    },
+    "tovarishchestvo_speech": {
+      "path": "input_cases/taras_bulba/tovarishchestvo_speech.txt",
+      "sha256": "c3a231572e0fa618e22c3c2e6cfc987cb1ee40031e12e9030726348a9edd6390",
+      "bytes": 3883,
+      "words": 373
+    }
+  },
+  "editions": {
+    "gogol1835_mirgorod": {
+      "source_edition": "Н. В. Гоголь. ПСС АН СССР, т. 2: «Тарас Бульба», редакция «Миргорода» 1835 г., 9 глав",
+      "source_url": "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm",
+      "fetch_script": "scripts/fetch_taras_editions.py"
+    },
+    "gogol1842_full": {
+      "source_edition": "Н. В. Гоголь. ПСС АН СССР, т. 2: «Тарас Бульба», редакция 1842 г., 12 глав",
+      "source_url": "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm",
+      "fetch_script": "scripts/fetch_taras_editions.py"
+    }
+  },
+  "extraction": {
+    "additions": {
+      "script": "scripts/extract_taras_additions.py",
+      "method": "Редакция 1842 разбита на предложения; предложение считается добавлением, если доля его словесных 4-грамм, найденных в редакции 1835, ниже порога: strict < 0.10, loose < 0.20. Предложения короче 5 слов не участвуют.",
+      "audit": "docs/cases/taras_hardened/reports/extraction_audit.json"
+    },
+    "tovarishchestvo_speech": {
+      "source": "input_cases/taras_bulba/dobavleniya1842_loose.txt",
+      "start_marker": "Хочется мне вам сказать, панове, что такое есть наше товарищество.",
+      "end_marker": "Пусть же знают они все, что такое значит в Русской земле товарищество.",
+      "scope": "Focused diagnostic only: one short passage, not the headline claim."
+    }
+  }
+}

@@ -1,0 +1,24 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ракета"><defs>
+<filter id="wc" x="-28%" y="-28%" width="156%" height="156%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.016 0.022" numOctaves="4" seed="11" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur>
+</filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.22 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite>
+</filter>
+</defs><g filter="url(#wc)">
+<path d="M48 96 q12 18 24 0 q-6 12 -12 16 q-6 -4 -12 -16Z" fill="#D43A2C" fill-opacity="0.5"></path>
+<path d="M53 96 q7 12 14 0 q-3 9 -7 13 q-4 -4 -7 -13Z" fill="#D6A41E" fill-opacity="0.65"></path>
+<path d="M40 70 q-12 6 -14 26 q14 -4 20 -12Z" fill="#2B5FA8" fill-opacity="0.5"></path>
+<path d="M80 70 q12 6 14 26 q-14 -4 -20 -12Z" fill="#2B5FA8" fill-opacity="0.5"></path>
+<path d="M60 12 q18 22 18 50 q0 24 -18 34 q-18 -10 -18 -34 q0 -28 18 -50Z" fill="#FCF8EE" fill-opacity="0.95"></path>
+<path d="M60 12 q18 22 18 50 q0 24 -18 34 q-18 -10 -18 -34 q0 -28 18 -50Z" fill="#2B5FA8" fill-opacity="0.26"></path>
+<path d="M60 12 q12 14 16 30 q-16 -8 -32 0 q4 -16 16 -30Z" fill="#D43A2C" fill-opacity="0.55"></path>
+<circle cx="60" cy="56" r="9" fill="#2C2A63" fill-opacity="0.55"></circle>
+<circle cx="60" cy="56" r="9" fill="none" stroke="#B6841A" stroke-width="2" stroke-opacity="0.7"></circle>
+<circle cx="57" cy="53" r="2.5" fill="#FCF8EE" fill-opacity="0.85"></circle>
+<path d="M60 12 q18 22 18 50 q0 24 -18 34 q-18 -10 -18 -34 q0 -28 18 -50Z" fill="none" stroke="#1E4A87" stroke-width="1.4" stroke-opacity="0.45"></path>
+</g><g filter="url(#grain)" opacity="0.6"><path d="M60 12 q18 22 18 50 q0 24 -18 34 q-18 -10 -18 -34 q0 -28 18 -50Z" fill="#fff"></path></g></svg>

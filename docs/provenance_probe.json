@@ -1,0 +1,44 @@
+{
+  "method": "Проба «предскажи источник книги (Викитека vs локальная оцифровка) по признакам, через которые след издания мог бы протечь»: чанки бенчмарка (data/frags_train, после нормализации clean.py), авторы с книгами из двух источников, leave-one-author-out (автор как конфаунд исключён), score книги = средняя вероятность чанков, AUC по книгам + перестановочный нуль (метки источника переставляются между книгами внутри автора).",
+  "mixed_authors": [
+    "andreev",
+    "bunin",
+    "chehov",
+    "dostoevsky",
+    "gogol",
+    "ilf-petrov",
+    "tolstoy",
+    "turgenev"
+  ],
+  "n_books": 78,
+  "n_chunks": 8660,
+  "probes": {
+    "char_3_5": {
+      "book_auc_loao": 0.713,
+      "n_books_scored": 78,
+      "null_book_auc_median": 0.541,
+      "null_book_auc_q95": 0.654,
+      "n_null_permutations": 100,
+      "above_null_q95": true
+    },
+    "punctuation_only": {
+      "book_auc_loao": 0.71,
+      "n_books_scored": 78,
+      "null_book_auc_median": 0.617,
+      "null_book_auc_q95": 0.697,
+      "n_null_permutations": 100,
+      "above_null_q95": true
+    }
+  },
+  "lobo_errors_vs_source": {
+    "contingency_ws_correct": {
+      "ws_ok": 40,
+      "ws_miss": 2,
+      "local_ok": 29,
+      "local_miss": 0
+    },
+    "fisher_odds_ratio": 0.0,
+    "fisher_p": 0.5099
+  },
+  "caveats": "Класс «local/неизвестно» гетерогенен — это «не Викитека», а не одно издание; установленное семейство источников в корпусе одно (Викитека), поэтому проба измеряет границу «Викитека vs остальное». AUC выше нуля-q95 означает: след источника в признаках выражен и для одноисточниковых авторов не отделим от идиолекта средствами LOBO; AUC в пределах нуля — след издания в этих каналах не доминирует."
+}

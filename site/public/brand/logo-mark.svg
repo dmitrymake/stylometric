@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Русский код">
+  
+  <circle cx="32" cy="32" r="27" stroke="currentColor" stroke-width="3"></circle>
+  <path d="M32 16 C40 26 40 36 32 46 C24 36 24 26 32 16 Z" stroke="currentColor" stroke-width="2.4" fill="none"></path>
+  <path d="M32 30 C35 34 35 40 32 46" stroke="currentColor" stroke-width="2" fill="none"></path>
+  <line x1="32" y1="46" x2="32" y2="50" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></line>
+</svg>

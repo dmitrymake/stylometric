@@ -1,0 +1,171 @@
+{
+  "method": "rolling per-chunk LR-атрибуция (stylo.eval.segment) на equal-token чанках; host=Шолохов, импосторы=донские современники; нуль=сольные ранние рассказы Шолохова",
+  "params": {
+    "win": 5,
+    "conf": 0.6,
+    "min_run": 3,
+    "candidates": [
+      "sholohov",
+      "krukov",
+      "serafimovich",
+      "sevsky",
+      "kumov",
+      "gumilev"
+    ]
+  },
+  "null_solo_sholokhov": {
+    "mean_foreign_fraction": 0.0,
+    "std": 0.0,
+    "per_book": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "target_books": [
+    {
+      "book": "tihiy_don_1",
+      "n_chunks": 257,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "tihiy_don_2",
+      "n_chunks": 258,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "tihiy_don_3",
+      "n_chunks": 290,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "tihiy_don_4",
+      "n_chunks": 343,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "podnyataya_celina_2",
+      "n_chunks": 298,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "nauka_nenavisti",
+      "n_chunks": 14,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "oni_srazhalis",
+      "n_chunks": 128,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    },
+    {
+      "book": "sudba_cheloveka",
+      "n_chunks": 30,
+      "foreign_fraction": 0.0,
+      "p_emp": 1.0,
+      "n_foreign_segments": 0,
+      "modal_impostor": null,
+      "modal_share": 0.0
+    }
+  ],
+  "ghostwriter_signature": {
+    "n_elevated_books": 0,
+    "modal_impostors": {},
+    "entropy_bits": 0.0,
+    "interpretation": "НЕТ повышения над сольным фоном → сигнала многорукости нет"
+  },
+  "tihiy_don_vs_krukov": {
+    "null_mean": 0.0,
+    "books": [
+      {
+        "book": "tihiy_don_1",
+        "foreign_fraction_krukov": 0.0,
+        "p_emp": 1.0,
+        "n_krukov_segments": 0
+      },
+      {
+        "book": "tihiy_don_2",
+        "foreign_fraction_krukov": 0.0,
+        "p_emp": 1.0,
+        "n_krukov_segments": 0
+      },
+      {
+        "book": "tihiy_don_3",
+        "foreign_fraction_krukov": 0.0,
+        "p_emp": 1.0,
+        "n_krukov_segments": 0
+      },
+      {
+        "book": "tihiy_don_4",
+        "foreign_fraction_krukov": 0.0,
+        "p_emp": 1.0,
+        "n_krukov_segments": 0
+      }
+    ]
+  },
+  "case_power_curve_krukov_hand": {
+    "base_book": "batraki",
+    "curve": [
+      {
+        "admix_pct": 0,
+        "foreign_fraction": 0.0,
+        "detected": false
+      },
+      {
+        "admix_pct": 10,
+        "foreign_fraction": 0.107,
+        "detected": true
+      },
+      {
+        "admix_pct": 25,
+        "foreign_fraction": 0.25,
+        "detected": true
+      },
+      {
+        "admix_pct": 50,
+        "foreign_fraction": 0.5,
+        "detected": true
+      },
+      {
+        "admix_pct": 75,
+        "foreign_fraction": 0.75,
+        "detected": true
+      }
+    ],
+    "min_detectable_admixture_pct": 10
+  },
+  "reuse_calibration": "docs/segment_recall.json: recall=1.0 на далёких парах, FPR=0/63 на одноавторских, recall@подмес ≥10%",
+  "CIRCULARITY_WARNING": "ВНИМАНИЕ: pipe обучен на ПОЛНОМ корпусе, включая спорные ТД-чанки как класс sholohov, поэтому foreign_fraction=0.000 по ТД ЦИРКУЛЯРНО (классификатор узнаёт собственные train-чанки) — это SANITY-CHECK, НЕ свидетельство. Нециркулярные числа см. docs/sholokhov_lobo.json (ТД-1 ff 0.33-0.45 (диапазон по толщине якоря; LOBO канон 0.455, loo_td 0.331) при ретрейне без ТД). Power-curve здесь тоже подмешивает Крюкова в batraki, который в train → потолок завышен; нециркулярный LOBO power-floor — в sholokhov_lobo.json."
+}

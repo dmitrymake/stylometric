@@ -1,0 +1,67 @@
+{
+  "p2_null": {
+    "disp_sholohov": 4.582,
+    "control_disps": [
+      4.837,
+      4.706,
+      4.971,
+      4.366,
+      4.952,
+      4.406
+    ],
+    "control_mean": 4.706,
+    "z": -0.47,
+    "t_interval": [
+      3.969,
+      5.444
+    ],
+    "within_normal": true,
+    "rank_of": 3
+  },
+  "p6_candidate_boot": [
+    {
+      "book": "tihiy_don_1",
+      "d_rest": 3.05,
+      "d_krukov_lo": 3.071,
+      "d_krukov_hi": 3.298,
+      "frac_closer_krukov": 0.017
+    },
+    {
+      "book": "tihiy_don_2",
+      "d_rest": 2.565,
+      "d_krukov_lo": 2.657,
+      "d_krukov_hi": 2.867,
+      "frac_closer_krukov": 0.0
+    },
+    {
+      "book": "tihiy_don_3",
+      "d_rest": 2.116,
+      "d_krukov_lo": 2.422,
+      "d_krukov_hi": 2.629,
+      "frac_closer_krukov": 0.0
+    },
+    {
+      "book": "tihiy_don_4",
+      "d_rest": 1.608,
+      "d_krukov_lo": 2.485,
+      "d_krukov_hi": 2.745,
+      "frac_closer_krukov": 0.0
+    },
+    {
+      "book": "podnyataya_celina_1",
+      "d_rest": 1.666,
+      "d_krukov_lo": 2.235,
+      "d_krukov_hi": 2.487,
+      "frac_closer_krukov": 0.0
+    }
+  ],
+  "p9_separability": {
+    "anchor_floor_halfTD1": 0.791,
+    "anchor_ceiling_TD1_vs_dostoevsky": 1.0,
+    "tihiy_don_1": 0.973,
+    "tihiy_don_2": 0.969,
+    "tihiy_don_3": 0.935,
+    "tihiy_don_4": 0.929,
+    "podnyataya_celina_1": 0.958
+  }
+}

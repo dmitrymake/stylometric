@@ -1,0 +1,143 @@
+# ════════════════════════════════════════════════════════════════════════
+#  Stylo — единый источник истины конфигурации.
+#  Все скрипты читают параметры ОТСЮДА (не дублируют их).
+#  Переопределение: --config my.yaml  или  --set key=value (CLI).
+# ════════════════════════════════════════════════════════════════════════
+
+seed: 42
+
+language:
+  code: ru
+  spacy_model: ru_core_news_lg      # требует: python -m spacy download ru_core_news_lg
+  spacy_model_version: "3.8.0"      # пишется в отчёты для воспроизводимости
+  spacy_fallback: ru_core_news_md
+  parse_n_process: 8                # процессов spaCy при прогреве DocBin-кеша
+  # Гласные для Vowel-Rhythm-Entropy (H = твёрдые/открытые, S = мягкие/закрытые)
+  vowels_hard: "аоуэы"
+  vowels_soft: "иеяёю"
+  # Маркеры topic-bleaching (NOUN намеренно != '@', т.к. clean_text маскирует PER -> '@')
+  pos_bleach:
+    PROPN: "^"
+    NOUN: "¤"
+    NUM: "%"
+    ADJ: "&"
+
+paths:
+  input_raw: input
+  input_clean: input_clean
+  data: data
+  docs: docs
+  doc_cache: data/doc_cache        # дисковый кеш spaCy DocBin (в .gitignore)
+
+chunking:
+  chunk_size: 500                  # целевой размер чанка в токенах
+  min_words: 200                   # минимальный размер чанка
+  overlap: 0.0
+  sentence_aware: true             # умная нарезка по предложениям (не рвать предложения)
+
+# ── Каталог фич. Каждый блок включается в продакшен-вектор флагом enabled.
+#    Sweep (eval/sweep.py) переопределяет enabled для ablation.
+#    Имена блоков соответствуют registry в src/stylo/features/registry.py.
+features:
+  char_ngrams:
+    enabled: true
+    ngram_range: [3, 5]
+    max_features: 5000
+    min_df: 3
+    sublinear_tf: true
+    bleach: true                   # topic-bleaching (маскировка POS)
+  function_words:
+    enabled: true
+    mode: mfw                      # mfw | fixed_list
+    mfw_count: 300                 # для mode=mfw
+    # mode=fixed_list использует язык-специфичный список из lang.py (RU: 405 слов)
+  syntax:                          # 17 метрик, разбиты на именованные субблоки
+    enabled: true
+    subblocks:                     # каждый можно отключать в sweep по отдельности
+      sentence: true               # avg_sent
+      word_len: true               # avg_word
+      pos_ratios: true             # noun/verb/adj/adv
+      punctuation: true            # punct_ratio, dash_per_100, semi_per_100
+      lexical_richness: true       # ttr, hapax, yuleK
+      speech: true                 # ds_ratio (прямая речь по тире)
+      vre: true                    # vowel rhythm entropy
+      ssa: false                   # Semantic-Syntactic Alignment (дефект: см. README; off, судим в sweep)
+  pos_ngrams:                      # синтаксический скелет (тематически-нейтрален)
+    enabled: true
+    ngram_range: [2, 4]
+    max_features: 2000
+    min_df: 3
+  punctuation_ngrams:              # последовательности знаков препинания
+    enabled: true
+    ngram_range: [1, 3]
+    max_features: 500
+  dependency:                      # типы связей, дистанция головы, глубина дерева
+    enabled: true
+  morphology:                      # падеж/время/вид/число/степень (t.morph)
+    enabled: true
+  length_dist:                     # распределения длин слов/предложений + дисперсия
+    enabled: true
+    max_word_len: 16
+  embeddings:                      # ruBERT mean-pooled. ВЫСОКИЙ риск утечки темы.
+    enabled: false                 # off по умолчанию; включать только в topic-controlled эксперименте
+    model_name: "ai-forever/ruBert-base"
+    batch_size: 16
+    max_length: 256
+
+model:
+  classifier:
+    type: logistic_regression
+    max_iter: 2000
+    class_weight: balanced
+    solver: lbfgs
+    C: 1.0
+  calibration:
+    enabled: false                 # ЧЕСТНО: НЕ подключена в боевой make_full_pipeline.
+    method: isotonic               # Атрибуция кейсов — на сырых LR-вероятностях; доли = argmax (инвариантны
+    #                                к монотонной калибровке). Пороги детектора — на сырых сигмоидах,
+    #                                проверены на чувствительность к conf∈[0.5,0.7]. make_classifier(calibrate=True)
+    #                                доступен для reliability-diagram, но в docs/*.json НЕ применялся.
+  scaler: maxabs                   # sparse-friendly
+
+# ── Настоящая Burrows's Delta (baseline). Считается ТОЛЬКО по MFW, не по всему вектору.
+delta:
+  mfw_sizes: [150, 300, 500]
+  metric: manhattan                # классика Burrows; cosine — вариант Smith–Aldridge
+
+evaluation:
+  fold_strategy: lobo              # lobo (book-level, leakage-free) | groupkfold (быстрый прокси)
+  groupkfold_k: 5                  # для быстрого прокси-sweep
+  n_jobs: 8                        # НЕ -1: оставляем ядра соседним проектам на общей машине
+  fast_lobo: false                 # true = глобальный векторизатор + рефит только LR (≈50-100× быстрее)
+  bootstrap_iters: 1000            # CI ресэмплингом по КНИГАМ (не чанкам)
+  ci_level: 0.95
+  stacking:                        # spec stylo_stack: OOF-стекинг каналов внутри train-фолда LOBO
+    inner_folds: 2                 # StratifiedGroupKFold по книгам train-фолда; 3->2 по стоимости счёта (prereg-поправка 2026-07-07)
+    svc_c: 1.0                     # LinearSVC каналов (конвенционный, не свипуется)
+    meta_c: 1.0                    # мета-LR стекинга (конвенционный, не свипуется)
+  top_k_candidates: 5             # топ-N претендентов на книгу в отчёте LOBO
+
+# ── Сегментация/детектор «чужих» отрезков: ЕДИНЫЙ источник порогов.
+#    Калибровать на synthetic_splice (recall) при фиксированном FPR на одноавторских контролях;
+#    фиксировать ДО прогона спорного текста; проверять чувствительность вердикта к conf в [0.5,0.7].
+segmentation:
+  window: 11                       # сглаживание rolling_mean (чанков)
+  conf: 0.55                       # порог уверенности сегмента
+  min_run: 5                       # мин. длина связного «чужого» сегмента (чанков)
+  balance_cap_per_author: 400      # баланс классов при обучении профиля (против перекоса полноты)
+
+# ── Контроль темы: строгий тематически-инвариантный набор.
+#    function_words=fixed_list (закрытый класс, НЕ mfw=частотные содержательные слова);
+#    pos_ratios/lexical_richness глушатся как несущие жанр/период.
+topic_control:
+  function_words_mode: fixed_list  # закрытый список служебных слов — без утечки темы через частотные существительные
+  disable_subblocks: [pos_ratios, lexical_richness]
+
+# ── Состав бенчмарка: какие авторы участвуют в честной LOBO-оценке.
+#    Заполняется/уточняется после corpus_tools/validate_corpus.py.
+corpus_policy:
+  min_books_per_author: 2          # меньше — LOBO невозможен (автор выпадает из train)
+  min_words_per_book: 500
+  exclude_from_benchmark: [ilf-petrov, nikolas2, sholohov]  # соавторство, дневники и СПОРНЫЙ автор (авторство ТД оспаривается — нельзя держать эталонным классом консистентности) — вне headline-бенчмарка, разбираются отдельными кейсами
+  flag_collaborative: [ilf-petrov] # соавторство — помечаем
+  unknown_dir_name: unknown        # каталог спорного текста (вне train)

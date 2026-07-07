@@ -1,0 +1,37 @@
+{
+  "_RETRACTED_NOTE": "DSP headline-числа не используются: genre-AUC 0.357 — ВНУТРИ-авторский (Шолохов-Дон vs Шолохов-война), из-за чего idiolect +0.431 структурно завышен. На ВАЛИДНОЙ cross-author панели (feature_audit2.json: 6 воен.+7 сельск. авторов) DSP genre-AUC=0.651 ≈ author 0.754 → DSP среди ХУДШИХ, НЕ топик-инвариантен. Чистый признак — dependency (см. feature_audit2/clean_attribution.json).",
+  "dsp_author_auc": 0.788,
+  "dsp_genre_auc_within_author": 0.357,
+  "dsp_idiolect_RETRACTED": 0.431,
+  "dsp_cross_author_genre_auc": 0.651,
+  "dsp_cross_author_idiolect": 0.103,
+  "gm_lr_holdout": {
+    "sh_ref": 0.695,
+    "kr_ref": 0.32,
+    "mid": 0.508,
+    "tihiy_don": 0.554,
+    "podnyataya": 0.554,
+    "note": "held-out leave-one-book-out (не resubstitution); ТД≈ПЦ у середины"
+  },
+  "centroid": {
+    "tihiy_don": {
+      "median": 0.552,
+      "ci": [
+        -0.773,
+        1.789
+      ],
+      "frac_pos": 0.792,
+      "ci_excl_0": false
+    },
+    "podnyataya": {
+      "median": -0.029,
+      "ci": [
+        -0.983,
+        0.945
+      ],
+      "frac_pos": 0.471,
+      "ci_excl_0": false
+    }
+  },
+  "superseded_by": "feature_audit2.json (cross-author ранжир), clean_attribution.json (ТД на dependency)"
+}

@@ -1,0 +1,56 @@
+{
+  "dataset": "Proza.ru hard (Hieuman/proza_ru_hard, HuggingFace) — внешний русский AA-датасет",
+  "protocol": "50 авторов, document-level, стратиф. 50/50 train/test, LinearSVC; тексты короткие (миниатюры)",
+  "n_authors": 50,
+  "n_texts": 3000,
+  "channels": {
+    "char (2-5)": {
+      "top1": 0.881,
+      "macro_f1": 0.88
+    },
+    "word (1-2)": {
+      "top1": 0.769,
+      "macro_f1": 0.763
+    },
+    "syntax (dep+pos+syn)": {
+      "top1": 0.51,
+      "macro_f1": 0.504
+    },
+    "function_words": {
+      "top1": 0.469,
+      "macro_f1": 0.467
+    },
+    "morphology": {
+      "top1": 0.311,
+      "macro_f1": 0.268
+    },
+    "ансамбль (равновесный)": {
+      "top1": 0.7,
+      "macro_f1": 0.693
+    },
+    "ансамбль reliability^2": {
+      "top1": 0.807,
+      "macro_f1": 0.803
+    },
+    "ансамбль reliability^4": {
+      "top1": 0.876,
+      "macro_f1": 0.875
+    },
+    "ансамбль reliability^6": {
+      "top1": 0.887,
+      "macro_f1": 0.886
+    },
+    "ансамбль (стекинг)": {
+      "top1": 0.54,
+      "macro_f1": 0.492
+    },
+    "АНСАМБЛЬ": {
+      "top1": 0.887,
+      "macro_f1": 0.886
+    },
+    "best_single_channel_top1": 0.881
+  },
+  "ensemble_top1": 0.887,
+  "ensemble_macro_f1": 0.886,
+  "note": "Внешний РУССКИЙ бенчмарк: работает ВЕСЬ инструмент (вкл. русский синтаксис/морфологию). Тексты короче CCAT50 → AA труднее. Сравн.: наш CCAT50 ансамбль 0.773."
+}

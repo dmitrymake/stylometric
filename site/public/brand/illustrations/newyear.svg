@@ -1,0 +1,21 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ёлка"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<path d="M55 84 H65 V94 H55 Z" fill="#8E6A22" fill-opacity="0.7"></path>
+<path d="M60 24 L74 48 L46 48 Z" fill="#4F8C56" fill-opacity="0.62"></path>
+<path d="M60 38 L80 66 L40 66 Z" fill="#4F8C56" fill-opacity="0.62"></path>
+<path d="M60 54 L86 86 L34 86 Z" fill="#4F8C56" fill-opacity="0.62"></path>
+<path d="M60 38 L80 66 L40 66 Z" fill="none" stroke="#2E6B3A" stroke-width="1" stroke-opacity="0.4"></path>
+<path d="M60 54 L86 86 L34 86 Z" fill="none" stroke="#2E6B3A" stroke-width="1" stroke-opacity="0.4"></path>
+<path d="M60 14 L62.4 20 L68.6 20.3 L63.6 24.2 L65.4 30.2 L60 26.6 L54.6 30.2 L56.4 24.2 L51.4 20.3 L57.6 20 Z" fill="#D6A41E" fill-opacity="0.85"></path>
+<circle cx="53" cy="44" r="2.1" fill="#D43A2C" fill-opacity="0.8"></circle>
+<circle cx="67" cy="58" r="2.1" fill="#2B5FA8" fill-opacity="0.8"></circle>
+<circle cx="49" cy="76" r="2.1" fill="#D6A41E" fill-opacity="0.85"></circle>
+<circle cx="71" cy="80" r="2.1" fill="#D43A2C" fill-opacity="0.8"></circle>
+<circle cx="60" cy="68" r="2.1" fill="#D6A41E" fill-opacity="0.85"></circle></g><g filter="url(#grain)" opacity="0.5"><path d="M60 54 L86 86 L34 86 Z" fill="#fff"></path></g></svg>

@@ -1,0 +1,184 @@
+{
+  "case_id": "taras_control_turgenev_holdout_v2_fw_2000",
+  "title": "Control v2: held-out Отцы и дети (suspects v2)",
+  "hypothesis": "Control: a held-out Turgenev work must attribute to Turgenev.",
+  "target_description": "Отцы и дети (Turgenev, held out)",
+  "claim": "Контроль: изъятые «Отцы и дети» должны вернуться к Тургеневу.",
+  "limitations": [
+    "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target чаще ближе к turgenev, но запас/бутстрап недостаточны для strong verdict (winner_share=0.657, margin=0.013941).",
+  "confidence": "medium",
+  "evidence_score": 86.34,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8568,
+      "chunk_weighted_recall": 0.7048,
+      "work_recall": {
+        "annenkov_1840s": "5/5",
+        "dostoevsky": "9/10",
+        "gogol": "8/10",
+        "turgenev": "8/11"
+      },
+      "chunk_recall": {
+        "annenkov_1840s": "154/162",
+        "dostoevsky": "491/778",
+        "gogol": "101/144",
+        "turgenev": "126/235"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "annenkov_1840s": {
+          "annenkov_1840s": 154,
+          "dostoevsky": 1,
+          "gogol": 7,
+          "turgenev": 0
+        },
+        "dostoevsky": {
+          "annenkov_1840s": 14,
+          "dostoevsky": 491,
+          "gogol": 200,
+          "turgenev": 73
+        },
+        "gogol": {
+          "annenkov_1840s": 10,
+          "dostoevsky": 26,
+          "gogol": 101,
+          "turgenev": 7
+        },
+        "turgenev": {
+          "annenkov_1840s": 4,
+          "dostoevsky": 43,
+          "gogol": 62,
+          "turgenev": 126
+        }
+      },
+      "n_works": 36,
+      "n_chunks": 1319,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "turgenev",
+      "second": "dostoevsky",
+      "margin": 0.013941,
+      "margin_ci95": [
+        0.008231,
+        0.018747
+      ],
+      "winner_share": {
+        "turgenev": 0.657,
+        "dostoevsky": 0.2,
+        "gogol": 0.086,
+        "annenkov_1840s": 0.057
+      },
+      "similarities": [
+        {
+          "candidate": "turgenev",
+          "cos": 0.993981
+        },
+        {
+          "candidate": "dostoevsky",
+          "cos": 0.98004
+        },
+        {
+          "candidate": "gogol",
+          "cos": 0.971591
+        },
+        {
+          "candidate": "annenkov_1840s",
+          "cos": 0.877993
+        }
+      ],
+      "per_chunk_winners": {
+        "turgenev": 23,
+        "dostoevsky": 7,
+        "gogol": 3,
+        "annenkov_1840s": 2
+      },
+      "n_chunks": 35
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "annenkov_1840s",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "turgenev",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev/отцы_и_дети.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "dostoevsky",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/dostoevsky"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev/отцы_и_дети.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 36,
+    "n_candidate_chunks": 1319,
+    "works_per_author": {
+      "annenkov_1840s": 5,
+      "dostoevsky": 10,
+      "gogol": 10,
+      "turgenev": 11
+    },
+    "target_chunks": 35
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_turgenev_holdout_v2_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json"
+  },
+  "notes": "Контрольная батарея v2 4/4 (вместо пушкинского контроля: Пушкин вне v2-панели)."
+}

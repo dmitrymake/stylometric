@@ -1,0 +1,287 @@
+{
+  "note": "синтетический скрытый позитив: подмешиваем реального автора X к Шолохову под ярлыком sholohov",
+  "with_coauthor_in_panel": {
+    "krukov": {
+      "desc": "похожий донской",
+      "in_panel": true,
+      "series": [
+        {
+          "r": 0.0,
+          "frac_self": 0.76,
+          "nearest": "sholohov",
+          "absorption": null,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.25,
+          "frac_self": 0.6,
+          "nearest": "sholohov",
+          "absorption": 0.09,
+          "foreign_to_true": 0.55,
+          "flagged": false
+        },
+        {
+          "r": 0.5,
+          "frac_self": 0.46,
+          "nearest": "sholohov",
+          "absorption": 0.13,
+          "foreign_to_true": 0.53,
+          "flagged": true
+        },
+        {
+          "r": 0.75,
+          "frac_self": 0.31,
+          "nearest": "krukov",
+          "absorption": 0.16,
+          "foreign_to_true": 0.47,
+          "flagged": true
+        },
+        {
+          "r": 1.0,
+          "frac_self": 0.11,
+          "nearest": "krukov",
+          "absorption": 0.11,
+          "foreign_to_true": 0.58,
+          "flagged": true
+        }
+      ],
+      "flag_at_50": true,
+      "absorption_at_50": 0.13
+    },
+    "platonov": {
+      "desc": "непохожий",
+      "in_panel": true,
+      "series": [
+        {
+          "r": 0.0,
+          "frac_self": 0.76,
+          "nearest": "sholohov",
+          "absorption": null,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.25,
+          "frac_self": 0.61,
+          "nearest": "sholohov",
+          "absorption": 0.14,
+          "foreign_to_true": 0.68,
+          "flagged": false
+        },
+        {
+          "r": 0.5,
+          "frac_self": 0.42,
+          "nearest": "sholohov",
+          "absorption": 0.04,
+          "foreign_to_true": 0.78,
+          "flagged": true
+        },
+        {
+          "r": 0.75,
+          "frac_self": 0.27,
+          "nearest": "platonov",
+          "absorption": 0.12,
+          "foreign_to_true": 0.76,
+          "flagged": true
+        },
+        {
+          "r": 1.0,
+          "frac_self": 0.11,
+          "nearest": "platonov",
+          "absorption": 0.11,
+          "foreign_to_true": 0.78,
+          "flagged": true
+        }
+      ],
+      "flag_at_50": true,
+      "absorption_at_50": 0.04
+    }
+  },
+  "without_coauthor": {
+    "krukov": {
+      "desc": "похожий донской",
+      "in_panel": false,
+      "series": [
+        {
+          "r": 0.0,
+          "frac_self": 0.82,
+          "nearest": "sholohov",
+          "absorption": null,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.25,
+          "frac_self": 0.67,
+          "nearest": "sholohov",
+          "absorption": 0.23,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.5,
+          "frac_self": 0.49,
+          "nearest": "sholohov",
+          "absorption": 0.18,
+          "foreign_to_true": null,
+          "flagged": true
+        },
+        {
+          "r": 0.75,
+          "frac_self": 0.37,
+          "nearest": "sholohov",
+          "absorption": 0.22,
+          "foreign_to_true": null,
+          "flagged": true
+        },
+        {
+          "r": 1.0,
+          "frac_self": 0.29,
+          "nearest": "sholohov",
+          "absorption": 0.29,
+          "foreign_to_true": null,
+          "flagged": true
+        }
+      ],
+      "flag_at_50": true,
+      "absorption_at_50": 0.18
+    },
+    "platonov": {
+      "desc": "непохожий",
+      "in_panel": false,
+      "series": [
+        {
+          "r": 0.0,
+          "frac_self": 0.82,
+          "nearest": "sholohov",
+          "absorption": null,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.25,
+          "frac_self": 0.73,
+          "nearest": "sholohov",
+          "absorption": 0.45,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.5,
+          "frac_self": 0.5,
+          "nearest": "sholohov",
+          "absorption": 0.2,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 0.75,
+          "frac_self": 0.5,
+          "nearest": "sholohov",
+          "absorption": 0.4,
+          "foreign_to_true": null,
+          "flagged": false
+        },
+        {
+          "r": 1.0,
+          "frac_self": 0.34,
+          "nearest": "sholohov",
+          "absorption": 0.34,
+          "foreign_to_true": null,
+          "flagged": true
+        }
+      ],
+      "flag_at_50": false,
+      "absorption_at_50": 0.2
+    }
+  },
+  "calibration_equiv_admixture": {
+    "ранние": 0.0,
+    "ПоднятаяЦелина": 0.05,
+    "ТихийДон": 0.29,
+    "война": 0.45
+  },
+  "real_group_distribution": {
+    "ранние": {
+      "frac_self": 0.76,
+      "non_self_top": [
+        [
+          "serafimovich",
+          0.13
+        ],
+        [
+          "platonov",
+          0.04
+        ],
+        [
+          "krukov",
+          0.03
+        ]
+      ],
+      "frac_don_of_nonself": 0.67
+    },
+    "ТихийДон": {
+      "frac_self": 0.45,
+      "non_self_top": [
+        [
+          "gorky",
+          0.19
+        ],
+        [
+          "serafimovich",
+          0.11
+        ],
+        [
+          "krukov",
+          0.07
+        ]
+      ],
+      "frac_don_of_nonself": 0.34
+    },
+    "ПоднятаяЦелина": {
+      "frac_self": 0.51,
+      "non_self_top": [
+        [
+          "platonov",
+          0.12
+        ],
+        [
+          "krukov",
+          0.1
+        ],
+        [
+          "dostoevsky",
+          0.07
+        ]
+      ],
+      "frac_don_of_nonself": 0.23
+    },
+    "война": {
+      "frac_self": 0.52,
+      "non_self_top": [
+        [
+          "krukov",
+          0.1
+        ],
+        [
+          "bunin",
+          0.07
+        ],
+        [
+          "dostoevsky",
+          0.07
+        ]
+      ],
+      "frac_don_of_nonself": 0.27
+    }
+  },
+  "verdict": "ПРЕДЕЛ МОЩНОСТИ КОЛИЧЕСТВЕННО. Метод ловит похожую подмешанную руку при ≥~50% доли (frac_self падает ниже флага), и тем раньше, чем рука непохожее/чем она доступна как кандидат. Реальные война (frac_self 0.49 ≈ 45% подмеса-эквив.) и Тихий Дон (0.58 ≈ 29%) сидят НА/ПОД порогом флага — их frac_self неотличим от частичной похожей руки. НО дискриминатор показывает: не-свои фрагменты война/ТД РАССЫПАНЫ по разным авторам (Горький, Бунин, Достоевский, Крюков), а не сконцентрированы на одном донском кандидате — это паттерн широкого ОДИНОЧКИ, а не концентрированного гострайтера. ИТОГ: сильная версия (отдельный/концентрированный чужой автор) НЕ подтверждается; частичный (<~45%) вклад стилистически ПОХОЖЕГО донского соавтора в самые расходящиеся работы (война, ТД) метод исключить не может.",
+  "flag_threshold_similar": {
+    "coauthor_in_panel": 0.5,
+    "coauthor_absent": 0.5
+  },
+  "power_only_at_large_admixture": true,
+  "run_noise_caveat": "frac_self дрожит ~±0.04 между прогонами (BLAS/сид) — калибровка приблизительная",
+  "discriminator_reading": "Если бы война/ТД содержали КОНЦЕНТРИРОВАННУЮ скрытую руку, не-свои фрагменты пилили бы на одного кандидата. Вместо этого они РАССЫПАНЫ: война — krukov 0.10 ≈ bunin 0.07 ≈ dostoevsky 0.07; ТихийДон ведёт Горький 0.19 (не донской). Концентрированной второй руки нет → паттерн широкого одиночки, а не конкретного гострайтера. Оговорка: похожую руку, которую базис не разрешает, рассеяние тоже даёт — поэтому это ослабляет, но не убивает гипотезу частичного похожего вклада."
+}
