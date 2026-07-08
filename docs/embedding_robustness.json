@@ -1,0 +1,132 @@
+{
+  "grid": [
+    {
+      "nc": 20,
+      "post": "standard",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -0.23
+    },
+    {
+      "nc": 20,
+      "post": "standard",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -1.45
+    },
+    {
+      "nc": 20,
+      "post": "raw",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.1
+    },
+    {
+      "nc": 20,
+      "post": "raw",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -0.21
+    },
+    {
+      "nc": 20,
+      "post": "sqrtsv",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.1
+    },
+    {
+      "nc": 20,
+      "post": "sqrtsv",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.11
+    },
+    {
+      "nc": 40,
+      "post": "standard",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -0.73
+    },
+    {
+      "nc": 40,
+      "post": "standard",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -1.59
+    },
+    {
+      "nc": 40,
+      "post": "raw",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -0.09
+    },
+    {
+      "nc": 40,
+      "post": "raw",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.28
+    },
+    {
+      "nc": 40,
+      "post": "sqrtsv",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.15
+    },
+    {
+      "nc": 40,
+      "post": "sqrtsv",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.57
+    },
+    {
+      "nc": 60,
+      "post": "standard",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -0.47
+    },
+    {
+      "nc": 60,
+      "post": "standard",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": -0.73
+    },
+    {
+      "nc": 60,
+      "post": "raw",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.24
+    },
+    {
+      "nc": 60,
+      "post": "raw",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.4
+    },
+    {
+      "nc": 60,
+      "post": "sqrtsv",
+      "metric": "euclid",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.14
+    },
+    {
+      "nc": 60,
+      "post": "sqrtsv",
+      "metric": "cos",
+      "td_closer_sholohov": "5/5",
+      "disp_z": 0.66
+    }
+  ],
+  "all_sholohov_configs": 18,
+  "n_configs": 18
+}

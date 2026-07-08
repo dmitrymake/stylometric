@@ -1,0 +1,35 @@
+# Донские кандидаты в «литературные негры» «Тихого Дона» (все PD).
+# Короткие рассказы/очерки — берём побольше на автора (профиль для сравнения с «Тихим Доном»).
+
+# ── Александр Серафимович (донской, редактор/покровитель Шолохова) ──
+- {author: serafimovich, title: "Степные люди", source: "Степные люди (Серафимович)"}
+- {author: serafimovich, title: "Лихорадка", source: "Лихорадка (Серафимович)"}
+- {author: serafimovich, title: "Как он умер", source: "Как он умер (Серафимович)"}
+- {author: serafimovich, title: "У нас и у них", source: "У нас и у них (Серафимович)"}
+- {author: serafimovich, title: "Сцепщик", source: "Сцепщик (Серафимович)"}
+- {author: serafimovich, title: "Стрелочник", source: "Стрелочник (Серафимович)"}
+- {author: serafimovich, title: "На льдине", source: "На льдине (Серафимович)"}
+- {author: serafimovich, title: "Пески", source: "Пески (Серафимович)"}
+- {author: serafimovich, title: "Маленький шахтёр", source: "Маленький шахтёр (Серафимович)"}
+- {author: serafimovich, title: "Железный поток", source: "Железный поток (Серафимович)"}
+- {author: serafimovich, title: "Город в степи", source: "Город в степи (Серафимович)"}
+- {author: serafimovich, title: "Бомбы", source: "Бомбы (Серафимович)"}
+- {author: serafimovich, title: "Мёртвые на улицах", source: "Мёртвые на улицах (Серафимович)"}
+
+# ── Виктор Севский (Вениамин Краснушкин) ──
+- {author: sevsky, title: "Игнатов бугор", source: "Игнатов бугор (Севский)"}
+- {author: sevsky, title: "Дворянин Гукасов", source: "Дворянин Гукасов (Севский)"}
+- {author: sevsky, title: "Без карболки", source: "Без карболки (Севский)"}
+- {author: sevsky, title: "Жорж Корсаров", source: "Жорж Корсаров (Севский)"}
+- {author: sevsky, title: "Сквозные ворота", source: "Сквозные ворота (Севский)"}
+- {author: sevsky, title: "Пропавшая грамота", source: "Пропавшая грамота (Севский)"}
+- {author: sevsky, title: "Дон на костылях", source: "Дон на костылях (Севский)"}
+
+# ── Роман Кумов (круг Крюкова) ──
+- {author: kumov, title: "Стояние", source: "Стояние (Кумов)"}
+- {author: kumov, title: "Учительница", source: "Учительница (Кумов)"}
+- {author: kumov, title: "В гостях у батюшки", source: "В гостях у батюшки (Кумов)"}
+- {author: kumov, title: "Бессмертники", source: "Бессмертники (Кумов)"}
+
+# ── Иван Родионов ──
+- {author: rodionov, title: "Наше преступление", source: "Наше преступление (Родионов)"}

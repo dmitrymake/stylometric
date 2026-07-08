@@ -1,0 +1,76 @@
+{
+  "dependency": {
+    "holdout": {
+      "sh_ref": 0.892,
+      "kr_ref": 0.182,
+      "mid": 0.537,
+      "td": 0.6,
+      "pc": 0.459,
+      "td_books": {
+        "tihiy_don_1": 0.748,
+        "tihiy_don_2": 0.572,
+        "tihiy_don_3": 0.597,
+        "tihiy_don_4": 0.482
+      },
+      "pc_pass": false,
+      "td_sholokhov": true
+    },
+    "centroid": {
+      "ТД": {
+        "med": 0.464,
+        "ci": [
+          -0.459,
+          1.553
+        ],
+        "frac_pos": 0.846,
+        "excl0": false
+      },
+      "ПЦ": {
+        "med": -0.212,
+        "ci": [
+          -0.87,
+          0.566
+        ],
+        "frac_pos": 0.282,
+        "excl0": false
+      }
+    }
+  },
+  "clean_syntactic": {
+    "holdout": {
+      "sh_ref": 0.935,
+      "kr_ref": 0.102,
+      "mid": 0.519,
+      "td": 0.643,
+      "pc": 0.526,
+      "td_books": {
+        "tihiy_don_1": 0.806,
+        "tihiy_don_2": 0.613,
+        "tihiy_don_3": 0.664,
+        "tihiy_don_4": 0.49
+      },
+      "pc_pass": true,
+      "td_sholokhov": true
+    },
+    "centroid": {
+      "ТД": {
+        "med": 0.744,
+        "ci": [
+          -0.259,
+          1.377
+        ],
+        "frac_pos": 0.923,
+        "excl0": false
+      },
+      "ПЦ": {
+        "med": 0.227,
+        "ci": [
+          -0.554,
+          0.839
+        ],
+        "frac_pos": 0.705,
+        "excl0": false
+      }
+    }
+  }
+}

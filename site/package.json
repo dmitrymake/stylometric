@@ -1,0 +1,28 @@
+{
+  "name": "stylo-article",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "gen": "node ../scripts/gen-site-data.mjs",
+    "predev": "node ../scripts/gen-site-data.mjs",
+    "dev": "vite",
+    "prebuild": "node ../scripts/gen-site-data.mjs",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dmitrymake/rk-ui": "file:./vendor/rk-ui.tgz",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

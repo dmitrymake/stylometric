@@ -1,0 +1,408 @@
+{
+  "case": "chekhonte_dubia_oskolki",
+  "title": "Основная панель Dubia перестроена на same-edition Билибине из «Осколков» (OCR через VertexAI)",
+  "bilibin_corpus_words": {
+    "base_cand_bilibin": 10281,
+    "oskolki_cand_bilibin_oskolki": 7748,
+    "augmented": 18029
+  },
+  "panels": {
+    "fw_char3": {
+      "base": {
+        "pooled_prose": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.955747
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.955591
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.943498
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.936006
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.922082
+          }
+        ],
+        "loo": {
+          "correct": 171,
+          "total": 209,
+          "accuracy": 0.8182
+        },
+        "eligible_per_text_top_counts": {
+          "chehov": 3,
+          "alexander_chekhov": 1,
+          "bilibin": 1
+        },
+        "eligible_per_text": [
+          {
+            "text": "08_корреспонденции",
+            "top": "chehov",
+            "second": "alexander_chekhov",
+            "margin": 0.0081
+          },
+          {
+            "text": "09_ревнивый_муж_и_храбрый_любовник",
+            "top": "chehov",
+            "second": "bilibin",
+            "margin": 0.01
+          },
+          {
+            "text": "10_мачеха",
+            "top": "chehov",
+            "second": "alexander_chekhov",
+            "margin": 0.0053
+          },
+          {
+            "text": "12_моя_семья",
+            "top": "alexander_chekhov",
+            "second": "chehov",
+            "margin": 0.0038
+          },
+          {
+            "text": "15_среди_милых_москвичей",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.01
+          }
+        ]
+      },
+      "oskolki": {
+        "pooled_prose": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.972045
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.955747
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.943494
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.93604
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.922107
+          }
+        ],
+        "loo": {
+          "correct": 186,
+          "total": 224,
+          "accuracy": 0.8304
+        },
+        "eligible_per_text_top_counts": {
+          "chehov": 3,
+          "bilibin": 2
+        },
+        "eligible_per_text": [
+          {
+            "text": "08_корреспонденции",
+            "top": "chehov",
+            "second": "bilibin",
+            "margin": 0.0013
+          },
+          {
+            "text": "09_ревнивый_муж_и_храбрый_любовник",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.0236
+          },
+          {
+            "text": "10_мачеха",
+            "top": "chehov",
+            "second": "alexander_chekhov",
+            "margin": 0.0053
+          },
+          {
+            "text": "12_моя_семья",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0131
+          },
+          {
+            "text": "15_среди_милых_москвичей",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0322
+          }
+        ]
+      },
+      "augment": {
+        "pooled_prose": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.976207
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.955773
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.943502
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.936055
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.922126
+          }
+        ],
+        "loo": {
+          "correct": 192,
+          "total": 232,
+          "accuracy": 0.8276
+        },
+        "eligible_per_text_top_counts": {
+          "bilibin": 3,
+          "chehov": 2
+        },
+        "eligible_per_text": [
+          {
+            "text": "08_корреспонденции",
+            "top": "bilibin",
+            "second": "chehov",
+            "margin": 0.0015
+          },
+          {
+            "text": "09_ревнивый_муж_и_храбрый_любовник",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.0236
+          },
+          {
+            "text": "10_мачеха",
+            "top": "chehov",
+            "second": "alexander_chekhov",
+            "margin": 0.0053
+          },
+          {
+            "text": "12_моя_семья",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0094
+          },
+          {
+            "text": "15_среди_милых_москвичей",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0344
+          }
+        ]
+      }
+    },
+    "fw_only": {
+      "base": {
+        "pooled_prose": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.97596
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.973831
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.973567
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.967778
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.962819
+          }
+        ],
+        "loo": {
+          "correct": 154,
+          "total": 209,
+          "accuracy": 0.7368
+        },
+        "eligible_per_text_top_counts": {
+          "chehov": 4,
+          "bilibin": 1
+        },
+        "eligible_per_text": [
+          {
+            "text": "08_корреспонденции",
+            "top": "chehov",
+            "second": "lejkin",
+            "margin": 0.0214
+          },
+          {
+            "text": "09_ревнивый_муж_и_храбрый_любовник",
+            "top": "chehov",
+            "second": "lejkin",
+            "margin": 0.0102
+          },
+          {
+            "text": "10_мачеха",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.0156
+          },
+          {
+            "text": "12_моя_семья",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.014
+          },
+          {
+            "text": "15_среди_милых_москвичей",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0022
+          }
+        ]
+      },
+      "oskolki": {
+        "pooled_prose": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.979816
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.97596
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.973831
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.973567
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.962819
+          }
+        ],
+        "loo": {
+          "correct": 166,
+          "total": 224,
+          "accuracy": 0.7411
+        },
+        "eligible_per_text_top_counts": {
+          "chehov": 4,
+          "bilibin": 1
+        },
+        "eligible_per_text": [
+          {
+            "text": "08_корреспонденции",
+            "top": "chehov",
+            "second": "lejkin",
+            "margin": 0.0214
+          },
+          {
+            "text": "09_ревнивый_муж_и_храбрый_любовник",
+            "top": "chehov",
+            "second": "lejkin",
+            "margin": 0.0102
+          },
+          {
+            "text": "10_мачеха",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.0156
+          },
+          {
+            "text": "12_моя_семья",
+            "top": "chehov",
+            "second": "bilibin",
+            "margin": 0.0135
+          },
+          {
+            "text": "15_среди_милых_москвичей",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0121
+          }
+        ]
+      },
+      "augment": {
+        "pooled_prose": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.980459
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.97596
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.973831
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.973567
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.962819
+          }
+        ],
+        "loo": {
+          "correct": 168,
+          "total": 232,
+          "accuracy": 0.7241
+        },
+        "eligible_per_text_top_counts": {
+          "chehov": 4,
+          "bilibin": 1
+        },
+        "eligible_per_text": [
+          {
+            "text": "08_корреспонденции",
+            "top": "chehov",
+            "second": "lejkin",
+            "margin": 0.0214
+          },
+          {
+            "text": "09_ревнивый_муж_и_храбрый_любовник",
+            "top": "chehov",
+            "second": "lejkin",
+            "margin": 0.0102
+          },
+          {
+            "text": "10_мачеха",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.0156
+          },
+          {
+            "text": "12_моя_семья",
+            "top": "chehov",
+            "second": "lazarev_gruzinsky",
+            "margin": 0.014
+          },
+          {
+            "text": "15_среди_милых_москвичей",
+            "top": "bilibin",
+            "second": "alexander_chekhov",
+            "margin": 0.0132
+          }
+        ]
+      }
+    }
+  },
+  "caveat": "Билибин из «Осколков» — это OCR через VertexAI дореформенного журнального текста, дереформированного в современную орфографию, тогда как chehov/lejkin/цели — современные переиздания ПСС. Из-за этой edition-асимметрии выигрыш Билибина может оказаться OCR/орфо-артефактом; контролем служит признак fw_only (служебные слова, устойчивые к OCR/орфографии) — доверяй выводу только в том случае, если он держится на нём.",
+  "verdict": "Same-edition Билибин из «Осколков» (7.8k слов, регистр журнальной юморески совпадает с Dubia) сдвигает POOLED-прозу Dubia в сторону Билибина при обоих наборах признаков (базовый near-tie alexander~bilibin 0.956 -> augment bilibin 0.976 / fw-only 0.980). НО это не чистая атрибуция Билибину: (1) лишь ОДИН текст Dubia, 15_среди_милых_москвичей, уходит к Билибину при ОБОИХ признаках — и char-3gram, И устойчивом к OCR/орфографии признаке служебных слов (во всех прогонах — кандидат-Билибин) — это единственный устойчивый выигрыш; (2) 08_корреспонденции и 12_моя_семья на char-3-граммах идут к Билибину, на служебных словах — к Чехову, так что их тяготение к Билибину — артефакт char-поверхности/издания, а не авторства; (3) по служебным словам per-text Чехов у 4 из 5. Отрывы крошечные (+0.001..+0.034) на насыщенных косинусах ~0.85-0.95. ОГОВОРКА О СПРАВЕДЛИВОСТИ: по изданию/регистру с Dubia совпадает только Билибин (same-edition); Чехов (ПСС) и Александр (антология 1904) — нет, поэтому у Билибина регистровое преимущество своего поля. Для чистого теста нужно добрать и ДРУГИХ кандидатов (Чехонте, Лейкина) тоже same-edition из «Осколков». Устойчива одна атрибуция 15->Билибин; в остальном атрибуция Dubia атрибуция Dubia определяется регистром/изданием, а не решена."
+}

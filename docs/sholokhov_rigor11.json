@@ -1,0 +1,69 @@
+{
+  "dsp_gm_holdout": {
+    "sh_ref": 0.695,
+    "kr_ref": 0.32,
+    "mid": 0.508,
+    "tihiy_don": 0.554,
+    "podnyataya": 0.554,
+    "td_books": {
+      "tihiy_don_1": 0.663,
+      "tihiy_don_2": 0.477,
+      "tihiy_don_3": 0.571,
+      "tihiy_don_4": 0.504
+    },
+    "pc_above_half": true,
+    "td_above_mid": true
+  },
+  "dsp_crossgenre_sanitized": {
+    "dsp_median": 0.795,
+    "dsp_mean": 0.756,
+    "old_median": 0.776,
+    "old_mean": 0.686,
+    "n_valid_pairs": 8,
+    "rural_single_author": true
+  },
+  "period_cluster_crosstab": {
+    "crosstab": {
+      "early": {
+        "n": 76,
+        "cl0": 65,
+        "cl1": 11,
+        "cl0_pct": 86,
+        "cl1_pct": 14
+      },
+      "td": {
+        "n": 240,
+        "cl0": 190,
+        "cl1": 50,
+        "cl0_pct": 79,
+        "cl1_pct": 21
+      },
+      "pc": {
+        "n": 120,
+        "cl0": 41,
+        "cl1": 79,
+        "cl0_pct": 34,
+        "cl1_pct": 66
+      },
+      "war": {
+        "n": 104,
+        "cl0": 12,
+        "cl1": 92,
+        "cl0_pct": 12,
+        "cl1_pct": 88
+      }
+    },
+    "silhouette_obs": 0.079,
+    "td_pc_same_cluster": false,
+    "ari_novel_vs_nonnovel": 0.053,
+    "ari_td_vs_rest": 0.141,
+    "split_explained_by": "donskoy_material(early+td) vs soviet(pc+war)",
+    "ari_donskoy_vs_soviet": 0.346,
+    "_fix_note": "ARI-гипотеза donskoy_vs_soviet=0.346 — лучшая из трёх; td_isolated — артефакт сравнения только 2 неподходящих гипотез"
+  },
+  "silhouette_balanced": {
+    "obs": 0.079,
+    "gauss_p95": 0.0772,
+    "exceeds": true
+  }
+}

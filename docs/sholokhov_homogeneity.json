@@ -1,0 +1,107 @@
+{
+  "inter_book_auc": {
+    "floor": [
+      0.653,
+      0.647,
+      0.671
+    ],
+    "sholohov": [
+      0.972,
+      0.892,
+      0.993
+    ],
+    "controls": {
+      "bunin": [
+        0.993,
+        0.925,
+        1.0
+      ],
+      "dostoevsky": [
+        0.915,
+        0.871,
+        0.976
+      ],
+      "turgenev": [
+        0.938,
+        0.899,
+        0.994
+      ],
+      "gorky": [
+        0.945,
+        0.867,
+        0.975
+      ]
+    },
+    "ceiling": [
+      0.988,
+      0.985,
+      0.996
+    ],
+    "sholohov_median": 0.972,
+    "control_median": 0.932
+  },
+  "tihiy_don_internal_auc": [
+    0.881,
+    0.877,
+    0.884
+  ],
+  "nearest": [
+    {
+      "work": "batraki",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "chuzhaya_krov",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "nauka_nenavisti",
+      "nearest": "bunin",
+      "stays": false
+    },
+    {
+      "work": "oni_srazhalis",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "podnyataya_celina_2",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "sudba_cheloveka",
+      "nearest": "krukov",
+      "stays": false
+    },
+    {
+      "work": "tihiy_don_1",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "tihiy_don_2",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "tihiy_don_3",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "tihiy_don_4",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    },
+    {
+      "work": "podnyataya_celina_1",
+      "nearest": "Шолохов-rest",
+      "stays": true
+    }
+  ],
+  "n_stay": 9,
+  "n_works": 11
+}

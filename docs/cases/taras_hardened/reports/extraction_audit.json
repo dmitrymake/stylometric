@@ -1,0 +1,97 @@
+{
+  "case_id": "taras_bulba_1842_additions",
+  "shingle_words": 8,
+  "normalization": "lowercase, ё→е, bracketed chapter markers removed, word tokens",
+  "containment_unit": "per-line fragment (word-weighted); fragments shorter than the shingle length matched as exact token subsequence",
+  "fragment_counts": {
+    "strict": 1264,
+    "loose": 1294
+  },
+  "word_counts": {
+    "edition_1835": 20541,
+    "edition_1842": 36577,
+    "strict": 23640,
+    "loose": 24303,
+    "speech": 373
+  },
+  "shingle_counts": {
+    "edition_1835": 20534,
+    "edition_1842": 36570,
+    "strict": 23633,
+    "loose": 24296,
+    "speech": 366
+  },
+  "containment": {
+    "strict_in_1835": 4.5e-05,
+    "strict_in_1842": 1.0,
+    "loose_in_1835": 9.2e-05,
+    "loose_in_1842": 1.0,
+    "speech_in_loose": 1.0,
+    "strict_in_gogol_anchor_rest": 0.0,
+    "loose_in_gogol_anchor_rest": 0.0
+  },
+  "thresholds": {
+    "additions_in_1835_max": 0.02,
+    "loose_in_1835_max": 0.05,
+    "additions_in_1842_min": 0.98,
+    "speech_in_loose_min": 0.98
+  },
+  "checks": {
+    "strict_absent_from_1835": true,
+    "loose_absent_from_1835": true,
+    "strict_present_in_1842": true,
+    "loose_present_in_1842": true,
+    "speech_inside_loose": true,
+    "speech_marker_only_in_1842": true,
+    "strict_absent_from_anchor_rest": true,
+    "loose_absent_from_anchor_rest": true
+  },
+  "all_checks_pass": true,
+  "anchor": {
+    "anchor_path": "input_clean/gogol/тарас_бульба.txt",
+    "anchor_sha256": "4a0463d18c16b9e41497894b1ce1543628ce3fd43c106f77ed425b53e0b12d02",
+    "edition_1842_sha256": "d2e180376f7b94866f9c4acb9552293060fbe055cd2df8f4e4c4d759a5d92132",
+    "distinct_files": true,
+    "anchor_words": 41889,
+    "anchor_mask_chars": 733,
+    "anchor_mask_note": "input_clean держит NER-маскированные тексты, поэтому дословный shingle-overlap с немаскированной редакцией ФЭБ снижен; величина ниже — описательная.",
+    "anchor_shingle_overlap_with_1842": 0.663632344144191,
+    "anchor_excluded_from_gogol_works": 10,
+    "anchor_excluded_in_every_spec": true,
+    "per_spec_exclusion": {
+      "taras_bulba_additions_loose_extended_fw_2000.yaml": true,
+      "taras_bulba_additions_loose_fw_2000.yaml": true,
+      "taras_bulba_additions_loose_sameperiod_fw_2000.yaml": true,
+      "taras_bulba_additions_loose_suspects_fw_2000.yaml": true,
+      "taras_bulba_additions_loose_suspects_v2_fw_2000.yaml": true,
+      "taras_bulba_additions_loose_topic_cossack_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_annenkov_binary_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_char3_masked_500.yaml": true,
+      "taras_bulba_additions_strict_extended_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_period_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_sameperiod_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_somov_binary_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_suspects_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_suspects_v2_fw_2000.yaml": true,
+      "taras_bulba_additions_strict_topic_cossack_fw_2000.yaml": true,
+      "taras_bulba_diag_prokopovich_letters_fw_2000.yaml": true,
+      "taras_bulba_tovarishchestvo_fw_2000.yaml": true,
+      "taras_control_annenkov_holdout_fw_2000.yaml": true,
+      "taras_control_annenkov_holdout_v2_fw_2000.yaml": true,
+      "taras_control_gogol1835_base_fw_2000.yaml": true,
+      "taras_control_gogol1835_base_topic_fw_2000.yaml": true,
+      "taras_control_gogol1835_base_v2_fw_2000.yaml": true,
+      "taras_control_pushkin_holdout_fw_2000.yaml": true,
+      "taras_control_shinel_holdout_fw_2000.yaml": true,
+      "taras_control_shinel_holdout_v2_fw_2000.yaml": true,
+      "taras_control_shinel_topic_fw_2000.yaml": true,
+      "taras_control_turgenev_holdout_v2_fw_2000.yaml": true
+    }
+  },
+  "sources": {
+    "edition_1835": "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm (ФЭБ, изд. АН СССР: редакция «Миргорода» 1835 г., 9 глав)",
+    "edition_1842": "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm (ФЭБ, изд. АН СССР: редакция 1842 г., 12 глав)",
+    "extraction": "Выравнивание редакций по 4-граммам предложений; strict = куски 1842 с overlap<0.10 к 1835, loose = overlap<0.20."
+  }
+}

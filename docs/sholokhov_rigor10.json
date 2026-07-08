@@ -1,0 +1,27 @@
+{
+  "Тихий Дон": {
+    "diff_median": 0.708,
+    "diff_ci_bookclustered": [
+      -0.277,
+      1.424
+    ],
+    "frac_pos": 0.918,
+    "ci_excludes_0": false,
+    "n_books_target": 4
+  },
+  "Поднятая целина": {
+    "diff_median": 0.074,
+    "diff_ci_bookclustered": [
+      -0.763,
+      0.675
+    ],
+    "frac_pos": 0.57,
+    "ci_excludes_0": false,
+    "n_books_target": 1
+  },
+  "silhouette_gaussian_null": {
+    "obs": 0.1258,
+    "gauss_null_p95": 0.0943,
+    "exceeds": true
+  }
+}

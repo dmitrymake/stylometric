@@ -1,0 +1,34 @@
+{
+  "protocol": "их 3 train + 1 test на автора, наш char-SVM (char_wb 2-5, hashing, leak-free vec)",
+  "win_chars": 15000,
+  "cap_per_author": 11,
+  "their_headline_50auth": 0.804,
+  "A_replication": {
+    "10": [
+      0.737,
+      0.09
+    ],
+    "20": [
+      0.766,
+      0.058
+    ],
+    "50": [
+      0.691,
+      0.048
+    ]
+  },
+  "B_leak": {
+    "20": {
+      "random_split": 0.733,
+      "book_grouped": 0.681,
+      "leak_premium_pp": 5.2
+    },
+    "50": {
+      "random_split": 0.698,
+      "book_grouped": 0.627,
+      "leak_premium_pp": 7.1
+    }
+  },
+  "n_authors_pool": 299,
+  "n_multibook": 273
+}

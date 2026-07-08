@@ -1,0 +1,7 @@
+{
+  "sholokhov": 0.889,
+  "fake_similar_don": 0.872,
+  "fake_different": 0.938,
+  "method_catches_similar_mix": false,
+  "verdict": "Метод плохо различает ПОХОЖИЕ руки — нельзя исключить нескольких ПОХОЖИХ донских негров (предел мощности)"
+}

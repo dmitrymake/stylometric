@@ -1,0 +1,46 @@
+{
+  "TOPIC_INVARIANT_full": {
+    "genre_auc": 0.99,
+    "dim": 2920
+  },
+  "only_char_ngrams": {
+    "genre_auc": 0.999,
+    "dim": 5000
+  },
+  "only_function_words": {
+    "genre_auc": 0.98,
+    "dim": 300
+  },
+  "only_syntax": {
+    "genre_auc": 0.968,
+    "dim": 14
+  },
+  "only_pos_ngrams": {
+    "genre_auc": 0.984,
+    "dim": 2000
+  },
+  "only_punctuation_ngrams": {
+    "genre_auc": 0.988,
+    "dim": 500
+  },
+  "only_dependency": {
+    "genre_auc": 0.975,
+    "dim": 43
+  },
+  "only_morphology": {
+    "genre_auc": 0.963,
+    "dim": 39
+  },
+  "only_length_dist": {
+    "genre_auc": 0.914,
+    "dim": 24
+  },
+  "TOPIC_INVARIANT_strict": {
+    "genre_auc": 0.989,
+    "dim": 3012
+  },
+  "bleach_claim": {
+    "genre_auc": 0.999,
+    "dim": 5000
+  }
+}

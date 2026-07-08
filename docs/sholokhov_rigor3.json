@@ -1,0 +1,206 @@
+{
+  "basis_authors": [
+    "chehov",
+    "gogol",
+    "nabokov",
+    "leskov",
+    "saltykov",
+    "kuprin",
+    "gazdanov"
+  ],
+  "design": "нейтральный симметричный базис; все группы out-of-sample",
+  "mfw": {
+    "dispersion_sholohov": 4.542,
+    "control_mean": 4.72,
+    "control_std": 0.273,
+    "b2_stay": 10,
+    "b2_n": 12,
+    "b2": [
+      {
+        "book": "aleshkino_serdce",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "batraki",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "chuzhaya_krov",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "nauka_nenavisti",
+        "nearest": "bulgakov",
+        "stays": false
+      },
+      {
+        "book": "oni_srazhalis",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "podnyataya_celina_2",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "sudba_cheloveka",
+        "nearest": "krukov",
+        "stays": false
+      },
+      {
+        "book": "tihiy_don_1",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "tihiy_don_2",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "tihiy_don_3",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "tihiy_don_4",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "podnyataya_celina_1",
+        "nearest": "sholohov_rest",
+        "stays": true
+      }
+    ],
+    "within_author_genre_auc": 0.962,
+    "power_frac_krukov": [
+      {
+        "k": 0,
+        "frac_krukov_nn": 0.37
+      },
+      {
+        "k": 10,
+        "frac_krukov_nn": 0.43
+      },
+      {
+        "k": 20,
+        "frac_krukov_nn": 0.485
+      },
+      {
+        "k": 30,
+        "frac_krukov_nn": 0.505
+      },
+      {
+        "k": 40,
+        "frac_krukov_nn": 0.595
+      },
+      {
+        "k": 50,
+        "frac_krukov_nn": 0.675
+      }
+    ],
+    "power_detect_k": 40
+  },
+  "strict": {
+    "dispersion_sholohov": 4.561,
+    "control_mean": 4.722,
+    "control_std": 0.27,
+    "b2_stay": 10,
+    "b2_n": 12,
+    "b2": [
+      {
+        "book": "aleshkino_serdce",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "batraki",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "chuzhaya_krov",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "nauka_nenavisti",
+        "nearest": "bulgakov",
+        "stays": false
+      },
+      {
+        "book": "oni_srazhalis",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "podnyataya_celina_2",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "sudba_cheloveka",
+        "nearest": "krukov",
+        "stays": false
+      },
+      {
+        "book": "tihiy_don_1",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "tihiy_don_2",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "tihiy_don_3",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "tihiy_don_4",
+        "nearest": "sholohov_rest",
+        "stays": true
+      },
+      {
+        "book": "podnyataya_celina_1",
+        "nearest": "sholohov_rest",
+        "stays": true
+      }
+    ],
+    "within_author_genre_auc": 0.96,
+    "power_frac_krukov": [
+      {
+        "k": 0,
+        "frac_krukov_nn": 0.44
+      },
+      {
+        "k": 10,
+        "frac_krukov_nn": 0.475
+      },
+      {
+        "k": 20,
+        "frac_krukov_nn": 0.53
+      },
+      {
+        "k": 30,
+        "frac_krukov_nn": 0.595
+      },
+      {
+        "k": 40,
+        "frac_krukov_nn": 0.625
+      },
+      {
+        "k": 50,
+        "frac_krukov_nn": 0.685
+      }
+    ],
+    "power_detect_k": 30
+  }
+}

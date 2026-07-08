@@ -1,0 +1,12 @@
+{
+  "grin": {
+    "within_silhouette": 0.0634,
+    "n_self": 6,
+    "n_books": 6
+  },
+  "pilnyak": {
+    "within_silhouette": 0.0525,
+    "n_self": 2,
+    "n_books": 2
+  }
+}

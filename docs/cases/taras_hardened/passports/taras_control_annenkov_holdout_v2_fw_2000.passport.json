@@ -1,0 +1,180 @@
+{
+  "case_id": "taras_control_annenkov_holdout_v2_fw_2000",
+  "title": "Control v2: held-out Annenkov work (suspects v2)",
+  "hypothesis": "Control: a held-out Annenkov work must attribute to Annenkov.",
+  "target_description": "Путевые записки (Annenkov, held out)",
+  "claim": "Контроль против атаки «метод всегда говорит Гоголь».",
+  "limitations": [
+    "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+  ],
+  "status": "strong",
+  "verdict": "Gate пройден; target устойчиво ближе к annenkov_1840s (winner_share=0.941, margin=0.071647).",
+  "confidence": "high",
+  "evidence_score": 93.81,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8625,
+      "chunk_weighted_recall": 0.7132,
+      "work_recall": {
+        "annenkov_1840s": "4/4",
+        "dostoevsky": "9/10",
+        "gogol": "8/10",
+        "turgenev": "9/12"
+      },
+      "chunk_recall": {
+        "annenkov_1840s": "137/145",
+        "dostoevsky": "492/778",
+        "gogol": "101/144",
+        "turgenev": "155/270"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "annenkov_1840s": {
+          "annenkov_1840s": 137,
+          "dostoevsky": 1,
+          "gogol": 7,
+          "turgenev": 0
+        },
+        "dostoevsky": {
+          "annenkov_1840s": 14,
+          "dostoevsky": 492,
+          "gogol": 199,
+          "turgenev": 73
+        },
+        "gogol": {
+          "annenkov_1840s": 10,
+          "dostoevsky": 26,
+          "gogol": 101,
+          "turgenev": 7
+        },
+        "turgenev": {
+          "annenkov_1840s": 6,
+          "dostoevsky": 48,
+          "gogol": 61,
+          "turgenev": 155
+        }
+      },
+      "n_works": 36,
+      "n_chunks": 1337,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "annenkov_1840s",
+      "second": "gogol",
+      "margin": 0.071647,
+      "margin_ci95": [
+        0.048329,
+        0.097073
+      ],
+      "winner_share": {
+        "annenkov_1840s": 0.941,
+        "gogol": 0.059
+      },
+      "similarities": [
+        {
+          "candidate": "annenkov_1840s",
+          "cos": 0.995127
+        },
+        {
+          "candidate": "gogol",
+          "cos": 0.92348
+        },
+        {
+          "candidate": "turgenev",
+          "cos": 0.887493
+        },
+        {
+          "candidate": "dostoevsky",
+          "cos": 0.876778
+        }
+      ],
+      "per_chunk_winners": {
+        "annenkov_1840s": 16,
+        "gogol": 1
+      },
+      "n_chunks": 17
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "annenkov_1840s",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s/путевые_записки__0060.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "turgenev",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "dostoevsky",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/dostoevsky"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s/путевые_записки__0060.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 36,
+    "n_candidate_chunks": 1337,
+    "works_per_author": {
+      "annenkov_1840s": 4,
+      "dostoevsky": 10,
+      "gogol": 10,
+      "turgenev": 12
+    },
+    "target_chunks": 17
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_annenkov_holdout_v2_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json"
+  },
+  "notes": "Контрольная батарея v2 1/4."
+}

@@ -1,0 +1,21 @@
+{
+  "method": "author-clustered bootstrap macro-F1 и accuracy (ресэмпл АВТОРОВ) из persisted per-book stylo-LR LOBO (docs/lobo_books.txt); без ре-рана",
+  "source": "docs/lobo_books.txt (final.py LOBO, 251 книг)",
+  "n_books": 251,
+  "n_authors_tested": 43,
+  "n_authors_dataset": 47,
+  "accuracy_point": 0.8805,
+  "accuracy_authorclustered_CI": [
+    0.8116,
+    0.9366
+  ],
+  "accuracy_bootstrap_median": 0.8826,
+  "macro_f1_point": 0.8398,
+  "macro_f1_authorclustered_CI": [
+    0.6222,
+    0.8369
+  ],
+  "macro_f1_bootstrap_median": 0.7249,
+  "n_boot": 10000,
+  "note": "канонический headline stylo-LR LOBO: macro-F1/accuracy + author-clustered 95% CI. Конвенция macro-F1 в репликах: f1_score(average='macro', zero_division=0) без labels= — усреднение по меткам y_true∪y_pred реплики; автор, выпавший из ресэмпла, но оставшийся среди предсказаний, даёт F1=0 и тянет реплику вниз. Интервал консервативен (смещён вниз), точечная оценка на полном пуле лежит выше 97.5-перцентиля — это свойство конвенции, а не признак ошибки в точке."
+}

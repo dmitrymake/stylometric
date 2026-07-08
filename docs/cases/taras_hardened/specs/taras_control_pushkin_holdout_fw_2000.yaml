@@ -1,0 +1,37 @@
+case_id: taras_control_pushkin_holdout_fw_2000
+title: "Control: held-out Дубровский on the suspects panel"
+hypothesis: "Control: a held-out Pushkin work must attribute to Pushkin."
+target_description: "Дубровский (Pushkin, held out)"
+claim: "Контроль: изъятый «Дубровский» должен вернуться к Пушкину."
+limitations:
+  - "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  annenkov_1840s: ../../../../input_cases/taras_bulba/cand_annenkov_1840s
+  pushkin:
+    path: ../../../../input_clean/pushkin
+    exclude:
+      - ../../../../input_clean/pushkin/дубровский.txt
+  turgenev: ../../../../input_clean/turgenev
+  dostoevsky: ../../../../input_clean/dostoevsky
+target: ../../../../input_clean/pushkin/дубровский.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+  - ../../../../input_clean/pushkin/дубровский.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_pushkin_holdout_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_pushkin_holdout_fw_2000.passport.json"
+notes: "Контрольная батарея 4/4."

@@ -1,0 +1,275 @@
+{
+  "case_id": "taras_bulba_additions_loose_extended_fw_2000",
+  "title": "Taras Bulba 1842 loose additions: extended controls fw_fixed random_2000",
+  "hypothesis": "Large 1842 additions to Taras Bulba were written by a non-Gogol editorial hand.",
+  "target_description": "loose additions · extended controls",
+  "claim": "Extended-control stress test for the loose 1842 additions; the headline claim remains the four-author hardened panel.",
+  "limitations": [
+    "Stress test only: the larger panel adds less balanced same-century controls and is not the headline protocol.",
+    "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions."
+  ],
+  "status": "fail",
+  "verdict": "Feasibility gate не пройден: work_macro_recall=0.7515, permutation_p=0.0005. Атрибуцию давать нельзя.",
+  "confidence": "low",
+  "evidence_score": 79.08,
+  "gate_pass": false,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "fail",
+      "gate_pass": false,
+      "work_macro_recall": 0.7515,
+      "chunk_weighted_recall": 0.5035,
+      "work_recall": {
+        "dostoevsky": "10/10",
+        "gogol": "7/10",
+        "leskov": "2/3",
+        "pushkin": "6/6",
+        "saltykov": "1/2",
+        "tolstoy": "6/9",
+        "turgenev": "8/11"
+      },
+      "chunk_recall": {
+        "dostoevsky": "463/778",
+        "gogol": "74/144",
+        "leskov": "11/20",
+        "pushkin": "30/51",
+        "saltykov": "26/95",
+        "tolstoy": "188/345",
+        "turgenev": "123/268"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "dostoevsky": {
+          "dostoevsky": 463,
+          "gogol": 71,
+          "leskov": 18,
+          "pushkin": 13,
+          "saltykov": 72,
+          "tolstoy": 88,
+          "turgenev": 53
+        },
+        "gogol": {
+          "dostoevsky": 24,
+          "gogol": 74,
+          "leskov": 2,
+          "pushkin": 9,
+          "saltykov": 24,
+          "tolstoy": 5,
+          "turgenev": 6
+        },
+        "leskov": {
+          "dostoevsky": 2,
+          "gogol": 0,
+          "leskov": 11,
+          "pushkin": 2,
+          "saltykov": 5,
+          "tolstoy": 0,
+          "turgenev": 0
+        },
+        "pushkin": {
+          "dostoevsky": 0,
+          "gogol": 1,
+          "leskov": 1,
+          "pushkin": 30,
+          "saltykov": 4,
+          "tolstoy": 3,
+          "turgenev": 12
+        },
+        "saltykov": {
+          "dostoevsky": 10,
+          "gogol": 33,
+          "leskov": 18,
+          "pushkin": 4,
+          "saltykov": 26,
+          "tolstoy": 2,
+          "turgenev": 2
+        },
+        "tolstoy": {
+          "dostoevsky": 50,
+          "gogol": 33,
+          "leskov": 7,
+          "pushkin": 11,
+          "saltykov": 17,
+          "tolstoy": 188,
+          "turgenev": 39
+        },
+        "turgenev": {
+          "dostoevsky": 43,
+          "gogol": 22,
+          "leskov": 10,
+          "pushkin": 21,
+          "saltykov": 6,
+          "tolstoy": 43,
+          "turgenev": 123
+        }
+      },
+      "n_works": 51,
+      "n_chunks": 1701,
+      "failure_modes": [
+        "work_macro_recall_below_0_80"
+      ]
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "saltykov",
+      "margin": 0.001308,
+      "margin_ci95": [
+        9.4e-05,
+        0.006212
+      ],
+      "winner_share": {
+        "gogol": 0.412,
+        "saltykov": 0.353,
+        "leskov": 0.176,
+        "pushkin": 0.059
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.966393
+        },
+        {
+          "candidate": "saltykov",
+          "cos": 0.965085
+        },
+        {
+          "candidate": "leskov",
+          "cos": 0.9568
+        },
+        {
+          "candidate": "tolstoy",
+          "cos": 0.947861
+        },
+        {
+          "candidate": "pushkin",
+          "cos": 0.943922
+        },
+        {
+          "candidate": "turgenev",
+          "cos": 0.933126
+        },
+        {
+          "candidate": "dostoevsky",
+          "cos": 0.92955
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 7,
+        "saltykov": 6,
+        "leskov": 3,
+        "pushkin": 1
+      },
+      "n_chunks": 17
+    }
+  ],
+  "failure_modes": [
+    "work_macro_recall_below_0_80"
+  ],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "pushkin",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/pushkin"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "turgenev",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "dostoevsky",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/dostoevsky"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "tolstoy",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/tolstoy"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/tolstoy/война_и_мир.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "leskov",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/leskov"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "saltykov",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/saltykov"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_loose.txt",
+    "sources": [
+      "Local Taras Bulba case data and cleaned benchmark anchors."
+    ],
+    "n_candidate_works": 51,
+    "n_candidate_chunks": 1701,
+    "works_per_author": {
+      "dostoevsky": 10,
+      "gogol": 10,
+      "leskov": 3,
+      "pushkin": 6,
+      "saltykov": 2,
+      "tolstoy": 9,
+      "turgenev": 11
+    },
+    "target_chunks": 17
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_loose_extended_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_loose_extended_fw_2000.passport.json"
+  },
+  "notes": "Stress test with Tolstoy, Leskov, and Saltykov; excludes contaminated full Taras from Gogol anchor."
+}

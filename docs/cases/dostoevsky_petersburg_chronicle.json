@@ -1,0 +1,107 @@
+{
+  "case": "dostoevsky_petersburg_chronicle",
+  "stage": "feasibility_gate",
+  "status": "reliable",
+  "title": "Петербургская летопись (1847): проверка выполнимости — уходят ли фельетоны Ф.Д. к Достоевскому",
+  "candidate_words": {
+    "dostoevsky_fiction": 221358,
+    "dostoevsky_publicistic": 297662,
+    "pleshcheev": 17491,
+    "sollogub": 75730
+  },
+  "candidate_docs": {
+    "dostoevsky_fiction": 153,
+    "dostoevsky_publicistic": 202,
+    "pleshcheev": 12,
+    "sollogub": 55
+  },
+  "note": "Эталон Достоевского — его ранняя проза 1846-1849 и публицистика, цель — фельетон; признак только служебные слова (без утечки: фикс-список, словарь не учится). Проверка выполнимости: панель различает авторов (доля верных опознаний по авторам) И подписанные Ф.Д. фельетоны уходят к Достоевскому при пересборках. Низкая проверка = регистр доминирует, атрибуцию спорного Н.Н. давать нельзя.",
+  "positive_control": {
+    "per_class_recall_work_LOO": {
+      "dostoevsky_fiction": "4/7",
+      "dostoevsky_publicistic": "4/4",
+      "pleshcheev": "control_not_computable_single_work",
+      "sollogub": "6/7"
+    },
+    "works_per_class": {
+      "dostoevsky_fiction": 7,
+      "dostoevsky_publicistic": 4,
+      "pleshcheev": 1,
+      "sollogub": 7
+    },
+    "macro_recall": 0.8095,
+    "macro_recall_note": "leave-one-WORK-out по классам с >=2 работами; Плещеев (1 работа) — control_not_computable_single_work, исключён из macro и из заявления о разделении рук",
+    "work_level_permutation_p": 0.0005,
+    "permutation_method": "random_2000",
+    "permutation_exact_floor": null,
+    "permutation_note": "перестановка ярлыков работ среди классов панели: значим ли перевес над случайной расстановкой меток. Надёжность (status reliable) требует И macro_recall >= 0.80, И perm_p <= 0.05.",
+    "within_work_chunk_accuracy": 0.7639,
+    "within_work_note": "within-work диагностика (узнаёт текст работы, не руку); в решении НЕ участвует"
+  },
+  "FD_feuilletons_attribution": {
+    "whole": [
+      {
+        "candidate": "dostoevsky_publicistic",
+        "cos": 0.966794
+      },
+      {
+        "candidate": "sollogub",
+        "cos": 0.943501
+      },
+      {
+        "candidate": "dostoevsky_fiction",
+        "cos": 0.925961
+      },
+      {
+        "candidate": "pleshcheev",
+        "cos": 0.908459
+      }
+    ],
+    "whole_distinctiveness": 0.0123,
+    "per_chunk_winners": {
+      "dostoevsky_publicistic": 6,
+      "sollogub": 1
+    },
+    "bootstrap_winner_share": {
+      "dostoevsky_publicistic": 1.0
+    },
+    "bootstrap_dostoevsky_share": 1.0,
+    "class_centrality": {
+      "dostoevsky_fiction": 0.9854,
+      "dostoevsky_publicistic": 0.9726,
+      "pleshcheev": 0.98,
+      "sollogub": 0.9852
+    }
+  },
+  "gate_pass": true,
+  "verdict": "Подписанные Ф.Д. фельетоны при пересборках чаще всего ближе к публицистике Достоевского («Дневник писателя») — к этому КОНКРЕТНОМУ классу 100% (доля по одному классу; Достоевский занимает 2 класса из 4, поэтому суммарная «доля к Достоевскому» завышена базовой ставкой). Средняя доля верных опознаний классов (с убранной целой работой) 0.8095, перестановка ярлыков работ p=0.0005 (random_2000). Эталон Плещеева не проверяем — одна работа даёт вырожденный профиль и чужой регистр. На художественном эталоне фельетоны Ф.Д. уходят к фельетонно-светской прозе Соллогуба, а не к беллетристике Достоевского. Доля выше порога 0.80 при значимой перестановке — позитив-контроль выполним; но это лишь публицистический эталон для теста спорного Н.Н., с оговоркой на сдвиг эпохи (26 лет), а не уверенная атрибуция.",
+  "caveat": "Эталон публицистики Достоевского — «Дневник писателя» 1873-1881, на 26 лет позже фельетонов 1847; совпадение может нести и сдвиг эпохи, и совпадение регистра, не только идиолект.",
+  "data_status": "Все тексты — общественное достояние (Достоевский †1881, Плещеев †1893, Соллогуб †1882). Якоря и фельетоны Ф.Д. — чистый текст с az.lib.ru; спорный фельетон Н.Н. (13.04.1847) — с rvb.ru (Русская виртуальная библиотека). Сырьё пишется в gitignored input_cases/dostoevsky_petersburg_chronicle/; в git — только скрипт добычи (scripts/fetch_petersburg_chronicle.py) и этот JSON.",
+  "sources": [
+    {
+      "cite": "«Петербургская летопись» Ф.Д. (1847), фельетоны — позитив-контроль/эталон регистра, petersburg_chronicle",
+      "url": "http://az.lib.ru/d/dostoewskij_f_m/"
+    },
+    {
+      "cite": "Ф. М. Достоевский, ранняя проза 1846-1849 — cand_dostoevsky",
+      "url": "http://az.lib.ru/d/dostoewskij_f_m/"
+    },
+    {
+      "cite": "Ф. М. Достоевский, «Дневник писателя» 1876-1880 (публицистика) — cand_dostoevsky_publicistic",
+      "url": "http://az.lib.ru/d/dostoewskij_f_m/"
+    },
+    {
+      "cite": "А. Н. Плещеев, «Житейские сцены» (1856) — cand_pleshcheev",
+      "url": "http://az.lib.ru/p/plesheew_a_n/"
+    },
+    {
+      "cite": "В. А. Соллогуб, светская проза 1840-х + петербургский фельетон «Букеты» (1845) — cand_sollogub",
+      "url": "http://az.lib.ru/s/sollogub_w_a/"
+    },
+    {
+      "cite": "Спорный фельетон Н.Н. (13.04.1847), Русская виртуальная библиотека — target_NN",
+      "url": "https://rvb.ru/dostoevski/01text/vol2/17.htm"
+    }
+  ],
+  "analysis_command": "PYTHONPATH=src python3 scripts/run_petersburg_chronicle_gate.py"
+}

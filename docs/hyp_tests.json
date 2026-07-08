@@ -1,0 +1,27 @@
+{
+  "serafimovich_potok": {
+    "P_serafimovich_vs_gorky": 0.891,
+    "nearest": "serafimovich(ранний)",
+    "dists": {
+      "serafimovich(ранний)": 1.596,
+      "gorky": 2.887,
+      "furmanov": 2.952,
+      "novikov_priboy": 3.166
+    },
+    "internal_silhouette": 0.05,
+    "hand": "serafimovich"
+  },
+  "platonov": {
+    "chevengur": {
+      "P_platonov": 0.817,
+      "internal_silhouette": -0.0017
+    },
+    "kotlovan": {
+      "P_platonov": 0.902,
+      "internal_silhouette": 0.0406
+    }
+  },
+  "don_school": {
+    "sevsky_vs_krukov": 0.748
+  }
+}

@@ -1,0 +1,34 @@
+case_id: taras_control_shinel_topic_fw_2000
+title: "Diagnostic: Шинель on the cossack topic panel"
+hypothesis: "Diagnostic: non-cossack late Gogol on the topic panel."
+target_description: "Шинель на казачьей панели"
+claim: "Диагностика: некозачий поздний Гоголь на топик-панели (изъят из анкора)."
+limitations:
+  - "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+      - ../../../../input_clean/gogol/шинель.txt
+  somov: ../../../../input_cases/taras_bulba/cand_somov
+  narezhny: ../../../../input_cases/taras_bulba/cand_narezhny
+  grebenka: ../../../../input_cases/taras_bulba/cand_grebenka
+target: ../../../../input_clean/gogol/шинель.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+  - ../../../../input_clean/gogol/шинель.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_shinel_topic_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_shinel_topic_fw_2000.passport.json"
+notes: "Диагностика топик-панели 2."

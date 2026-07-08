@@ -1,0 +1,94 @@
+{
+  "ranked": [
+    {
+      "feat": "dependency",
+      "author_auc": 0.957,
+      "genre_xauthor_auc": 0.397,
+      "idiolect": 0.56,
+      "n_pairs": 42
+    },
+    {
+      "feat": "pos_ngrams",
+      "author_auc": 0.957,
+      "genre_xauthor_auc": 0.505,
+      "idiolect": 0.452,
+      "n_pairs": 42
+    },
+    {
+      "feat": "syntax",
+      "author_auc": 0.894,
+      "genre_xauthor_auc": 0.455,
+      "idiolect": 0.439,
+      "n_pairs": 42
+    },
+    {
+      "feat": "char_ngrams (baseline)",
+      "author_auc": 0.987,
+      "genre_xauthor_auc": 0.622,
+      "idiolect": 0.365,
+      "n_pairs": 42
+    },
+    {
+      "feat": "function_words",
+      "author_auc": 0.973,
+      "genre_xauthor_auc": 0.66,
+      "idiolect": 0.313,
+      "n_pairs": 42
+    },
+    {
+      "feat": "morphology",
+      "author_auc": 0.863,
+      "genre_xauthor_auc": 0.584,
+      "idiolect": 0.28,
+      "n_pairs": 42
+    },
+    {
+      "feat": "punctuation_ngrams",
+      "author_auc": 0.759,
+      "genre_xauthor_auc": 0.481,
+      "idiolect": 0.278,
+      "n_pairs": 42
+    },
+    {
+      "feat": "length_dist",
+      "author_auc": 0.752,
+      "genre_xauthor_auc": 0.556,
+      "idiolect": 0.196,
+      "n_pairs": 42
+    },
+    {
+      "feat": "DSP (суффиксы)",
+      "author_auc": 0.754,
+      "genre_xauthor_auc": 0.651,
+      "idiolect": 0.103,
+      "n_pairs": 42
+    }
+  ],
+  "clean": [
+    "dependency",
+    "pos_ngrams",
+    "syntax",
+    "char_ngrams (baseline)",
+    "morphology",
+    "punctuation_ngrams",
+    "length_dist"
+  ],
+  "war_authors": [
+    "furmanov",
+    "garshin",
+    "novikov_priboy",
+    "serafimovich",
+    "sholohov",
+    "tolstoy"
+  ],
+  "rural_authors": [
+    "bunin",
+    "grigorovich",
+    "korolenko",
+    "krukov",
+    "reshetnikov",
+    "turgenev",
+    "uspensky"
+  ],
+  "cap_per_book": 40
+}

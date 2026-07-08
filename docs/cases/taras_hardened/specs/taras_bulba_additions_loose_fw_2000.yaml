@@ -1,0 +1,32 @@
+case_id: taras_bulba_additions_loose_fw_2000
+title: "Taras Bulba 1842 loose additions: fw_fixed hardened random_2000"
+hypothesis: "Large 1842 additions to Taras Bulba were written by a non-Gogol editorial hand."
+target_description: "loose additions"
+claim: "In this protocol, the large loose 1842 additions are stylistically closest to Gogol; the non-Gogol large-additions hypothesis is not supported."
+limitations:
+  - "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions."
+  - "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  pushkin: ../../../../input_clean/pushkin
+  turgenev: ../../../../input_clean/turgenev
+  dostoevsky: ../../../../input_clean/dostoevsky
+target: ../../../../input_cases/taras_bulba/dobavleniya1842_loose.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data and cleaned benchmark anchors."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_loose_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_loose_fw_2000.passport.json"
+notes: "Tests large 1842 additions only; excludes contaminated full Taras from Gogol anchor."

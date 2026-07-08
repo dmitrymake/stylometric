@@ -1,0 +1,183 @@
+{
+  "case_id": "taras_control_shinel_topic_fw_2000",
+  "title": "Diagnostic: Шинель on the cossack topic panel",
+  "hypothesis": "Diagnostic: non-cossack late Gogol on the topic panel.",
+  "target_description": "Шинель на казачьей панели",
+  "claim": "Диагностика: некозачий поздний Гоголь на топик-панели (изъят из анкора).",
+  "limitations": [
+    "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+  ],
+  "status": "fail",
+  "verdict": "Feasibility gate не пройден: work_macro_recall=0.7472, permutation_p=0.0005. Атрибуцию давать нельзя.",
+  "confidence": "low",
+  "evidence_score": 84.73,
+  "gate_pass": false,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "fail",
+      "gate_pass": false,
+      "work_macro_recall": 0.7472,
+      "chunk_weighted_recall": 0.6847,
+      "work_recall": {
+        "gogol": "8/9",
+        "grebenka": "9/10",
+        "narezhny": "2/4",
+        "somov": "14/20"
+      },
+      "chunk_recall": {
+        "gogol": "95/130",
+        "grebenka": "58/73",
+        "narezhny": "98/145",
+        "somov": "50/93"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "gogol": {
+          "gogol": 95,
+          "grebenka": 17,
+          "narezhny": 5,
+          "somov": 13
+        },
+        "grebenka": {
+          "gogol": 1,
+          "grebenka": 58,
+          "narezhny": 2,
+          "somov": 12
+        },
+        "narezhny": {
+          "gogol": 9,
+          "grebenka": 2,
+          "narezhny": 98,
+          "somov": 36
+        },
+        "somov": {
+          "gogol": 11,
+          "grebenka": 10,
+          "narezhny": 22,
+          "somov": 50
+        }
+      },
+      "n_works": 43,
+      "n_chunks": 441,
+      "failure_modes": [
+        "work_macro_recall_below_0_80"
+      ]
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "somov",
+      "margin": 0.030546,
+      "margin_ci95": [
+        0.022895,
+        0.036542
+      ],
+      "winner_share": {
+        "gogol": 0.929,
+        "narezhny": 0.071
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.980831
+        },
+        {
+          "candidate": "somov",
+          "cos": 0.950285
+        },
+        {
+          "candidate": "narezhny",
+          "cos": 0.931065
+        },
+        {
+          "candidate": "grebenka",
+          "cos": 0.929265
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 13,
+        "narezhny": 1
+      },
+      "n_chunks": 14
+    }
+  ],
+  "failure_modes": [
+    "work_macro_recall_below_0_80"
+  ],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/шинель.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "somov",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_somov"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "narezhny",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_narezhny"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "grebenka",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_grebenka"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/шинель.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 43,
+    "n_candidate_chunks": 441,
+    "works_per_author": {
+      "gogol": 9,
+      "grebenka": 10,
+      "narezhny": 4,
+      "somov": 20
+    },
+    "target_chunks": 14
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_shinel_topic_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_shinel_topic_fw_2000.passport.json"
+  },
+  "notes": "Диагностика топик-панели 2."
+}

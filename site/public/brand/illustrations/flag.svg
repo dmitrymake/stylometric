@@ -1,0 +1,16 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="День России — триколор"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="8" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<path d="M37 26 L40 26 L40 102 L37 102 Z" fill="#8E6A22" fill-opacity="0.75"></path>
+<circle cx="38.5" cy="26" r="3.2" fill="#D6A41E" fill-opacity="0.85"></circle>
+<path d="M40 34 L92 31 Q98 41 92 51 L40 51 Z" fill="#EDE7D6" fill-opacity="0.92"></path>
+<path d="M40 51 L92 51 Q98 61 92 69 L40 69 Z" fill="#2B5FA8" fill-opacity="0.74"></path>
+<path d="M40 69 L92 69 Q98 79 92 87 L40 87 Z" fill="#D43A2C" fill-opacity="0.74"></path>
+<path d="M40 51 L92 51 M40 69 L92 69" stroke="#1F1B26" stroke-width="0.8" stroke-opacity="0.18"></path>
+<path d="M40 34 L92 31 Q98 41 92 51 L40 51" fill="none" stroke="#C9C0AC" stroke-width="1" stroke-opacity="0.45"></path></g><g filter="url(#grain)" opacity="0.4"><path d="M40 34 L92 31 Q98 60 92 87 L40 87 Z" fill="#fff"></path></g></svg>

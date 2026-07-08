@@ -1,0 +1,44 @@
+{
+  "bulgakov_dependency": {
+    "ip_ref": 0.752,
+    "bu_ref": 0.21,
+    "mid": 0.481,
+    "dilogy": 0.675,
+    "dilogy_books": {
+      "двенадцать_стульев": 0.666,
+      "золотой_телёнок": 0.684
+    },
+    "to_ilfpetrov": true
+  },
+  "bulgakov_ensemble": {
+    "ip_ref": 0.749,
+    "bu_ref": 0.128,
+    "mid": 0.439,
+    "dilogy": 0.705,
+    "dilogy_books": {
+      "двенадцать_стульев": 0.623,
+      "золотой_телёнок": 0.787
+    },
+    "to_ilfpetrov": true
+  },
+  "tolstoy_an": {
+    "within_silhouette": {
+      "А.Н.Толстой": 0.0615,
+      "bunin": 0.0518,
+      "dostoevsky": 0.0512,
+      "turgenev": 0.0619,
+      "tolstoy": 0.0589
+    },
+    "nearest": {
+      "аэлита": "tolstoy_an",
+      "гиперболоид_инженера_гарина": "tolstoy_an",
+      "граф_калиостро": "tolstoy_an",
+      "хромой_барин": "tolstoy_an",
+      "чудаки": "tolstoy_an",
+      "эмигранты": "tolstoy_an"
+    },
+    "n_self": 6,
+    "n_books": 6,
+    "confused_with_lev": false
+  }
+}

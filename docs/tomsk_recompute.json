@@ -1,0 +1,17 @@
+{
+  "n_authors": 40,
+  "n_fragments": 320,
+  "win_chars": 15000,
+  "n_features_buggy": 1064,
+  "n_features_fixed": 1067,
+  "cells": {
+    "as_is": 0.44,
+    "leak_fixed": 0.381,
+    "feat_fixed": 0.737,
+    "all_fixed": 0.606
+  },
+  "as_is": 0.44,
+  "all_fixed": 0.606,
+  "total_drop_pp": -16.7,
+  "note": "Их данные, их LinearSVC. Фикс фич = полный алфавит (33) + поблочная нормировка; фикс утечки = группировка train/test по книге. Баги ngrams/col_names/DT-RF/readline на эту метрику не влияют (другие пути)."
+}

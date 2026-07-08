@@ -1,0 +1,175 @@
+{
+  "case_id": "taras_bulba_tovarishchestvo_fw_2000",
+  "title": "Taras Bulba 1842 speech on товарищество: focused fw_fixed diagnostic",
+  "hypothesis": "The famous speech on товарищество was written by a non-Gogol editorial hand.",
+  "target_description": "speech on товарищество · focused diagnostic",
+  "claim": "Focused diagnostic for the famous speech; because the passage is one short target chunk, it cannot carry the headline claim.",
+  "limitations": [
+    "Single short passage: diagnostic only, never a strong verdict in this protocol.",
+    "Applies only to this extracted passage, not to all 1842 additions."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target из одного chunk диагностически ближе к gogol, но single-chunk target не может получить strong verdict (winner_share=1.0, margin=0.027398).",
+  "confidence": "medium",
+  "evidence_score": 84.29,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8625,
+      "chunk_weighted_recall": 0.6319,
+      "work_recall": {
+        "dostoevsky": "9/10",
+        "gogol": "8/10",
+        "pushkin": "6/6",
+        "turgenev": "9/12"
+      },
+      "chunk_recall": {
+        "dostoevsky": "491/778",
+        "gogol": "101/144",
+        "pushkin": "33/51",
+        "turgenev": "148/270"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "dostoevsky": {
+          "dostoevsky": 491,
+          "gogol": 200,
+          "pushkin": 16,
+          "turgenev": 71
+        },
+        "gogol": {
+          "dostoevsky": 26,
+          "gogol": 101,
+          "pushkin": 11,
+          "turgenev": 6
+        },
+        "pushkin": {
+          "dostoevsky": 1,
+          "gogol": 3,
+          "pushkin": 33,
+          "turgenev": 14
+        },
+        "turgenev": {
+          "dostoevsky": 48,
+          "gogol": 49,
+          "pushkin": 25,
+          "turgenev": 148
+        }
+      },
+      "n_works": 38,
+      "n_chunks": 1243,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "dostoevsky",
+      "margin": 0.027398,
+      "margin_ci95": null,
+      "winner_share": {
+        "gogol": 1.0
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.882457
+        },
+        {
+          "candidate": "dostoevsky",
+          "cos": 0.855059
+        },
+        {
+          "candidate": "turgenev",
+          "cos": 0.852064
+        },
+        {
+          "candidate": "pushkin",
+          "cos": 0.835071
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 1
+      },
+      "n_chunks": 1
+    }
+  ],
+  "failure_modes": [
+    "target_single_chunk_no_strong_verdict"
+  ],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "pushkin",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/pushkin"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "turgenev",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/turgenev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "dostoevsky",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/dostoevsky"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/tovarishchestvo_speech.txt",
+    "sources": [
+      "Local Taras Bulba case data and cleaned benchmark anchors."
+    ],
+    "n_candidate_works": 38,
+    "n_candidate_chunks": 1243,
+    "works_per_author": {
+      "dostoevsky": 10,
+      "gogol": 10,
+      "pushkin": 6,
+      "turgenev": 12
+    },
+    "target_chunks": 1
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_tovarishchestvo_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json"
+  },
+  "notes": "Extracted from loose 1842 additions by sentinel phrases; single-chunk diagnostic only."
+}

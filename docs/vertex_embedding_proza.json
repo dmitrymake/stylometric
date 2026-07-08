@@ -1,0 +1,25 @@
+{
+  "dataset": "Proza.ru hard 50auth 50/50 seed42 (сплит идентичен docs/luar_proza.json)",
+  "model": "gemini-embedding-001 (через VertexAI, замороженные эмбеддинги 3072-dim, task_type=CLASSIFICATION, вход до 6000 символов)",
+  "classifier": "LinearSVC C=1.0 на L2-нормированных эмбеддингах",
+  "test_top1": 0.737,
+  "test_macro_f1": 0.728,
+  "reference_same_split": {
+    "char-SVM": [
+      0.881,
+      0.88
+    ],
+    "ruBERT-tiny2": [
+      0.682,
+      0.674
+    ],
+    "LUAR-MUD (author-emb)": [
+      0.387,
+      0.357
+    ],
+    "char+LUAR concat": [
+      0.859,
+      0.858
+    ]
+  }
+}

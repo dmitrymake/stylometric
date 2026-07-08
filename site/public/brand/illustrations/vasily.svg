@@ -1,0 +1,19 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Храм Василия Блаженного"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<path d="M40 72 H80 V102 H40 Z" fill="#F4EFE3" fill-opacity="0.8"></path>
+<path d="M27 76 C27 67.9 27.35 63.76 34 58 C40.65 63.76 41 67.9 41 76 Z" fill="#2B5FA8" fill-opacity="0.55"></path>
+<path d="M79 76 C79 67.9 79.35 63.76 86 58 C92.65 63.76 93 67.9 93 76 Z" fill="#4F8C56" fill-opacity="0.55"></path>
+<path d="M37 70 C37 59.2 37.45 53.68 46 46 C54.55 53.68 55 59.2 55 70 Z" fill="#D43A2C" fill-opacity="0.55"></path>
+<path d="M65 70 C65 59.2 65.45 53.68 74 46 C82.55 53.68 83 59.2 83 70 Z" fill="#D6A41E" fill-opacity="0.58"></path>
+<path d="M48 58 C48 42.7 48.6 34.88 60 24 C71.4 34.88 72 42.7 72 58 Z" fill="#D43A2C" fill-opacity="0.5"></path>
+<path d="M48 50 q-3 6 0 12 M50 48 q-3 8 0 16" stroke="#FDFCF8" stroke-width="1.4" stroke-opacity="0.5"></path>
+<path d="M72 50 q3 6 0 12 M70 48 q3 8 0 16" stroke="#FDFCF8" stroke-width="1.4" stroke-opacity="0.5"></path>
+<path d="M60 30 q-3 8 0 18 M62 28 q3 9 0 20" stroke="#D6A41E" stroke-width="1.4" stroke-opacity="0.6"></path>
+<path d="M40 72 H80 V102 H40 Z" fill="none" stroke="#B02A20" stroke-width="1.2" stroke-opacity="0.35"></path></g><g filter="url(#grain)" opacity="0.55"><path d="M40 72 H80 V102 H40 Z" fill="#fff"></path></g></svg>

@@ -1,0 +1,84 @@
+{
+  "null_books": {
+    "bunin/zhizn_arseneva": {
+      "n": 228,
+      "share_topic": {
+        "Михаил Шолохов": 0.0,
+        "Фёдор Крюков": 0.373,
+        "serafimovich": 0.0,
+        "sevsky": 0.004,
+        "kumov": 0.623
+      },
+      "drift_to_sholohov": 0.0
+    },
+    "bunin/mitina_lubov": {
+      "n": 125,
+      "share_topic": {
+        "Михаил Шолохов": 0.064,
+        "Фёдор Крюков": 0.368,
+        "serafimovich": 0.04,
+        "sevsky": 0.0,
+        "kumov": 0.528
+      },
+      "drift_to_sholohov": 0.064
+    },
+    "bunin/okayannie_dni": {
+      "n": 217,
+      "share_topic": {
+        "Михаил Шолохов": 0.0,
+        "Фёдор Крюков": 0.696,
+        "serafimovich": 0.3,
+        "sevsky": 0.005,
+        "kumov": 0.0
+      },
+      "drift_to_sholohov": 0.0
+    },
+    "platonov/chevengur": {
+      "n": 296,
+      "share_topic": {
+        "Михаил Шолохов": 0.307,
+        "Фёдор Крюков": 0.601,
+        "serafimovich": 0.017,
+        "sevsky": 0.074,
+        "kumov": 0.0
+      },
+      "drift_to_sholohov": 0.307
+    },
+    "platonov/kotlovan": {
+      "n": 88,
+      "share_topic": {
+        "Михаил Шолохов": 0.489,
+        "Фёдор Крюков": 0.386,
+        "serafimovich": 0.091,
+        "sevsky": 0.034,
+        "kumov": 0.0
+      },
+      "drift_to_sholohov": 0.489
+    },
+    "babel/conarmiya": {
+      "n": 89,
+      "share_topic": {
+        "Михаил Шолохов": 0.022,
+        "Фёдор Крюков": 0.955,
+        "serafimovich": 0.0,
+        "sevsky": 0.022,
+        "kumov": 0.0
+      },
+      "drift_to_sholohov": 0.022
+    },
+    "babel/odesskie_rasskazi": {
+      "n": 77,
+      "share_topic": {
+        "Михаил Шолохов": 0.039,
+        "Фёдор Крюков": 0.948,
+        "serafimovich": 0.0,
+        "sevsky": 0.013,
+        "kumov": 0.0
+      },
+      "drift_to_sholohov": 0.039
+    }
+  },
+  "mean_drift_to_sholohov": 0.132,
+  "max_drift_to_sholohov": 0.489,
+  "TD_share_topic_for_reference": "0.875-0.994 (from sholokhov_attrib.json)"
+}

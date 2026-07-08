@@ -1,0 +1,35 @@
+{
+  "controls": {
+    "Бабель": {
+      "silhouette": 0.0555,
+      "n_self": 2,
+      "n_books": 2
+    },
+    "Пильняк": {
+      "silhouette": 0.0529,
+      "n_self": 2,
+      "n_books": 2
+    },
+    "Фурманов": {
+      "silhouette": 0.0597,
+      "n_self": 4,
+      "n_books": 4
+    }
+  },
+  "chapaev": {
+    "chapaev_nearest": "furmanov",
+    "chapaev_internal_silhouette": 0.0148,
+    "chapaev_P_furmanov": 0.936,
+    "chapaev_vs_other_internal_sil": {
+      "в_восемнадцатом_году": 0.060746796930042375,
+      "красный_десант": 0.06908932413168341,
+      "мятеж": 0.005268167873827971
+    }
+  },
+  "prutkov": {
+    "within_silhouette": 0.37148807202553225,
+    "nearest": "prutkov",
+    "n_texts": 4,
+    "note": "low power, no ground-truth"
+  }
+}

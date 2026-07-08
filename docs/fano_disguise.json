@@ -1,0 +1,434 @@
+{
+  "method": "синтетическая маскировка: бленд scaled-фич intruder→centroid host (bow_lr in-sample); recognize_B(s)=P(атрибутирован B), passes_as_A(s)=P(argmax=A)",
+  "pairs": [
+    {
+      "host": "dostoevsky",
+      "intruder": "sorokin",
+      "kind": "очень различимы",
+      "curve": [
+        {
+          "s": 0.0,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.938
+        },
+        {
+          "s": 0.1,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.881
+        },
+        {
+          "s": 0.2,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.776
+        },
+        {
+          "s": 0.3,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.604
+        },
+        {
+          "s": 0.4,
+          "recognize_B": 0.745,
+          "passes_as_A": 0.255,
+          "mean_posterior_B": 0.382
+        },
+        {
+          "s": 0.5,
+          "recognize_B": 0.098,
+          "passes_as_A": 0.902,
+          "mean_posterior_B": 0.183
+        },
+        {
+          "s": 0.6,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.064
+        },
+        {
+          "s": 0.7,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.017
+        },
+        {
+          "s": 0.8,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.004
+        },
+        {
+          "s": 0.9,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.001
+        },
+        {
+          "s": 1.0,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.0
+        }
+      ],
+      "disguise_threshold_s": 0.5
+    },
+    {
+      "host": "chehov",
+      "intruder": "bunin",
+      "kind": "близкие классики",
+      "curve": [
+        {
+          "s": 0.0,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.946
+        },
+        {
+          "s": 0.1,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.908
+        },
+        {
+          "s": 0.2,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.842
+        },
+        {
+          "s": 0.3,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.731
+        },
+        {
+          "s": 0.4,
+          "recognize_B": 0.985,
+          "passes_as_A": 0.015,
+          "mean_posterior_B": 0.562
+        },
+        {
+          "s": 0.5,
+          "recognize_B": 0.585,
+          "passes_as_A": 0.415,
+          "mean_posterior_B": 0.349
+        },
+        {
+          "s": 0.6,
+          "recognize_B": 0.02,
+          "passes_as_A": 0.98,
+          "mean_posterior_B": 0.159
+        },
+        {
+          "s": 0.7,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.052
+        },
+        {
+          "s": 0.8,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.014
+        },
+        {
+          "s": 0.9,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.004
+        },
+        {
+          "s": 1.0,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.001
+        }
+      ],
+      "disguise_threshold_s": 0.6
+    },
+    {
+      "host": "krukov",
+      "intruder": "serafimovich",
+      "kind": "донская школа",
+      "curve": [
+        {
+          "s": 0.0,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.97
+        },
+        {
+          "s": 0.1,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.943
+        },
+        {
+          "s": 0.2,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.887
+        },
+        {
+          "s": 0.3,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.78
+        },
+        {
+          "s": 0.4,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.595
+        },
+        {
+          "s": 0.5,
+          "recognize_B": 0.457,
+          "passes_as_A": 0.543,
+          "mean_posterior_B": 0.358
+        },
+        {
+          "s": 0.6,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.159
+        },
+        {
+          "s": 0.7,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.055
+        },
+        {
+          "s": 0.8,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.017
+        },
+        {
+          "s": 0.9,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.005
+        },
+        {
+          "s": 1.0,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.001
+        }
+      ],
+      "disguise_threshold_s": 0.5
+    },
+    {
+      "host": "gumilev",
+      "intruder": "novikov_priboy",
+      "kind": "конфузные",
+      "curve": [
+        {
+          "s": 0.0,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.96
+        },
+        {
+          "s": 0.1,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.929
+        },
+        {
+          "s": 0.2,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.873
+        },
+        {
+          "s": 0.3,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.774
+        },
+        {
+          "s": 0.4,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.603
+        },
+        {
+          "s": 0.5,
+          "recognize_B": 0.694,
+          "passes_as_A": 0.306,
+          "mean_posterior_B": 0.364
+        },
+        {
+          "s": 0.6,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.15
+        },
+        {
+          "s": 0.7,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.043
+        },
+        {
+          "s": 0.8,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.01
+        },
+        {
+          "s": 0.9,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.002
+        },
+        {
+          "s": 1.0,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.0
+        }
+      ],
+      "disguise_threshold_s": 0.6
+    },
+    {
+      "host": "babel",
+      "intruder": "sevsky",
+      "kind": "самые конфузные (max Pe)",
+      "curve": [
+        {
+          "s": 0.0,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.982
+        },
+        {
+          "s": 0.1,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.96
+        },
+        {
+          "s": 0.2,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.912
+        },
+        {
+          "s": 0.3,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.81
+        },
+        {
+          "s": 0.4,
+          "recognize_B": 1.0,
+          "passes_as_A": 0.0,
+          "mean_posterior_B": 0.62
+        },
+        {
+          "s": 0.5,
+          "recognize_B": 0.711,
+          "passes_as_A": 0.289,
+          "mean_posterior_B": 0.358
+        },
+        {
+          "s": 0.6,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.141
+        },
+        {
+          "s": 0.7,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.04
+        },
+        {
+          "s": 0.8,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.009
+        },
+        {
+          "s": 0.9,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.002
+        },
+        {
+          "s": 1.0,
+          "recognize_B": 0.0,
+          "passes_as_A": 1.0,
+          "mean_posterior_B": 0.0
+        }
+      ],
+      "disguise_threshold_s": 0.6
+    }
+  ],
+  "aggregate_curve": [
+    {
+      "s": 0.0,
+      "mean_recognize_B": 1.0,
+      "mean_passes_as_A": 0.0
+    },
+    {
+      "s": 0.1,
+      "mean_recognize_B": 1.0,
+      "mean_passes_as_A": 0.0
+    },
+    {
+      "s": 0.2,
+      "mean_recognize_B": 1.0,
+      "mean_passes_as_A": 0.0
+    },
+    {
+      "s": 0.3,
+      "mean_recognize_B": 1.0,
+      "mean_passes_as_A": 0.0
+    },
+    {
+      "s": 0.4,
+      "mean_recognize_B": 0.946,
+      "mean_passes_as_A": 0.054
+    },
+    {
+      "s": 0.5,
+      "mean_recognize_B": 0.509,
+      "mean_passes_as_A": 0.491
+    },
+    {
+      "s": 0.6,
+      "mean_recognize_B": 0.004,
+      "mean_passes_as_A": 0.996
+    },
+    {
+      "s": 0.7,
+      "mean_recognize_B": 0.0,
+      "mean_passes_as_A": 1.0
+    },
+    {
+      "s": 0.8,
+      "mean_recognize_B": 0.0,
+      "mean_passes_as_A": 1.0
+    },
+    {
+      "s": 0.9,
+      "mean_recognize_B": 0.0,
+      "mean_passes_as_A": 1.0
+    },
+    {
+      "s": 1.0,
+      "mean_recognize_B": 0.0,
+      "mean_passes_as_A": 1.0
+    }
+  ],
+  "headline": "recognize_B → 0 при s → 1 для ВСЕХ пар ⇒ маскировка конструктивно достигает information-пола (чужая рука невидима); натуральные пары там не находятся (см. fano_frontier.json) ⇒ пол = свойство вырожденного/сознательно-замаскированного режима, не натуральной AA",
+  "status": "exploratory; НЕ headline-ready: детектор bow_lr обучен IN-SAMPLE (fit на всех данных, оценка на тех же); маскировка в лексическом bow-пространстве, не структурном. Зонд геометрии, не оценка обобщаемой детекции."
+}

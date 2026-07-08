@@ -1,0 +1,164 @@
+{
+  "case_id": "taras_bulba_additions_strict_period_fw_2000",
+  "title": "Taras Bulba 1842 strict additions, Gogol early vs late period: fw_fixed random_2000",
+  "hypothesis": "Period diagnostic: whether the additions align with Gogol's late (1839-42) register rather than the early one.",
+  "target_description": "strict additions vs Gogol period pseudo-candidates",
+  "claim": "Period diagnostic: both outcomes are informative — alignment with the late period supports the Rome-rewrite dating; a failed gate means periods are inseparable in this feature space and the period confound cannot explain the main signal.",
+  "limitations": [
+    "Diagnostic: pseudo-candidates are period slices of one author; невский_проспект and записки_сумасшедшего (1835, «Арабески») excluded from both slices.",
+    "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "fail",
+  "verdict": "Feasibility gate не пройден: work_macro_recall=0.5833, permutation_p=0.041. Атрибуцию давать нельзя.",
+  "confidence": "low",
+  "evidence_score": 59.39,
+  "gate_pass": false,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "fail",
+      "gate_pass": false,
+      "work_macro_recall": 0.5833,
+      "chunk_weighted_recall": 0.5368,
+      "work_recall": {
+        "gogol_early": "1/4",
+        "gogol_late": "2/4",
+        "pushkin": "6/6"
+      },
+      "chunk_recall": {
+        "gogol_early": "12/28",
+        "gogol_late": "47/103",
+        "pushkin": "37/51"
+      },
+      "permutation_p": 0.041,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "gogol_early": {
+          "gogol_early": 12,
+          "gogol_late": 15,
+          "pushkin": 1
+        },
+        "gogol_late": {
+          "gogol_early": 50,
+          "gogol_late": 47,
+          "pushkin": 6
+        },
+        "pushkin": {
+          "gogol_early": 11,
+          "gogol_late": 3,
+          "pushkin": 37
+        }
+      },
+      "n_works": 14,
+      "n_chunks": 182,
+      "failure_modes": [
+        "work_macro_recall_below_0_80"
+      ]
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol_early",
+      "second": "gogol_late",
+      "margin": 0.007893,
+      "margin_ci95": [
+        0.004883,
+        0.011341
+      ],
+      "winner_share": {
+        "gogol_early": 0.812,
+        "pushkin": 0.125,
+        "gogol_late": 0.062
+      },
+      "similarities": [
+        {
+          "candidate": "gogol_early",
+          "cos": 0.974486
+        },
+        {
+          "candidate": "gogol_late",
+          "cos": 0.966593
+        },
+        {
+          "candidate": "pushkin",
+          "cos": 0.945203
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol_early": 13,
+        "pushkin": 2,
+        "gogol_late": 1
+      },
+      "n_chunks": 16
+    }
+  ],
+  "failure_modes": [
+    "work_macro_recall_below_0_80"
+  ],
+  "data": {
+    "unit": "work",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol_early",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/майская_ночь.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/ночь_перед_рождеством.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/вий.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/старосветские_помещики.txt"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "gogol_late",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/коляска.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/портрет.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/шинель.txt",
+          "docs/cases/taras_hardened/specs/../../../../input_clean/gogol/мёртвые_души.txt"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "pushkin",
+        "role": "candidate",
+        "paths": [
+          "docs/cases/taras_hardened/specs/../../../../input_clean/pushkin"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 14,
+    "n_candidate_chunks": 182,
+    "works_per_author": {
+      "gogol_early": 4,
+      "gogol_late": 4,
+      "pushkin": 6
+    },
+    "target_chunks": 16
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_period_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json"
+  },
+  "notes": "Период-диагностика: ранний (1830-35) vs поздний (1836-42) Гоголь."
+}

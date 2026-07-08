@@ -1,0 +1,114 @@
+# ───────────────────────── Python ─────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Canonical reproducibility pins are in requirements.lock. uv.lock is a local
+# resolver artifact unless deliberately regenerated and reviewed for release.
+uv.lock
+
+# ───────────────────── Virtual envs ───────────────────────
+.venv/
+venv/
+env/
+
+# ─────────── Generated artifacts & heavy binaries ─────────
+# All model/feature artifacts are regenerable from input/ via the pipeline.
+data/
+# рабочие черновики: локально, не в git (постоянные эксперименты — в log/experiments/)
+tmp/
+# измерительный след: эксперименты, прогоны, .log — локально, не в git (gitignore не поддерживает инлайн-комментарии!)
+log/
+# docs/: heavy artifacts (png/pkl) ignored, но JSON/CSV-метрики РЕЗУЛЬТАТОВ в репо (воспроизводимость:
+# генераторы читают эти источники; без них свежий клон не пересоберёт и не проверит числа)
+docs/*
+!docs/*.json
+!docs/*.csv
+!docs/cases/
+!docs/cases/*.json
+!docs/.gitkeep
+# предрегистрация кампании: публичное обязательство до прогонов
+!docs/prereg_2026Q3.md
+# внутренние рабочие материалы: НЕ для публичного репо
+TODO.md
+docs/cases/HANDOFF.md
+docs/cases/autoscreen/
+docs/cases/autoscreen2/
+docs/cases/petersburg_hardened/
+scripts/build_petersburg_chronicle_manifest.py
+scripts/build_petersburg_panel.py
+# машинный дубликат паспортов (5k строк): человеку — ranking.md, генераторам — сами паспорта
+docs/cases/taras_hardened/reports/ranking.json
+# результаты LOBO-прогона: per-book отчёт + форматированная таблица (воспроизводимость/инспекция)
+!docs/lobo_books.txt
+!docs/final_comparison.txt
+
+# Belt-and-suspenders: never commit pickled models / numpy dumps anywhere.
+*.pkl
+*.npy
+*.npz
+*.joblib
+
+# spaCy DocBin cache (also lives under data/, listed explicitly)
+.cache/
+*.spacy
+
+# Regenerable cleaned corpus (produced from input/ by the clean step)
+input_clean/
+# copyright/local raw corpus — НЕ в git (только локально для анализа). git не поддерживает
+# inline-комментарии в .gitignore — паттерн обязан быть на отдельной строке.
+input/
+# прочие raw/приватные корпусы: спорные кейсы, личные тексты (письма/речи Шолохова и др.),
+# staging-добор — НЕ в git никогда (копирайт + приватный идиолект живых/недавно умерших авторов)
+input_cases/
+input_personal/
+input_personal_fr/
+input_disputed/
+_staging_corpora/
+
+# Generated single-file codebase dump
+codebase.txt
+
+# ───────────────────────── OS ─────────────────────────────
+.DS_Store
+Thumbs.db
+
+# github.io статья (site/) — артефакты сборки
+site/node_modules/
+site/dist/
+
+# скретч/temp (не для публикации)
+.codegraph/
+scripts/_fetch_tmp/
+
+# внутренние рабочие файлы — не для публичного релиза
+PUBLICATION_READINESS_PROMPT.md
+docs/tomsk_codebase_dossier.json
+docs/breakthrough_leads.md
+
+# незрелые артефакты исследовательской кампании 2026-07 — не для релиза
+docs/s_star_analysis.json
+docs/certificates.json
+docs/conformal_verdicts.json
+docs/mixture_detection.json
+docs/concealment_signal_scores.json
+docs/royal_register_fr.json
+docs/institutional_register.json
+docs/court_register_mechanism.json
+docs/cases/chekhonte_bilibin_hardening.json
+src/stylo/eval/certificates.py
+
+# статейные материалы — локально, не для публичной репы
+PAPER.md
+docs/honest_protocol_paper.md
+docs/case_discovery_backlog.md
+docs/popular_article_outline.md
+scripts/gen-paper.mjs
+scripts/check-paper-numbers.mjs

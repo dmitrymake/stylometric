@@ -1,0 +1,149 @@
+{
+  "method": "LinearSVC (один для всех каналов) + StratifiedGroupKFold(5) book-level, векторизаторы fit ВНУТРИ фолда (leak-free); headline-ансамбль = РАВНОВЕСНОЕ усреднение softmax каналов (веса не зависят от теста, leak-free); reliability^p — справочная диагностика с весами, выведенными по тесту",
+  "corpus_mode": "pd_only",
+  "corpus_note": "классики, умершие >70 лет назад; тексты докачиваются по URL-манифесту для локальной валидации — у Гумилёва и Пильняка охрана в РФ продлена после реабилитации (ст. 1281 п. 5 ГК), downstream-редистрибуция — ответственность пользователя",
+  "headline_ensemble": "АНСАМБЛЬ (равновес.)",
+  "seed": 42,
+  "cap_chunks_per_book": 35,
+  "n_authors": 22,
+  "n_books": 159,
+  "n_chunks": 4017,
+  "chance_micro": 0.0455,
+  "headline_macro_f1": 0.913,
+  "macro_f1_authorclustered_CI": [
+    0.687,
+    0.935
+  ],
+  "ensemble_top1": 0.931,
+  "ensemble_top3": 0.975,
+  "channels": {
+    "char (2-5)": {
+      "top1": 0.899,
+      "top3": 0.975,
+      "macro_f1": 0.885
+    },
+    "word (1-2)": {
+      "top1": 0.792,
+      "top3": 0.906,
+      "macro_f1": 0.744
+    },
+    "syntax (dep+pos+syn)": {
+      "top1": 0.899,
+      "top3": 0.956,
+      "macro_f1": 0.879
+    },
+    "dependency": {
+      "top1": 0.742,
+      "top3": 0.912,
+      "macro_f1": 0.73
+    },
+    "function_words": {
+      "top1": 0.931,
+      "top3": 0.975,
+      "macro_f1": 0.913
+    },
+    "morphology": {
+      "top1": 0.711,
+      "top3": 0.881,
+      "macro_f1": 0.657
+    },
+    "DSP (suffixes)": {
+      "top1": 0.346,
+      "top3": 0.535,
+      "macro_f1": 0.313
+    },
+    "АНСАМБЛЬ (равновес.)": {
+      "top1": 0.931,
+      "top3": 0.975,
+      "macro_f1": 0.913
+    }
+  },
+  "per_author_recall": {
+    "prutkov": 0.5,
+    "sevsky": 0.6,
+    "leskov": 0.67,
+    "saltykov": 0.75,
+    "kuprin": 0.86,
+    "serafimovich": 0.89,
+    "tolstoy": 0.89,
+    "bunin": 0.9,
+    "garshin": 0.9,
+    "andreev": 1.0,
+    "chehov": 1.0,
+    "dostoevsky": 1.0,
+    "furmanov": 1.0,
+    "gogol": 1.0,
+    "grin": 1.0,
+    "korolenko": 1.0,
+    "kumov": 1.0,
+    "novikov_priboy": 1.0,
+    "pushkin": 1.0,
+    "tolstoy_an": 1.0,
+    "turgenev": 1.0,
+    "uspensky": 1.0
+  },
+  "low_recall_authors": [
+    "prutkov"
+  ],
+  "_diagnostic_test_leaked": {
+    "_warning": "веса этих ансамблей выведены по ТЕСТУ (leak) — НЕ headline, только справочно",
+    "reliability^2": {
+      "top1": 0.931,
+      "top3": 0.975,
+      "macro_f1": 0.913
+    },
+    "reliability^4": {
+      "top1": 0.925,
+      "top3": 0.981,
+      "macro_f1": 0.903
+    },
+    "reliability^6": {
+      "top1": 0.925,
+      "top3": 0.981,
+      "macro_f1": 0.903
+    }
+  },
+  "top_confusions": [
+    "sevsky->tolstoy_anx2",
+    "bunin->tolstoy_anx1",
+    "garshin->serafimovichx1",
+    "kuprin->pushkinx1",
+    "leskov->turgenevx1",
+    "prutkov->pushkinx1",
+    "prutkov->dostoevskyx1",
+    "saltykov->uspenskyx1",
+    "serafimovich->buninx1",
+    "tolstoy->kuprinx1"
+  ],
+  "authors": [
+    "andreev",
+    "bunin",
+    "chehov",
+    "dostoevsky",
+    "furmanov",
+    "garshin",
+    "gogol",
+    "grin",
+    "korolenko",
+    "kumov",
+    "kuprin",
+    "leskov",
+    "novikov_priboy",
+    "prutkov",
+    "pushkin",
+    "saltykov",
+    "serafimovich",
+    "sevsky",
+    "tolstoy",
+    "tolstoy_an",
+    "turgenev",
+    "uspensky"
+  ],
+  "notes": [
+    "Честное сравнение: ВСЕ каналы под одним классификатором (LinearSVC); смена nearest-centroid→SVM сама по себе даёт прибавку — это вклад классификатора, не признаков.",
+    "Топик-инвариантный синтаксис НЕ превосходит char-n-граммы по точности (trade-off, не преимущество по accuracy).",
+    "Бенчмарк на собственном корпусе, НЕ на стандартном PAN/RusProfiling — claim 'SOTA' не делается.",
+    "headline-ансамбль = РАВНОВЕСНЫЙ (веса не зависят от теста, leak-free); reliability^p — справочная диагностика, её веса выведены по тесту, поэтому headline'ом она быть не может.",
+    "Воспроизводимо: python scripts/run_benchmark.py [--pd-only] (требует собранного корпуса; seed фиксирован)."
+  ]
+}

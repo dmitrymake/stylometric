@@ -1,0 +1,29 @@
+# Манифест провенанса корпуса Шолохова и спорных текстов.
+# Тексты ЛОКАЛЬНЫ (в .gitignore, не редистрибутируются) — Шолохов †1984, под копирайтом до ~2055;
+# используются только для научного анализа стиля. Манифест фиксирует источник и объём для
+# воспроизводимости. chunk_size=500, min_words=200, overlap=0 (configs/default.yaml).
+language: ru
+chunk_size: 500
+note: "тексты не в репозитории; перекачиваются по source_url; целостность — tmp/audit_corpus.py (dup/half/60000-обрезка)"
+
+works:
+  # «Тихий Дон» — 4 книги (8 частей) с militera.lib.ru (OCR Hoaxer), задвоение/шапки сняты
+  - {author: sholohov, title: "Тихий Дон, кн.1 (части 1-3)", source_url: "http://militera.lib.ru/prose/russian/sholohov3/01-03.html", words: 97987, period: 1928}
+  - {author: sholohov, title: "Тихий Дон, кн.2 (части 4-5)", source_url: "http://militera.lib.ru/prose/russian/sholohov3/04-05.html", words: 99073, period: 1929}
+  - {author: sholohov, title: "Тихий Дон, кн.3 (часть 6)",   source_url: "http://militera.lib.ru/prose/russian/sholohov3/06.html",    words: 112161, period: 1933}
+  - {author: sholohov, title: "Тихий Дон, кн.4 (части 7-8)", source_url: "http://militera.lib.ru/prose/russian/sholohov3/07-08.html", words: 132951, period: 1940}
+  # Поднятая целина — обе книги
+  - {author: unknown,  title: "Поднятая целина, кн.1 (СПОРНЫЙ таргет)", source_url: "local/podnyataya_celina_1", words: 125000, period: 1932}
+  - {author: sholohov, title: "Поднятая целина, кн.2", source_url: "http://lib.ru/PROZA/SHOLOHOW/celina.txt", words: 115382, period: 1959}
+  # поздняя художественная проза
+  - {author: sholohov, title: "Судьба человека", source_url: "http://militera.lib.ru/prose/russian/sholohov2/03.html", words: 11078, period: 1957}
+  - {author: sholohov, title: "Наука ненависти", source_url: "http://militera.lib.ru/prose/russian/sholohov2/01.html", words: 5360, period: 1942}
+  - {author: sholohov, title: "Они сражались за Родину", source_url: "http://lib.ru/PROZA/SHOLOHOW/onisrzr.txt", words: 48936, period: 1969}
+  # ранние «Донские рассказы» (1924-1926) — уже были в корпусе
+  - {author: sholohov, title: "Донские рассказы (7: Родинка, Батраки, Чужая кровь, Алёшкино сердце, Пастух, Жеребёнок, Лазоревая степь)", source_url: "local/donskie", words: 28987, period: 1925}
+
+candidates:  # донские кандидаты в «литературные негры» (все PD)
+  - {author: krukov, name: "Фёдор Крюков", death: 1920, plausibility: высокая}
+  - {author: serafimovich, name: "Александр Серафимович", death: 1949, plausibility: средняя}
+  - {author: sevsky, name: "Виктор Севский", death: 1920, plausibility: средняя, note: "мало текста — стилометрически непроверяем"}
+  - {author: kumov, name: "Роман Кумов", death: 1919, plausibility: низкая, note: "~4.6k слов — непроверяем"}

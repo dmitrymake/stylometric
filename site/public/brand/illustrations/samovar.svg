@@ -1,0 +1,18 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Самовар"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<path d="M50 30 H70 V36 H50 Z" fill="#B6841A" fill-opacity="0.6"></path>
+<path d="M44 40 C44 36 76 36 76 40 C82 58 80 78 60 84 C40 78 38 58 44 40 Z" fill="#D6A41E" fill-opacity="0.62"></path>
+<path d="M76 54 q12 2 8 14 q-6 2 -10 -4" fill="none" stroke="#B6841A" stroke-width="3" stroke-opacity="0.6"></path>
+<path d="M44 52 q-10 2 -7 12 q5 2 9 -3" fill="none" stroke="#B6841A" stroke-width="3" stroke-opacity="0.6"></path>
+<path d="M58 64 q-8 2 -8 8 l4 4 q5 -3 6 -8 Z" fill="#5E3D1C" fill-opacity="0.6"></path>
+<path d="M52 84 H68 L66 92 H54 Z" fill="#B6841A" fill-opacity="0.55"></path>
+<ellipse cx="60" cy="92" rx="12" ry="3.5" fill="#B6841A" fill-opacity="0.5"></ellipse>
+<circle cx="54" cy="50" r="4" fill="#FDFCF8" fill-opacity="0.6"></circle>
+<path d="M44 40 C44 36 76 36 76 40 C82 58 80 78 60 84 C40 78 38 58 44 40 Z" fill="none" stroke="#B6841A" stroke-width="1.3" stroke-opacity="0.5"></path></g><g filter="url(#grain)" opacity="0.55"><path d="M44 40 C44 36 76 36 76 40 C82 58 80 78 60 84 C40 78 38 58 44 40 Z" fill="#fff"></path></g></svg>

@@ -1,0 +1,219 @@
+{
+  "method": "LEAVE-BLOCK-OUT: все спорные работы + Don-control вне обучения за один ретрейн; нециркулярно, с bootstrap-CI на ff, permutation-значимостью «чужой» доли ТД-1 против донского FPR-нуля (перестановка по чанкам; блочная версия — docs/sholokhov_openset.json, p=0.0006) и LOBO power/FPR-нулём",
+  "candidates": [
+    "sholohov",
+    "krukov",
+    "serafimovich"
+  ],
+  "heldout": [
+    "aleshkino_serdce",
+    "chuzhaya_krov",
+    "lazorevaya_step",
+    "pastuh",
+    "sudba_cheloveka",
+    "tihiy_don_1",
+    "tihiy_don_2",
+    "tihiy_don_3",
+    "tihiy_don_4"
+  ],
+  "anchor_solo_in_train": [
+    "rodinka",
+    "zherebenok",
+    "batraki"
+  ],
+  "fpr_null_don_control": {
+    "books": [
+      {
+        "book": "chuzhaya_krov",
+        "n_chunks": 13,
+        "foreign_fraction": 0.0,
+        "ff_ci95": [
+          0.0,
+          0.0
+        ],
+        "n_foreign_segments": 0,
+        "chunk_winner_counts": {
+          "sholohov": 13,
+          "krukov": 0,
+          "serafimovich": 0
+        },
+        "corpus_argmax": "sholohov"
+      },
+      {
+        "book": "lazorevaya_step",
+        "n_chunks": 7,
+        "foreign_fraction": 0.0,
+        "ff_ci95": [
+          0.0,
+          0.0
+        ],
+        "n_foreign_segments": 0,
+        "chunk_winner_counts": {
+          "sholohov": 7,
+          "krukov": 0,
+          "serafimovich": 0
+        },
+        "corpus_argmax": "sholohov"
+      },
+      {
+        "book": "pastuh",
+        "n_chunks": 7,
+        "foreign_fraction": 0.0,
+        "ff_ci95": [
+          0.0,
+          0.0
+        ],
+        "n_foreign_segments": 0,
+        "chunk_winner_counts": {
+          "sholohov": 7,
+          "krukov": 0,
+          "serafimovich": 0
+        },
+        "corpus_argmax": "sholohov"
+      },
+      {
+        "book": "aleshkino_serdce",
+        "n_chunks": 10,
+        "foreign_fraction": 0.0,
+        "ff_ci95": [
+          0.0,
+          0.0
+        ],
+        "n_foreign_segments": 0,
+        "chunk_winner_counts": {
+          "sholohov": 10,
+          "krukov": 0,
+          "serafimovich": 0
+        },
+        "corpus_argmax": "sholohov"
+      }
+    ],
+    "pooled_ff": 0.0,
+    "pooled_ci95": [
+      0.0,
+      0.0
+    ],
+    "n_chunks": 37
+  },
+  "procedure_control": [
+    {
+      "book": "sudba_cheloveka",
+      "n_chunks": 30,
+      "foreign_fraction": 0.0,
+      "ff_ci95": [
+        0.0,
+        0.0
+      ],
+      "n_foreign_segments": 0,
+      "chunk_winner_counts": {
+        "sholohov": 30,
+        "krukov": 0,
+        "serafimovich": 0
+      },
+      "corpus_argmax": "sholohov"
+    }
+  ],
+  "procedure_valid": true,
+  "disputed_td": [
+    {
+      "book": "tihiy_don_1",
+      "n_chunks": 257,
+      "foreign_fraction": 0.595,
+      "ff_ci95": [
+        0.537,
+        0.654
+      ],
+      "n_foreign_segments": 4,
+      "chunk_winner_counts": {
+        "sholohov": 104,
+        "krukov": 107,
+        "serafimovich": 46
+      },
+      "corpus_argmax": "krukov"
+    },
+    {
+      "book": "tihiy_don_2",
+      "n_chunks": 258,
+      "foreign_fraction": 0.484,
+      "ff_ci95": [
+        0.422,
+        0.547
+      ],
+      "n_foreign_segments": 5,
+      "chunk_winner_counts": {
+        "sholohov": 133,
+        "krukov": 112,
+        "serafimovich": 13
+      },
+      "corpus_argmax": "sholohov"
+    },
+    {
+      "book": "tihiy_don_3",
+      "n_chunks": 290,
+      "foreign_fraction": 0.21,
+      "ff_ci95": [
+        0.162,
+        0.259
+      ],
+      "n_foreign_segments": 4,
+      "chunk_winner_counts": {
+        "sholohov": 229,
+        "krukov": 59,
+        "serafimovich": 2
+      },
+      "corpus_argmax": "sholohov"
+    },
+    {
+      "book": "tihiy_don_4",
+      "n_chunks": 343,
+      "foreign_fraction": 0.035,
+      "ff_ci95": [
+        0.017,
+        0.055
+      ],
+      "n_foreign_segments": 2,
+      "chunk_winner_counts": {
+        "sholohov": 331,
+        "krukov": 11,
+        "serafimovich": 1
+      },
+      "corpus_argmax": "sholohov"
+    }
+  ],
+  "td_attributed_to_sholokhov": "3/4",
+  "td1_vs_null_permutation_p": 0.0001,
+  "don_source_signal_significant": true,
+  "lobo_power_curve_krukov": {
+    "host_heldout_book": "chuzhaya_krov",
+    "curve": [
+      {
+        "admix_pct": 0,
+        "foreign_fraction": 0.0,
+        "detected": false
+      },
+      {
+        "admix_pct": 10,
+        "foreign_fraction": 0.077,
+        "detected": false
+      },
+      {
+        "admix_pct": 25,
+        "foreign_fraction": 0.231,
+        "detected": true
+      },
+      {
+        "admix_pct": 50,
+        "foreign_fraction": 0.462,
+        "detected": true
+      },
+      {
+        "admix_pct": 75,
+        "foreign_fraction": 0.769,
+        "detected": true
+      }
+    ],
+    "min_detectable_admixture_pct": 25
+  },
+  "verdict": "ВСЕ 3/4 тома ТД → ШОЛОХОВУ нециркулярно (процедура валидна: Судьба+донские рассказы→Шолохов). Доля «чужих» чанков в ТД-1 (0.595) ЗНАЧИМО выше донского FPR-нуля (перестановка по чанкам p=0.0001; блочная p=0.0006); спад этой доли к 4-му тому (0.595→0.035) — описание, не тестовая статистика — согласуется с донским источниковым материалом в ранних томах. Доминирующая рука — Шолохов, крепнет к финалу. Цельное литнегрство и донская подмена ТД данными не поддерживаются; нециркулярный LOBO power-floor руки Крюкова = 25%.",
+  "supersedes": "sholokhov_segment.json full-train ff=0.000 по ТД — ЦИРКУЛЯРНО (ТД в обучении), только sanity-check, не свидетельство"
+}

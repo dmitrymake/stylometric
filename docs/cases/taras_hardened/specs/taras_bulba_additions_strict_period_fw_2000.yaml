@@ -1,0 +1,39 @@
+case_id: taras_bulba_additions_strict_period_fw_2000
+title: "Taras Bulba 1842 strict additions, Gogol early vs late period: fw_fixed random_2000"
+hypothesis: "Period diagnostic: whether the additions align with Gogol's late (1839-42) register rather than the early one."
+target_description: "strict additions vs Gogol period pseudo-candidates"
+claim: "Period diagnostic: both outcomes are informative — alignment with the late period supports the Rome-rewrite dating; a failed gate means periods are inseparable in this feature space and the period confound cannot explain the main signal."
+limitations:
+  - "Diagnostic: pseudo-candidates are period slices of one author; невский_проспект and записки_сумасшедшего (1835, «Арабески») excluded from both slices."
+  - "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol_early:
+    paths:
+      - ../../../../input_clean/gogol/майская_ночь.txt
+      - ../../../../input_clean/gogol/ночь_перед_рождеством.txt
+      - ../../../../input_clean/gogol/вий.txt
+      - ../../../../input_clean/gogol/старосветские_помещики.txt
+  gogol_late:
+    paths:
+      - ../../../../input_clean/gogol/коляска.txt
+      - ../../../../input_clean/gogol/портрет.txt
+      - ../../../../input_clean/gogol/шинель.txt
+      - ../../../../input_clean/gogol/мёртвые_души.txt
+  pushkin: ../../../../input_clean/pushkin
+target: ../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_period_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json"
+notes: "Период-диагностика: ранний (1830-35) vs поздний (1836-42) Гоголь."

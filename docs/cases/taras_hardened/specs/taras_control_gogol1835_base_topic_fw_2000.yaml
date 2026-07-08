@@ -1,0 +1,32 @@
+case_id: taras_control_gogol1835_base_topic_fw_2000
+title: "Diagnostic: Taras Bulba 1835 base text on the cossack topic panel"
+hypothesis: "Diagnostic: does the undisputed 1835 base text also drift to the cossack topic panel?"
+target_description: "Тарас Бульба, редакция 1835 (base text) на казачьей панели"
+claim: "Ключевая диагностика топик-панели: если бесспорный текст 1835 ведёт себя как добавления, панель меряет тему, а не руку."
+limitations:
+  - "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+language: ru
+unit: work
+feature_sets: [fw_fixed]
+chunk_words: 1500
+min_work_words: 300
+max_exact_permutations: 0
+random_permutations: 2000
+candidates:
+  gogol:
+    path: ../../../../input_clean/gogol
+    exclude:
+      - ../../../../input_clean/gogol/тарас_бульба.txt
+  somov: ../../../../input_cases/taras_bulba/cand_somov
+  narezhny: ../../../../input_cases/taras_bulba/cand_narezhny
+  grebenka: ../../../../input_cases/taras_bulba/cand_grebenka
+target: ../../../../input_cases/taras_bulba/gogol1835_mirgorod.txt
+forbidden_sources:
+  - ../../../../input_clean/gogol/тарас_бульба.txt
+sources:
+  - "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+provenance:
+  manifest: docs/cases/taras_hardened/target_manifest.json
+  panel_manifest: docs/cases/taras_hardened/panel_manifest.json
+  analysis_command: "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_control_gogol1835_base_topic_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_control_gogol1835_base_topic_fw_2000.passport.json"
+notes: "Симметричный контроль интерпретации somov-притяжения добавлений."

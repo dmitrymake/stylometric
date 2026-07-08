@@ -1,0 +1,97 @@
+{
+  "method": "forensic-паспорт на кейсах: typicity soft-vote постериоров vs leak-free OOF корпус-референс; вердикт genuine (типичность≥медиана + чёткий margin) vs at-floor (диффузный). ИЛЛЮСТРАЦИЯ, n≈5",
+  "corpus_reference": {
+    "n_books": 264,
+    "median_max_prob": 0.171,
+    "median_margin": 0.087
+  },
+  "cases": [
+    {
+      "case": "vyrubova_diary_fake",
+      "expectation": "disguised (подделка)",
+      "n_chunks": 56,
+      "top_author": "tolstoy",
+      "top2_author": "gazdanov",
+      "top_share": 0.196,
+      "margin_top1_top2": 0.103,
+      "typicality": {
+        "max_prob": 0.196,
+        "entropy_bits": 4.717,
+        "z_max_prob_vs_corpus": -0.3,
+        "z_entropy_vs_corpus": 0.43,
+        "z_margin_vs_corpus": -0.37
+      },
+      "verdict": "genuine/атрибутируем"
+    },
+    {
+      "case": "vyrubova_memoir_real",
+      "expectation": "outsider (настоящая Вырубова)",
+      "n_chunks": 73,
+      "top_author": "gazdanov",
+      "top2_author": "tolstoy",
+      "top_share": 0.137,
+      "margin_top1_top2": 0.056,
+      "typicality": {
+        "max_prob": 0.137,
+        "entropy_bits": 4.881,
+        "z_max_prob_vs_corpus": -0.59,
+        "z_entropy_vs_corpus": 0.62,
+        "z_margin_vs_corpus": -0.59
+      },
+      "verdict": "at-floor/диффузный (жанр-регистр доминирует)"
+    },
+    {
+      "case": "cherubina_poems",
+      "expectation": "псевдоним/мистификация",
+      "n_chunks": 5,
+      "top_author": "sasha_sokolov",
+      "top2_author": "prokhanov",
+      "top_share": 0.306,
+      "margin_top1_top2": 0.215,
+      "typicality": {
+        "max_prob": 0.306,
+        "entropy_bits": 4.275,
+        "z_max_prob_vs_corpus": 0.26,
+        "z_entropy_vs_corpus": -0.09,
+        "z_margin_vs_corpus": 0.16
+      },
+      "verdict": "genuine/атрибутируем"
+    },
+    {
+      "case": "chekhonte_heldout_chehov",
+      "expectation": "genuine (Чехов под псевд.)",
+      "n_chunks": 288,
+      "top_author": "chehov",
+      "top2_author": "bulgakov",
+      "top_share": 0.142,
+      "margin_top1_top2": 0.048,
+      "typicality": {
+        "max_prob": 0.142,
+        "entropy_bits": 4.941,
+        "z_max_prob_vs_corpus": -0.57,
+        "z_entropy_vs_corpus": 0.69,
+        "z_margin_vs_corpus": -0.63
+      },
+      "verdict": "at-floor/диффузный (жанр-регистр доминирует)"
+    },
+    {
+      "case": "prutkov_poems",
+      "expectation": "коллективный",
+      "n_chunks": 18,
+      "top_author": "sasha_sokolov",
+      "top2_author": "bulgakov",
+      "top_share": 0.175,
+      "margin_top1_top2": 0.08,
+      "typicality": {
+        "max_prob": 0.175,
+        "entropy_bits": 4.678,
+        "z_max_prob_vs_corpus": -0.4,
+        "z_entropy_vs_corpus": 0.38,
+        "z_margin_vs_corpus": -0.48
+      },
+      "verdict": "at-floor/диффузный (жанр-регистр доминирует)"
+    }
+  ],
+  "register_confound": "ВАЖНО: все кейсы — ДРУГОЙ РЕГИСТР (стихи Черубины/Пруткова, дневник Вырубовой) vs ПРОЗА-корпус. Типичность паспорта конфаундит регистр: genuine автор в чужом регистре выглядит атипичным (z<0 у ВСЕХ, включая genuine Чехов-контроль). ⇒ корпус-typicality-паспорт НЕ переносится на регистр-смещённые кейсы; для них нужен register-matched attribute_case (docs/cases/*.json, УЖЕ сделано). Паспорт применим к floor/outsider-characterization (Шаги 1-2), НЕ к adjudication кейсов.",
+  "principle_test": "контраст genuine-vs-disguised НЕ виден через корпус-typicality (регистр доминирует); виден только через register-matched attribute_case (docs/cases)"
+}

@@ -1,0 +1,63 @@
+{
+  "noise_floor": 1.065,
+  "noise_floor_sd": 0.382,
+  "p2_anticircular": [
+    {
+      "book": "tihiy_don_1",
+      "d_post1930": 3.645,
+      "d_early_don": 1.939,
+      "d_krukov": 3.156,
+      "nearest": "ранние-Дон"
+    },
+    {
+      "book": "tihiy_don_2",
+      "d_post1930": 3.124,
+      "d_early_don": 1.946,
+      "d_krukov": 2.684,
+      "nearest": "ранние-Дон"
+    },
+    {
+      "book": "tihiy_don_3",
+      "d_post1930": 2.717,
+      "d_early_don": 1.722,
+      "d_krukov": 2.412,
+      "nearest": "ранние-Дон"
+    },
+    {
+      "book": "tihiy_don_4",
+      "d_post1930": 2.14,
+      "d_early_don": 1.952,
+      "d_krukov": 2.481,
+      "nearest": "ранние-Дон"
+    }
+  ],
+  "p5_genre_matched_symmetric": [
+    {
+      "book": "tihiy_don_1",
+      "d_shol_don": 1.939,
+      "d_krukov_don": 3.792,
+      "closer": "Шолохов-Дон"
+    },
+    {
+      "book": "tihiy_don_2",
+      "d_shol_don": 1.946,
+      "d_krukov_don": 3.329,
+      "closer": "Шолохов-Дон"
+    },
+    {
+      "book": "tihiy_don_3",
+      "d_shol_don": 1.722,
+      "d_krukov_don": 3.153,
+      "closer": "Шолохов-Дон"
+    },
+    {
+      "book": "tihiy_don_4",
+      "d_shol_don": 1.952,
+      "d_krukov_don": 3.344,
+      "closer": "Шолохов-Дон"
+    }
+  ],
+  "td_nearest_post1930": 0,
+  "td_not_krukov": 4,
+  "n_td": 4
+}

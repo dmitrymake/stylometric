@@ -1,0 +1,2878 @@
+{
+  "case": "chekhonte_dubia",
+  "title": "Атрибуционная проба раздела Dubia (ПСС Чехова, т. 18)",
+  "data_status": "Загружено из ФЭБ, ПСС т. 18, раздел Dubia: 27 текстов, 25 прозаических; сырые тексты лежат в игнорируемой папке input_cases/chekhonte_dubia.",
+  "candidate_panel": [
+    "chehov",
+    "lejkin",
+    "bilibin",
+    "lazarev_gruzinsky",
+    "alexander_chekhov"
+  ],
+  "source_tree": "https://feb-web.ru/feb/common/tree.asp?/feb/chekhov/texts/sp0/spj/chj-035-.htm1",
+  "aggregate_prose": {
+    "path": "input_cases/chekhonte_dubia/mystery_prose.txt",
+    "candidate_panel": [
+      "chehov",
+      "lejkin",
+      "bilibin",
+      "lazarev_gruzinsky",
+      "alexander_chekhov"
+    ],
+    "n_chunks": 5,
+    "similarities": [
+      {
+        "candidate": "alexander_chekhov",
+        "cos": 0.955747
+      },
+      {
+        "candidate": "bilibin",
+        "cos": 0.955591
+      },
+      {
+        "candidate": "chehov",
+        "cos": 0.943498
+      },
+      {
+        "candidate": "lejkin",
+        "cos": 0.936006
+      },
+      {
+        "candidate": "lazarev_gruzinsky",
+        "cos": 0.922082
+      }
+    ],
+    "loo": {
+      "correct": 171,
+      "total": 209,
+      "accuracy": 0.818182
+    },
+    "bootstrap": {
+      "n_iter": 2000,
+      "unit": "фрагменты по 1500 слов из агрегированного файла спорного текста",
+      "winner_counts": {
+        "bilibin": 983,
+        "alexander_chekhov": 849,
+        "chehov": 168
+      },
+      "top_margin_ci95": [
+        0.000156,
+        0.006883
+      ]
+    }
+  },
+  "aggregate_all": {
+    "path": "input_cases/chekhonte_dubia/mystery_all.txt",
+    "candidate_panel": [
+      "chehov",
+      "lejkin",
+      "bilibin",
+      "lazarev_gruzinsky",
+      "alexander_chekhov"
+    ],
+    "n_chunks": 5,
+    "similarities": [
+      {
+        "candidate": "alexander_chekhov",
+        "cos": 0.955752
+      },
+      {
+        "candidate": "bilibin",
+        "cos": 0.955193
+      },
+      {
+        "candidate": "chehov",
+        "cos": 0.943883
+      },
+      {
+        "candidate": "lejkin",
+        "cos": 0.935647
+      },
+      {
+        "candidate": "lazarev_gruzinsky",
+        "cos": 0.922343
+      }
+    ],
+    "loo": {
+      "correct": 171,
+      "total": 209,
+      "accuracy": 0.818182
+    },
+    "bootstrap": {
+      "n_iter": 2000,
+      "unit": "фрагменты по 1500 слов из агрегированного файла спорного текста",
+      "winner_counts": {
+        "alexander_chekhov": 968,
+        "bilibin": 864,
+        "chehov": 168
+      },
+      "top_margin_ci95": [
+        0.000183,
+        0.007233
+      ]
+    }
+  },
+  "per_text_summary": {
+    "all_top_counts": {
+      "chehov": 9,
+      "alexander_chekhov": 9,
+      "bilibin": 8,
+      "lazarev_gruzinsky": 1
+    },
+    "eligible_threshold_words": 300,
+    "eligible_n": 5,
+    "eligible_top_counts": {
+      "chehov": 3,
+      "alexander_chekhov": 1,
+      "bilibin": 1
+    }
+  },
+  "per_text": [
+    {
+      "file": "texts/01_актерам_ремесленникам.txt",
+      "words": 19,
+      "top": "chehov",
+      "second": "alexander_chekhov",
+      "margin": 0.008827,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.439969
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.431142
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.419157
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.405683
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.390114
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/02_разочарованным.txt",
+      "words": 23,
+      "top": "chehov",
+      "second": "alexander_chekhov",
+      "margin": 0.004001,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.396438
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.392437
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.387422
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.364368
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.362969
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/03_кому_платить_снимок.txt",
+      "words": 183,
+      "top": "chehov",
+      "second": "alexander_chekhov",
+      "margin": 0.015552,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.574861
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.559309
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.556024
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.542857
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.499251
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/04_одна_из_этих_дам.txt",
+      "words": 52,
+      "top": "chehov",
+      "second": "lazarev_gruzinsky",
+      "margin": 0.018957,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.516602
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.497645
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.496472
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.487022
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.475745
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/05_осколочки.txt",
+      "words": 44,
+      "top": "alexander_chekhov",
+      "second": "chehov",
+      "margin": 0.005063,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.450873
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.44581
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.43131
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.429167
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.423096
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/06_состояние_московского_театрального_рынка.txt",
+      "words": 141,
+      "top": "bilibin",
+      "second": "alexander_chekhov",
+      "margin": 0.030056,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.748799
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.718743
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.706752
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.681928
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.680607
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/07_библиография.txt",
+      "words": 147,
+      "top": "bilibin",
+      "second": "alexander_chekhov",
+      "margin": 0.031556,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.747919
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.716363
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.705342
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.696789
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.696044
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/08_корреспонденции.txt",
+      "words": 471,
+      "top": "chehov",
+      "second": "alexander_chekhov",
+      "margin": 0.008123,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.843724
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.835601
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.834667
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.825557
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.799648
+        }
+      ],
+      "too_short": false
+    },
+    {
+      "file": "texts/09_ревнивый_муж_и_храбрый_любовник.txt",
+      "words": 515,
+      "top": "chehov",
+      "second": "bilibin",
+      "margin": 0.009992,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.778473
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.768481
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.754842
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.733439
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.725296
+        }
+      ],
+      "too_short": false
+    },
+    {
+      "file": "texts/10_мачеха.txt",
+      "words": 609,
+      "top": "chehov",
+      "second": "alexander_chekhov",
+      "margin": 0.005304,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.882843
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.877539
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.862416
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.852024
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.840139
+        }
+      ],
+      "too_short": false
+    },
+    {
+      "file": "texts/11_до_нового_пожара.txt",
+      "words": 40,
+      "top": "chehov",
+      "second": "lejkin",
+      "margin": 0.009236,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.332295
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.323059
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.319468
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.317484
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.313581
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/12_моя_семья.txt",
+      "words": 659,
+      "top": "alexander_chekhov",
+      "second": "chehov",
+      "margin": 0.003784,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.825732
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.821948
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.807735
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.803396
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.799006
+        }
+      ],
+      "too_short": false
+    },
+    {
+      "file": "texts/13_московская_езда.txt",
+      "words": 299,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.010436,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.827923
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.817487
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.810223
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.803613
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.790795
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/14_раздумье.txt",
+      "words": 31,
+      "top": "lazarev_gruzinsky",
+      "second": "chehov",
+      "margin": 0.017477,
+      "similarities": [
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.310697
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.29322
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.283679
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.264628
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.258688
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/15_среди_милых_москвичей.txt",
+      "words": 1338,
+      "top": "bilibin",
+      "second": "alexander_chekhov",
+      "margin": 0.010048,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.912311
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.902263
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.883016
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.875271
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.860186
+        }
+      ],
+      "too_short": false
+    },
+    {
+      "file": "texts/16_курские_умники.txt",
+      "words": 184,
+      "top": "bilibin",
+      "second": "lejkin",
+      "margin": 0.002028,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.727949
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.725921
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.722133
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.701439
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.697733
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/17_холодной_воды.txt",
+      "words": 223,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.008456,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.77688
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.768424
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.766242
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.752701
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.748033
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/18_правильные_действия.txt",
+      "words": 225,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.015026,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.808989
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.793963
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.790621
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.790001
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.776526
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/19_новое_топливо.txt",
+      "words": 143,
+      "top": "bilibin",
+      "second": "alexander_chekhov",
+      "margin": 0.016133,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.788138
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.772005
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.755657
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.751267
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.748344
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/20_неунывающий_город.txt",
+      "words": 277,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.002308,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.801209
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.798901
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.790699
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.77574
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.774208
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/21_в_далекие_края.txt",
+      "words": 118,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.005506,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.687646
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.68214
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.667883
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.66563
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.656927
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/22_к_сведению_москвичей.txt",
+      "words": 137,
+      "top": "bilibin",
+      "second": "alexander_chekhov",
+      "margin": 0.005676,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.740826
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.73515
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.73279
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.710284
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.684253
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/23_рыба_безглазая.txt",
+      "words": 158,
+      "top": "chehov",
+      "second": "alexander_chekhov",
+      "margin": 0.000941,
+      "similarities": [
+        {
+          "candidate": "chehov",
+          "cos": 0.695866
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.694925
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.691401
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.690754
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.66825
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/24_на_обсерватории_будильника.txt",
+      "words": 190,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.01288,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.77207
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.75919
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.744711
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.742003
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.732616
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/25_бенифие_н_н_соловцова.txt",
+      "words": 126,
+      "top": "bilibin",
+      "second": "alexander_chekhov",
+      "margin": 0.018957,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.727711
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.708754
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.692363
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.675802
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.656975
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/26_об_обществе_русских_драматических_писателей.txt",
+      "words": 253,
+      "top": "bilibin",
+      "second": "lejkin",
+      "margin": 0.012556,
+      "similarities": [
+        {
+          "candidate": "bilibin",
+          "cos": 0.819287
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.806731
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.795217
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.75589
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.751124
+        }
+      ],
+      "too_short": true
+    },
+    {
+      "file": "texts/27_бенефис_в_н_давыдова.txt",
+      "words": 121,
+      "top": "alexander_chekhov",
+      "second": "bilibin",
+      "margin": 0.000423,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.750759
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.750336
+        },
+        {
+          "candidate": "chehov",
+          "cos": 0.711602
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.703573
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.691338
+        }
+      ],
+      "too_short": true
+    }
+  ],
+  "segment_diagnostics": {
+    "sredi_milykh_moskvichey": [
+      {
+        "segment": "1885-05-24",
+        "words": 146,
+        "top": "lejkin",
+        "second": "bilibin",
+        "margin": 0.009101,
+        "similarities": [
+          {
+            "candidate": "lejkin",
+            "cos": 0.735599
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.726498
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.721827
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.706587
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.680361
+          }
+        ],
+        "too_short": true
+      },
+      {
+        "segment": "1885-06-14",
+        "words": 386,
+        "top": "bilibin",
+        "second": "alexander_chekhov",
+        "margin": 0.024789,
+        "similarities": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.821297
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.796508
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.771849
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.758269
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.755321
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "segment": "1885-06-20",
+        "words": 353,
+        "top": "alexander_chekhov",
+        "second": "bilibin",
+        "margin": 0.01626,
+        "similarities": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.810708
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.794448
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.794239
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.787448
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.779234
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "segment": "1885-08-08",
+        "words": 191,
+        "top": "bilibin",
+        "second": "alexander_chekhov",
+        "margin": 0.022171,
+        "similarities": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.782956
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.760785
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.748522
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.725532
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.720247
+          }
+        ],
+        "too_short": true
+      },
+      {
+        "segment": "1885-08-29",
+        "words": 198,
+        "top": "lejkin",
+        "second": "bilibin",
+        "margin": 0.009716,
+        "similarities": [
+          {
+            "candidate": "lejkin",
+            "cos": 0.744568
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.734852
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.726911
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.701712
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.699608
+          }
+        ],
+        "too_short": true
+      }
+    ],
+    "korrespondentsii": [
+      {
+        "segment": "glukhov",
+        "words": 147,
+        "top": "alexander_chekhov",
+        "second": "bilibin",
+        "margin": 0.019279,
+        "similarities": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.750799
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.73152
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.722089
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.721084
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.695074
+          }
+        ],
+        "too_short": true
+      },
+      {
+        "segment": "tehran",
+        "words": 16,
+        "top": "bilibin",
+        "second": "alexander_chekhov",
+        "margin": 0.009576,
+        "similarities": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.578198
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.568622
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.537116
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.536006
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.532033
+          }
+        ],
+        "too_short": true
+      },
+      {
+        "segment": "syzran",
+        "words": 11,
+        "top": "lejkin",
+        "second": "chehov",
+        "margin": 0.000404,
+        "similarities": [
+          {
+            "candidate": "lejkin",
+            "cos": 0.171075
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.170671
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.158691
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.146668
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.134224
+          }
+        ],
+        "too_short": true
+      },
+      {
+        "segment": "petersburg",
+        "words": 36,
+        "top": "alexander_chekhov",
+        "second": "chehov",
+        "margin": 0.013975,
+        "similarities": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.325395
+          },
+          {
+            "candidate": "chehov",
+            "cos": 0.31142
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.300954
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.299187
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.284401
+          }
+        ],
+        "too_short": true
+      },
+      {
+        "segment": "meshchersky_interview",
+        "words": 253,
+        "top": "chehov",
+        "second": "lejkin",
+        "margin": 0.015272,
+        "similarities": [
+          {
+            "candidate": "chehov",
+            "cos": 0.71968
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.704408
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.684248
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.682601
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.674773
+          }
+        ],
+        "too_short": true
+      }
+    ]
+  },
+  "period_panel_diagnostic": {
+    "status": "diagnostic_only",
+    "reason": "Разделение Чехова на 1880-1884 и отложенный 1884-1885 проверяет смешение периода/регистра, но положительный контроль проседает, поскольку соседние чеховские панели становится трудно разделить.",
+    "aggregate_prose": {
+      "path": "input_cases/chekhonte_dubia/mystery_prose.txt",
+      "candidate_panel": [
+        "chehov_1880_84",
+        "chehov_1884_85",
+        "lejkin",
+        "bilibin",
+        "lazarev_gruzinsky",
+        "alexander_chekhov"
+      ],
+      "n_chunks": 5,
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.955232
+        },
+        {
+          "candidate": "chehov_1884_85",
+          "cos": 0.954648
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.954304
+        },
+        {
+          "candidate": "chehov_1880_84",
+          "cos": 0.943506
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.935296
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.921965
+        }
+      ],
+      "loo": {
+        "correct": 183,
+        "total": 305,
+        "accuracy": 0.6
+      },
+      "bootstrap": {
+        "n_iter": 2000,
+        "unit": "фрагменты по 1500 слов из агрегированного файла спорного текста",
+        "winner_counts": {
+          "chehov_1884_85": 839,
+          "bilibin": 642,
+          "alexander_chekhov": 519
+        },
+        "top_margin_ci95": [
+          0.000102,
+          0.009075
+        ]
+      }
+    },
+    "segment_diagnostics": {
+      "sredi_milykh_moskvichey": [
+        {
+          "segment": "1885-05-24",
+          "words": 146,
+          "top": "lejkin",
+          "second": "bilibin",
+          "margin": 0.009461,
+          "similarities": [
+            {
+              "candidate": "lejkin",
+              "cos": 0.734784
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.725323
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.721283
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.720377
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.706401
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.680101
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "1885-06-14",
+          "words": 386,
+          "top": "bilibin",
+          "second": "alexander_chekhov",
+          "margin": 0.023316,
+          "similarities": [
+            {
+              "candidate": "bilibin",
+              "cos": 0.818703
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.795387
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.781059
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.771555
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.757107
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.754563
+            }
+          ],
+          "too_short": false
+        },
+        {
+          "segment": "1885-06-20",
+          "words": 353,
+          "top": "alexander_chekhov",
+          "second": "chehov_1884_85",
+          "margin": 0.009868,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.809663
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.799795
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.794044
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.792421
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.786046
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.778783
+            }
+          ],
+          "too_short": false
+        },
+        {
+          "segment": "1885-08-08",
+          "words": 191,
+          "top": "bilibin",
+          "second": "alexander_chekhov",
+          "margin": 0.021684,
+          "similarities": [
+            {
+              "candidate": "bilibin",
+              "cos": 0.781973
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.760289
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.747744
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.742002
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.724527
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.720082
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "1885-08-29",
+          "words": 198,
+          "top": "lejkin",
+          "second": "bilibin",
+          "margin": 0.01016,
+          "similarities": [
+            {
+              "candidate": "lejkin",
+              "cos": 0.743891
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.733731
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.726386
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.725107
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.701604
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.699295
+            }
+          ],
+          "too_short": true
+        }
+      ],
+      "korrespondentsii": [
+        {
+          "segment": "glukhov",
+          "words": 147,
+          "top": "alexander_chekhov",
+          "second": "bilibin",
+          "margin": 0.019608,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.751217
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.731609
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.731119
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.722259
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.721257
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.695698
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "tehran",
+          "words": 16,
+          "top": "bilibin",
+          "second": "alexander_chekhov",
+          "margin": 0.009173,
+          "similarities": [
+            {
+              "candidate": "bilibin",
+              "cos": 0.578466
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.569293
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.541059
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.537897
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.536874
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.532618
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "syzran",
+          "words": 11,
+          "top": "chehov_1880_84",
+          "second": "lejkin",
+          "margin": 0.00043,
+          "similarities": [
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.171531
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.171101
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.170649
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.158744
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.146767
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.134826
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "petersburg",
+          "words": 36,
+          "top": "alexander_chekhov",
+          "second": "chehov_1884_85",
+          "margin": 0.006637,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.324582
+            },
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.317945
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.311098
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.300153
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.298537
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.284083
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "meshchersky_interview",
+          "words": 253,
+          "top": "chehov_1884_85",
+          "second": "chehov_1880_84",
+          "margin": 0.01351,
+          "similarities": [
+            {
+              "candidate": "chehov_1884_85",
+              "cos": 0.731729
+            },
+            {
+              "candidate": "chehov_1880_84",
+              "cos": 0.718219
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.702206
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.682071
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.680347
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.673268
+            }
+          ],
+          "too_short": true
+        }
+      ]
+    }
+  },
+  "budilnik_control_diagnostic": {
+    "status": "diagnostic_only",
+    "control_set": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885",
+    "reason": "Здесь используются двенадцать подписанных или принятых чеховских текстов из «Будильника» 1884-1885 как контроль того же журнала. Набор содержит всего около 7 тыс. слов, а самопроверка leave-one-control-out слаба, поэтому панель полезна лишь как проба на рассогласование регистра.",
+    "aggregate_prose": {
+      "path": "input_cases/chekhonte_dubia/mystery_prose.txt",
+      "candidate_panel": [
+        "chehov_budilnik_1884_1885",
+        "lejkin",
+        "bilibin",
+        "lazarev_gruzinsky",
+        "alexander_chekhov"
+      ],
+      "n_chunks": 5,
+      "similarities": [
+        {
+          "candidate": "chehov_budilnik_1884_1885",
+          "cos": 0.957574
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.954608
+        },
+        {
+          "candidate": "bilibin",
+          "cos": 0.951827
+        },
+        {
+          "candidate": "lejkin",
+          "cos": 0.93386
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.921235
+        }
+      ],
+      "loo": {
+        "correct": 42,
+        "total": 72,
+        "accuracy": 0.583333
+      },
+      "bootstrap": {
+        "n_iter": 2000,
+        "unit": "фрагменты по 1500 слов из агрегированного файла спорного текста",
+        "winner_counts": {
+          "chehov_budilnik_1884_1885": 1534,
+          "bilibin": 286,
+          "alexander_chekhov": 180
+        },
+        "top_margin_ci95": [
+          0.000234,
+          0.008416
+        ]
+      }
+    },
+    "eligible_per_text": [
+      {
+        "file": "texts/08_корреспонденции.txt",
+        "words": 471,
+        "top": "chehov_budilnik_1884_1885",
+        "second": "alexander_chekhov",
+        "margin": 0.006863,
+        "similarities": [
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.843686
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.836823
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.834584
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.824749
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.80163
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/09_ревнивый_муж_и_храбрый_любовник.txt",
+        "words": 515,
+        "top": "bilibin",
+        "second": "chehov_budilnik_1884_1885",
+        "margin": 0.009224,
+        "similarities": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.766495
+          },
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.757271
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.754108
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.73346
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.72438
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/10_мачеха.txt",
+        "words": 609,
+        "top": "alexander_chekhov",
+        "second": "chehov_budilnik_1884_1885",
+        "margin": 0.007925,
+        "similarities": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.876355
+          },
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.86843
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.860567
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.849017
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.838037
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/12_моя_семья.txt",
+        "words": 659,
+        "top": "chehov_budilnik_1884_1885",
+        "second": "alexander_chekhov",
+        "margin": 0.007415,
+        "similarities": [
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.832267
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.824852
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.806357
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.802807
+          },
+          {
+            "candidate": "bilibin",
+            "cos": 0.79563
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/15_среди_милых_москвичей.txt",
+        "words": 1338,
+        "top": "bilibin",
+        "second": "chehov_budilnik_1884_1885",
+        "margin": 0.005452,
+        "similarities": [
+          {
+            "candidate": "bilibin",
+            "cos": 0.908943
+          },
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.903491
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.901255
+          },
+          {
+            "candidate": "lejkin",
+            "cos": 0.880989
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.859388
+          }
+        ],
+        "too_short": false
+      }
+    ],
+    "segment_diagnostics": {
+      "sredi_milykh_moskvichey": [
+        {
+          "segment": "1885-05-24",
+          "words": 146,
+          "top": "lejkin",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.001798,
+          "similarities": [
+            {
+              "candidate": "lejkin",
+              "cos": 0.731921
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.730123
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.722047
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.71903
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.676991
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "1885-06-14",
+          "words": 386,
+          "top": "bilibin",
+          "second": "alexander_chekhov",
+          "margin": 0.021901,
+          "similarities": [
+            {
+              "candidate": "bilibin",
+              "cos": 0.817062
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.795161
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.789477
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.75569
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.754522
+            }
+          ],
+          "too_short": false
+        },
+        {
+          "segment": "1885-06-20",
+          "words": 353,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "alexander_chekhov",
+          "margin": 0.005524,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.81288
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.807356
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.788692
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.78303
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.776632
+            }
+          ],
+          "too_short": false
+        },
+        {
+          "segment": "1885-08-08",
+          "words": 191,
+          "top": "bilibin",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.016968,
+          "similarities": [
+            {
+              "candidate": "bilibin",
+              "cos": 0.780002
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.763034
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.76004
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.745646
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.719976
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "1885-08-29",
+          "words": 198,
+          "top": "lejkin",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.006895,
+          "similarities": [
+            {
+              "candidate": "lejkin",
+              "cos": 0.741974
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.735079
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.730171
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.72522
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.698186
+            }
+          ],
+          "too_short": true
+        }
+      ],
+      "korrespondentsii": [
+        {
+          "segment": "glukhov",
+          "words": 147,
+          "top": "alexander_chekhov",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.015482,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.753201
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.737719
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.731816
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.722812
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.69776
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "tehran",
+          "words": 16,
+          "top": "bilibin",
+          "second": "alexander_chekhov",
+          "margin": 0.009206,
+          "similarities": [
+            {
+              "candidate": "bilibin",
+              "cos": 0.577895
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.568689
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.544255
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.537357
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.531611
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "syzran",
+          "words": 11,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "lejkin",
+          "margin": 0.009479,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.176137
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.166658
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.154461
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.143133
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.131598
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "petersburg",
+          "words": 36,
+          "top": "alexander_chekhov",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.013092,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.32422
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.311128
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.299823
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.299685
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.28274
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "meshchersky_interview",
+          "words": 253,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "lejkin",
+          "margin": 0.002688,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.70683
+            },
+            {
+              "candidate": "lejkin",
+              "cos": 0.704142
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.6833
+            },
+            {
+              "candidate": "bilibin",
+              "cos": 0.683282
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.676434
+            }
+          ],
+          "too_short": true
+        }
+      ]
+    },
+    "control_self_test": {
+      "method": "leave-one-control-out; каждый подписанный чеховский контроль удаляется из чеховского centroid и классифицируется относительно оставшейся панели",
+      "target": "chehov_budilnik_1884_1885",
+      "summary": {
+        "correct": 3,
+        "total": 12,
+        "accuracy": 0.25,
+        "eligible_threshold_words": 300,
+        "eligible_correct": 2,
+        "eligible_total": 9,
+        "eligible_accuracy": 0.222222,
+        "top_counts": {
+          "alexander_chekhov": 4,
+          "lejkin": 3,
+          "chehov_budilnik_1884_1885": 3,
+          "lazarev_gruzinsky": 2
+        },
+        "eligible_top_counts": {
+          "lejkin": 3,
+          "alexander_chekhov": 3,
+          "chehov_budilnik_1884_1885": 2,
+          "lazarev_gruzinsky": 1
+        }
+      },
+      "rows": [
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/01_идеальный_экзамен.txt",
+          "words": 623,
+          "top": "lejkin",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.013078,
+          "correct": false,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/02_кавардак_в_риме.txt",
+          "words": 608,
+          "top": "lejkin",
+          "second": "bilibin",
+          "margin": 0.005355,
+          "correct": false,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/03_устрицы.txt",
+          "words": 1132,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "alexander_chekhov",
+          "margin": 0.00294,
+          "correct": true,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/04_масленичные_правила_дисциплины.txt",
+          "words": 182,
+          "top": "alexander_chekhov",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.012771,
+          "correct": false,
+          "too_short": true
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/05_тост_прозаиков.txt",
+          "words": 427,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "alexander_chekhov",
+          "margin": 0.006436,
+          "correct": true,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/06_женский_тост.txt",
+          "words": 287,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "lejkin",
+          "margin": 0.006523,
+          "correct": true,
+          "too_short": true
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/07_правила_для_начинающих_авторов.txt",
+          "words": 837,
+          "top": "alexander_chekhov",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.00225,
+          "correct": false,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/08_безнадежный.txt",
+          "words": 978,
+          "top": "alexander_chekhov",
+          "second": "lazarev_gruzinsky",
+          "margin": 0.014128,
+          "correct": false,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/09_на_гулянье_в_сокольниках.txt",
+          "words": 581,
+          "top": "lazarev_gruzinsky",
+          "second": "alexander_chekhov",
+          "margin": 0.016127,
+          "correct": false,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/10_женщина_с_точки_зрения_пьяницы.txt",
+          "words": 148,
+          "top": "lazarev_gruzinsky",
+          "second": "lejkin",
+          "margin": 0.003141,
+          "correct": false,
+          "too_short": true
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/11_кое_что_об_а_с_даргомыжском.txt",
+          "words": 465,
+          "top": "lejkin",
+          "second": "alexander_chekhov",
+          "margin": 0.009665,
+          "correct": false,
+          "too_short": false
+        },
+        {
+          "file": "input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885/12_бумажник.txt",
+          "words": 763,
+          "top": "alexander_chekhov",
+          "second": "lazarev_gruzinsky",
+          "margin": 0.016571,
+          "correct": false,
+          "too_short": false
+        }
+      ]
+    }
+  },
+  "clean_neighbor_control_diagnostic": {
+    "status": "diagnostic_only",
+    "control_sets": {
+      "bilibin_clean": "input_cases/chekhonte_dubia/cand_bilibin_clean",
+      "lejkin_clean": "input_cases/chekhonte_dubia/cand_lejkin_clean"
+    },
+    "reason": "Широкие выгрузки кандидатов Билибина/Лейкина с az.lib.ru содержат оглавления и комментарии. Эта панель использует разделённые тела произведений для этих соседей, но положительный контроль слаб, а отрыв агрегата Чехов–Bilibin близок к нулю.",
+    "aggregate_prose": {
+      "path": "input_cases/chekhonte_dubia/mystery_prose.txt",
+      "candidate_panel": [
+        "chehov_budilnik_1884_1885",
+        "lejkin_clean",
+        "bilibin_clean",
+        "lazarev_gruzinsky",
+        "alexander_chekhov"
+      ],
+      "n_chunks": 5,
+      "similarities": [
+        {
+          "candidate": "chehov_budilnik_1884_1885",
+          "cos": 0.95512
+        },
+        {
+          "candidate": "bilibin_clean",
+          "cos": 0.954775
+        },
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.95273
+        },
+        {
+          "candidate": "lazarev_gruzinsky",
+          "cos": 0.918789
+        },
+        {
+          "candidate": "lejkin_clean",
+          "cos": 0.889588
+        }
+      ],
+      "loo": {
+        "correct": 40,
+        "total": 76,
+        "accuracy": 0.526316
+      },
+      "bootstrap": {
+        "n_iter": 2000,
+        "unit": "фрагменты по 1500 слов из агрегированного файла спорного текста",
+        "winner_counts": {
+          "chehov_budilnik_1884_1885": 1040,
+          "bilibin_clean": 685,
+          "alexander_chekhov": 275
+        },
+        "top_margin_ci95": [
+          0.000122,
+          0.005337
+        ]
+      }
+    },
+    "eligible_per_text": [
+      {
+        "file": "texts/08_корреспонденции.txt",
+        "words": 471,
+        "top": "chehov_budilnik_1884_1885",
+        "second": "alexander_chekhov",
+        "margin": 0.005662,
+        "similarities": [
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.840652
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.83499
+          },
+          {
+            "candidate": "bilibin_clean",
+            "cos": 0.825438
+          },
+          {
+            "candidate": "lejkin_clean",
+            "cos": 0.800833
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.799401
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/09_ревнивый_муж_и_храбрый_любовник.txt",
+        "words": 515,
+        "top": "bilibin_clean",
+        "second": "chehov_budilnik_1884_1885",
+        "margin": 0.028499,
+        "similarities": [
+          {
+            "candidate": "bilibin_clean",
+            "cos": 0.781424
+          },
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.752925
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.750382
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.730017
+          },
+          {
+            "candidate": "lejkin_clean",
+            "cos": 0.703222
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/10_мачеха.txt",
+        "words": 609,
+        "top": "alexander_chekhov",
+        "second": "chehov_budilnik_1884_1885",
+        "margin": 0.007103,
+        "similarities": [
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.864872
+          },
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.857769
+          },
+          {
+            "candidate": "bilibin_clean",
+            "cos": 0.856788
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.85003
+          },
+          {
+            "candidate": "lejkin_clean",
+            "cos": 0.815152
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/12_моя_семья.txt",
+        "words": 659,
+        "top": "chehov_budilnik_1884_1885",
+        "second": "alexander_chekhov",
+        "margin": 0.007441,
+        "similarities": [
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.832344
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.824903
+          },
+          {
+            "candidate": "bilibin_clean",
+            "cos": 0.809713
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.802456
+          },
+          {
+            "candidate": "lejkin_clean",
+            "cos": 0.774941
+          }
+        ],
+        "too_short": false
+      },
+      {
+        "file": "texts/15_среди_милых_москвичей.txt",
+        "words": 1338,
+        "top": "bilibin_clean",
+        "second": "chehov_budilnik_1884_1885",
+        "margin": 0.006384,
+        "similarities": [
+          {
+            "candidate": "bilibin_clean",
+            "cos": 0.907435
+          },
+          {
+            "candidate": "chehov_budilnik_1884_1885",
+            "cos": 0.901051
+          },
+          {
+            "candidate": "alexander_chekhov",
+            "cos": 0.899248
+          },
+          {
+            "candidate": "lazarev_gruzinsky",
+            "cos": 0.857079
+          },
+          {
+            "candidate": "lejkin_clean",
+            "cos": 0.834371
+          }
+        ],
+        "too_short": false
+      }
+    ],
+    "segment_diagnostics": {
+      "sredi_milykh_moskvichey": [
+        {
+          "segment": "1885-05-24",
+          "words": 146,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "bilibin_clean",
+          "margin": 0.007101,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.730442
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.723341
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.720879
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.703282
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.678624
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "1885-06-14",
+          "words": 386,
+          "top": "bilibin_clean",
+          "second": "alexander_chekhov",
+          "margin": 0.007975,
+          "similarities": [
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.804129
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.796154
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.790086
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.754958
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.705887
+            }
+          ],
+          "too_short": false
+        },
+        {
+          "segment": "1885-06-20",
+          "words": 353,
+          "top": "bilibin_clean",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.00591,
+          "similarities": [
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.819034
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.813124
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.807563
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.776553
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.763311
+            }
+          ],
+          "too_short": false
+        },
+        {
+          "segment": "1885-08-08",
+          "words": 191,
+          "top": "bilibin_clean",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.004068,
+          "similarities": [
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.767366
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.763298
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.761018
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.720381
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.692751
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "1885-08-29",
+          "words": 198,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "bilibin_clean",
+          "margin": 0.004341,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.735012
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.730671
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.725217
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.711574
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.697898
+            }
+          ],
+          "too_short": true
+        }
+      ],
+      "korrespondentsii": [
+        {
+          "segment": "glukhov",
+          "words": 147,
+          "top": "alexander_chekhov",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.016577,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.756229
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.739652
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.73331
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.700109
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.696345
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "tehran",
+          "words": 16,
+          "top": "alexander_chekhov",
+          "second": "bilibin_clean",
+          "margin": 0.015428,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.568191
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.552763
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.544252
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.531346
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.48816
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "syzran",
+          "words": 11,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "lejkin_clean",
+          "margin": 0.01258,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.179424
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.166844
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.157977
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.146372
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.133792
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "petersburg",
+          "words": 36,
+          "top": "alexander_chekhov",
+          "second": "chehov_budilnik_1884_1885",
+          "margin": 0.013561,
+          "similarities": [
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.323301
+            },
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.30974
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.298359
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.296057
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.293486
+            }
+          ],
+          "too_short": true
+        },
+        {
+          "segment": "meshchersky_interview",
+          "words": 253,
+          "top": "chehov_budilnik_1884_1885",
+          "second": "bilibin_clean",
+          "margin": 0.015418,
+          "similarities": [
+            {
+              "candidate": "chehov_budilnik_1884_1885",
+              "cos": 0.706608
+            },
+            {
+              "candidate": "bilibin_clean",
+              "cos": 0.69119
+            },
+            {
+              "candidate": "alexander_chekhov",
+              "cos": 0.683494
+            },
+            {
+              "candidate": "lejkin_clean",
+              "cos": 0.681837
+            },
+            {
+              "candidate": "lazarev_gruzinsky",
+              "cos": 0.67603
+            }
+          ],
+          "too_short": true
+        }
+      ]
+    }
+  },
+  "philology_alignment": [
+    {
+      "file": "texts/08_корреспонденции.txt",
+      "pss_context": "«Мирской толк»/«Винт», 1883, № 4; подпись Гайка № 0,006. ПСС трактует подпись как вариант чеховской Гайка № 6 и указывает на повторяющиеся чеховские мотивы.",
+      "model_context": "Достаточно длинный потекстовый диагностический признак указывает на chehov.",
+      "priority": "confirm_chekhov"
+    },
+    {
+      "file": "texts/09_ревнивый_муж_и_храбрый_любовник.txt",
+      "pss_context": "«Мирской толк»/«Винт», 1883, № 6; подпись Гайка № 101010101. ПСС опирается на поэтику, жанр и параллели с таганрогским театром.",
+      "model_context": "Достаточно длинный потекстовый диагностический признак указывает на chehov.",
+      "priority": "confirm_chekhov"
+    },
+    {
+      "file": "texts/10_мачеха.txt",
+      "pss_context": "«Мирской толк»/«Винт», 1883, № 7; без подписи. ПСС называет её наиболее «чеховской» из прозаических текстов, атрибутированных в «Мирском толке».",
+      "model_context": "Достаточно длинный потекстовый диагностический признак указывает на chehov, но с малым отрывом.",
+      "priority": "confirm_chekhov"
+    },
+    {
+      "file": "texts/12_моя_семья.txt",
+      "pss_context": "«Зритель», 1883, № 19; в оглавлении подпись С. Б. Ч. ПСС читает её как обращённую форму чеховского криптонима Ч. Б. С. и приводит формальные параллели.",
+      "model_context": "Достаточно длинный потекстовый диагностический признак узко указывает на alexander_chekhov.",
+      "priority": "resolve_brother_confound"
+    },
+    {
+      "file": "texts/15_среди_милых_москвичей.txt",
+      "pss_context": "«Будильник», 1885, № 20/23/24/34; пять заметок без подписи из еженедельного обозрения. ПСС обосновывает атрибуцию письмами редактора, заказывавшего обозрение Чехову, и контекстными параллелями.",
+      "model_context": "Объединённый потекстовый признак указывает на bilibin; посегментная диагностика расходится. Признак, согласованный с «Будильником», разворачивает объединённый агрегат в сторону Чехова, тогда как 1885-06-14 остаётся за Bilibin, а 1885-06-20 указывает на чеховские контроли из «Будильника».",
+      "priority": "highest_discrepancy"
+    }
+  ],
+  "verdict": "неоднозначно",
+  "confidence": "низкая",
+  "key_findings": "На расширенной панели с согласованным регистром объединённая проза располагается между Александром Чеховым и Bilibin: точечная оценка ставит Александра Чехова на первое место с отрывом ~0,0002 над Bilibin, тогда как bootstrap-подсчёты победителей расходятся. Это не является обоснованным атрибуционным утверждением. Потекстовая диагностика также неоднородна: среди текстов >=300 слов Чехов лидирует в 3/5, Александр Чехов в 1/5 и Bilibin в 1/5. Добавление чеховских контролей из того же журнала «Будильник» разворачивает объединённый агрегат в сторону Чехова, но эти контроли не проходят собственную самопроверку leave-one-control-out. С очищенными соседями Билибиным и Лейкиным объединённый агрегат фактически уравнивается между чеховским «Будильником» и Bilibin. Результат — полезная зацепка для поиска, а не решение вопроса об авторстве.",
+  "caveats": [
+    "Большинство отдельных текстов Dubia очень коротки; потекстовые победители носят лишь диагностический характер.",
+    "Агрегат смешивает театральные заметки, рецензии, сценки и крошечные извещения.",
+    "И Bilibin, и Александр Чехов — правдоподобные соседи по регистру; текущая панель не разделяет их с полезным отрывом.",
+    "Диагностическая панель с отложенным Чеховым 1884-1885 снижает агрегатный сигнал Bilibin, но имеет слабые положительные контроли, поэтому не может использоваться как вердикт.",
+    "Диагностическая панель с двенадцатью чеховскими контролями из «Будильника» 1884-1885 разворачивает объединённый агрегат Dubia в сторону Чехова, но её самопроверка leave-one-control-out распознаёт лишь меньшинство собственных подписанных контролей.",
+    "Разделение антологических выгрузок Билибина и Лейкина устраняет очевидное редакторское загрязнение, но не делает панель соседей готовой к атрибуции.",
+    "Публикуемое утверждение требует кластеризации текстов по жанру/источнику и большего числа подписанных кандидатов из тех же периодических изданий."
+  ],
+  "next_tasks": [
+    "Расширить контрольный набор «Будильника» свыше 7 тыс. слов и добавить контроли Билибина/Лейкина той же формы из подписей и рецензионных заметок «Будильника»/«Осколков».",
+    "Построить панель для разрешения «братского» смешения по «Зрителю»/«Мирскому толку»: Антон Чехов против Александра Чехова на подписанных текстах 1882-1886.",
+    "Отделить «Корреспонденции» от интервью с Мещерским; заметки короче 300 слов использовать только как объединённое серийное свидетельство.",
+    "Добавить контроли Билибина и Лейкина той же формы для крошечных заметок, подписей и фельетонов на основе рисунков.",
+    "Установить эмпирический порог атрибуции по подписанным контролям объёмом 300-700 слов, прежде чем выдвигать какой-либо потекстовый вердикт."
+  ],
+  "analysis_commands": [
+    "python scripts/fetch_chekhonte_dubia.py",
+    "python scripts/build_chekhonte_budilnik_controls.py",
+    "python scripts/build_chekhonte_neighbor_controls.py",
+    "PYTHONPATH=src python log/attribute_case.py --lang ru --mystery input_cases/chekhonte_dubia/mystery_prose.txt --cand chehov=input_cases/chekhonte/cand_chehov --cand lejkin=input_cases/chekhonte/cand_lejkin --cand bilibin=input_cases/chekhonte/cand_bilibin --cand lazarev_gruzinsky=input_cases/chekhonte_dubia/cand_lazarev_gruzinsky --cand alexander_chekhov=input_cases/chekhonte_dubia/cand_alexander_chekhov",
+    "PYTHONPATH=src python scripts/run_chekhonte_dubia.py"
+  ]
+}

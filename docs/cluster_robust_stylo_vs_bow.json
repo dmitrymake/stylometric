@@ -1,0 +1,28 @@
+{
+  "method": "author-clustered paired bootstrap Δaccuracy(stylo−bow) на свежем GKF5-OOF (оба спека одним прогоном); ресэмпл АВТОРОВ, не книг",
+  "regime_caveat": "GKF5(факт.GKF2)-OOF, НЕ LOBO. GKF-диагностика кластер-робастности stylo-vs-BoW; НЕ прямой тест LOBO-headline (нужны LOBO per-book обоих спеков, не сохранены). LOBO Δacc(0.073) < GKF Δacc(0.112) — переноса на LOBO нет.",
+  "n_books": 260,
+  "n_authors": 43,
+  "books_per_author": 6.05,
+  "acc_stylo": 0.8115,
+  "acc_bow": 0.7,
+  "delta_accuracy": 0.1115,
+  "flat_mcnemar": {
+    "b": 36,
+    "c": 7,
+    "p": 9e-06,
+    "note": "iid-предположение (как в headline); headline LOBO p≈0.0003"
+  },
+  "author_clustered": {
+    "delta_median": 0.1088,
+    "ci95": [
+      0.0377,
+      0.1938
+    ],
+    "significant_0_not_in_ci": true,
+    "p_like_P_delta_le_0": 0.001,
+    "n_boot": 10000
+  },
+  "verdict": "stylo>BoW выживает авторскую кластеризацию В GKF-РЕГИМЕ (CI не пересекает 0). Диагностика кластер-робастности; НЕ прямой тест LOBO-headline.",
+  "note": "GKF-OOF diagnostic; значения (Δaccuracy, CI) воспроизводимы из log/cluster_robust_stylo_vs_bow.py. Регенерация требует GKF stylo+bow прогона (~минуты)."
+}

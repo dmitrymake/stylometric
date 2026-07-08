@@ -1,0 +1,321 @@
+{
+  "method": "Fano/Bayes information-пол (Harrison&Yener ISIT'25 framing) + синтетический splice-детектор; OOF=GKF5 leak-free; overlay = эмпирическая детекция vs per-pair Bayes-пол неразличимости",
+  "spec": "stylo",
+  "floor_semantics": "fano_floor_Pe — модель-зависимая описательная величина от энтропии постериоров модели, не нижняя граница ошибки: энтропия модели верхне оценивает H(A|F), а нижняя граница Фано требует нижнюю оценку, поэтому gap_empirical_minus_floor < 0. Валидная нижняя граница информации признаков — I_AF_bits (признаки несут не менее I_AF_bits бит о авторе). Нетривиальной модель-независимой нижней границы ошибки для книжных объёмов нет: корректная двухточечная граница (Ле Кам / Бхаттачарья, токенная единица счёта с поправкой на пачкообразность слов) для реальных пар авторов на книжной длине практически равна нулю.",
+  "valid_lower_bound_fields": [
+    "I_AF_bits"
+  ],
+  "descriptive_only_fields": [
+    "fano_floor_Pe",
+    "gap_empirical_minus_floor"
+  ],
+  "fano_floor_book_level": {
+    "n_books": 260,
+    "n_authors": 43,
+    "H_A_bits": 5.2948,
+    "H_A_max_bits": 5.4263,
+    "H_A_given_F_bits": 2.3785,
+    "I_AF_bits": 2.9163,
+    "fano_floor_Pe": 0.2556,
+    "empirical_error": 0.1885,
+    "empirical_accuracy": 0.8115,
+    "gap_empirical_minus_floor": -0.0672,
+    "ECE": 0.2357
+  },
+  "ece_calibration": 0.2357,
+  "all_pairs_distribution": {
+    "n_pairs": 903,
+    "n_at_floor_ge035": 0,
+    "max_pair_Pe": 0.1726,
+    "histogram": {
+      "[0.00,0.05)": 821,
+      "[0.05,0.10)": 73,
+      "[0.10,0.15)": 8,
+      "[0.15,0.25)": 1,
+      "[0.25,0.35)": 0,
+      "[0.35,0.45)": 0,
+      "[0.45,0.51)": 0
+    },
+    "top_confusable": [
+      {
+        "a": "olesha",
+        "b": "volcheck",
+        "bayes_floor_Pe": 0.1726
+      },
+      {
+        "a": "bunin",
+        "b": "kuprin",
+        "bayes_floor_Pe": 0.125
+      },
+      {
+        "a": "andreev",
+        "b": "kuprin",
+        "bayes_floor_Pe": 0.1228
+      },
+      {
+        "a": "akunun",
+        "b": "bulgakov",
+        "bayes_floor_Pe": 0.1144
+      },
+      {
+        "a": "elizarov",
+        "b": "victor_erofeev",
+        "bayes_floor_Pe": 0.1115
+      },
+      {
+        "a": "olesha",
+        "b": "victor_erofeev",
+        "bayes_floor_Pe": 0.1101
+      },
+      {
+        "a": "akunun",
+        "b": "elizarov",
+        "bayes_floor_Pe": 0.1099
+      },
+      {
+        "a": "akunun",
+        "b": "sasha_sokolov",
+        "bayes_floor_Pe": 0.1073
+      },
+      {
+        "a": "saltykov",
+        "b": "uspensky",
+        "bayes_floor_Pe": 0.105
+      },
+      {
+        "a": "sasha_sokolov",
+        "b": "victor_erofeev",
+        "bayes_floor_Pe": 0.0968
+      },
+      {
+        "a": "akunun",
+        "b": "kataev",
+        "bayes_floor_Pe": 0.0959
+      },
+      {
+        "a": "gumilev",
+        "b": "kuprin",
+        "bayes_floor_Pe": 0.0944
+      },
+      {
+        "a": "prokhanov",
+        "b": "volcheck",
+        "bayes_floor_Pe": 0.0931
+      },
+      {
+        "a": "korolenko",
+        "b": "kuprin",
+        "bayes_floor_Pe": 0.0911
+      },
+      {
+        "a": "victor_erofeev",
+        "b": "volcheck",
+        "bayes_floor_Pe": 0.0882
+      }
+    ],
+    "interpretation": "если max_pair_Pe ≪ 0.45 и n_at_floor_ge035≈0 — НИКАКАЯ натуральная пара авторов не у information-пола; пол не ограничивает натуральную AA, а вступает в силу лишь в вырожденных/циркулярных режимах (n≈2, жанр≡автор)"
+  },
+  "calibration_caveat": "H(A|F) из сырых OOF-постериоров; при ECE≈0.3 (см.) оценка смещена — gap интерпретировать осторожно; в Шаге 2 — within-fold изотония (Boenninghoff 2021).",
+  "pairwise_floor": [
+    {
+      "a": 17,
+      "b": 33,
+      "n_books_pair": 16,
+      "bayes_floor_Pe": 0.0349,
+      "indistinguishable": false
+    },
+    {
+      "a": 4,
+      "b": 19,
+      "n_books_pair": 15,
+      "bayes_floor_Pe": 0.125,
+      "indistinguishable": false
+    },
+    {
+      "a": 5,
+      "b": 4,
+      "n_books_pair": 23,
+      "bayes_floor_Pe": 0.0391,
+      "indistinguishable": false
+    },
+    {
+      "a": 36,
+      "b": 37,
+      "n_books_pair": 15,
+      "bayes_floor_Pe": 0.0109,
+      "indistinguishable": false
+    },
+    {
+      "a": 6,
+      "b": 35,
+      "n_books_pair": 14,
+      "bayes_floor_Pe": 0.021,
+      "indistinguishable": false
+    },
+    {
+      "a": 5,
+      "b": 27,
+      "n_books_pair": 16,
+      "bayes_floor_Pe": 0.0006,
+      "indistinguishable": false
+    },
+    {
+      "a": 38,
+      "b": 21,
+      "n_books_pair": 15,
+      "bayes_floor_Pe": 0.004,
+      "indistinguishable": false
+    },
+    {
+      "a": 11,
+      "b": 22,
+      "n_books_pair": 14,
+      "bayes_floor_Pe": 0.0041,
+      "indistinguishable": false
+    },
+    {
+      "a": 4,
+      "b": 30,
+      "n_books_pair": 14,
+      "bayes_floor_Pe": 0.0267,
+      "indistinguishable": false
+    },
+    {
+      "a": 36,
+      "b": 40,
+      "n_books_pair": 13,
+      "bayes_floor_Pe": 0.0071,
+      "indistinguishable": false
+    },
+    {
+      "a": 17,
+      "b": 29,
+      "n_books_pair": 13,
+      "bayes_floor_Pe": 0.0145,
+      "indistinguishable": false
+    },
+    {
+      "a": 25,
+      "b": 27,
+      "n_books_pair": 8,
+      "bayes_floor_Pe": 0.0016,
+      "indistinguishable": false
+    },
+    {
+      "a": 1,
+      "b": 15,
+      "n_books_pair": 8,
+      "bayes_floor_Pe": 0.0026,
+      "indistinguishable": false
+    },
+    {
+      "a": 0,
+      "b": 26,
+      "n_books_pair": 9,
+      "bayes_floor_Pe": 0.0425,
+      "indistinguishable": false
+    },
+    {
+      "a": 0,
+      "b": 37,
+      "n_books_pair": 11,
+      "bayes_floor_Pe": 0.0263,
+      "indistinguishable": false
+    },
+    {
+      "a": 6,
+      "b": 11,
+      "n_books_pair": 19,
+      "bayes_floor_Pe": 0.0368,
+      "indistinguishable": false
+    },
+    {
+      "a": 15,
+      "b": 27,
+      "n_books_pair": 6,
+      "bayes_floor_Pe": 0.0061,
+      "indistinguishable": false
+    },
+    {
+      "a": 15,
+      "b": 30,
+      "n_books_pair": 7,
+      "bayes_floor_Pe": 0.0211,
+      "indistinguishable": false
+    },
+    {
+      "a": 2,
+      "b": 3,
+      "n_books_pair": 9,
+      "bayes_floor_Pe": 0.0098,
+      "indistinguishable": false
+    },
+    {
+      "a": 16,
+      "b": 35,
+      "n_books_pair": 12,
+      "bayes_floor_Pe": 0.0086,
+      "indistinguishable": false
+    },
+    {
+      "a": 15,
+      "b": 21,
+      "n_books_pair": 6,
+      "bayes_floor_Pe": 0.0009,
+      "indistinguishable": false
+    },
+    {
+      "a": 1,
+      "b": 42,
+      "n_books_pair": 8,
+      "bayes_floor_Pe": 0.0009,
+      "indistinguishable": false
+    },
+    {
+      "a": 22,
+      "b": 42,
+      "n_books_pair": 7,
+      "bayes_floor_Pe": 0.0305,
+      "indistinguishable": false
+    },
+    {
+      "a": 17,
+      "b": 38,
+      "n_books_pair": 19,
+      "bayes_floor_Pe": 0.0078,
+      "indistinguishable": false
+    },
+    {
+      "a": 19,
+      "b": 25,
+      "n_books_pair": 10,
+      "bayes_floor_Pe": 0.0049,
+      "indistinguishable": false
+    },
+    {
+      "a": 21,
+      "b": 31,
+      "n_books_pair": 10,
+      "bayes_floor_Pe": 0.0062,
+      "indistinguishable": false
+    },
+    {
+      "a": 9,
+      "b": 24,
+      "n_books_pair": 12,
+      "bayes_floor_Pe": 0.0722,
+      "indistinguishable": false
+    },
+    {
+      "a": 3,
+      "b": 24,
+      "n_books_pair": 7,
+      "bayes_floor_Pe": 0.0816,
+      "indistinguishable": false
+    }
+  ],
+  "detection_frontier": [],
+  "overlay_detection_vs_floor": [],
+  "headline_check": "детекция чужой руки коллапсирует к 0 там, где pair_bayes_floor→0.5 (неразличимая пара) ⇒ splice/имитация между неразличимыми авторами = floor-феномен",
+  "status": "exploratory; НЕ headline-ready: Fano-пол (Pe≈0.256) ВЫШЕ эмпирической ошибки (≈0.188) → gap<0, нижняя граница невалидна. Причина: H(A|F) из некалиброванных OOF-постериоров (ECE≈0.24); регим GKF2, не LOBO. Не цитировать как результат до within-fold калибровки и sanity-гейта floor≤empirical_error."
+}

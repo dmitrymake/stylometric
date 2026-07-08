@@ -1,0 +1,53 @@
+{
+  "method": "supervised pairwise-AV multi_hand_score (between-book different-hand rate) на equal-token чанках 3000 слов; author-disjoint",
+  "calibration": {
+    "n_neg": 15,
+    "n_pos": 60,
+    "n_independent_eval_authors": 15,
+    "neg_mean": 0.399,
+    "pos_mean": 0.698,
+    "auc": 0.964,
+    "auc_ci95": [
+      0.902,
+      1.0
+    ],
+    "auc_author_jackknife": 0.965,
+    "permutation_p": 0.0001,
+    "empirical_fpr": 0.1,
+    "valid": true
+  },
+  "power_curve": [
+    {
+      "n_foreign_books": 0,
+      "tpr_at_fpr5": 0.1
+    },
+    {
+      "n_foreign_books": 1,
+      "tpr_at_fpr5": 0.15
+    },
+    {
+      "n_foreign_books": 2,
+      "tpr_at_fpr5": 0.3
+    },
+    {
+      "n_foreign_books": 3,
+      "tpr_at_fpr5": 0.625
+    },
+    {
+      "n_foreign_books": 4,
+      "tpr_at_fpr5": 0.625
+    },
+    {
+      "n_foreign_books": 5,
+      "tpr_at_fpr5": 0.65
+    }
+  ],
+  "min_detectable_foreign_books": null,
+  "sholokhov": {
+    "multi_hand_score": 0.387,
+    "p_emp_vs_singles": 0.5,
+    "flagged_at_fpr5": false,
+    "z_vs_singles": -0.1,
+    "z_vs_pseudobyline": -5.26
+  }
+}

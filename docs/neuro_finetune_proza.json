@@ -1,0 +1,64 @@
+{
+  "dataset": "Proza.ru hard 50auth 50/50 seed42 (сплит идентичен docs/luar_proza.json)",
+  "model": "cointegrated/rubert-tiny2",
+  "protocol": "fine-tune классификационной головы и всех весов; max_len=512, batch=16, lr=5e-05, до 6 эпох; выбор эпохи по валидации 15% из train (тест в выборе не участвует); CPU",
+  "best_epoch": 6,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 3.8666,
+      "val_top1": 0.225,
+      "val_macro_f1": 0.1755
+    },
+    {
+      "epoch": 2,
+      "train_loss": 3.5909,
+      "val_top1": 0.4,
+      "val_macro_f1": 0.3533
+    },
+    {
+      "epoch": 3,
+      "train_loss": 3.2383,
+      "val_top1": 0.43,
+      "val_macro_f1": 0.3757
+    },
+    {
+      "epoch": 4,
+      "train_loss": 2.8979,
+      "val_top1": 0.46,
+      "val_macro_f1": 0.4114
+    },
+    {
+      "epoch": 5,
+      "train_loss": 2.5687,
+      "val_top1": 0.54,
+      "val_macro_f1": 0.4992
+    },
+    {
+      "epoch": 6,
+      "train_loss": 2.2091,
+      "val_top1": 0.56,
+      "val_macro_f1": 0.5229
+    }
+  ],
+  "test_top1": 0.561,
+  "test_macro_f1": 0.541,
+  "reference_same_split": {
+    "char-SVM": [
+      0.881,
+      0.88
+    ],
+    "ruBERT-tiny2": [
+      0.682,
+      0.674
+    ],
+    "LUAR-MUD (author-emb)": [
+      0.387,
+      0.357
+    ],
+    "char+LUAR concat": [
+      0.859,
+      0.858
+    ]
+  }
+}

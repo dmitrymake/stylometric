@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Гиперинформация — космический знак">
+  <defs>
+    <radialGradient id="cosmos" cx="28%" cy="8%" r="120%">
+      <stop offset="0" stop-color="#2A2860"></stop>
+      <stop offset="0.7" stop-color="#14132B"></stop>
+    </radialGradient>
+  </defs>
+  <rect width="96" height="96" rx="22" fill="url(#cosmos)"></rect>
+  <g transform="translate(48 48) scale(0.86) translate(-48 -48)">
+    <g fill="#FCF8EE" opacity="0.5">
+      <circle cx="38" cy="18" r="1"></circle><circle cx="78" cy="40" r="1.2"></circle><circle cx="18" cy="62" r="1"></circle><circle cx="62" cy="80" r="1.1"></circle>
+    </g>
+    <g fill="none" stroke="#FCF8EE" stroke-width="1.5" stroke-opacity="0.32" stroke-linecap="round">
+      <path d="M29 31 48 49M69 34 48 49M48 49 65 66M48 49 33 65M29 31 69 34"></path>
+    </g>
+    <circle cx="48" cy="48" r="37" fill="none" stroke="#D6A41E" stroke-width="2.6"></circle>
+    <circle cx="29" cy="31" r="4.4" fill="#5E86C8"></circle>
+    <circle cx="69" cy="34" r="4.4" fill="#E6B83C"></circle>
+    <circle cx="65" cy="66" r="4.4" fill="none" stroke="#FCF8EE" stroke-width="2"></circle>
+    <circle cx="33" cy="65" r="3.2" fill="#FCF8EE"></circle>
+    <circle cx="48" cy="49" r="6.6" fill="#E85C4A"></circle>
+  </g>
+</svg>

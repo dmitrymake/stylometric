@@ -1,0 +1,21 @@
+<svg width="160" height="160" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Балет"><defs>
+<filter id="wc" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+<feTurbulence type="fractalNoise" baseFrequency="0.015 0.02" numOctaves="4" seed="9" result="n"></feTurbulence>
+<feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+<feGaussianBlur stdDeviation="0.4"></feGaussianBlur></filter>
+<filter id="grain" x="0" y="0" width="100%" height="100%">
+<feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="2" seed="4" result="g"></feTurbulence>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.2 0"></feColorMatrix>
+<feComposite operator="in" in2="SourceGraphic"></feComposite></filter></defs><g filter="url(#wc)">
+<circle cx="60" cy="26" r="5" fill="#D43A2C" fill-opacity="0.55"></circle>
+<circle cx="65" cy="22" r="2.4" fill="#B02A20" fill-opacity="0.5"></circle>
+<path d="M60 31 C59 40 58 48 58 56" stroke="#B02A20" stroke-width="3" stroke-linecap="round" fill="none"></path>
+<path d="M60 38 C50 32 45 24 47 18" stroke="#D43A2C" stroke-width="2.4" stroke-opacity="0.55" stroke-linecap="round" fill="none"></path>
+<path d="M60 38 C70 32 75 24 73 18" stroke="#D43A2C" stroke-width="2.4" stroke-opacity="0.55" stroke-linecap="round" fill="none"></path>
+<path d="M40 60 Q58 52 76 60 Q72 68 58 68 Q44 68 40 60 Z" fill="#D43A2C" fill-opacity="0.5"></path>
+<path d="M46 61 L44 67 M54 63 L53 68 M62 63 L63 68 M70 61 L72 67" stroke="#B02A20" stroke-width="1.2" stroke-opacity="0.4"></path>
+<path d="M57 67 C56 78 55 86 54 94" stroke="#B02A20" stroke-width="2.6" stroke-linecap="round" fill="none"></path>
+<path d="M60 66 C68 74 76 80 84 84" stroke="#B02A20" stroke-width="2.6" stroke-linecap="round" fill="none"></path>
+<circle cx="54" cy="95" r="1.8" fill="#B02A20" fill-opacity="0.6"></circle>
+<circle cx="85" cy="85" r="1.8" fill="#B02A20" fill-opacity="0.6"></circle>
+<circle cx="60" cy="26" r="5" fill="none" stroke="#D6A41E" stroke-width="1" stroke-opacity="0.5"></circle></g><g filter="url(#grain)" opacity="0.5"><path d="M40 60 Q58 52 76 60 Q72 68 58 68 Q44 68 40 60 Z" fill="#fff"></path></g></svg>
