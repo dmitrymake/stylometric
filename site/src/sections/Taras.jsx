@@ -160,6 +160,83 @@ export default function Taras() {
   const E = TARAS.extraction;
   const AB = TARAS.annenkovBinary;
   const annChunks = AB.perChunk[AB.top] ?? Object.values(AB.perChunk)[0];
+  const PA = TARAS.postAudit;
+  if (PA) {
+    const annShare = PA.annenkovBinary.winner_share.gogol ?? 0;
+    const somovShare = PA.somovBinary.winner_share.somov ?? 0;
+    return (
+      <section className="section" id="hohol">
+        <div className="wrap flow">
+          <div className="section-head reveal">
+            <p className="eyebrow">Adversarial audit · вторая редакция «Тараса Бульбы»</p>
+            <h2>Кто дописал «Тараса Бульбу»?</h2>
+            <p className="verdict">
+              Текущая батарея <strong style={{ color: "var(--text)" }}>не устанавливает единственную руку</strong>.
+              Старый гоголевский headline снят после обнаружения train-side pseudoreplication: длинные произведения
+              раньше сильнее тянули авторский центроид числом своих кусков. Теперь каждая работа имеет один равный вес.
+            </p>
+            <div className="grid cols-4 reveal" style={{ maxWidth: 900 }}>
+              <Stat label="панель подозреваемых" value={fmtScore(PA.suspectsStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="ниже обязательного порога 0.80" />
+              <Stat label="панель эпохи" value={fmtScore(PA.samePeriodStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="ниже обязательного порога 0.80" />
+              <Stat label="Гоголь–Анненков" value={fmtScore(PA.annenkovBinary.work_macro_recall, 3)} accent="var(--success)" hint="бинарная панель проходит gate" />
+              <Stat label="Гоголь–Сомов" value={fmtScore(PA.somovBinary.work_macro_recall, 3)} accent="var(--success)" hint="бинарная панель проходит gate" />
+            </div>
+          </div>
+
+          <div className="module reveal">
+            <h3>Что изменил аудит</h3>
+            <p className="prose muted" style={{ maxWidth: "76ch" }}>
+              При неизменных текстах, окнах, признаках и seed многоавторная панель подозреваемых падает до {" "}
+              <strong style={{ color: "var(--text)" }}>{fmtScore(PA.suspectsStrict.work_macro_recall, 4)}</strong>,
+              а панель авторов той же эпохи — до {" "}
+              <strong style={{ color: "var(--text)" }}>{fmtScore(PA.samePeriodStrict.work_macro_recall, 4)}</strong>.
+              Малые permutation p не спасают результат: prereg требует одновременно p ≤ 0.05 и recall ≥ 0.80.
+              Поэтому сохранённые top=Gogol на этих панелях не являются атрибуцией.
+            </p>
+          </div>
+
+          <div className="module reveal">
+            <h3>Почему бинарные проверки не дают имени автора</h3>
+            <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
+              <Card padding={22}>
+                <h4 style={{ color: "var(--text)" }}>Гоголь против Анненкова</h4>
+                <p className="prose muted">Gate {fmtScore(PA.annenkovBinary.work_macro_recall, 3)}; цель → {nm(PA.annenkovBinary.top)}, {fmtPct(annShare, 1)} кусков.</p>
+              </Card>
+              <Card padding={22}>
+                <h4 style={{ color: "var(--text)" }}>Гоголь против Сомова</h4>
+                <p className="prose muted">Gate {fmtScore(PA.somovBinary.work_macro_recall, 3)}; цель → {nm(PA.somovBinary.top)}, {fmtPct(somovShare, 1)} кусков.</p>
+              </Card>
+            </div>
+            <p className="callout">
+              Прямая версия «всё написал Анненков» не поддерживается, но выбор победителя меняется вместе с
+              составом альтернатив. Это evidence против уникальной закрытой атрибуции, а не доказательство Гоголя или Сомова.
+            </p>
+          </div>
+
+          <div className="module reveal">
+            <h3>Научный статус</h3>
+            <p className="verdict">
+              {PA.conclusion} Пересчёт exploratory: он исправляет обнаруженную после результата ошибку estimand,
+              но не превращается задним числом в предрегистрацию. Исправленный Delta с полным model-refit null
+              ведёт к Гоголю на suspects, однако в прошедшей binary Гоголь–Сомов меняет ответ по признаку:
+              fixed FW → {nm(PA.delta.somovBinaryFw.targets.strict_additions.top)}, MFW → {nm(PA.delta.somovBinaryMfw.targets.strict_additions.top)}.
+              Поэтому cross-feature устойчивости нет; исторические паспорта и старый Delta-отчёт сохранены как legacy.
+            </p>
+          </div>
+
+          <Sources
+            items={[
+              { cite: "Парный work-balanced аудит: 16 кейсов, по 2000 перестановок", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/README.md" },
+              { cite: "Исправленный Delta: equal-work centroids и full-refit permutation null", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json" },
+              { cite: "«Тарас Бульба», редакция 1835 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm" },
+              { cite: "«Тарас Бульба», редакция 1842 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm" },
+            ]}
+            note={`Формула центроида: ${PA.centroidWeighting}. Дата аудита: ${PA.date}.`}
+          />
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="section" id="hohol">
       <div className="wrap flow">
@@ -219,9 +296,9 @@ export default function Taras() {
             <ResultCard row={loose} title="Широкий набор · панель подозреваемых" accent="var(--cosmos)" />
           </div>
           <p className="callout">
-            Оба набора указывают на <strong style={{ color: "var(--text)" }}>Гоголя</strong> — и в паре
-            «Гоголь против Анненкова» ({annChunks} из {AB.targetChunks} кусков за
-            Гоголя), и на полной панели. На Анненкова добавления не похожи.
+            Этот блок сохранён только как legacy-иллюстрация: бинарная пара с Анненковым ведёт к
+            Гоголю ({annChunks} из {AB.targetChunks}), но исправленная полная панель не проходит gate,
+            а другая валидная binary ведёт к Сомову. Уникального вывода нет.
           </p>
         </div>
 
@@ -255,8 +332,8 @@ export default function Taras() {
             <ResultCard row={sameLoose} title="Широкий набор · панель эпохи" accent="var(--cosmos)" />
           </div>
           <p className="callout">
-            Не расползлись — перевес снова у <strong style={{ color: "var(--text)" }}>Гоголя</strong>,
-            на обоих наборах.
+            Legacy-направление было к Гоголю, но work-balanced gate этой панели равен 0.7876.
+            Поэтому target после аудита не интерпретируется.
           </p>
         </div>
 
@@ -277,16 +354,9 @@ export default function Taras() {
             <ResultCard row={TARAS.topic.base1835} title="«Тарас Бульба» 1835 · та же панель" />
           </div>
           <p className="verdict">
-            Второй метод (Burrows Delta) на тех же служебных словах
-            тоже ведёт к <strong style={{ color: "var(--text)" }}>Гоголю</strong>: строгий набор
-            добавлений → {nm(R.deltaFwStrictTop)} {fmtPct(R.deltaFwStrictShare, 0)}, широкий →{" "}
-            {nm(R.deltaFwLooseTop)} {fmtPct(R.deltaFwLooseShare, 0)}, а вместе с ними и бесспорный
-            текст 1835 года, взятый для контроля, → {nm(R.deltaFwBaseTop)} {fmtPct(R.deltaFwBaseShare, 0)}{" "}
-            (надёжность {fmtScore(R.deltaFwGate, 2)}, случайность {fmtP(R.deltaFwP)}). «Сомовский
-            след» — свойство одного канала измерения, а не текста. Это подтверждает и отдельная
-            проверка: ранний и поздний Гоголь по служебным словам неразличимы (надёжность{" "}
-            {fmtScore(TARAS.period.gate, 2)} из нужных 0.80). Сдвиг манеры внутри одного
-            автора этот канал и не должен принять за «чужую руку».
+            Исторический Delta-отчёт был невалиден как permutation null. Исправленный full-refit
+            rerun проходит на suspects и ведёт к Гоголю, но в binary Гоголь–Сомов меняет top:
+            fixed FW → Гоголь, learned MFW → Сомов. Cross-feature устойчивости нет.
           </p>
         </div>
 
@@ -304,9 +374,9 @@ export default function Taras() {
             <div className="note" style={{ margin: 0 }}>
               Есть и прямое свидетельство из переписки. Получив издание 1842 года, Гоголь жаловался Прокоповичу
               на ошибки набора — то есть <em>внимательно вычитывал</em> итоговый текст. (Опечатки набора
-              — это не то же самое, что редактура содержания.) Стилометрия
-              добавляет: большие куски написаны рукой Гоголя. Спор может идти о мелкой правке, не о
-              больших вставках.
+              — это не то же самое, что редактура содержания.) Стилометрия после аудита не
+              устанавливает единственную руку больших вставок; Прокопович остаётся
+              documented-but-unmodelled кандидатом.
             </div>
           </div>
         </div>
@@ -323,8 +393,8 @@ export default function Taras() {
           <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
             <ResultCard row={TARAS.speech} title="Речь о товариществе" accent="var(--gold)" />
             <div className="note" style={{ margin: 0 }}>
-              По направлению речь тоже ближе к Гоголю. Но вывод держится не на ней, а на больших
-              наборах добавлений — там, где кусков достаточно.
+              Legacy-направление речи было к Гоголю, но это один кусок, а corrected
+              multi-candidate gate не пройден. Атрибуционного вывода из него нет.
             </div>
           </div>
         </div>

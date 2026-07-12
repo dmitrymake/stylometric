@@ -28,6 +28,9 @@ warnings.filterwarnings("ignore")
 
 SEED = 42
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 PARQUET = ROOT / "data" / "external" / "proza_ru_hard.parquet"
 NAUTH, PER = 50, 60
 MODEL = "cointegrated/rubert-tiny2"
@@ -158,7 +161,7 @@ def main():
         "reference_same_split": prev,
     }
     (ROOT / "docs" / "neuro_finetune_proza.json").write_text(
-        json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+        dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
     log("saved docs/neuro_finetune_proza.json")
 
 

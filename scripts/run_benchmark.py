@@ -15,6 +15,7 @@
 from __future__ import annotations
 import sys, os, json, time, math, argparse, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 import numpy as np
 from collections import defaultdict, Counter
 from scipy.special import softmax
@@ -227,7 +228,7 @@ def main():
     }
     DOCS.mkdir(exist_ok=True)
     fname = "validation_pd.json" if PD_ONLY else "validation.json"
-    (DOCS / fname).write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+    (DOCS / fname).write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
     log(f"\n✓ saved docs/{fname} (воспроизводимо из scripts/run_benchmark.py{' --pd-only' if PD_ONLY else ''})")
 
 if __name__ == "__main__":

@@ -12,11 +12,14 @@ from collections import Counter
 import numpy as np
 import yaml
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-from stylo.lang import function_words  # noqa: E402
-
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
+from stylo.lang import function_words  # noqa: E402
+from _gate_metrics import work_balanced_centroid  # noqa: E402
+
+
 CASE = ROOT / "input_cases" / "chekhonte_dubia"
 OUT = ROOT / "docs" / "cases" / "chekhonte_dubia.json"
 
@@ -143,22 +146,37 @@ def read(path: pathlib.Path) -> list[str]:
 
 
 def docs_of(path: pathlib.Path) -> list[str]:
-    out: list[str] = []
-    for text in read(path):
+    return [text for _work, text in docs_by_work(path)]
+
+
+def docs_by_work(path: pathlib.Path):
+    out = []
+    files = sorted(path.glob("*.txt")) if path.is_dir() else [path]
+    for file in files:
+        if not file.exists():
+            continue
+        text = file.read_text("utf-8", "ignore")
+        work_id = str(file.resolve())
         words = text.split()
         if len(words) <= 2200:
-            out.append(text)
+            out.append((work_id, text))
         else:
             for idx in range(0, len(words), 1500):
-                out.append(" ".join(words[idx : idx + 1500]))
+                out.append((work_id, " ".join(words[idx : idx + 1500])))
     return out
+
+
+class WorkVectors(list):
+    def __init__(self, vectors, work_ids):
+        super().__init__(vectors)
+        self.work_ids = tuple(work_ids)
 
 
 def build_model(mystery_docs: list[str], candidates: dict[str, pathlib.Path] | None = None):
     fw = sorted(function_words("ru"))
     fwi = {word: idx for idx, word in enumerate(fw)}
-    corpus = {name: docs_of(path) for name, path in (candidates or CANDIDATES).items()}
-    everything = [text for docs in corpus.values() for text in docs] + mystery_docs
+    corpus = {name: docs_by_work(path) for name, path in (candidates or CANDIDATES).items()}
+    everything = [text for docs in corpus.values() for _work, text in docs] + mystery_docs
 
     grams = Counter()
     for text in everything:
@@ -188,11 +206,17 @@ def build_model(mystery_docs: list[str], candidates: dict[str, pathlib.Path] | N
         c3_vec /= np.linalg.norm(c3_vec) + 1e-9
         return np.concatenate([fw_vec, c3_vec])
 
-    docvecs = {name: [vec(text) for text in docs] for name, docs in corpus.items() if docs}
+    docvecs = {
+        name: WorkVectors(
+            [vec(text) for _work, text in docs],
+            [work for work, _text in docs],
+        )
+        for name, docs in corpus.items()
+        if docs
+    }
     centroids = {}
     for name, vectors in docvecs.items():
-        centroid = np.mean(vectors, axis=0)
-        centroids[name] = centroid / (np.linalg.norm(centroid) + 1e-9)
+        centroids[name] = work_balanced_centroid(zip(vectors.work_ids, vectors))
     return vec, docvecs, centroids
 
 
@@ -210,20 +234,38 @@ def loo_accuracy(docvecs: dict[str, list[np.ndarray]]) -> dict:
     names = list(docvecs)
     correct = total = 0
     for name in names:
-        if len(docvecs[name]) < 2:
+        works = list(dict.fromkeys(docvecs[name].work_ids))
+        if len(works) < 2:
             continue
-        for idx, vector in enumerate(docvecs[name]):
-            row = {}
-            normed = vector / (np.linalg.norm(vector) + 1e-9)
+        for held_work in works:
+            test = [
+                vector
+                for work, vector in zip(docvecs[name].work_ids, docvecs[name])
+                if work == held_work
+            ]
+            centroids = {}
             for other in names:
-                train = [v for j, v in enumerate(docvecs[other]) if not (other == name and j == idx)]
+                train = [
+                    (work, vector)
+                    for work, vector in zip(docvecs[other].work_ids, docvecs[other])
+                    if not (other == name and work == held_work)
+                ]
                 if not train:
                     continue
-                centroid = np.mean(train, axis=0)
-                centroid /= np.linalg.norm(centroid) + 1e-9
-                row[other] = float(np.dot(normed, centroid))
-            pred = max(row, key=row.get)
-            correct += pred == name
+                centroids[other] = work_balanced_centroid(train)
+            predictions = [
+                max(
+                    centroids,
+                    key=lambda other: float(
+                        np.dot(
+                            vector / (np.linalg.norm(vector) + 1e-9),
+                            centroids[other],
+                        )
+                    ),
+                )
+                for vector in test
+            ]
+            correct += Counter(predictions).most_common(1)[0][0] == name
             total += 1
     return {"correct": correct, "total": total, "accuracy": round(correct / total, 6)}
 
@@ -257,6 +299,7 @@ def aggregate(path: pathlib.Path, candidates: dict[str, pathlib.Path] | None = N
         "path": str(path.relative_to(ROOT)),
         "candidate_panel": list((candidates or CANDIDATES).keys()),
         "n_chunks": len(mystery_docs),
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         "similarities": sims,
         "loo": loo_accuracy(docvecs),
         "bootstrap": bootstrap(vecs, centroids),
@@ -502,7 +545,7 @@ def main() -> None:
         ],
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записан {OUT.relative_to(ROOT)}")
 
 

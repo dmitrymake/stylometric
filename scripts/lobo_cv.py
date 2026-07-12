@@ -112,10 +112,11 @@ def create_book_groups(labels: np.ndarray, groups: np.ndarray) -> Dict[str, List
 
 
 def compute_centroids_sparse_mean(
-    X, y_train: np.ndarray
+    X, y_train: np.ndarray, groups_train: np.ndarray | None = None
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Centroids for each class label present in y_train.
+    Centroids for each class label present in y_train. When groups are supplied,
+    chunks are averaged within book first and every book receives equal weight.
     Returns:
       centroids: (n_auth_in_train, n_features) dense
       centroid_labels: (n_auth_in_train,)
@@ -126,11 +127,24 @@ def compute_centroids_sparse_mean(
 
     for lbl in unique:
         mask = y_train == lbl
-        Xm = X[mask]
-        c = Xm.mean(axis=0)
-        if issparse(c):
-            c = c.toarray()
-        c = np.asarray(c).ravel()
+        if groups_train is None:
+            c = X[mask].mean(axis=0)
+            if issparse(c):
+                c = c.toarray()
+            c = np.asarray(c).ravel()
+        else:
+            groups_arr = np.asarray(groups_train, dtype=object)
+            if len(groups_arr) != len(y_train):
+                raise ValueError("groups_train and y_train must have the same length")
+            work_means = []
+            for group in dict.fromkeys(groups_arr[mask].tolist()):
+                group_mask = mask & (groups_arr == group)
+                work_mean = X[group_mask].mean(axis=0)
+                if issparse(work_mean):
+                    work_mean = work_mean.toarray()
+                work_mean = np.asarray(work_mean).ravel()
+                work_means.append(work_mean / (np.linalg.norm(work_mean) + 1e-12))
+            c = np.mean(work_means, axis=0)
         centroids.append(c)
         centroid_labels.append(int(lbl))
 
@@ -189,7 +203,9 @@ def run_fold(
     X_train_z = delta_scaler.fit_transform(X_train)
     X_test_z = delta_scaler.transform(X_test)
 
-    centroids, centroid_labels = compute_centroids_sparse_mean(X_train_z, y_train)
+    centroids, centroid_labels = compute_centroids_sparse_mean(
+        X_train_z, y_train, groups[mask_train]
+    )
 
     dists = cosine_distances(X_test_z, centroids)  # (n_chunks, n_auth_train)
     mean_dists = dists.mean(axis=0)
@@ -220,6 +236,7 @@ def run_fold(
         "delta_pred": int(top1_delta_global),
         "delta_correct": bool(top1_delta_global == test_auth_idx),
         "delta_rank": int(rank_delta),
+        "delta_train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         # meta
         "n_chunks": int(len(test_indices)),
         "group_id": test_group_id,

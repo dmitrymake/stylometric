@@ -16,6 +16,7 @@
 from __future__ import annotations
 import sys, json, time, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 import numpy as np
 from collections import Counter
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
@@ -159,5 +160,5 @@ verdict = ("ГИПОТЕЗА «РАЗНЫЕ АВТОРЫ» НЕ ПОДТВЕРЖ
            "ТРЕБУЕТ ВНИМАНИЯ: часть групп Шолохова уходит к внешним авторам — см. детали")
 log(f"\nИТОГ: {verdict}")
 out["verdict"] = verdict
-(ROOT / "docs" / "multiple_hands.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+(ROOT / "docs" / "multiple_hands.json").write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
 log("✓ saved docs/multiple_hands.json")

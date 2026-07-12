@@ -1,0 +1,211 @@
+{
+  "case_id": "taras_bulba_additions_strict_sameperiod_fw_2000__chunk_weighted_legacy",
+  "title": "Taras Bulba 1842 strict additions vs same-period panel: fw_fixed random_2000",
+  "hypothesis": "On a broad panel of 1830-40s authors the additions do not single out Gogol.",
+  "target_description": "strict additions vs same-period panel",
+  "claim": "In this protocol the wide panel is built from 1830-40s authors (Pushkin, Sollogub, Annenkov, Grebenka) instead of later-century controls that fail the gate.",
+  "limitations": [
+    "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+    "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.688, margin=0.016618).",
+  "confidence": "medium",
+  "evidence_score": 84.84,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8114,
+      "chunk_weighted_recall": 0.6685,
+      "work_recall": {
+        "annenkov_1840s": "5/5",
+        "gogol": "8/10",
+        "grebenka": "9/10",
+        "pushkin": "3/6",
+        "sollogub": "6/7"
+      },
+      "chunk_recall": {
+        "annenkov_1840s": "150/162",
+        "gogol": "102/144",
+        "grebenka": "57/73",
+        "pushkin": "13/51",
+        "sollogub": "37/55"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "annenkov_1840s": {
+          "annenkov_1840s": 150,
+          "gogol": 5,
+          "grebenka": 1,
+          "pushkin": 3,
+          "sollogub": 3
+        },
+        "gogol": {
+          "annenkov_1840s": 9,
+          "gogol": 102,
+          "grebenka": 19,
+          "pushkin": 4,
+          "sollogub": 10
+        },
+        "grebenka": {
+          "annenkov_1840s": 5,
+          "gogol": 1,
+          "grebenka": 57,
+          "pushkin": 5,
+          "sollogub": 5
+        },
+        "pushkin": {
+          "annenkov_1840s": 16,
+          "gogol": 3,
+          "grebenka": 5,
+          "pushkin": 13,
+          "sollogub": 14
+        },
+        "sollogub": {
+          "annenkov_1840s": 5,
+          "gogol": 3,
+          "grebenka": 5,
+          "pushkin": 5,
+          "sollogub": 37
+        }
+      },
+      "n_works": 38,
+      "n_chunks": 485,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "grebenka",
+      "margin": 0.016618,
+      "margin_ci95": [
+        0.010636,
+        0.02068
+      ],
+      "winner_share": {
+        "gogol": 0.688,
+        "pushkin": 0.125,
+        "grebenka": 0.125,
+        "annenkov_1840s": 0.062
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.968105
+        },
+        {
+          "candidate": "grebenka",
+          "cos": 0.951487
+        },
+        {
+          "candidate": "pushkin",
+          "cos": 0.945203
+        },
+        {
+          "candidate": "annenkov_1840s",
+          "cos": 0.93623
+        },
+        {
+          "candidate": "sollogub",
+          "cos": 0.934531
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 11,
+        "pushkin": 2,
+        "grebenka": 2,
+        "annenkov_1840s": 1
+      },
+      "n_chunks": 16
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "chunk_weighted_legacy",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "pushkin",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/pushkin"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "sollogub",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_sollogub"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "annenkov_1840s",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "grebenka",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_grebenka"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 38,
+    "n_candidate_chunks": 485,
+    "works_per_author": {
+      "annenkov_1840s": 5,
+      "gogol": 10,
+      "grebenka": 10,
+      "pushkin": 6,
+      "sollogub": 7
+    },
+    "target_chunks": 16
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_sameperiod_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_sameperiod_fw_2000.passport.json"
+  },
+  "notes": "Ответ на провал extended-панели: та же ширина, но авторы той же эпохи."
+}

@@ -49,6 +49,11 @@ leakage-free валидацией, доверительными интервал
 > всё обучаемое (vocab/IDF/MFW/scaler/классификатор) фитится на остальных книгах (`docs/final_comparison.csv`).
 > В LOBO-срезе оценивается 251 книга (4 автора с одной книгой в LOBO не тестируются — нет train-примера;
 > macro-F1 считается по 43 тестированным классам). StratifiedGroupKFold(5) — лишь быстрый прокси в sweep/ablation.
+>
+> **Взвешивание обучения — `chunk_weighted_training_legacy`.** Длинная книга получает больший train-вес внутри автора,
+> vocab/IDF/MFW фитятся по чанкам. Work-balanced пересчёт (одна работа — один голос на train-стороне) ещё не проведён;
+> до него headline трактуется как legacy-оценка (`docs/cases/work_balanced_audit/`). LOBO держит тестовую книгу целиком —
+> смещение в train-взвешивании, не в утечке.
 > Строки Cosine Delta и Delta по книгам посчитаны тем же LOBO-протоколом отдельным скриптом
 > (`log/experiments/delta_cosine_lobo.py` → `docs/delta_cosine_lobo.json`); контроль воспроизведения: delta:150 этим
 > путём даёт ту же долю верных попаданий, что и канонический расчёт из final_comparison.csv (delta:150 на 251 книгах), —
@@ -100,17 +105,19 @@ Koppel–Winter) на ТД тоже прогнано: 0/4 томов вериф�
 этом сеттинге метод смещён: зрелые бесспорные вещи Шолохова тоже проваливают unmasking (1/4), поэтому «ТД→Крюков» по
 этим методам — артефакт, не свидетельство (`docs/sholokhov_verify.json`, `docs/sholokhov_verify3_FW_ONLY.json`).
 
-**Кейс «Тарас Бульба»** (`docs/cases/taras_hardened/`): проверена узкая гипотеза, что крупные добавления редакции
-1842 года написал не Гоголь, а чужая редакторская рука. Headline-протокол — фиксированные служебные слова
-(`fw_fixed`), Гоголь в панели **без** полного текста «Тараса Бульбы», gate сначала, атрибуция потом. Оба выделения
-больших добавлений проходят gate: strict — status **moderate**, score 90.19, gate 0.8625,
-p=0.0005, top=gogol, chunks 14/16 к Гоголю;
-loose — status **moderate**, score 89.87, gate 0.8625, top=gogol,
-chunks 14/17 к Гоголю. Отдельная «речь о товариществе» идёт к Гоголю,
-но это один chunk: статус moderate, не headline. Расширенная панель с Толстым, Лесковым и Салтыковым-Щедриным
-честно **не проходит gate** (0.7515 < 0.80), поэтому её top не интерпретируется. Вывод узкий:
-большие добавленные пассажи не поддерживают версию большой чужой руки; локальную редактуру, нормализацию и малые вставки
-этот тест не отрицает. Воспроизведение: `stylo case run ...`, сводка — `docs/cases/taras_hardened/reports/dossier.md`.
+**Кейс «Тарас Бульба» — статус после adversarial audit 2026-07-11.** Исторический headline был получен
+центроидами, в которых длинные произведения имели больше train-side веса по числу чанков. После исправления на
+`L2(mean chunks/work) → equal mean works/author → L2` многоавторная панель подозреваемых даёт gate
+0.7958 и панель эпохи 0.7876:
+обе ниже предзарегистрированного порога 0.80, поэтому их top=Gogol **не интерпретируется**. Две бинарные панели
+разделимы, но отвечают по-разному: Гоголь–Анненков → gogol
+(87.5% чанков), Гоголь–Сомов →
+somov (81.2%). Корректный вывод:
+простая версия «это Анненков» не поддержана в прямой паре, но уникальная гоголевская атрибуция крупных добавлений
+текущей батареей **не установлена**. Парный отчёт 16 кейсов и отдельные паспорта:
+`docs/cases/work_balanced_audit/`. Исправленный Delta full-refit rerun поддерживает Гоголя на suspects,
+но в валидной бинарной Гоголь–Сомов меняет top по признаку (fixed FW → Гоголь, MFW → Сомов),
+поэтому межпризнаковой/panel-invariant атрибуции также не даёт; старый Delta-отчёт остаётся legacy.
 
 ## Что это делает
 
@@ -177,14 +184,20 @@ spaCy и не дробят I/O. Sweep считает конфиги паралл
 
 ```bash
 uv venv --python=python3.11 && source .venv/bin/activate
-uv pip install -e .
+uv pip install -e ".[dev]"
 python -m spacy download ru_core_news_lg
+uv run pytest -q           # быстрый unit/release-hygiene smoke; uv.lock локален и игнорируется
+python scripts/check_release_hygiene.py --audit-local-refs   # перед релизом: publish-ref + индекс = FAIL при приватных путях; другие refs/stash = WARN
+git config core.hooksPath .githooks   # включить pre-push-гейт (блокирует пуш приватной истории до загрузки объектов)
 ./run.sh all                 # validate → split → warm → train → sweep → evaluate → predict → report
 python scripts/run_benchmark.py --pd-only   # публикуемое PD-число → docs/validation_pd.json
 python scripts/run_benchmark.py             # полный корпус → docs/validation.json
 node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # синхронизировать сайт и README с docs
 ```
-Точные пины — в `requirements.lock`.
+Файл `.python-version` фиксирует канонический runtime для `uv run`: Python 3.11.
+Канонические пины полного локального окружения — в `requirements.lock`. `uv.lock`
+не является release-артефактом и игнорируется: если он появился локально после `uv run`, его не коммитят.
+UMAP-визуализации требуют extra `viz`: `uv pip install -e ".[viz]"`.
 
 ## Точность и воспроизводимая валидация
 

@@ -22,6 +22,7 @@ import sys
 from typing import List, Optional
 
 from .config import load_config, parse_set_overrides
+from .jsonio import dump_strict, dumps_strict
 
 
 def _add_global(p: argparse.ArgumentParser):
@@ -69,6 +70,45 @@ def main(argv: Optional[List[str]] = None) -> int:
     sp_case_dossier = case_sub.add_parser("dossier")
     sp_case_dossier.add_argument("paths", nargs="+", help="Case specs или passport JSON")
     sp_case_dossier.add_argument("--out", default=None, help="Куда записать markdown-досье")
+
+    sp_benchmark = sub.add_parser(
+        "benchmark", help="SPOOF-RU/IDIOSHIFT-RU manifest, artifacts and blind scoring"
+    )
+    _add_global(sp_benchmark)
+    benchmark_sub = sp_benchmark.add_subparsers(dest="benchmark_cmd", required=True)
+    benchmark_sub.add_parser("schema", help="Print the canonical JSON Schema")
+    sp_benchmark_validate = benchmark_sub.add_parser("validate")
+    sp_benchmark_validate.add_argument("manifest")
+    sp_benchmark_validate.add_argument(
+        "--root", default=None, help="Also verify packaged text paths/hashes under ROOT"
+    )
+    sp_benchmark_score = benchmark_sub.add_parser("score")
+    sp_benchmark_score.add_argument("manifest")
+    sp_benchmark_score.add_argument("truth")
+    sp_benchmark_score.add_argument("submission")
+    sp_benchmark_score.add_argument("--boundary-tolerance", type=int, default=0)
+    sp_benchmark_score.add_argument("--segment-iou", type=float, default=0.5)
+    sp_benchmark_score.add_argument("--bootstrap-iters", type=int, default=1000)
+    sp_benchmark_score.add_argument("--seed", type=int, default=42)
+    sp_benchmark_score.add_argument(
+        "--root", default=None, help="Verify exact text artifacts and truth offsets under ROOT"
+    )
+    sp_benchmark_score.add_argument("--out", default=None)
+
+    sp_invariance = sub.add_parser(
+        "invariance", help="Evaluate precomputed OOF predictions across nuisance factors"
+    )
+    _add_global(sp_invariance)
+    sp_invariance.add_argument("table", help="CSV with true_label, pred_label and metadata")
+    sp_invariance.add_argument(
+        "--factors", nargs="+", default=["source", "edition"],
+        help="Metadata columns to slice and diagnose",
+    )
+    sp_invariance.add_argument("--author-field", default="author")
+    sp_invariance.add_argument("--cluster-fields", nargs="+", default=["author", "work"])
+    sp_invariance.add_argument("--bootstrap-iters", type=int, default=1000)
+    sp_invariance.add_argument("--seed", type=int, default=42)
+    sp_invariance.add_argument("--out", default=None)
 
     args = parser.parse_args(argv)
     cfg = _cfg(args)
@@ -148,20 +188,90 @@ def main(argv: Optional[List[str]] = None) -> int:
         from .report import build
         build.run(cfg)
     elif args.cmd == "case":
-        import json
         from .cases import cli as case_cli
         if args.case_cmd == "run":
             data = case_cli.run_spec(args.spec, out=args.out)
-            print(json.dumps(data, ensure_ascii=False, indent=2))
+            print(dumps_strict(data, indent=2))
         elif args.case_cmd == "rank":
             data = case_cli.rank(args.paths, out=args.out)
-            print(json.dumps(data, ensure_ascii=False, indent=2))
+            print(dumps_strict(data, indent=2))
         elif args.case_cmd == "report":
             print(case_cli.report(args.paths, out=args.out))
         elif args.case_cmd == "dossier":
             print(case_cli.dossier(args.paths, out=args.out))
         else:  # pragma: no cover
             parser.error(f"Неизвестная case-команда {args.case_cmd}")
+    elif args.cmd == "benchmark":
+        import dataclasses
+        import pathlib
+        from .benchmarks import (
+            MANIFEST_SCHEMA,
+            load_manifest,
+            score_files,
+            verify_manifest_artifacts,
+        )
+
+        if args.benchmark_cmd == "schema":
+            data = MANIFEST_SCHEMA
+        elif args.benchmark_cmd == "validate":
+            manifest = load_manifest(args.manifest)
+            data = {
+                "valid": True,
+                "dataset": dataclasses.asdict(manifest.dataset),
+                "task_types": list(manifest.task_types),
+                "n_documents": len(manifest.documents),
+                "split_counts": {
+                    split: sum(document.split == split for document in manifest.documents)
+                    for split in sorted({document.split for document in manifest.documents})
+                },
+            }
+            if args.root:
+                data["artifacts"] = verify_manifest_artifacts(manifest, args.root).to_dict()
+        elif args.benchmark_cmd == "score":
+            manifest = load_manifest(args.manifest)
+            score = score_files(
+                manifest,
+                args.manifest,
+                args.truth,
+                args.submission,
+                artifact_root=args.root,
+                boundary_tolerance=args.boundary_tolerance,
+                segment_iou_threshold=args.segment_iou,
+                bootstrap_iters=args.bootstrap_iters,
+                seed=args.seed,
+            )
+            data = score.to_dict()
+        else:  # pragma: no cover
+            parser.error(f"Неизвестная benchmark-команда {args.benchmark_cmd}")
+        rendered = dumps_strict(data, indent=2)
+        if getattr(args, "out", None):
+            dump_strict(data, args.out)
+        print(rendered)
+    elif args.cmd == "invariance":
+        import pathlib
+        import pandas as pd
+        from .eval.invariance import evaluate_predictions
+
+        table = pd.read_csv(args.table)
+        required = {"true_label", "pred_label", args.author_field, *args.cluster_fields, *args.factors}
+        missing = sorted(required - set(table.columns))
+        if missing:
+            parser.error(f"CSV не содержит обязательные колонки: {missing}")
+        metadata = {column: table[column].to_numpy(dtype=object) for column in table.columns}
+        report = evaluate_predictions(
+            table["true_label"].to_numpy(dtype=object),
+            table["pred_label"].to_numpy(dtype=object),
+            metadata,
+            factors=args.factors,
+            author_field=args.author_field,
+            cluster_fields=args.cluster_fields,
+            bootstrap_iters=args.bootstrap_iters,
+            seed=args.seed,
+        )
+        rendered = dumps_strict(report.to_dict(), indent=2)
+        if args.out:
+            dump_strict(report.to_dict(), args.out)
+        print(rendered)
     else:  # pragma: no cover
         parser.error(f"Неизвестная команда {args.cmd}")
     return 0

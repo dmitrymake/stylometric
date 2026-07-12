@@ -96,6 +96,12 @@ export default function Results() {
               обгоняет и классику, и простой{" "}
               <strong style={{ color: "var(--icon-blue)" }}>мешок слов</strong> ({fmtPct(bow.acc, 1)}).
             </p>
+            {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+              <p className="mono muted" style={{ fontSize: 12 }}>
+                Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+                один голос» ещё впереди — число может немного сдвинуться.
+              </p>
+            )}
             <p>
               Классика — это метод Бэрроуза (Burrows Delta) и его косинусный вариант: оба сравнивают тексты
               по самым частым словам. Мешок слов проще — он смотрит лишь на то, какие слова и как часто

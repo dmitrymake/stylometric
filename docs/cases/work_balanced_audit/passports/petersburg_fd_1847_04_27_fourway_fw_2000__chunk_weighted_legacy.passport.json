@@ -1,0 +1,178 @@
+{
+  "case_id": "petersburg_fd_1847_04_27_fourway_fw_2000__chunk_weighted_legacy",
+  "title": "Positive control: signed F.D. feuilleton 27 апреля 1847, four-way panel",
+  "hypothesis": "Control: a signed Dostoevsky feuilleton must attribute to the Dostoevsky class.",
+  "target_description": "signed F.D. feuilleton, 27 апреля 1847",
+  "claim": "Позитив-контроль на датированном фельетоне: подписанный Ф.Д. должен вернуться к Достоевскому.",
+  "limitations": [
+    "Positive control: authorship of the signed F.D. feuilletons is documented (Dostoevsky).",
+    "Short dated feuilleton: one-two chunks; diagnostic vote, not a standalone claim."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target чаще ближе к sollogub, но запас/бутстрап недостаточны для strong verdict (winner_share=0.667, margin=0.011469).",
+  "confidence": "medium",
+  "evidence_score": 86.94,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.881,
+      "chunk_weighted_recall": 0.6779,
+      "work_recall": {
+        "dostoevsky_publicistic": "4/4",
+        "panaev": "4/6",
+        "pleshcheev": "5/5",
+        "sollogub": "6/7"
+      },
+      "chunk_recall": {
+        "dostoevsky_publicistic": "187/202",
+        "panaev": "41/75",
+        "pleshcheev": "50/74",
+        "sollogub": "31/55"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "dostoevsky_publicistic": {
+          "dostoevsky_publicistic": 187,
+          "panaev": 11,
+          "pleshcheev": 2,
+          "sollogub": 2
+        },
+        "panaev": {
+          "dostoevsky_publicistic": 1,
+          "panaev": 41,
+          "pleshcheev": 9,
+          "sollogub": 24
+        },
+        "pleshcheev": {
+          "dostoevsky_publicistic": 1,
+          "panaev": 5,
+          "pleshcheev": 50,
+          "sollogub": 18
+        },
+        "sollogub": {
+          "dostoevsky_publicistic": 1,
+          "panaev": 15,
+          "pleshcheev": 8,
+          "sollogub": 31
+        }
+      },
+      "n_works": 22,
+      "n_chunks": 406,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "sollogub",
+      "second": "dostoevsky_publicistic",
+      "margin": 0.011469,
+      "margin_ci95": [
+        0.000606,
+        0.011469
+      ],
+      "winner_share": {
+        "sollogub": 0.667,
+        "panaev": 0.333
+      },
+      "similarities": [
+        {
+          "candidate": "sollogub",
+          "cos": 0.942029
+        },
+        {
+          "candidate": "dostoevsky_publicistic",
+          "cos": 0.93056
+        },
+        {
+          "candidate": "panaev",
+          "cos": 0.925818
+        },
+        {
+          "candidate": "pleshcheev",
+          "cos": 0.897601
+        }
+      ],
+      "per_chunk_winners": {
+        "sollogub": 2,
+        "panaev": 1
+      },
+      "n_chunks": 3
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "chunk_weighted_legacy",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "dostoevsky_publicistic",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_dostoevsky_publicistic"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "sollogub",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_sollogub"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "pleshcheev",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_pleshcheev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "panaev",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_panaev"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/petersburg_chronicle_split/fd_1847_04_27.txt",
+    "sources": [
+      "Local Petersburg Chronicle case data + curated az.lib panel (docs/cases/petersburg_hardened/panel_manifest.json): Pleshcheev 1847-59 prose (documented alternative author), Panaev 1840s fiction."
+    ],
+    "n_candidate_works": 22,
+    "n_candidate_chunks": 406,
+    "works_per_author": {
+      "dostoevsky_publicistic": 4,
+      "panaev": 6,
+      "pleshcheev": 5,
+      "sollogub": 7
+    },
+    "target_chunks": 3
+  },
+  "provenance": {
+    "manifest": "docs/cases/petersburg_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/petersburg_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/petersburg_hardened/specs/petersburg_fd_1847_04_27_fourway_fw_2000.yaml --out docs/cases/petersburg_hardened/passports/petersburg_fd_1847_04_27_fourway_fw_2000.passport.json"
+  },
+  "notes": "Расщеплённый Ф.Д.-контроль: 4 датированных фельетона = 4 независимых голоса."
+}

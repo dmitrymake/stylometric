@@ -1,4 +1,7 @@
 {
+  "claim_status": "exploratory_internal",
+  "training_weighting": "chunk_weighted_training_legacy",
+  "legacy_caveat": "Обучение stylo взвешено по чанкам: длинная книга получает больший train-вес внутри автора, словари/idf/MFW тоже фитятся по чанкам. Work-balanced пересчёт (одна работа — один голос на train-стороне) не проведён, поэтому до него этот headline = chunk_weighted_training_legacy (парный аудит центроидов — docs/cases/work_balanced_audit/). LOBO держит тестовую книгу целиком; смещение касается train-взвешивания, не утечки.",
   "method": "author-clustered bootstrap macro-F1 и accuracy (ресэмпл АВТОРОВ) из persisted per-book stylo-LR LOBO (docs/lobo_books.txt); без ре-рана",
   "source": "docs/lobo_books.txt (final.py LOBO, 251 книг)",
   "n_books": 251,

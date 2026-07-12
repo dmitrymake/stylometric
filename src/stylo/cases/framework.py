@@ -21,10 +21,16 @@ import yaml
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.preprocessing import normalize
 
+from ..claims import ClaimStatus, parse_claim_status
+from ..jsonio import StrictJSONError, dump_strict, load_strict, loads_strict
 from ..lang import function_words
 
 WORD_RE = re.compile(r"[\w\-]+", re.U)
 DEFAULT_FEATURE_SETS = ("fw_fixed", "char3")
+DEFAULT_CENTROID_WEIGHTING = "work_balanced"
+SUPPORTED_CENTROID_WEIGHTINGS = frozenset(
+    {DEFAULT_CENTROID_WEIGHTING, "chunk_weighted_legacy"}
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -56,6 +62,7 @@ class CaseSpec:
     limitations: Tuple[str, ...] = ()
     provenance: Mapping[str, Any] = dataclasses.field(default_factory=dict)
     unit: str = "work"
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING
     language: str = "ru"
     feature_sets: Tuple[str, ...] = DEFAULT_FEATURE_SETS
     required_gates: Tuple[str, ...] = ("feasibility_gate",)
@@ -120,11 +127,13 @@ class CasePassport:
     claim: str = ""
     limitations: Tuple[str, ...] = ()
     provenance: Mapping[str, Any] = dataclasses.field(default_factory=dict)
+    claim_status: str = ClaimStatus.EXPLORATORY_INTERNAL.value
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "case_id": self.case_id,
             "title": self.title,
+            "claim_status": self.claim_status,
             "hypothesis": self.hypothesis,
             "target_description": self.target_description,
             "claim": self.claim,
@@ -156,6 +165,15 @@ class Work:
 class FwContext:
     X: Any
     chunk_work: np.ndarray
+
+
+@dataclasses.dataclass(frozen=True)
+class FwPermutationCache:
+    """Per-work aggregates reused across fixed-function-word permutations."""
+
+    chunk_sums: np.ndarray
+    chunk_counts: np.ndarray
+    work_centroids: np.ndarray
 
 
 def load_case_spec(path: str | pathlib.Path) -> CaseSpec:
@@ -190,6 +208,9 @@ def load_case_spec(path: str | pathlib.Path) -> CaseSpec:
         limitations=_as_str_tuple(raw.get("limitations", [])),
         provenance=_as_mapping(raw.get("provenance", {})),
         unit=str(raw.get("unit", "work")),
+        centroid_weighting=str(
+            raw.get("centroid_weighting", DEFAULT_CENTROID_WEIGHTING)
+        ),
         language=str(raw.get("language", "ru")),
         feature_sets=feature_sets,
         required_gates=required_gates,
@@ -235,6 +256,7 @@ def run_case(spec: CaseSpec) -> CasePassport:
     evidence_score = _evidence_score(primary_gate, primary_attr, attributions, failures)
     data = {
         "unit": spec.unit,
+        "centroid_weighting": spec.centroid_weighting,
         "language": spec.language,
         "feature_sets": list(spec.feature_sets),
         "required_gates": list(spec.required_gates),
@@ -276,14 +298,15 @@ def run_case(spec: CaseSpec) -> CasePassport:
 
 
 def write_passport(passport: CasePassport, path: str | pathlib.Path) -> None:
-    p = pathlib.Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(passport.to_dict(), ensure_ascii=False, indent=2) + "\n",
-                 encoding="utf-8")
+    parse_claim_status(passport.claim_status)  # reject an out-of-vocabulary status
+    dump_strict(passport.to_dict(), path)
 
 
 def load_passport(path: str | pathlib.Path) -> Dict[str, Any]:
-    return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    """Read a passport under the strict JSON contract and validate its claim_status."""
+    data = load_strict(path)
+    parse_claim_status(data.get("claim_status", ClaimStatus.EXPLORATORY_INTERNAL.value))
+    return data
 
 
 def rank_passports(passports: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
@@ -441,12 +464,40 @@ def _public_limitation(item: str) -> str:
     return item
 
 
+def _reject_non_finite(value: Any, _seen: set[int] | None = None) -> None:
+    """Raise if a NaN/Infinity float appears anywhere in ``value``.
+
+    Walks mapping keys AND values, and set/frozenset members, because YAML admits a
+    non-finite float as a key (``{.inf: null}``) or a set member (``!!set {.nan}``).
+    A ``seen`` guard makes recursive YAML aliases terminate.
+    """
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise StrictJSONError(f"non-finite float {value!r} in case spec")
+        return
+    if isinstance(value, (str, bytes, int, bool)) or value is None:
+        return
+    _seen = set() if _seen is None else _seen
+    marker = id(value)
+    if marker in _seen:
+        return
+    _seen.add(marker)
+    if isinstance(value, Mapping):
+        for key, sub in value.items():
+            _reject_non_finite(key, _seen)
+            _reject_non_finite(sub, _seen)
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        for sub in value:
+            _reject_non_finite(sub, _seen)
+
+
 def _read_mapping(path: pathlib.Path) -> Mapping[str, Any]:
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() == ".json":
-        raw = json.loads(text)
+        raw = loads_strict(text)  # rejects NaN/Infinity/overflow and duplicate keys
     else:
         raw = yaml.safe_load(text)
+        _reject_non_finite(raw)   # YAML accepts .nan/.inf; a case spec must not
     if not isinstance(raw, Mapping):
         raise ValueError(f"{path}: expected mapping")
     return raw
@@ -581,6 +632,8 @@ def _validate_spec(spec: CaseSpec) -> List[str]:
     for fs in spec.feature_sets:
         if _canonical_feature(fs) not in {"fw_fixed", "char3", "char3_fw"}:
             failures.append(f"unknown_feature_set:{fs}")
+    if spec.centroid_weighting not in SUPPORTED_CENTROID_WEIGHTINGS:
+        failures.append(f"unknown_centroid_weighting:{spec.centroid_weighting}")
     return failures
 
 
@@ -691,13 +744,20 @@ def _run_gate(works: List[Work], spec: CaseSpec, feature_set: str) -> GateResult
         return GateResult(feature_set, "uncomputable", False, 0.0, 0.0, {}, {}, None, None,
                           None, {}, len(works), sum(len(w.chunks) for w in works), failure_modes)
 
-    wcp = _leave_one_work_out(works, [w.author for w in works], feature_set, spec.language)
+    wcp = _leave_one_work_out(
+        works,
+        [w.author for w in works],
+        feature_set,
+        spec.language,
+        centroid_weighting=spec.centroid_weighting,
+    )
     metrics = _metrics_from_wcp(wcp, authors)
     p, method, floor = _permutation_p(
         works, [w.author for w in works], feature_set, spec.language,
         max_exact=spec.max_exact_permutations,
         n_random=spec.random_permutations,
         seed=spec.seed,
+        centroid_weighting=spec.centroid_weighting,
     )
     # Толеранс покрывает float-суммирование recall-ов: панель с точным средним
     # 0.80 (например, 0.9+0.9+0.75+0.65) не должна падать из-за 0.7999999....
@@ -732,9 +792,12 @@ def _leave_one_work_out(
     labels: Sequence[str],
     feature_set: str,
     language: str,
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING,
 ) -> List[Tuple[str, str, List[str]]]:
     if _canonical_feature(feature_set) == "fw_fixed":
-        return _leave_one_work_out_fw_fixed(works, labels, language)
+        return _leave_one_work_out_fw_fixed(
+            works, labels, language, centroid_weighting=centroid_weighting
+        )
     out: List[Tuple[str, str, List[str]]] = []
     labels = list(labels)
     for i, work in enumerate(works):
@@ -746,9 +809,16 @@ def _leave_one_work_out(
             continue
         train_texts = [ch for j in train_idx for ch in works[j].chunks]
         train_chunk_labels = [labels[j] for j in train_idx for _ch in works[j].chunks]
+        train_chunk_works = [j for j in train_idx for _ch in works[j].chunks]
         test_texts = list(work.chunks)
         Xtr, Xte = _fit_transform_feature(train_texts, test_texts, feature_set, language)
-        preds = _predict_by_centroid(Xtr, train_chunk_labels, Xte)
+        preds = _predict_by_centroid(
+            Xtr,
+            train_chunk_labels,
+            Xte,
+            train_work_ids=train_chunk_works,
+            centroid_weighting=centroid_weighting,
+        )
         out.append((labels[i], work.work_id, preds))
     return out
 
@@ -757,6 +827,7 @@ def _leave_one_work_out_fw_fixed(
     works: List[Work],
     labels: Sequence[str],
     language: str,
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING,
 ) -> List[Tuple[str, str, List[str]]]:
     """Fast LOO path for fixed function words.
 
@@ -764,7 +835,12 @@ def _leave_one_work_out_fw_fixed(
     does not fit anything on the held-out work. Only author centroids are rebuilt
     per fold/per permutation.
     """
-    return _leave_one_work_out_fw_context(works, labels, _build_fw_context(works, language))
+    return _leave_one_work_out_fw_context(
+        works,
+        labels,
+        _build_fw_context(works, language),
+        centroid_weighting=centroid_weighting,
+    )
 
 
 def _build_fw_context(works: List[Work], language: str) -> FwContext:
@@ -786,6 +862,7 @@ def _leave_one_work_out_fw_context(
     works: List[Work],
     labels: Sequence[str],
     ctx: FwContext,
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING,
 ) -> List[Tuple[str, str, List[str]]]:
     labels = list(labels)
     if ctx.X is None or len(ctx.chunk_work) == 0:
@@ -802,8 +879,112 @@ def _leave_one_work_out_fw_context(
         if len(set(train_labels.tolist())) < 2:
             continue
         test_mask = chunk_work_arr == wi
-        preds = _predict_by_centroid(ctx.X[train_mask], chunk_labels[train_mask], ctx.X[test_mask])
+        preds = _predict_by_centroid(
+            ctx.X[train_mask],
+            chunk_labels[train_mask],
+            ctx.X[test_mask],
+            train_work_ids=chunk_work_arr[train_mask],
+            centroid_weighting=centroid_weighting,
+        )
         out.append((labels[wi], work.work_id, preds))
+    return out
+
+
+def _build_fw_permutation_cache(
+    works: Sequence[Work],
+    ctx: FwContext,
+) -> FwPermutationCache:
+    """Precompute sufficient per-work statistics for every FW assignment.
+
+    The legacy policy needs each work's flat chunk sum and count.  The
+    scientific policy needs only ``unit(mean(chunks_in_work))``.  Both are
+    label-independent, so a permutation changes class membership but never
+    requires rebuilding chunk aggregates.
+    """
+    if ctx.X is None:
+        raise ValueError("cannot cache an empty function-word context")
+    if ctx.X.shape[0] != len(ctx.chunk_work):
+        raise ValueError("function-word rows and chunk-work ids must align")
+    n_works = len(works)
+    n_features = int(ctx.X.shape[1])
+    chunk_sums = np.zeros((n_works, n_features), dtype=float)
+    chunk_counts = np.zeros(n_works, dtype=int)
+    work_centroids = np.zeros((n_works, n_features), dtype=float)
+    for wi in range(n_works):
+        rows = ctx.X[ctx.chunk_work == wi]
+        count = int(rows.shape[0])
+        if count <= 0:
+            raise ValueError(f"work has no function-word chunks: {wi}")
+        total = np.asarray(rows.sum(axis=0)).ravel()
+        chunk_sums[wi] = total
+        chunk_counts[wi] = count
+        work_centroids[wi] = _unit_vector(total / count)
+    return FwPermutationCache(
+        chunk_sums=chunk_sums,
+        chunk_counts=chunk_counts,
+        work_centroids=work_centroids,
+    )
+
+
+def _leave_one_work_out_fw_cached(
+    works: Sequence[Work],
+    labels: Sequence[str],
+    ctx: FwContext,
+    cache: FwPermutationCache,
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING,
+) -> List[Tuple[str, str, List[str]]]:
+    """FW LOO using per-work sums instead of rebuilding fold centroids.
+
+    For each label assignment, class totals are formed once.  A held-out work
+    is then removed by subtracting its cached sum/count (legacy) or its cached
+    unit work centroid/one vote (work-balanced).  Predictions and tie-breaking
+    remain identical to :func:`_leave_one_work_out_fw_context`.
+    """
+    if centroid_weighting not in SUPPORTED_CENTROID_WEIGHTINGS:
+        raise ValueError(f"unknown centroid weighting: {centroid_weighting}")
+    labels = list(labels)
+    if len(labels) != len(works):
+        raise ValueError("works and labels must have equal length")
+    if ctx.X is None or len(ctx.chunk_work) == 0:
+        return []
+    if cache.chunk_sums.shape[0] != len(works):
+        raise ValueError("FW permutation cache does not match works")
+
+    labels_arr = np.asarray(labels, dtype=object)
+    authors = sorted(set(labels))
+    if centroid_weighting == "chunk_weighted_legacy":
+        work_vectors = cache.chunk_sums
+        work_weights = cache.chunk_counts
+    else:
+        work_vectors = cache.work_centroids
+        work_weights = np.ones(len(works), dtype=int)
+
+    class_sums = {
+        author: np.asarray(work_vectors[labels_arr == author].sum(axis=0)).ravel()
+        for author in authors
+    }
+    class_counts = {
+        author: int(work_weights[labels_arr == author].sum()) for author in authors
+    }
+    out: List[Tuple[str, str, List[str]]] = []
+    for wi, work in enumerate(works):
+        truth = labels[wi]
+        centroids: List[np.ndarray] = []
+        valid = True
+        for author in authors:
+            same_author = truth == author
+            count = class_counts[author] - (int(work_weights[wi]) if same_author else 0)
+            if count <= 0:
+                valid = False
+                break
+            total = class_sums[author] - (work_vectors[wi] if same_author else 0.0)
+            centroids.append(_unit_vector(total / count))
+        if not valid or len(authors) < 2:
+            continue
+        test_mask = ctx.chunk_work == wi
+        scores = np.asarray(ctx.X[test_mask] @ np.vstack(centroids).T)
+        preds = [authors[int(i)] for i in scores.argmax(axis=1)]
+        out.append((truth, work.work_id, preds))
     return out
 
 
@@ -846,14 +1027,28 @@ def _permutation_p(
     max_exact: int,
     n_random: int,
     seed: int,
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING,
 ) -> Tuple[Optional[float], Optional[str], Optional[float]]:
     labels = list(labels)
     fw_ctx = _build_fw_context(works, language) if _canonical_feature(feature_set) == "fw_fixed" else None
+    fw_cache = _build_fw_permutation_cache(works, fw_ctx) if fw_ctx is not None else None
 
     def _wcp_for(lab: Sequence[str]):
-        if fw_ctx is not None:
-            return _leave_one_work_out_fw_context(works, lab, fw_ctx)
-        return _leave_one_work_out(works, lab, feature_set, language)
+        if fw_ctx is not None and fw_cache is not None:
+            return _leave_one_work_out_fw_cached(
+                works,
+                lab,
+                fw_ctx,
+                fw_cache,
+                centroid_weighting=centroid_weighting,
+            )
+        return _leave_one_work_out(
+            works,
+            lab,
+            feature_set,
+            language,
+            centroid_weighting=centroid_weighting,
+        )
 
     observed = _metrics_from_wcp(_wcp_for(labels), sorted(set(labels)))["work_macro_recall"]
     uniq = sorted(set(labels))
@@ -940,16 +1135,87 @@ def _canonical_feature(feature_set: str) -> str:
     return aliases.get(fs, fs)
 
 
-def _predict_by_centroid(Xtr, ytr: Sequence[str], Xte) -> List[str]:
-    authors = sorted(set(ytr))
-    centroids = []
-    yarr = np.array(list(ytr), dtype=object)
-    for a in authors:
-        rows = Xtr[yarr == a]
-        c = np.asarray(rows.mean(axis=0)).ravel()
-        norm = np.linalg.norm(c)
-        centroids.append(c / (norm + 1e-12))
-    C = np.vstack(centroids)
+def _author_centroids(
+    Xtr,
+    ytr: Sequence[str],
+    *,
+    train_work_ids: Optional[Sequence[Any]],
+    centroid_weighting: str,
+) -> Tuple[List[str], np.ndarray]:
+    """Return unit author centroids under an explicit training-unit policy.
+
+    ``work_balanced`` first forms a unit centroid for every work, then gives
+    every work one equal vote in its author's centroid.  Duplicating chunks in
+    a long work therefore cannot pull the author profile toward that work.
+    ``chunk_weighted_legacy`` preserves the historical flat mean over chunks
+    for exact reproduction of old passports.
+    """
+    if centroid_weighting not in SUPPORTED_CENTROID_WEIGHTINGS:
+        raise ValueError(f"unknown centroid weighting: {centroid_weighting}")
+    labels = list(ytr)
+    if Xtr.shape[0] != len(labels):
+        raise ValueError("training rows and labels must have equal length")
+    authors = sorted(set(labels))
+    yarr = np.asarray(labels, dtype=object)
+    centroids: List[np.ndarray] = []
+
+    if centroid_weighting == "chunk_weighted_legacy":
+        for author in authors:
+            centroids.append(_unit_mean(Xtr[yarr == author]))
+        return authors, np.vstack(centroids)
+
+    if train_work_ids is None:
+        raise ValueError("work_balanced centroids require train_work_ids")
+    work_ids = list(train_work_ids)
+    if len(work_ids) != len(labels):
+        raise ValueError("training rows and work ids must have equal length")
+
+    # Preserve first-seen work order so equal means remain deterministic.  A
+    # work id must never straddle author labels: accepting that silently would
+    # merge two independent works before author aggregation.
+    ordered_works: List[Any] = []
+    work_author: Dict[Any, str] = {}
+    for work_id, author in zip(work_ids, labels):
+        if work_id in work_author and work_author[work_id] != author:
+            raise ValueError(f"work id maps to multiple authors: {work_id}")
+        if work_id not in work_author:
+            ordered_works.append(work_id)
+            work_author[work_id] = author
+    warr = np.asarray(work_ids, dtype=object)
+    work_centroids = {
+        work_id: _unit_mean(Xtr[warr == work_id]) for work_id in ordered_works
+    }
+    for author in authors:
+        rows = [work_centroids[w] for w in ordered_works if work_author[w] == author]
+        if not rows:
+            raise ValueError(f"author has no training works: {author}")
+        centroids.append(_unit_vector(np.mean(rows, axis=0)))
+    return authors, np.vstack(centroids)
+
+
+def _unit_mean(rows) -> np.ndarray:
+    return _unit_vector(np.asarray(rows.mean(axis=0)).ravel())
+
+
+def _unit_vector(row) -> np.ndarray:
+    row = np.asarray(row).ravel()
+    return row / (np.linalg.norm(row) + 1e-12)
+
+
+def _predict_by_centroid(
+    Xtr,
+    ytr: Sequence[str],
+    Xte,
+    *,
+    train_work_ids: Optional[Sequence[Any]] = None,
+    centroid_weighting: str = DEFAULT_CENTROID_WEIGHTING,
+) -> List[str]:
+    authors, C = _author_centroids(
+        Xtr,
+        ytr,
+        train_work_ids=train_work_ids,
+        centroid_weighting=centroid_weighting,
+    )
     scores = Xte @ C.T
     scores = np.asarray(scores)
     return [authors[int(i)] for i in scores.argmax(axis=1)]
@@ -963,14 +1229,14 @@ def _attribute_target(
 ) -> AttributionResult:
     train_texts = [ch for w in works for ch in w.chunks]
     train_labels = [w.author for w in works for _ch in w.chunks]
+    train_work_ids = [wi for wi, w in enumerate(works) for _ch in w.chunks]
     Xtr, Xte = _fit_transform_feature(train_texts, target_chunks, feature_set, spec.language)
-    authors = sorted(set(train_labels))
-    yarr = np.array(train_labels, dtype=object)
-    centroids = []
-    for a in authors:
-        c = np.asarray(Xtr[yarr == a].mean(axis=0)).ravel()
-        centroids.append(c / (np.linalg.norm(c) + 1e-12))
-    C = np.vstack(centroids)
+    authors, C = _author_centroids(
+        Xtr,
+        train_labels,
+        train_work_ids=train_work_ids,
+        centroid_weighting=spec.centroid_weighting,
+    )
     target_vec = np.asarray(Xte.mean(axis=0)).ravel()
     target_vec = target_vec / (np.linalg.norm(target_vec) + 1e-12)
     sims_arr = C @ target_vec

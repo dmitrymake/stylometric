@@ -1,6 +1,6 @@
 import { Card, CodeBlock } from "@dmitrymake/rk-ui";
 import { REPRO, BENCH } from "../segdata.js";
-import { LOBO_STRICT } from "../data.js";
+import { LOBO_STRICT, HEADLINE } from "../data.js";
 import { CORPUS } from "../corpus.js";
 import { fmtScore, fmtPct } from "../format.js";
 
@@ -45,6 +45,12 @@ export default function Repro() {
             состав. На большем и пёстром наборе число закономерно другое. Эти два числа считают на
             разных наборах авторов — сравнивать их напрямую нельзя.
           </p>
+          {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+            <p className="mono muted" style={{ fontSize: 12 }}>
+              И ещё: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+              один голос» ещё впереди — публикуемое число может немного сдвинуться.
+            </p>
+          )}
           <p className="prose muted">
             В полный срез входят ещё и книги под защитой авторских прав. Они живут только на локальной
             машине, в общий корпус не отдаются. Можете добавить их самостоятельно.

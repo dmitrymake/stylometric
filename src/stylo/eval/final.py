@@ -22,10 +22,12 @@ from .significance import mcnemar, paired_bootstrap_diff_clustered
 
 log = logging.getLogger("stylo.eval.final")
 
-DEFAULT_SPECS = ["stylo", "stylo_stack", "delta:150", "delta:300", "delta:500",
+DEFAULT_SPECS = ["stylo", "delta:150", "delta:300", "delta:500",
                  "delta_cos:150", "delta_cos:300", "delta_cos:500",
                  "char_cos", "bow_lr", "majority"]
 
+# stylo_stack is intentionally explicit-only: it is a slow calibration/channel
+# fusion experiment, not the default headline model.
 ECE_SPECS = {"stylo", "stylo_stack"}
 
 

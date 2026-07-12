@@ -50,7 +50,9 @@
     ],
     "ensembleTop1": 0.892,
     "ensembleMacroF1": 0.833,
-    "ensembleTop3": 0.94
+    "ensembleTop3": 0.94,
+    "trainingWeighting": "chunk_weighted_training_legacy",
+    "claimStatus": "exploratory_internal"
   },
   "models": [
     {
@@ -3865,19 +3867,19 @@
         "id": "sovremennik",
         "label": "Современник: две школы критиков",
         "work": 1,
-        "chunk": 0.7702
+        "chunk": 0.764
       },
       {
         "id": "kolokol",
         "label": "Колокол: Герцен и Огарёв",
-        "work": 0.8667,
-        "chunk": 0.6638
+        "work": 0.6857,
+        "chunk": 0.6456
       },
       {
         "id": "nekrasov",
         "label": "Некрасов и Панаева (служебные слова)",
-        "work": 0.7,
-        "chunk": 0.5122
+        "work": 0.65,
+        "chunk": 0.5862
       }
     ],
     "calibration": {
@@ -3900,29 +3902,17 @@
         "candidates": "радикалы (Чернышевский, Добролюбов) ↔ эстетики (Дружинин, Анненков, Боткин)",
         "macro": 1,
         "perm": 0.0005,
-        "cos": 0.9842,
-        "caveat": "Это разделение конкретных критиков двух школ, не перенос на «школу как класс». Боткин — одна работа (~14k слов), входит только в эстетиков. Значительная доля атрибуций «Современника» закрыта по гонорарным ведомостям (Боград), поэтому часть прогона — калибровка."
-      },
-      {
-        "id": "kolokol",
-        "title": "Передовые «Колокола»",
-        "question": "Делятся ли руки Герцена и Огарёва?",
-        "candidates": "Герцен, Огарёв",
-        "macro": 0.8667,
-        "perm": 0.0015,
         "cos": 0.9797,
-        "caveat": "Эталон Герцена смещён по эпохе и регистру: 82% объёма — «Письма из Франции и Италии» 1846-52 при цели 1857-67. Разделение подписанной прозы — позитив-контроль выполнимости и тай-брейк к филологии по одноавторским передовым, не разрешение атрибуции соавторских текстов."
+        "caveat": "Это разделение конкретных критиков двух школ, не перенос на «школу как класс». Боткин — одна работа (~14k слов), входит только в эстетиков. Значительная доля атрибуций «Современника» закрыта по гонорарным ведомостям (Боград), поэтому часть прогона — калибровка."
       },
       {
         "id": "petersburg",
         "title": "Фельетоны Ф.Д. «Петербургской летописи»",
         "question": "Уходят ли фельетоны 1847 года к Достоевскому?",
-        "candidates": "Достоевский (проза и публицистика), Плещеев, Соллогуб",
-        "macro": 0.8095,
+        "candidates": "Достоевский (публицистика), Соллогуб, Плещеев, Панаев",
+        "macro": 0.8155,
         "perm": 0.0005,
-        "boot": 1,
-        "dist": 0.0123,
-        "caveat": "Результат у самой границы порога, отрыв победителя мизерный. Эталон публицистики Достоевского («Дневник писателя») на 26 лет позже фельетонов 1847, поэтому близость несёт и сдвиг эпохи. Это публицистический эталон для последующего теста спорного Н.Н., не уверенная атрибуция."
+        "caveat": "Панель остаётся выше порога после равного веса работ, но спорный Н.Н. расколот 1:1 между публицистикой Достоевского и Панаевым. Это выполнимость панели, не положительная атрибуция Н.Н."
       }
     ],
     "limitsCases": [
@@ -3932,11 +3922,11 @@
         "question": "Делятся соавторы по личному почерку или по теме?",
         "candidates": "Некрасов, Панаева",
         "reason": "автор ≡ тема",
-        "fwMacro": 0.7,
-        "fwPerm": 0.1364,
+        "fwMacro": 0.65,
+        "fwPerm": 0.2273,
         "char3Macro": 0.95,
-        "char3Perm": 0.0303,
-        "cos": 0.9828,
+        "char3Perm": 0.0152,
+        "cos": 0.9675,
         "kappa": 0.184
       },
       {
@@ -3945,25 +3935,35 @@
         "question": "Делится ли пара Чернышевский ↔ Добролюбов внутри одной школы?",
         "candidates": "Чернышевский, Добролюбов",
         "reason": "сросшиеся руки у границы",
-        "macro": 0.8,
-        "perm": 0.0714,
-        "cos": 0.9853
+        "macro": 0.7,
+        "perm": 0.2222,
+        "cos": 0.983
+      },
+      {
+        "id": "kolokol",
+        "title": "Передовые «Колокола»",
+        "question": "Делятся ли руки Герцена и Огарёва?",
+        "candidates": "Герцен, Огарёв",
+        "reason": "сросшиеся руки · train-side audit",
+        "macro": 0.6857,
+        "perm": 0.0755,
+        "cos": 0.9779
       },
       {
         "id": "chekhonte",
         "title": "«Среди милых москвичей»",
         "question": "Однородна ли чеховская подборка из колонки «Будильника»?",
         "candidates": "Чехонте, Билибин, Лейкин, Александр Чехов",
-        "reason": "панель у случайности · источник недоступен",
-        "recall": "11/22",
-        "dist": 0.0449,
-        "status": "candidate_for_textological_audit"
+        "reason": "панель у случайности · source-check доступен",
+        "macro": 0.4321,
+        "perm": 0.009,
+        "status": "fail"
       }
     ]
   },
   "tarasCase": {
     "hypothesis": "Large 1842 additions to Taras Bulba were written by a non-Gogol editorial hand.",
-    "claim": "Крупные добавления редакции 1842 года идут к Гоголю и против фактического подозреваемого (Анненкова), и на панели авторов той же эпохи; независимый метод (Burrows Delta) даёт то же решение. Версия большой чужой вставки данными не поддерживается.",
+    "claim": "После work-balanced аудита уникальная рука крупных добавлений не установлена: multi-candidate панели не проходят gate, а валидные бинарные панели и Delta-режимы меняют направление вместе с составом кандидатов и признаков.",
     "headline": [
       {
         "id": "taras_bulba_additions_strict_suspects_v2_fw_2000",
@@ -4825,6 +4825,466 @@
       "deltaFwLooseShare": 0.941,
       "deltaFwBaseTop": "gogol",
       "deltaFwBaseShare": 0.929
+    },
+    "postAudit": {
+      "date": "2026-07-11",
+      "status": "exploratory_adversarial_rerun",
+      "centroidWeighting": "L2(mean over L2(mean chunks within each work))",
+      "suspectsStrict": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7958,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "margin": 0.027542,
+        "n_chunks": 16
+      },
+      "samePeriodStrict": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7876,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.688,
+          "pushkin": 0.188,
+          "annenkov_1840s": 0.062,
+          "grebenka": 0.062
+        },
+        "margin": 0.011517,
+        "n_chunks": 16
+      },
+      "topicStrict": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7875,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.812,
+          "gogol": 0.188
+        },
+        "margin": 0.018929,
+        "n_chunks": 16
+      },
+      "annenkovBinary": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 1,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "margin": 0.027542,
+        "n_chunks": 16
+      },
+      "somovBinary": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.925,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.812,
+          "gogol": 0.188
+        },
+        "margin": 0.018929,
+        "n_chunks": 16
+      },
+      "delta": {
+        "suspectsFw": {
+          "gate": {
+            "work_macro_recall": 0.95,
+            "gate_pass": true,
+            "work_recall": {
+              "annenkov_1840s": "5/5",
+              "dostoevsky": "10/10",
+              "gogol": "10/10",
+              "pushkin": "6/6",
+              "turgenev": "9/12"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 16
+              },
+              "n_chunks": 16,
+              "winner_share": 1,
+              "mean_distances": {
+                "gogol": 1.303988,
+                "turgenev": 1.384008,
+                "pushkin": 1.38459,
+                "dostoevsky": 1.45769,
+                "annenkov_1840s": 1.478881
+              },
+              "margin": 0.08002,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 17
+              },
+              "n_chunks": 17,
+              "winner_share": 1,
+              "mean_distances": {
+                "gogol": 1.330272,
+                "pushkin": 1.404396,
+                "turgenev": 1.405206,
+                "dostoevsky": 1.477693,
+                "annenkov_1840s": 1.502607
+              },
+              "margin": 0.074124,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 13,
+                "pushkin": 1
+              },
+              "n_chunks": 14,
+              "winner_share": 0.929,
+              "mean_distances": {
+                "gogol": 1.187855,
+                "pushkin": 1.285112,
+                "turgenev": 1.294785,
+                "annenkov_1840s": 1.359627,
+                "dostoevsky": 1.359801
+              },
+              "margin": 0.097257,
+              "interpreted": true
+            }
+          }
+        },
+        "suspectsMfw": {
+          "gate": {
+            "work_macro_recall": 0.9467,
+            "gate_pass": true,
+            "work_recall": {
+              "annenkov_1840s": "5/5",
+              "dostoevsky": "10/10",
+              "gogol": "9/10",
+              "pushkin": "5/6",
+              "turgenev": "12/12"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 10,
+                "pushkin": 6
+              },
+              "n_chunks": 16,
+              "winner_share": 0.625,
+              "mean_distances": {
+                "gogol": 1.480457,
+                "pushkin": 1.51038,
+                "turgenev": 1.564107,
+                "annenkov_1840s": 1.601295,
+                "dostoevsky": 1.66537
+              },
+              "margin": 0.029923,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 12,
+                "pushkin": 5
+              },
+              "n_chunks": 17,
+              "winner_share": 0.706,
+              "mean_distances": {
+                "gogol": 1.501224,
+                "pushkin": 1.523961,
+                "turgenev": 1.579168,
+                "annenkov_1840s": 1.618632,
+                "dostoevsky": 1.678989
+              },
+              "margin": 0.022737,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 11,
+                "pushkin": 3
+              },
+              "n_chunks": 14,
+              "winner_share": 0.786,
+              "mean_distances": {
+                "gogol": 1.409283,
+                "pushkin": 1.479085,
+                "turgenev": 1.535359,
+                "annenkov_1840s": 1.539651,
+                "dostoevsky": 1.625955
+              },
+              "margin": 0.069802,
+              "interpreted": true
+            }
+          }
+        },
+        "somovBinaryFw": {
+          "gate": {
+            "work_macro_recall": 0.95,
+            "gate_pass": true,
+            "work_recall": {
+              "gogol": "9/10",
+              "somov": "16/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 13,
+                "somov": 3
+              },
+              "n_chunks": 16,
+              "winner_share": 0.812,
+              "mean_distances": {
+                "gogol": 277.41207,
+                "somov": 277.443553
+              },
+              "margin": 0.031483,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 14,
+                "somov": 3
+              },
+              "n_chunks": 17,
+              "winner_share": 0.824,
+              "mean_distances": {
+                "gogol": 237.058291,
+                "somov": 237.087992
+              },
+              "margin": 0.029701,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 14
+              },
+              "n_chunks": 14,
+              "winner_share": 1,
+              "mean_distances": {
+                "gogol": 1.07026,
+                "somov": 1.133211
+              },
+              "margin": 0.062952,
+              "interpreted": true
+            }
+          }
+        },
+        "somovBinaryMfw": {
+          "gate": {
+            "work_macro_recall": 0.9,
+            "gate_pass": true,
+            "work_recall": {
+              "gogol": "8/10",
+              "somov": "16/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "somov",
+              "per_chunk_winners": {
+                "gogol": 7,
+                "somov": 9
+              },
+              "n_chunks": 16,
+              "winner_share": 0.562,
+              "mean_distances": {
+                "somov": 1.422812,
+                "gogol": 1.435275
+              },
+              "margin": 0.012463,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "somov",
+              "per_chunk_winners": {
+                "somov": 9,
+                "gogol": 8
+              },
+              "n_chunks": 17,
+              "winner_share": 0.529,
+              "mean_distances": {
+                "somov": 1.44615,
+                "gogol": 1.456334
+              },
+              "margin": 0.010183,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 12,
+                "somov": 2
+              },
+              "n_chunks": 14,
+              "winner_share": 0.857,
+              "mean_distances": {
+                "gogol": 1.368041,
+                "somov": 1.409804
+              },
+              "margin": 0.041764,
+              "interpreted": true
+            }
+          }
+        },
+        "topicFw": {
+          "gate": {
+            "work_macro_recall": 0.7312,
+            "gate_pass": false,
+            "work_recall": {
+              "gogol": "9/10",
+              "grebenka": "9/10",
+              "narezhny": "1/4",
+              "somov": "14/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 13,
+                "somov": 3
+              },
+              "n_chunks": 16,
+              "winner_share": 0.812,
+              "mean_distances": {
+                "gogol": 277.383968,
+                "somov": 277.418141,
+                "grebenka": 277.433747,
+                "narezhny": 277.570024
+              },
+              "margin": 0.034173,
+              "interpreted": false
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 15,
+                "somov": 2
+              },
+              "n_chunks": 17,
+              "winner_share": 0.882,
+              "mean_distances": {
+                "gogol": 237.02539,
+                "somov": 237.057553,
+                "grebenka": 237.071655,
+                "narezhny": 237.2107
+              },
+              "margin": 0.032164,
+              "interpreted": false
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 14
+              },
+              "n_chunks": 14,
+              "winner_share": 1,
+              "mean_distances": {
+                "gogol": 1.043611,
+                "somov": 1.110162,
+                "grebenka": 1.133192,
+                "narezhny": 1.244712
+              },
+              "margin": 0.066551,
+              "interpreted": false
+            }
+          }
+        },
+        "topicMfw": {
+          "gate": {
+            "work_macro_recall": 0.9344,
+            "gate_pass": true,
+            "work_recall": {
+              "gogol": "9/10",
+              "grebenka": "9/10",
+              "narezhny": "4/4",
+              "somov": "15/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 11,
+                "somov": 4,
+                "grebenka": 1
+              },
+              "n_chunks": 16,
+              "winner_share": 0.688,
+              "mean_distances": {
+                "gogol": 1.357331,
+                "somov": 1.371479,
+                "grebenka": 1.417268,
+                "narezhny": 1.515773
+              },
+              "margin": 0.014148,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 11,
+                "somov": 6
+              },
+              "n_chunks": 17,
+              "winner_share": 0.647,
+              "mean_distances": {
+                "gogol": 1.375888,
+                "somov": 1.390633,
+                "grebenka": 1.433525,
+                "narezhny": 1.532707
+              },
+              "margin": 0.014745,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 12,
+                "somov": 2
+              },
+              "n_chunks": 14,
+              "winner_share": 0.857,
+              "mean_distances": {
+                "gogol": 1.305054,
+                "somov": 1.370846,
+                "grebenka": 1.442496,
+                "narezhny": 1.47049
+              },
+              "margin": 0.065792,
+              "interpreted": true
+            }
+          }
+        }
+      },
+      "conclusion": "Многоавторные панели не проходят порог 0.80; две валидные бинарные панели дают разные ближайшие руки. Уникальная атрибуция крупных добавлений не установлена."
     },
     "extraction": {
       "strictIn1842": 1,

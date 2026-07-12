@@ -1,0 +1,179 @@
+{
+  "case_id": "petersburg_nn_fourway_fw_2000__chunk_weighted_legacy",
+  "title": "Petersburg Chronicle N.N. four-way: Dostoevsky publicistic vs Sollogub vs Pleshcheev vs Panaev",
+  "hypothesis": "The anonymous N.N. feuilleton belongs to Dostoevsky; Pleshcheev is the documented alternative author of the 1847 feuilletons.",
+  "target_description": "anonymous N.N. feuilleton, four-way with the documented alternative candidate",
+  "claim": "Четырёхклассная панель впервые включает документированного альтернативного кандидата (Плещеев) и регистровый контроль 1840-х (Панаев).",
+  "limitations": [
+    "N.N. is short: one-two chunks; single-chunk targets cannot receive a strong verdict.",
+    "Dostoevsky publicistic anchor is the later Diary of a Writer corpus, so register and epoch can contribute to the signal.",
+    "Raw texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "inconclusive",
+  "verdict": "Gate пройден, но target attribution неустойчива: top=dostoevsky_publicistic, winner_share=0.5, margin=0.003487.",
+  "confidence": "low",
+  "evidence_score": 85.34,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.881,
+      "chunk_weighted_recall": 0.6779,
+      "work_recall": {
+        "dostoevsky_publicistic": "4/4",
+        "panaev": "4/6",
+        "pleshcheev": "5/5",
+        "sollogub": "6/7"
+      },
+      "chunk_recall": {
+        "dostoevsky_publicistic": "187/202",
+        "panaev": "41/75",
+        "pleshcheev": "50/74",
+        "sollogub": "31/55"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "dostoevsky_publicistic": {
+          "dostoevsky_publicistic": 187,
+          "panaev": 11,
+          "pleshcheev": 2,
+          "sollogub": 2
+        },
+        "panaev": {
+          "dostoevsky_publicistic": 1,
+          "panaev": 41,
+          "pleshcheev": 9,
+          "sollogub": 24
+        },
+        "pleshcheev": {
+          "dostoevsky_publicistic": 1,
+          "panaev": 5,
+          "pleshcheev": 50,
+          "sollogub": 18
+        },
+        "sollogub": {
+          "dostoevsky_publicistic": 1,
+          "panaev": 15,
+          "pleshcheev": 8,
+          "sollogub": 31
+        }
+      },
+      "n_works": 22,
+      "n_chunks": 406,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "dostoevsky_publicistic",
+      "second": "sollogub",
+      "margin": 0.003487,
+      "margin_ci95": [
+        0.001178,
+        0.016448
+      ],
+      "winner_share": {
+        "dostoevsky_publicistic": 0.5,
+        "panaev": 0.5
+      },
+      "similarities": [
+        {
+          "candidate": "dostoevsky_publicistic",
+          "cos": 0.903038
+        },
+        {
+          "candidate": "sollogub",
+          "cos": 0.899551
+        },
+        {
+          "candidate": "pleshcheev",
+          "cos": 0.897142
+        },
+        {
+          "candidate": "panaev",
+          "cos": 0.895184
+        }
+      ],
+      "per_chunk_winners": {
+        "dostoevsky_publicistic": 1,
+        "panaev": 1
+      },
+      "n_chunks": 2
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "chunk_weighted_legacy",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "dostoevsky_publicistic",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_dostoevsky_publicistic"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "sollogub",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_sollogub"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "pleshcheev",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_pleshcheev"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "panaev",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/cand_panaev"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/petersburg_hardened/specs/../../../../input_cases/dostoevsky_petersburg_chronicle/target_NN",
+    "sources": [
+      "Local Petersburg Chronicle case data + curated az.lib panel (docs/cases/petersburg_hardened/panel_manifest.json): Pleshcheev 1847-59 prose (documented alternative author), Panaev 1840s fiction."
+    ],
+    "n_candidate_works": 22,
+    "n_candidate_chunks": 406,
+    "works_per_author": {
+      "dostoevsky_publicistic": 4,
+      "panaev": 6,
+      "pleshcheev": 5,
+      "sollogub": 7
+    },
+    "target_chunks": 2
+  },
+  "provenance": {
+    "manifest": "docs/cases/petersburg_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/petersburg_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/petersburg_hardened/specs/petersburg_nn_fourway_fw_2000.yaml --out docs/cases/petersburg_hardened/passports/petersburg_nn_fourway_fw_2000.passport.json"
+  },
+  "notes": "Интерпретация N.N. допускается только при chunk-stable Ф.Д.-контролях на той же панели."
+}

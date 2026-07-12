@@ -1,0 +1,520 @@
+{
+  "audit": "work_balanced_train_centroid_v1",
+  "status": "exploratory_adversarial_rerun",
+  "date": "2026-07-11",
+  "estimands": {
+    "chunk_weighted_legacy": "L2(mean all author chunks)",
+    "work_balanced": "L2(mean over L2(mean chunks within each work))"
+  },
+  "minimum_random_permutations": 2000,
+  "forced_random_permutations": null,
+  "n_cases": 16,
+  "cases": [
+    {
+      "source_spec": "docs/cases/autoscreen/specs/kolokol_herzen_ogaryov.yaml",
+      "legacy": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7929,
+        "permutation_p": 0.0155,
+        "top": "herzen_publicistic",
+        "winner_share": {
+          "ogaryov_wikisource": 0.538,
+          "herzen_publicistic": 0.462
+        },
+        "margin": 0.004973,
+        "n_chunks": 13
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.6643,
+        "permutation_p": 0.1109,
+        "top": "ogaryov_wikisource",
+        "winner_share": {
+          "ogaryov_wikisource": 0.846,
+          "herzen_publicistic": 0.154
+        },
+        "margin": 0.034769,
+        "n_chunks": 13
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.1286,
+      "gate_decision_changed": false,
+      "target_top_changed": true
+    },
+    {
+      "source_spec": "docs/cases/autoscreen/specs/sovremennik_fourway_gate.yaml",
+      "legacy": {
+        "status": "gate_only",
+        "gate_pass": true,
+        "work_macro_recall": 0.8875,
+        "permutation_p": 0.0005,
+        "top": null,
+        "winner_share": {},
+        "margin": null,
+        "n_chunks": 0
+      },
+      "work_balanced": {
+        "status": "gate_only",
+        "gate_pass": true,
+        "work_macro_recall": 0.9,
+        "permutation_p": 0.0005,
+        "top": null,
+        "winner_share": {},
+        "margin": null,
+        "n_chunks": 0
+      },
+      "gate_delta_work_balanced_minus_legacy": 0.0125,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/autoscreen/specs/chekhonte_budilnik_sredi_milykh.yaml",
+      "legacy": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.5136,
+        "permutation_p": 0.001,
+        "top": "alexander_chekhov",
+        "winner_share": {
+          "alexander_chekhov": 1.0
+        },
+        "margin": 0.006815,
+        "n_chunks": 2
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.4321,
+        "permutation_p": 0.009,
+        "top": "alexander_chekhov",
+        "winner_share": {
+          "alexander_chekhov": 1.0
+        },
+        "margin": 0.002276,
+        "n_chunks": 2
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0815,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_strict_annenkov_binary_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 1.0,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "margin": 0.031875,
+        "n_chunks": 16
+      },
+      "work_balanced": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 1.0,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "margin": 0.027542,
+        "n_chunks": 16
+      },
+      "gate_delta_work_balanced_minus_legacy": 0.0,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_strict_somov_binary_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.925,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.75,
+          "gogol": 0.25
+        },
+        "margin": 0.009507,
+        "n_chunks": 16
+      },
+      "work_balanced": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.925,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.812,
+          "gogol": 0.188
+        },
+        "margin": 0.018929,
+        "n_chunks": 16
+      },
+      "gate_delta_work_balanced_minus_legacy": 0.0,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_strict_suspects_v2_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.8625,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "margin": 0.031875,
+        "n_chunks": 16
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7958,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "margin": 0.027542,
+        "n_chunks": 16
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0667,
+      "gate_decision_changed": true,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_strict_sameperiod_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.8114,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.688,
+          "pushkin": 0.125,
+          "grebenka": 0.125,
+          "annenkov_1840s": 0.062
+        },
+        "margin": 0.016618,
+        "n_chunks": 16
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7876,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.688,
+          "pushkin": 0.188,
+          "annenkov_1840s": 0.062,
+          "grebenka": 0.062
+        },
+        "margin": 0.011517,
+        "n_chunks": 16
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0238,
+      "gate_decision_changed": true,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_strict_topic_cossack_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.8,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.75,
+          "gogol": 0.25
+        },
+        "margin": 0.009507,
+        "n_chunks": 16
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7875,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.812,
+          "gogol": 0.188
+        },
+        "margin": 0.018929,
+        "n_chunks": 16
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0125,
+      "gate_decision_changed": true,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_loose_suspects_v2_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.8625,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.824,
+          "annenkov_1840s": 0.176
+        },
+        "margin": 0.030295,
+        "n_chunks": 17
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7958,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.824,
+          "annenkov_1840s": 0.176
+        },
+        "margin": 0.02561,
+        "n_chunks": 17
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0667,
+      "gate_decision_changed": true,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_loose_sameperiod_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.8114,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.765,
+          "annenkov_1840s": 0.118,
+          "grebenka": 0.059,
+          "pushkin": 0.059
+        },
+        "margin": 0.015427,
+        "n_chunks": 17
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7876,
+        "permutation_p": 0.0005,
+        "top": "gogol",
+        "winner_share": {
+          "gogol": 0.647,
+          "annenkov_1840s": 0.118,
+          "grebenka": 0.118,
+          "pushkin": 0.118
+        },
+        "margin": 0.010772,
+        "n_chunks": 17
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0238,
+      "gate_decision_changed": true,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/taras_hardened/specs/taras_bulba_additions_loose_topic_cossack_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.8,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.824,
+          "gogol": 0.118,
+          "grebenka": 0.059
+        },
+        "margin": 0.010843,
+        "n_chunks": 17
+      },
+      "work_balanced": {
+        "status": "fail",
+        "gate_pass": false,
+        "work_macro_recall": 0.7875,
+        "permutation_p": 0.0005,
+        "top": "somov",
+        "winner_share": {
+          "somov": 0.941,
+          "gogol": 0.059
+        },
+        "margin": 0.020802,
+        "n_chunks": 17
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0125,
+      "gate_decision_changed": true,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/petersburg_hardened/specs/petersburg_nn_fourway_fw_2000.yaml",
+      "legacy": {
+        "status": "inconclusive",
+        "gate_pass": true,
+        "work_macro_recall": 0.881,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 0.5,
+          "panaev": 0.5
+        },
+        "margin": 0.003487,
+        "n_chunks": 2
+      },
+      "work_balanced": {
+        "status": "inconclusive",
+        "gate_pass": true,
+        "work_macro_recall": 0.8155,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 0.5,
+          "panaev": 0.5
+        },
+        "margin": 0.005201,
+        "n_chunks": 2
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0655,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/petersburg_hardened/specs/petersburg_fd_1847_04_27_fourway_fw_2000.yaml",
+      "legacy": {
+        "status": "moderate",
+        "gate_pass": true,
+        "work_macro_recall": 0.881,
+        "permutation_p": 0.0005,
+        "top": "sollogub",
+        "winner_share": {
+          "sollogub": 0.667,
+          "panaev": 0.333
+        },
+        "margin": 0.011469,
+        "n_chunks": 3
+      },
+      "work_balanced": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.8155,
+        "permutation_p": 0.0005,
+        "top": "sollogub",
+        "winner_share": {
+          "sollogub": 1.0
+        },
+        "margin": 0.016579,
+        "n_chunks": 3
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0655,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/petersburg_hardened/specs/petersburg_fd_1847_05_11_fourway_fw_2000.yaml",
+      "legacy": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.881,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 1.0
+        },
+        "margin": 0.006364,
+        "n_chunks": 2
+      },
+      "work_balanced": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.8155,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 1.0
+        },
+        "margin": 0.006847,
+        "n_chunks": 2
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0655,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/petersburg_hardened/specs/petersburg_fd_1847_06_01_fourway_fw_2000.yaml",
+      "legacy": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.881,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 1.0
+        },
+        "margin": 0.053401,
+        "n_chunks": 2
+      },
+      "work_balanced": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.8155,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 1.0
+        },
+        "margin": 0.04792,
+        "n_chunks": 2
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0655,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    },
+    {
+      "source_spec": "docs/cases/petersburg_hardened/specs/petersburg_fd_1847_06_15_fourway_fw_2000.yaml",
+      "legacy": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.881,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 1.0
+        },
+        "margin": 0.042157,
+        "n_chunks": 2
+      },
+      "work_balanced": {
+        "status": "strong",
+        "gate_pass": true,
+        "work_macro_recall": 0.8155,
+        "permutation_p": 0.0005,
+        "top": "dostoevsky_publicistic",
+        "winner_share": {
+          "dostoevsky_publicistic": 1.0
+        },
+        "margin": 0.037043,
+        "n_chunks": 2
+      },
+      "gate_delta_work_balanced_minus_legacy": -0.0655,
+      "gate_decision_changed": false,
+      "target_top_changed": false
+    }
+  ]
+}

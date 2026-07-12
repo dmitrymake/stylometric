@@ -1,21 +1,25 @@
-"""Официальная baseline-таблица RuAA-Bench v1.0.
+"""RuAA-Bench v1.0 baseline-таблица (reproducible_cv_legacy_not_blind).
 
 Гоняет тот же leak-free LOBO-движок (stylo.eval.final.run_final) на срезе
 корпуса, ограниченном книгами бенчмарка (docs/ruaa_bench_manifest.json):
-классика (Delta/char-cos/BoW), полный stylo и стек stylo_stack — одна таблица,
-одни фолды, клaстер-робастная значимость против stylo уже внутри run_final.
+классика (Delta/char-cos/BoW), полный stylo и калибровочный stylo_stack —
+одна таблица, одни фолды, клaстер-робастная значимость против stylo уже
+внутри run_final. Набор по умолчанию воспроизводит закоммиченный
+docs/ruaa_bench_v1.json (7 строк); stylo_stack — медленный, поэтому для быстрой
+проверки его исключают вручную (--specs stylo --max-authors 5).
 
 Выход: docs/ruaa_bench_v1.json + docs/ruaa_bench_leaderboard.md +
 эталонный сабмит data/ruaa_bench_v1/reference_submission_stylo.csv (для
 smoke-проверки score_ruaa.py).
 
 Run (ночной, часы): nice -n 10 .venv/bin/python scripts/run_ruaa_baselines.py
-Быстрая проверка: --specs stylo --max-authors 5
+Быстрая проверка (без stylo_stack): --specs stylo,delta:300,char_cos --max-authors 5
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import pathlib
 import sys
@@ -25,15 +29,46 @@ import numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from stylo.claims import BenchmarkRole, ClaimStatus  # noqa: E402
 from stylo.config import load_config  # noqa: E402
 from stylo.corpus import load_dataset, Dataset  # noqa: E402
 from stylo.eval.final import run_final, format_final  # noqa: E402
+from stylo.jsonio import dump_strict  # noqa: E402
+
+RUAA_V1_NOTE = (
+    "Датированный воспроизводимый CV-срез на публичном корпусе; это не blind-"
+    "лидерборд и не научный default. Идентификаторы раскрывают истину. "
+    "Слепой пакет и work-balanced пересчёт — в v2. null в ece/vs_stylo_mcnemar_p "
+    "означает неприменимость метрики (модель без вероятностей / сравнение модели с собой)."
+)
 
 BENCH_DOC = ROOT / "docs" / "ruaa_bench_manifest.json"
 OUT_JSON = ROOT / "docs" / "ruaa_bench_v1.json"
 OUT_MD = ROOT / "docs" / "ruaa_bench_leaderboard.md"
 REF_CSV = ROOT / "data" / "ruaa_bench_v1" / "reference_submission_stylo.csv"
 
+
+def _record_checksum(path: pathlib.Path) -> None:
+    """Add/update ``path``'s entry in the package SHA256SUMS.
+
+    build_ruaa_bench.py writes SHA256SUMS before this reference submission exists,
+    so the file would otherwise be an unchecksummed package member.
+    """
+    sums_path = path.parent / "SHA256SUMS"
+    rel = path.relative_to(path.parent).as_posix()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    entries = {}
+    if sums_path.exists():
+        for line in sums_path.read_text(encoding="utf-8").splitlines():
+            if line:
+                sha, _, name = line.partition("  ")
+                entries[name] = sha
+    entries[rel] = digest
+    body = "\n".join(f"{entries[name]}  {name}" for name in sorted(entries))
+    sums_path.write_text(body + "\n", encoding="utf-8")
+
+# Order matches the committed docs/ruaa_bench_v1.json so a default rerun
+# reproduces all 7 rows (incl. the slow calibration model stylo_stack).
 DEFAULT_SPECS = ["stylo", "stylo_stack", "delta:300", "delta_cos:500",
                  "char_cos", "bow_lr", "majority"]
 
@@ -76,16 +111,24 @@ def main() -> int:
     print(format_final(table, results))
 
     rows = table.to_dict(orient="records")
-    OUT_JSON.write_text(json.dumps({
+    dump_strict({
         "benchmark": f"{bench['name']} v{bench['version']}",
+        "claim_status": ClaimStatus.EXPLORATORY_INTERNAL.value,
+        "benchmark_role": BenchmarkRole.REPRODUCIBLE_CV_LEGACY_NOT_BLIND.value,
+        "training_weighting": "chunk_weighted_training_legacy",
+        "note": RUAA_V1_NOTE,
         "n_authors": ds.n_authors,
         "n_books": len(set(ds.groups.tolist())),
         "protocol": "leak-free LOBO book-level (см. data/ruaa_bench_v1/protocol.md)",
         "prereg": "docs/prereg_2026Q3.md",
         "leaderboard": rows,
-    }, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+    }, OUT_JSON)
 
-    md = ["# RuAA-Bench v1.0 — официальные baseline-ы",
+    md = ["# RuAA-Bench v1.0 — baseline-ы (`reproducible_cv_legacy_not_blind`)",
+          "",
+          "> Датированный воспроизводимый CV-срез на публичном корпусе, **не blind-лидерборд**",
+          "> и не научный default. Взвешивание — `chunk_weighted_training_legacy`; work-balanced",
+          "> пересчёт и слепой пакет — в v2. `null` в столбцах = метрика неприменима.",
           "",
           "| модель | accuracy | 95% CI (книги) | macro-F1 | top-2 | Δacc vs stylo (author-clustered CI) |",
           "|---|---|---|---|---|---|"]
@@ -104,6 +147,7 @@ def main() -> int:
             w.writerow(["book_id", "pred_author"])
             for r in ref["df"].itertuples():
                 w.writerow([f"{r.test_author}/{r.test_book}", r.pred_author])
+        _record_checksum(REF_CSV)
         print(f"эталонный сабмит: {REF_CSV.relative_to(ROOT)}")
 
     print(f"wrote {OUT_JSON.relative_to(ROOT)} | {OUT_MD.relative_to(ROOT)}")

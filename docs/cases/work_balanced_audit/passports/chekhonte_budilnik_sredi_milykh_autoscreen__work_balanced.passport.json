@@ -1,0 +1,173 @@
+{
+  "case_id": "chekhonte_budilnik_sredi_milykh_autoscreen__work_balanced",
+  "title": "Chekhonte Dubia: 'Sredi milykh moskvichey' against Budilnik/clean neighbors",
+  "hypothesis": "",
+  "target_description": "",
+  "claim": "",
+  "limitations": [],
+  "status": "fail",
+  "verdict": "Feasibility gate не пройден: work_macro_recall=0.4321, permutation_p=0.009. Атрибуцию давать нельзя.",
+  "confidence": "low",
+  "evidence_score": 56.95,
+  "gate_pass": false,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "fail",
+      "gate_pass": false,
+      "work_macro_recall": 0.4321,
+      "chunk_weighted_recall": 0.3683,
+      "work_recall": {
+        "alexander_chekhov": "2/3",
+        "bilibin_clean": "2/21",
+        "chehov_budilnik_1884_1885": "2/12",
+        "lejkin_clean": "20/25"
+      },
+      "chunk_recall": {
+        "alexander_chekhov": "11/26",
+        "bilibin_clean": "2/24",
+        "chehov_budilnik_1884_1885": "4/16",
+        "lejkin_clean": "38/53"
+      },
+      "permutation_p": 0.009,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "alexander_chekhov": {
+          "alexander_chekhov": 11,
+          "bilibin_clean": 6,
+          "chehov_budilnik_1884_1885": 5,
+          "lejkin_clean": 4
+        },
+        "bilibin_clean": {
+          "alexander_chekhov": 13,
+          "bilibin_clean": 2,
+          "chehov_budilnik_1884_1885": 4,
+          "lejkin_clean": 5
+        },
+        "chehov_budilnik_1884_1885": {
+          "alexander_chekhov": 6,
+          "bilibin_clean": 2,
+          "chehov_budilnik_1884_1885": 4,
+          "lejkin_clean": 4
+        },
+        "lejkin_clean": {
+          "alexander_chekhov": 8,
+          "bilibin_clean": 3,
+          "chehov_budilnik_1884_1885": 4,
+          "lejkin_clean": 38
+        }
+      },
+      "n_works": 61,
+      "n_chunks": 119,
+      "failure_modes": [
+        "work_macro_recall_below_0_80"
+      ]
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "alexander_chekhov",
+      "second": "bilibin_clean",
+      "margin": 0.002276,
+      "margin_ci95": [
+        0.000101,
+        0.004322
+      ],
+      "winner_share": {
+        "alexander_chekhov": 1.0
+      },
+      "similarities": [
+        {
+          "candidate": "alexander_chekhov",
+          "cos": 0.935049
+        },
+        {
+          "candidate": "bilibin_clean",
+          "cos": 0.932773
+        },
+        {
+          "candidate": "chehov_budilnik_1884_1885",
+          "cos": 0.924105
+        },
+        {
+          "candidate": "lejkin_clean",
+          "cos": 0.890103
+        }
+      ],
+      "per_chunk_winners": {
+        "alexander_chekhov": 2
+      },
+      "n_chunks": 2
+    }
+  ],
+  "failure_modes": [
+    "work_macro_recall_below_0_80"
+  ],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "work_balanced",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "chehov_budilnik_1884_1885",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/chekhonte_dubia/cand_chehov_budilnik_1884_1885"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "lejkin_clean",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/chekhonte_dubia/cand_lejkin_clean"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "bilibin_clean",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/chekhonte_dubia/cand_bilibin_clean"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "alexander_chekhov",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/chekhonte_dubia/cand_alexander_chekhov"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/chekhonte_dubia/texts/15_среди_милых_москвичей.txt",
+    "sources": [
+      "Local Budilnik/Chekhonte Dubia material."
+    ],
+    "n_candidate_works": 61,
+    "n_candidate_chunks": 119,
+    "works_per_author": {
+      "alexander_chekhov": 3,
+      "bilibin_clean": 21,
+      "chehov_budilnik_1884_1885": 12,
+      "lejkin_clean": 25
+    },
+    "target_chunks": 2
+  },
+  "provenance": {},
+  "notes": "Single Dubia target; likely register and edition effects, so strong verdict needs gate and stable target."
+}

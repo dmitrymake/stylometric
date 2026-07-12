@@ -212,11 +212,14 @@ def main() -> None:
             centroids.append(c)
             continue
 
-        X_sub = X_z[mask]
-        c = X_sub.mean(axis=0)
-        if issparse(c):
-            c = c.toarray()
-        c = np.asarray(c).ravel().astype(np.float32)
+        work_means = []
+        for group in dict.fromkeys(groups_arr[mask].tolist()):
+            work_mean = X_z[mask & (groups_arr == group)].mean(axis=0)
+            if issparse(work_mean):
+                work_mean = work_mean.toarray()
+            work_mean = np.asarray(work_mean).ravel()
+            work_means.append(work_mean / (np.linalg.norm(work_mean) + 1e-12))
+        c = np.mean(work_means, axis=0).astype(np.float32)
         centroids.append(c)
 
     centroids_arr = np.vstack(centroids)

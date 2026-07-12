@@ -102,6 +102,8 @@ const headline = {
   styloMacroF1: stylo.f1,   // = headline.macroF1 (каноническая stylo-LR LOBO)
   top2: stylo.top2, ece: stylo.ece, ci: stylo.ci,
   ensembleTop1: val.ensemble_top1, ensembleMacroF1: val.headline_macro_f1, ensembleTop3: val.ensemble_top3,
+  // train-side взвешивание — по чанкам; work-balanced пересчёт ещё не проведён (§1.2 плана)
+  trainingWeighting: styloCI.training_weighting, claimStatus: styloCI.claim_status,
 };
 track("headline", "docs/final_comparison.csv (stylo-LR LOBO) + docs/stylo_lobo_authorci.json", "канонический headline; ensemble* — диагностика SVM+GKF5");
 
@@ -636,6 +638,14 @@ const pet = load("cases/dostoevsky_petersburg_chronicle.json");
 const ch15 = load("cases/chekhonte_15_micro.json");
 const cal = load("cases/calibration_reference.json");
 const chp = load("cases/nekrasov_panaeva_chapters.json");
+const workBalancedAudit = load("cases/work_balanced_audit/summary.json");
+const kolokolWorkAudit = load("cases/work_balanced_audit/custom/kolokol_herzen_ogaryov.work_balanced.json");
+const sovremennikWorkAudit = load("cases/work_balanced_audit/custom/sovremennik.work_balanced.json");
+const nekrasovWorkAudit = load("cases/work_balanced_audit/custom/nekrasov_panaeva.work_balanced.json");
+const workAuditCase = (stem) => workBalancedAudit.cases.find((row) => row.source_spec.endsWith(`/${stem}.yaml`));
+const workAuditPrimary = (stem) => workAuditCase(stem).work_balanced;
+const petersburgWorkAudit = workAuditPrimary("petersburg_nn_fourway_fw_2000");
+const chekhonteWorkAudit = workAuditPrimary("chekhonte_budilnik_sredi_milykh");
 const limits = {
   threshold: 0.80,
   // (1) метрический урок: один корпус, две единицы голоса. work — один удержанный текст = один
@@ -643,11 +653,11 @@ const limits = {
   //     кусков, эффективный размер выборки иной; в этих кейсах доля ниже). Единица голоса определяет вердикт.
   metric: [
     { id: "sovremennik", label: "Современник: две школы критиков",
-      work: sov.axis_school_radical_vs_aesthete.fw.macro_recall, chunk: sov.axis_school_radical_vs_aesthete.fw.chunk_weighted_recall },
+      work: sovremennikWorkAudit.axis_school_radical_vs_aesthete.fw.macro_recall, chunk: sovremennikWorkAudit.axis_school_radical_vs_aesthete.fw.chunk_weighted_recall },
     { id: "kolokol", label: "Колокол: Герцен и Огарёв",
-      work: kol.fw_only.macro_recall, chunk: kol.fw_only.chunk_weighted_recall },
+      work: kolokolWorkAudit.fw_only.macro_recall, chunk: kolokolWorkAudit.fw_only.chunk_weighted_recall },
     { id: "nekrasov", label: "Некрасов и Панаева (служебные слова)",
-      work: nek.fw_only.macro_recall, chunk: nek.fw_only.chunk_weighted_recall },
+      work: nekrasovWorkAudit.fw_only.macro_recall, chunk: nekrasovWorkAudit.fw_only.chunk_weighted_recall },
   ],
   // (2) калибровочная линейка чтения: две опорные точки на известных авторах
   calibration: {
@@ -659,21 +669,14 @@ const limits = {
     { id: "sovremennik", title: "Современник: две школы критиков",
       question: "Различает ли метод критиков-радикалов и эстетиков?",
       candidates: "радикалы (Чернышевский, Добролюбов) ↔ эстетики (Дружинин, Анненков, Боткин)",
-      macro: sov.axis_school_radical_vs_aesthete.fw.macro_recall, perm: sov.axis_school_radical_vs_aesthete.fw.perm_p,
-      cos: sov.axis_school_radical_vs_aesthete.fw.centroid_cos,
+      macro: sovremennikWorkAudit.axis_school_radical_vs_aesthete.fw.macro_recall, perm: sovremennikWorkAudit.axis_school_radical_vs_aesthete.fw.perm_p,
+      cos: sovremennikWorkAudit.axis_school_radical_vs_aesthete.fw.centroid_cos,
       caveat: "Это разделение конкретных критиков двух школ, не перенос на «школу как класс». Боткин — одна работа (~14k слов), входит только в эстетиков. Значительная доля атрибуций «Современника» закрыта по гонорарным ведомостям (Боград), поэтому часть прогона — калибровка." },
-    { id: "kolokol", title: "Передовые «Колокола»",
-      question: "Делятся ли руки Герцена и Огарёва?",
-      candidates: "Герцен, Огарёв",
-      macro: kol.fw_only.macro_recall, perm: kol.fw_only.work_level_permutation_p, cos: kol.fw_only.cross_author_centroid_cos,
-      caveat: "Эталон Герцена смещён по эпохе и регистру: 82% объёма — «Письма из Франции и Италии» 1846-52 при цели 1857-67. Разделение подписанной прозы — позитив-контроль выполнимости и тай-брейк к филологии по одноавторским передовым, не разрешение атрибуции соавторских текстов." },
     { id: "petersburg", title: "Фельетоны Ф.Д. «Петербургской летописи»",
       question: "Уходят ли фельетоны 1847 года к Достоевскому?",
-      candidates: "Достоевский (проза и публицистика), Плещеев, Соллогуб",
-      macro: pet.positive_control.macro_recall, perm: pet.positive_control.work_level_permutation_p,
-      boot: pet.FD_feuilletons_attribution.bootstrap_dostoevsky_share,
-      dist: pet.FD_feuilletons_attribution.whole_distinctiveness,
-      caveat: "Результат у самой границы порога, отрыв победителя мизерный. Эталон публицистики Достоевского («Дневник писателя») на 26 лет позже фельетонов 1847, поэтому близость несёт и сдвиг эпохи. Это публицистический эталон для последующего теста спорного Н.Н., не уверенная атрибуция." },
+      candidates: "Достоевский (публицистика), Соллогуб, Плещеев, Панаев",
+      macro: petersburgWorkAudit.work_macro_recall, perm: petersburgWorkAudit.permutation_p,
+      caveat: "Панель остаётся выше порога после равного веса работ, но спорный Н.Н. расколот 1:1 между публицистикой Достоевского и Панаевым. Это выполнимость панели, не положительная атрибуция Н.Н." },
   ],
   // (4) карта режимов — где метод честно отказывает, и почему именно
   limitsCases: [
@@ -681,23 +684,32 @@ const limits = {
       question: "Делятся соавторы по личному почерку или по теме?",
       candidates: "Некрасов, Панаева",
       reason: "автор ≡ тема",
-      fwMacro: nek.fw_only.macro_recall, fwPerm: nek.fw_only.work_level_permutation_p,
-      char3Macro: nek.fw_char3.macro_recall, char3Perm: nek.fw_char3.work_level_permutation_p,
-      cos: nek.fw_only.cross_author_centroid_cos, kappa: chp.summary.char3_fw_kappa },
+      fwMacro: nekrasovWorkAudit.fw_only.macro_recall, fwPerm: nekrasovWorkAudit.fw_only.work_level_permutation_p,
+      char3Macro: nekrasovWorkAudit.fw_char3.macro_recall, char3Perm: nekrasovWorkAudit.fw_char3.work_level_permutation_p,
+      cos: nekrasovWorkAudit.fw_only.cross_author_centroid_cos, kappa: chp.summary.char3_fw_kappa },
     { id: "pair", title: "Современник: учитель и ученик",
       question: "Делится ли пара Чернышевский ↔ Добролюбов внутри одной школы?",
       candidates: "Чернышевский, Добролюбов",
       reason: "сросшиеся руки у границы",
-      macro: sov.axis_pair_chernyshevsky_vs_dobrolyubov.fw.macro_recall, perm: sov.axis_pair_chernyshevsky_vs_dobrolyubov.fw.perm_p,
-      cos: sov.axis_pair_chernyshevsky_vs_dobrolyubov.fw.centroid_cos },
+      macro: sovremennikWorkAudit.axis_pair_chernyshevsky_vs_dobrolyubov.fw.macro_recall, perm: sovremennikWorkAudit.axis_pair_chernyshevsky_vs_dobrolyubov.fw.perm_p,
+      cos: sovremennikWorkAudit.axis_pair_chernyshevsky_vs_dobrolyubov.fw.centroid_cos },
+    { id: "kolokol", title: "Передовые «Колокола»",
+      question: "Делятся ли руки Герцена и Огарёва?",
+      candidates: "Герцен, Огарёв",
+      reason: "сросшиеся руки · train-side audit",
+      macro: kolokolWorkAudit.fw_only.macro_recall,
+      perm: kolokolWorkAudit.fw_only.work_level_permutation_p,
+      cos: kolokolWorkAudit.fw_only.cross_author_centroid_cos },
     { id: "chekhonte", title: "«Среди милых москвичей»",
       question: "Однородна ли чеховская подборка из колонки «Будильника»?",
       candidates: "Чехонте, Билибин, Лейкин, Александр Чехов",
-      reason: "панель у случайности · источник недоступен",
-      recall: ch15.positive_control.per_class_recall.chehov, dist: ch15.whole.distinctiveness, status: ch15.status },
+      reason: "панель у случайности · source-check доступен",
+      macro: chekhonteWorkAudit.work_macro_recall,
+      perm: chekhonteWorkAudit.permutation_p,
+      status: chekhonteWorkAudit.status },
   ],
 };
-track("limits", "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference}.json", "метрический урок + карта режимов честного протокола");
+track("limits", "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference,work_balanced_audit/{summary.json,custom/{kolokol_herzen_ogaryov,sovremennik,nekrasov_panaeva}.work_balanced.json}}", "post-audit метрический урок + карта режимов честного протокола");
 
 // ── Taras Bulba hardened case: паспорта gate-first слоя ──
 const tarasStrict = load("cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json");
@@ -723,6 +735,8 @@ const tarasPeriod = load("cases/taras_hardened/passports/taras_bulba_additions_s
 const tarasProkopovich = load("cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json");
 const tarasDelta = load("cases/taras_hardened/reports/delta_replication.json");
 const tarasExtraction = load("cases/taras_hardened/reports/extraction_audit.json");
+const tarasWorkAudit = workBalancedAudit;
+const tarasDeltaAudit = load("cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json");
 const firstGate = (p) => p.gates?.[0] || {};
 const firstAttr = (p) => p.attributions?.[0] || {};
 const caseRow = (p) => {
@@ -741,7 +755,7 @@ const caseRow = (p) => {
 const deltaFw = tarasDelta.panels.suspects.modes.delta_fw;
 const tarasCase = {
   hypothesis: tarasStrict.hypothesis,
-  claim: "Крупные добавления редакции 1842 года идут к Гоголю и против фактического подозреваемого (Анненкова), и на панели авторов той же эпохи; независимый метод (Burrows Delta) даёт то же решение. Версия большой чужой вставки данными не поддерживается.",
+  claim: "После work-balanced аудита уникальная рука крупных добавлений не установлена: multi-candidate панели не проходят gate, а валидные бинарные панели и Delta-режимы меняют направление вместе с составом кандидатов и признаков.",
   headline: [caseRow(tarasSusV2Strict), caseRow(tarasSusV2Loose)],
   basePanel: [caseRow(tarasStrict), caseRow(tarasLoose)],
   annenkovBinary: caseRow(tarasAnnBinary),
@@ -767,6 +781,25 @@ const tarasCase = {
     deltaFwBaseTop: deltaFw.targets.gogol1835_base_control.top,
     deltaFwBaseShare: deltaFw.targets.gogol1835_base_control.winner_share,
   },
+  postAudit: {
+    date: tarasWorkAudit.date,
+    status: tarasWorkAudit.status,
+    centroidWeighting: tarasWorkAudit.estimands.work_balanced,
+    suspectsStrict: workAuditPrimary("taras_bulba_additions_strict_suspects_v2_fw_2000"),
+    samePeriodStrict: workAuditPrimary("taras_bulba_additions_strict_sameperiod_fw_2000"),
+    topicStrict: workAuditPrimary("taras_bulba_additions_strict_topic_cossack_fw_2000"),
+    annenkovBinary: workAuditPrimary("taras_bulba_additions_strict_annenkov_binary_fw_2000"),
+    somovBinary: workAuditPrimary("taras_bulba_additions_strict_somov_binary_fw_2000"),
+    delta: {
+      suspectsFw: tarasDeltaAudit.panels.suspects.modes.delta_fw,
+      suspectsMfw: tarasDeltaAudit.panels.suspects.modes.delta_mfw,
+      somovBinaryFw: tarasDeltaAudit.panels.somov_binary.modes.delta_fw,
+      somovBinaryMfw: tarasDeltaAudit.panels.somov_binary.modes.delta_mfw,
+      topicFw: tarasDeltaAudit.panels.topic.modes.delta_fw,
+      topicMfw: tarasDeltaAudit.panels.topic.modes.delta_mfw,
+    },
+    conclusion: "Многоавторные панели не проходят порог 0.80; две валидные бинарные панели дают разные ближайшие руки. Уникальная атрибуция крупных добавлений не установлена.",
+  },
   extraction: {
     strictIn1842: tarasExtraction.containment.strict_in_1842,
     strictIn1835: tarasExtraction.containment.strict_in_1835,
@@ -786,7 +819,7 @@ const tarasCase = {
     rawPolicy: tarasManifest.raw_policy,
   },
 };
-track("tarasCase", "docs/cases/taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json}", "Taras hardened: suspects v2 headline, annenkov binary, same-period, контрольная батарея 4/4, топик- и период-диагностики, Delta-репликация, аудит извлечения");
+track("tarasCase", "docs/cases/{taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json},work_balanced_audit/{summary.json,custom/taras_delta_full_refit_work_balanced.json}}", "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits");
 
 // ── воспроизводимость gate-кейсов: перепрогон бит-в-бит — docs/repro_gates.json ──
 const rg = load("repro_gates.json");

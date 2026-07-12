@@ -9,7 +9,6 @@
 """
 from __future__ import annotations
 
-import json
 import logging
 import pathlib
 
@@ -18,6 +17,7 @@ import joblib
 from ..config import load_config
 from ..corpus import load_dataset
 from ..features.reps import make_rep_cache
+from ..jsonio import dump_strict
 from ..models.delta import BurrowsDelta
 from ..models.lr import make_full_pipeline
 from ..vectorizer import StyloVectorizer
@@ -42,17 +42,16 @@ def run(cfg=None, warm: bool = True) -> None:
     vec = StyloVectorizer.from_config(cfg)
     pipe = make_full_pipeline(cfg, vec)
     log.info("Обучаю основной пайплайн…")
-    pipe.fit(list(ds.texts), ds.y)
+    pipe.fit(list(ds.texts), ds.y, groups=ds.groups)
     joblib.dump(pipe, data / "model.pkl")
     log.info("Сохранено: %s", data / "model.pkl")
 
     mfw = cfg.get_path("delta.mfw_sizes", [300])
     delta = BurrowsDelta(mfw_count=mfw[len(mfw) // 2] if mfw else 300,
                          metric=cfg.get_path("delta.metric", "manhattan"))
-    delta.fit(list(ds.texts), ds.y)
+    delta.fit(list(ds.texts), ds.y, groups=ds.groups)
     joblib.dump(delta, data / "delta.pkl")
     log.info("Сохранено: %s", data / "delta.pkl")
 
-    (data / "authors.json").write_text(json.dumps(ds.authors, ensure_ascii=False, indent=2),
-                                       encoding="utf-8")
+    dump_strict(ds.authors, data / "authors.json", trailing_newline=False)
     log.info("Обучение завершено.")

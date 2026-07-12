@@ -10,6 +10,10 @@ dist/
 .ruff_cache/
 .ipynb_checkpoints/
 
+# Canonical reproducibility pins are in requirements.lock. uv.lock is a local
+# resolver artifact unless deliberately regenerated and reviewed for release.
+uv.lock
+
 # ───────────────────── Virtual envs ───────────────────────
 .venv/
 venv/
@@ -108,3 +112,7 @@ docs/case_discovery_backlog.md
 docs/popular_article_outline.md
 scripts/gen-paper.mjs
 scripts/check-paper-numbers.mjs
+
+# внутренний план/скретч исполнения — локально, не для публичной репы
+CLAUDE_OPUS_BREAKTHROUGH_PLAN.md
+cont.txt

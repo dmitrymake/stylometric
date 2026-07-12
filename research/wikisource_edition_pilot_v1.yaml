@@ -1,0 +1,65 @@
+schema_version: "1.0"
+status: exploratory_internal_not_preregistered
+description: >-
+  Two-author feasibility panel. Wikisource versions are pinned in this spec;
+  local_clean texts have unknown upstream provenance and make this panel
+  unsuitable for a release claim.
+min_block_words: 80
+min_total_matched_words: 1000
+
+works:
+  - author: chehov
+    work_key: dama_s_sobachkoy
+    period: 1890s
+    local_path: input_clean/chehov/дама_с_собачкой.txt
+    versions:
+      - title: Дама с собачкой (Чехов)
+        revid: 5680749
+      - title: Дама с собачкой (Чехов)/Версия 2
+        revid: 5596428
+  - author: chehov
+    work_key: anna_na_shee
+    period: 1890s
+    local_path: input_clean/chehov/анна_на_шее.txt
+    versions:
+      - title: Анна на шее (Чехов)
+        revid: 5320963
+      - title: Анна на шее (Чехов)/Версия 2
+        revid: 5595903
+  - author: chehov
+    work_key: ionych
+    period: 1890s
+    local_path: input_clean/chehov/ионыч.txt
+    versions:
+      - title: Ионыч (Чехов)
+        revid: 5321162
+      - title: Ионыч (Чехов)/Версия 2
+        revid: 5596426
+
+  - author: gogol
+    work_key: nevsky_prospekt
+    period: 1830s
+    local_path: input_clean/gogol/невский_проспект.txt
+    versions:
+      - title: Невский проспект (Гоголь)
+        revid: 5628084
+      - title: Невский проспект (Гоголь)/Версия 2
+        revid: 5604560
+  - author: gogol
+    work_key: kolyaska
+    period: 1830s
+    local_path: input_clean/gogol/коляска.txt
+    versions:
+      - title: Коляска (Гоголь)
+        revid: 5628140
+      - title: Коляска (Гоголь)/Версия 2
+        revid: 5586573
+  - author: gogol
+    work_key: viy
+    period: 1830s
+    local_path: input_clean/gogol/вий.txt
+    versions:
+      - title: Вий (Гоголь)
+        revid: 5635003
+      - title: Вий (Гоголь)/Версия 2
+        revid: 5604369

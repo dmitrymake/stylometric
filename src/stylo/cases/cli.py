@@ -1,10 +1,10 @@
 """CLI helpers for `stylo case ...`."""
 from __future__ import annotations
 
-import json
 import pathlib
 from typing import Iterable, List
 
+from ..jsonio import dump_strict
 from .framework import (dossier_markdown, load_case_spec, load_passport, passport_markdown,
                         rank_passports, run_case, write_passport)
 
@@ -34,9 +34,7 @@ def load_or_run_many(paths: Iterable[str]) -> List[dict]:
 def rank(paths: Iterable[str], out: str | None = None) -> List[dict]:
     rows = rank_passports(load_or_run_many(paths))
     if out:
-        p = pathlib.Path(out)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        dump_strict(rows, out)
     return rows
 
 

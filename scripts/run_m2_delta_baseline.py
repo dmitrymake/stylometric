@@ -24,6 +24,7 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
 from stylo.models.delta import BurrowsDelta  # noqa: E402
 
@@ -67,16 +68,19 @@ def delta_macro(by_work, works, label_of, classes, vocab):
     wl_t = {c: 0 for c in classes}
     for w in works:
         truth = label_of[w]
-        X, Y = [], []
+        X, Y, groups = [], [], []
         for ow in works:
             if ow == w:
                 continue
             for t in by_work[ow]:
                 X.append(t)
                 Y.append(label_of[ow])
+                groups.append(ow)
         if len(set(Y)) < 2:
             continue
-        clf = BurrowsDelta(MFW, "manhattan", vocabulary=vocab).fit(X, Y)
+        clf = BurrowsDelta(MFW, "manhattan", vocabulary=vocab).fit(
+            X, Y, groups=groups
+        )
         preds = list(clf.predict(by_work[w]))
         wl_c[truth] += Counter(preds).most_common(1)[0][0] == truth
         wl_t[truth] += 1
@@ -90,10 +94,12 @@ def run_case(cfg):
     by_work, true_label = {}, {}
     for a in classes:
         for w, t in raw[a]:
-            by_work.setdefault(w, []).append(t)
-            true_label[w] = a
+            work_id = (a, w)
+            by_work.setdefault(work_id, []).append(t)
+            true_label[work_id] = a
     works = list(by_work)
     res = {"title": cfg["title"], "classes": classes,
+           "train_centroid_weighting": "equal_work_after_within_work_chunk_mean",
            "n_works": {a: len({w for w, _ in raw[a]}) for a in classes},
            "n_chunks": {a: len(raw[a]) for a in classes},
            "fw_cosine_gate": cfg["fw_gate"],
@@ -135,7 +141,7 @@ def main():
                              "Добролюбов †1861). Корпуса переиспользованы из кейсов nekrasov_panaeva и sovremennik "
                              "(gitignored input_cases/); в git — только скрипты и этот JSON.")
     report["analysis_command"] = "PYTHONPATH=src python3 scripts/run_m2_delta_baseline.py"
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"\nзаписано {OUT.relative_to(ROOT)}")
     print("СВОДКА:", report["verdict"][:120])
 

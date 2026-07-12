@@ -28,8 +28,14 @@ import numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
-from _gate_metrics import leave_one_work_out, both_metrics, work_permutation_p  # noqa: E402
+from _gate_metrics import (  # noqa: E402
+    both_metrics,
+    leave_one_work_out,
+    work_balanced_centroid,
+    work_permutation_p,
+)
 
 OUT = ROOT / "docs" / "cases" / "calibration_reference.json"
 WORD = r"[а-яёА-ЯЁ]+"
@@ -86,8 +92,6 @@ def run(a_name, a_dir, b_name, b_dir):
             data.append((name, work, vec(text)))
     authors = [a_name, b_name]
     works = {a: sorted({w for au, w, _ in data if au == a}) for a in authors}
-    cen = lambda vs: _unit(np.mean(vs, axis=0))
-
     # ОБЕ метрики раздельно: work_macro_recall (один текст = один голос) и chunk_weighted (диагностика).
     wcp, confusion, _w = leave_one_work_out(data, authors)
     M = both_metrics(wcp, authors)
@@ -98,7 +102,10 @@ def run(a_name, a_dir, b_name, b_dir):
     # перестановка ярлыков работ на work-level метрике; exact-перечисление при малом числе работ.
     perm_p, perm_method, perm_floor = work_permutation_p(data, lambda a: a, authors)
 
-    full = {a: cen([v for au, _, v in data if au == a]) for a in authors}
+    full = {
+        a: work_balanced_centroid((work, v) for au, work, v in data if au == a)
+        for a in authors
+    }
     cos = round(float(np.dot(full[authors[0]], full[authors[1]])), 4)
     return {
         "per_author_recall": per_author_recall,            # work-level (один текст = один голос)
@@ -109,6 +116,7 @@ def run(a_name, a_dir, b_name, b_dir):
         "permutation_method": perm_method,                 # exact_N или random_N
         "permutation_exact_floor": perm_floor,             # минимально достижимое точное p = 1/C(W,n1)
         "cross_author_centroid_cos": cos,
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         "confusion": confusion,
         "works": {a: len(works[a]) for a in authors},
     }
@@ -192,7 +200,7 @@ def main():
         ],
         "analysis_command": "PYTHONPATH=src python3 scripts/run_calibration_pair.py",
     }
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
     print("SCALE:", report["scale_reading"])
     print("VERDICT:", report["verdict"])

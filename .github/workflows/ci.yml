@@ -1,0 +1,35 @@
+name: CI (release gate + P0 safety)
+
+# Blocks any push/PR whose published history would carry a private corpus path,
+# and runs the P0 scientific-reset safety tests (strict JSON, claim-status,
+# release hygiene). Full corpus / spaCy model are not needed for these.
+
+on:
+  push:
+    branches: [main, release]
+  pull_request:
+    branches: [main, release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full reachable history: a push publishes all of it
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Publish-ref hygiene gate
+        run: python scripts/check_release_hygiene.py --publish-ref HEAD
+      - name: Install P0 test deps
+        # deps the P0 tests import transitively (stylo.cases.framework); no spaCy/torch.
+        run: python -m pip install --quiet numpy scipy scikit-learn pandas pyyaml pytest
+      - name: P0 safety tests
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests/test_p0_scientific_reset.py -q -p no:cacheprovider

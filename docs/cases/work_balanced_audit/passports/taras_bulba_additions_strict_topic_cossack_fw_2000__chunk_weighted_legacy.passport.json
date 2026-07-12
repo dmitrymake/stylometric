@@ -1,0 +1,180 @@
+{
+  "case_id": "taras_bulba_additions_strict_topic_cossack_fw_2000__chunk_weighted_legacy",
+  "title": "Taras Bulba 1842 strict additions vs cossack-theme controls: fw_fixed random_2000",
+  "hypothesis": "The additions match any cossack/Ukrainian-theme prose of the era, not Gogol specifically.",
+  "target_description": "strict additions vs cossack topic panel",
+  "claim": "In this protocol the additions are read against non-Gogol cossack/Ukrainian prose (Somov, Narezhny, Grebenka): a topic-driven signal would spread across the topic panel.",
+  "limitations": [
+    "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+    "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target чаще ближе к somov, но запас/бутстрап недостаточны для strong verdict (winner_share=0.75, margin=0.009507).",
+  "confidence": "medium",
+  "evidence_score": 82.9,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8,
+      "chunk_weighted_recall": 0.6937,
+      "work_recall": {
+        "gogol": "9/10",
+        "grebenka": "9/10",
+        "narezhny": "3/4",
+        "somov": "13/20"
+      },
+      "chunk_recall": {
+        "gogol": "111/144",
+        "grebenka": "58/73",
+        "narezhny": "99/145",
+        "somov": "49/93"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "gogol": {
+          "gogol": 111,
+          "grebenka": 17,
+          "narezhny": 6,
+          "somov": 10
+        },
+        "grebenka": {
+          "gogol": 1,
+          "grebenka": 58,
+          "narezhny": 2,
+          "somov": 12
+        },
+        "narezhny": {
+          "gogol": 8,
+          "grebenka": 2,
+          "narezhny": 99,
+          "somov": 36
+        },
+        "somov": {
+          "gogol": 11,
+          "grebenka": 11,
+          "narezhny": 22,
+          "somov": 49
+        }
+      },
+      "n_works": 44,
+      "n_chunks": 455,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "somov",
+      "second": "gogol",
+      "margin": 0.009507,
+      "margin_ci95": [
+        0.003628,
+        0.015046
+      ],
+      "winner_share": {
+        "somov": 0.75,
+        "gogol": 0.25
+      },
+      "similarities": [
+        {
+          "candidate": "somov",
+          "cos": 0.977612
+        },
+        {
+          "candidate": "gogol",
+          "cos": 0.968105
+        },
+        {
+          "candidate": "narezhny",
+          "cos": 0.954361
+        },
+        {
+          "candidate": "grebenka",
+          "cos": 0.951487
+        }
+      ],
+      "per_chunk_winners": {
+        "somov": 12,
+        "gogol": 4
+      },
+      "n_chunks": 16
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "chunk_weighted_legacy",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "somov",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_somov"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "narezhny",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_narezhny"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "grebenka",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_grebenka"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 44,
+    "n_candidate_chunks": 455,
+    "works_per_author": {
+      "gogol": 10,
+      "grebenka": 10,
+      "narezhny": 4,
+      "somov": 20
+    },
+    "target_chunks": 16
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_topic_cossack_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_topic_cossack_fw_2000.passport.json"
+  },
+  "notes": "Topic control: Somov (d. 1833), Narezhny (d. 1825), Grebenka (Чайковский 1843, Золотаренко 1842) — казачья/украинская проза без Гоголя."
+}

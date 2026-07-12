@@ -11,6 +11,9 @@ import pathlib
 import os
 
 from utils import make_sent_chunks
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -159,7 +162,7 @@ def main():
 
     pathlib.Path("data").mkdir(exist_ok=True)
     with open("data/chunk_map.json", "w", encoding="utf-8") as f:
-        json.dump(mapping, f, ensure_ascii=False, indent=2)
+        f.write(dumps_strict(mapping, indent=2))
 
     logging.info("Нарезка по предложениям завершена.")
 

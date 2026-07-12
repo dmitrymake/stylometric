@@ -18,6 +18,8 @@ from sklearn.metrics import accuracy_score, f1_score
 import warnings; warnings.filterwarnings("ignore")
 SEED = 42
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 PARQUET = ROOT / "data" / "external" / "proza_ru_hard.parquet"
 NAUTH, PER = 50, 60
 def log(*a): print(*a, flush=True)
@@ -94,7 +96,7 @@ def main():
     for k, v in sorted(res.items(), key=lambda x: -x[1][0]):
         log(f"  {k:28} {v[0]:.3f} / {v[1]:.3f}")
     (ROOT / "docs" / "luar_proza.json").write_text(
-        json.dumps({"dataset": "Proza.ru hard 50auth 50/50 seed42", "results_top1_macroF1": {k: list(v) for k, v in res.items()}}, ensure_ascii=False, indent=2), "utf-8")
+        dumps_strict({"dataset": "Proza.ru hard 50auth 50/50 seed42", "results_top1_macroF1": {k: list(v) for k, v in res.items()}}, ensure_ascii=False, indent=2), "utf-8")
     log("\nsaved docs/luar_proza.json")
 
 if __name__ == "__main__":

@@ -21,6 +21,9 @@ import re
 from typing import Dict, List
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 STAGING = ROOT / "_staging_corpora"
 CASE_DIR = ROOT / "input_cases" / "taras_bulba"
 MANIFEST_PATH = ROOT / "docs" / "cases" / "taras_hardened" / "panel_manifest.json"
@@ -168,7 +171,7 @@ def main() -> int:
               f"{manifest['candidates'][cand_id]['words']} слов")
     manifest["diagnostic_targets"]["prokopovich_letters_1843"] = fetch_prokopovich()
     MANIFEST_PATH.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        dumps_strict(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {MANIFEST_PATH.relative_to(ROOT)}")
     return 0
 

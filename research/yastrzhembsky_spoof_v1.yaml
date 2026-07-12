@@ -1,0 +1,97 @@
+schema_version: "1.0"
+status: transcription_staging_ready_double_key_pending
+case_id: yastrzhembsky_dead_souls_spoof
+task: spoof
+benchmark_role: public_development_gold_not_blind
+language: ru
+claimed_author: gogol
+truth:
+  document_label: spoof_non_gogol
+  responsible_author: yastrzhembsky
+  responsible_author_confidence: high
+  ground_truth_known: true
+  source_type: derivative_spoof
+  caveat: >-
+    The document-level non-Gogol label is stronger than a sentence-level claim
+    of wholly original Yastrzhembsky authorship because the imitation reworks a
+    copy of Gogol's second-part material.
+
+publication:
+  title: "Новые отрывки и варианты второй части «Мертвых душ»"
+  journal: "Русская старина"
+  year: 1872
+  volume: 5
+  approximate_composition_year: 1859
+  scan:
+    commons_page: https://commons.wikimedia.org/wiki/File:1872,_Russkaya_starina,_Vol_5._№1-6.pdf
+    download_url: https://commons.wikimedia.org/wiki/Special:Redirect/file/1872%2C_Russkaya_starina%2C_Vol_5._%E2%84%961-6.pdf
+    rusneb_catalog: https://rusneb.ru/catalog/000199_000009_013629827/
+    rsl_viewer_start: https://viewer.rsl.ru/rsl01013629827?page=103
+    license: public_domain_scan_of_public_domain_original
+    downloaded_file: data/yastrzhembsky_spoof_v1/raw/russkaya_starina_1872_v5.pdf
+    sha256: 53aadb87879b5b5d79f946d26e0cb6ed260b9c17d667d8d67a9a62af0c79279f
+    bytes: 69715977
+    pdf_pages: 1032
+  extraction:
+    source_pdf_start_page: 95
+    source_pdf_end_page: 123
+    printed_start_page: 89
+    printed_end_page: 117
+    derived_scan_file: data/yastrzhembsky_spoof_v1/derived/yastrzhembsky_spoof_scan_pages_095_123.pdf
+    derived_scan_sha256: de45cf9e453cfe2b456219fdc688faa4223f11cb6934700a0664a0980e9ee06f
+    start_anchor: "ГЛАВА I"
+    first_text_anchor: "Что же дѣлалось потомъ до самаго ужина"
+    stop_before_anchor: "Сообщ. М. М. Богоявленский"
+    exclude_editorial_preface: true
+    exclude_editorial_signature: true
+    page_numbers_are_viewer_specific: true
+
+ground_truth_evidence:
+  primary:
+    journal: "Русская старина"
+    year: 1873
+    volume: 8
+    article: "Подделка под Гоголя"
+    commons_page: https://commons.wikimedia.org/wiki/File:1873,_Russkaya_starina,_Vol_8._№7-12_and_table_of_contents_vol._7,8.pdf
+    download_url: https://commons.wikimedia.org/wiki/Special:Redirect/file/1873%2C_Russkaya_starina%2C_Vol_8._%E2%84%967-12_and_table_of_contents_vol._7%2C8.pdf
+    rusneb_viewer_start: https://viewer.rusneb.ru/000199_000009_013629853?page=336
+    downloaded_file: data/yastrzhembsky_spoof_v1/raw/russkaya_starina_1873_v8.pdf
+    sha256: 642a2aff21a6d11eb2f6c0b3ea8df76ad70ce55e7913115e782cfeb5d2ae390e
+    bytes: 64381823
+    pdf_pages: 1097
+    source_pdf_start_page: 251
+    source_pdf_end_page: 259
+    printed_start_page: 244
+    printed_end_page: 252
+    title_anchor: "Подделка подъ Гоголя"
+    derived_scan_file: data/yastrzhembsky_spoof_v1/derived/yastrzhembsky_evidence_scan_pages_251_259.pdf
+    derived_scan_sha256: e355f79cc0bd238dd86105e6e6ed10c9633e882fd9b4bb456e82f994898b958f
+    evidence: >-
+      Signed acknowledgement by Yastrzhembsky plus the journal's report of
+      manuscript and letter verification.
+  secondary_check:
+    url: https://www.ndu.edu.ua/images/stories/polissya/p_67.pdf
+
+transcription_staging:
+  generator: scripts/stage_yastrzhembsky_transcription.py
+  manifest: research/yastrzhembsky_transcription_staging_manifest_v1.json
+  render_dpi: 300
+  render_mode: grayscale_full_page_no_crop
+  target_pages: 29
+  evidence_pages: 9
+  embedded_pdf_text_layer: absent
+  benchmark_text_status: not_created
+  double_key_status: pending
+  scorer_status: blocked_pending_reconciled_double_key_text
+  mixed_boundaries: not_claimed_not_inferred
+  benchmark_role: public_development_gold_not_blind
+
+release_requirements:
+  - download_and_record_raw_pdf_sha256
+  - record_exact_pdf_page_indices_and_printed_page_numbers
+  - create_diplomatic_pre_reform_transcription
+  - independent_second_key_or_page_by_page_review
+  - derive_normalised_copy_with_reproducible_transform_log
+  - include_genuine_gogol_controls_from_source_matched_edition
+  - exclude_from_external_blind_endpoint_case_identity_and_truth_already_public
+  - publish_as_development_gold_only_after_transcription_gates

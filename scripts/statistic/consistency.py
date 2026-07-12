@@ -56,34 +56,29 @@ def main():
         all_auth_idxs = author_indices[auth_idx]
         if not all_auth_idxs: continue
             
-        # Считаем глобальную сумму (центроид автора) эффективно через sparse
-        # X[indices] возвращает sparse submatrix
-        auth_submatrix = X[all_auth_idxs]
-        total_sum = auth_submatrix.sum(axis=0) # matrix (1, n_features)
-        if issparse(total_sum): total_sum = total_sum.toarray()
-        total_sum = np.asarray(total_sum).flatten()
-        
-        total_count = len(all_auth_idxs)
-        
         auth_books = sorted(list(set(groups[all_auth_idxs])))
+        # Равный train-side вес книг: сначала среднее чанков каждой книги,
+        # затем среднее книг автора. Длинная книга не доминирует в LOBO-centroid.
+        book_means = {}
+        for book_grp in auth_books:
+            book_mean = X[book_indices[book_grp]].mean(axis=0)
+            if issparse(book_mean):
+                book_mean = book_mean.toarray()
+            book_mean = np.asarray(book_mean).flatten()
+            book_means[book_grp] = book_mean / (np.linalg.norm(book_mean) + 1e-12)
+        total_work_sum = np.sum(list(book_means.values()), axis=0)
         distances_buffer = [] 
 
         for book_grp in auth_books:
             b_idxs = book_indices[book_grp]
             
             book_submatrix = X[b_idxs]
-            book_sum = book_submatrix.sum(axis=0)
-            if issparse(book_sum): book_sum = book_sum.toarray()
-            book_sum = np.asarray(book_sum).flatten()
-            
-            book_count = len(b_idxs)
-            
             # LOBO Centroid
-            remainder_count = total_count - book_count
+            remainder_count = len(auth_books) - 1
             if remainder_count <= 0:
                 continue
             
-            lobo_centroid = (total_sum - book_sum) / remainder_count
+            lobo_centroid = (total_work_sum - book_means[book_grp]) / remainder_count
             
             # Тут придется идти циклом или батчами, т.к. cosine в scipy требует 1D
             # Для скорости можно использовать sklearn cosine_distances(book_submatrix, lobo_centroid)

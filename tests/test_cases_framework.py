@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
+import numpy as np
+
 from stylo.cases import load_case_spec, rank_passports, run_case
+from stylo.cases import framework as case_framework
 from stylo.cli import main
 
 
@@ -45,7 +48,9 @@ def test_case_spec_and_run_strong(tmp_path):
 
     passport = run_case(spec).to_dict()
 
+    assert spec.centroid_weighting == "work_balanced"
     assert passport["case_id"] == "synthetic_clear"
+    assert passport["data"]["centroid_weighting"] == "work_balanced"
     assert passport["gate_pass"] is True
     assert passport["status"] == "strong"
     assert passport["gates"][0]["work_macro_recall"] == 1.0
@@ -237,3 +242,237 @@ def test_gate_float_tolerance():
     macro = sum(vals) / len(vals)
     assert macro < 0.80  # сам float-эффект
     assert macro >= 0.80 - 1e-9
+
+
+def test_work_balanced_centroid_ignores_unequal_chunk_counts():
+    # Author A has two orthogonal works. Repeating chunks in the second work
+    # must not give that work extra weight under the scientific default. The
+    # explicit legacy mode preserves the historical chunk-weighted flip.
+    a_short = [[1.0, 0.0]]
+    a_long_once = [[0.0, 1.0]]
+    a_long_repeated = a_long_once * 9
+    b_works = [[0.6, 0.8], [0.6, 0.8]]
+    target = np.asarray([[1.0, 0.0]])
+
+    def predict(a_long, weighting):
+        rows = np.asarray(a_short + a_long + b_works)
+        labels = ["a"] * (len(a_short) + len(a_long)) + ["b", "b"]
+        work_ids = ["a_short"] + ["a_long"] * len(a_long) + ["b1", "b2"]
+        return case_framework._predict_by_centroid(
+            rows,
+            labels,
+            target,
+            train_work_ids=work_ids,
+            centroid_weighting=weighting,
+        )[0]
+
+    assert predict(a_long_once, "work_balanced") == "a"
+    assert predict(a_long_repeated, "work_balanced") == "a"
+    assert predict(a_long_once, "chunk_weighted_legacy") == "a"
+    assert predict(a_long_repeated, "chunk_weighted_legacy") == "b"
+
+
+def test_work_balanced_loo_excludes_held_out_work_before_centroid(monkeypatch):
+    works = [
+        case_framework.Work("a", "a1", "", ("", "")),
+        case_framework.Work("a", "a2", "", ("",)),
+        case_framework.Work("b", "b1", "", ("",)),
+        case_framework.Work("b", "b2", "", ("", "")),
+    ]
+    ctx = case_framework.FwContext(
+        X=np.asarray([
+            [1.0, 0.0], [1.0, 0.0],
+            [0.9, 0.1],
+            [0.0, 1.0],
+            [0.1, 0.9], [0.1, 0.9],
+        ]),
+        chunk_work=np.asarray([0, 0, 1, 2, 3, 3]),
+    )
+    seen_train_work_ids = []
+    original = case_framework._predict_by_centroid
+
+    def spy(Xtr, ytr, Xte, *, train_work_ids=None, centroid_weighting=None):
+        seen_train_work_ids.append(set(train_work_ids))
+        return original(
+            Xtr,
+            ytr,
+            Xte,
+            train_work_ids=train_work_ids,
+            centroid_weighting=centroid_weighting,
+        )
+
+    monkeypatch.setattr(case_framework, "_predict_by_centroid", spy)
+    case_framework._leave_one_work_out_fw_context(
+        works,
+        [w.author for w in works],
+        ctx,
+        centroid_weighting="work_balanced",
+    )
+
+    assert seen_train_work_ids == [
+        {1, 2, 3},
+        {0, 2, 3},
+        {0, 1, 3},
+        {0, 1, 2},
+    ]
+
+
+def test_gate_and_permutation_share_explicit_centroid_weighting(monkeypatch):
+    works = [
+        case_framework.Work("a", "a1", "", ("и и и и",)),
+        case_framework.Work("a", "a2", "", ("и и и",)),
+        case_framework.Work("b", "b1", "", ("но но но но",)),
+        case_framework.Work("b", "b2", "", ("но но но",)),
+    ]
+    spec = case_framework.CaseSpec(
+        case_id="weighting_plumbing",
+        title="weighting plumbing",
+        candidates=(),
+        feature_sets=("fw_fixed",),
+        centroid_weighting="chunk_weighted_legacy",
+        max_exact_permutations=10,
+        random_permutations=5,
+    )
+    seen_direct = []
+    seen_cached = []
+    original_direct = case_framework._leave_one_work_out_fw_context
+    original_cached = case_framework._leave_one_work_out_fw_cached
+
+    def spy_direct(works, labels, ctx, centroid_weighting="work_balanced"):
+        seen_direct.append(centroid_weighting)
+        return original_direct(
+            works, labels, ctx, centroid_weighting=centroid_weighting
+        )
+
+    def spy_cached(works, labels, ctx, cache, centroid_weighting="work_balanced"):
+        seen_cached.append(centroid_weighting)
+        return original_cached(
+            works, labels, ctx, cache, centroid_weighting=centroid_weighting
+        )
+
+    monkeypatch.setattr(case_framework, "_leave_one_work_out_fw_context", spy_direct)
+    monkeypatch.setattr(case_framework, "_leave_one_work_out_fw_cached", spy_cached)
+    case_framework._run_gate(works, spec, "fw_fixed")
+
+    # Gate scoring uses the reference path once; observed/null permutations use
+    # the optimized path. Both receive the exact same explicit policy.
+    assert seen_direct == ["chunk_weighted_legacy"]
+    assert len(seen_cached) > 2
+    assert set(seen_cached) == {"chunk_weighted_legacy"}
+
+
+def test_cached_fw_assignments_match_reference_for_both_weightings():
+    chunk_counts = [1, 4, 2, 3, 1, 5]
+    works = [
+        case_framework.Work(
+            "a" if wi < 3 else "b",
+            f"w{wi}",
+            "",
+            tuple("" for _ in range(count)),
+        )
+        for wi, count in enumerate(chunk_counts)
+    ]
+    rows_by_work = [
+        [[1.00, 0.10, 0.05]],
+        [[0.92, 0.20, 0.08], [0.88, 0.25, 0.10],
+         [0.95, 0.15, 0.06], [0.90, 0.22, 0.09]],
+        [[0.80, 0.32, 0.10], [0.84, 0.28, 0.12]],
+        [[0.10, 0.95, 0.18], [0.12, 0.90, 0.22], [0.08, 0.92, 0.20]],
+        [[0.20, 0.82, 0.12]],
+        [[0.05, 0.86, 0.30], [0.08, 0.88, 0.28], [0.06, 0.84, 0.32],
+         [0.10, 0.90, 0.25], [0.07, 0.87, 0.29]],
+    ]
+    ctx = case_framework.FwContext(
+        X=np.asarray([row for group in rows_by_work for row in group]),
+        chunk_work=np.asarray([
+            wi for wi, count in enumerate(chunk_counts) for _ in range(count)
+        ]),
+    )
+    cache = case_framework._build_fw_permutation_cache(works, ctx)
+    assignments = [
+        ["a", "a", "a", "b", "b", "b"],
+        ["a", "b", "a", "b", "a", "b"],
+        ["b", "b", "b", "a", "a", "a"],
+        ["a", "b", "b", "b", "a", "a"],
+    ]
+
+    for weighting in ("work_balanced", "chunk_weighted_legacy"):
+        for labels in assignments:
+            reference_wcp = case_framework._leave_one_work_out_fw_context(
+                works, labels, ctx, centroid_weighting=weighting
+            )
+            cached_wcp = case_framework._leave_one_work_out_fw_cached(
+                works, labels, ctx, cache, centroid_weighting=weighting
+            )
+            authors = sorted(set(labels))
+            assert cached_wcp == reference_wcp
+            assert (
+                case_framework._metrics_from_wcp(cached_wcp, authors)
+                == case_framework._metrics_from_wcp(reference_wcp, authors)
+            )
+
+
+def test_fw_permutation_result_is_deterministic_for_both_weightings():
+    works = [
+        case_framework.Work("a", "a1", "", ("и и на",)),
+        case_framework.Work("a", "a2", "", ("и на", "и и", "на и", "и в")),
+        case_framework.Work("a", "a3", "", ("и в на", "на и в")),
+        case_framework.Work("b", "b1", "", ("но что", "но но", "что но")),
+        case_framework.Work("b", "b2", "", ("что но что",)),
+        case_framework.Work(
+            "b", "b3", "", ("но что", "что что", "но но", "что но", "но что что")
+        ),
+    ]
+    labels = [w.author for w in works]
+
+    for weighting in ("work_balanced", "chunk_weighted_legacy"):
+        exact_1 = case_framework._permutation_p(
+            works, labels, "fw_fixed", "ru", 100, 11, 20260630,
+            centroid_weighting=weighting,
+        )
+        exact_2 = case_framework._permutation_p(
+            works, labels, "fw_fixed", "ru", 100, 11, 20260630,
+            centroid_weighting=weighting,
+        )
+        random_1 = case_framework._permutation_p(
+            works, labels, "fw_fixed", "ru", 0, 11, 20260630,
+            centroid_weighting=weighting,
+        )
+        random_2 = case_framework._permutation_p(
+            works, labels, "fw_fixed", "ru", 0, 11, 20260630,
+            centroid_weighting=weighting,
+        )
+
+        assert exact_1 == exact_2
+        assert exact_1[1:] == ("exact_20", 0.05)
+        assert random_1 == random_2
+        assert random_1[1:] == ("random_11", 0.05)
+
+
+def test_centroid_weighting_requires_supported_explicit_value(tmp_path):
+    spec_path = _make_case(tmp_path)
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8")
+        + "\ncentroid_weighting: accidental_flat_mode\n",
+        encoding="utf-8",
+    )
+
+    passport = run_case(load_case_spec(spec_path)).to_dict()
+
+    assert passport["gates"] == []
+    assert "unknown_centroid_weighting:accidental_flat_mode" in passport["failure_modes"]
+
+
+def test_legacy_centroid_weighting_is_explicit_and_recorded(tmp_path):
+    spec_path = _make_case(tmp_path)
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8")
+        + "\ncentroid_weighting: chunk_weighted_legacy\n",
+        encoding="utf-8",
+    )
+
+    spec = load_case_spec(spec_path)
+    passport = run_case(spec).to_dict()
+
+    assert spec.centroid_weighting == "chunk_weighted_legacy"
+    assert passport["data"]["centroid_weighting"] == "chunk_weighted_legacy"

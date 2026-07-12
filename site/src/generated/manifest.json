@@ -151,13 +151,13 @@
   },
   {
     "key": "limits",
-    "source": "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference}.json",
-    "note": "метрический урок + карта режимов честного протокола"
+    "source": "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference,work_balanced_audit/{summary.json,custom/{kolokol_herzen_ogaryov,sovremennik,nekrasov_panaeva}.work_balanced.json}}",
+    "note": "post-audit метрический урок + карта режимов честного протокола"
   },
   {
     "key": "tarasCase",
-    "source": "docs/cases/taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json}",
-    "note": "Taras hardened: suspects v2 headline, annenkov binary, same-period, контрольная батарея 4/4, топик- и период-диагностики, Delta-репликация, аудит извлечения"
+    "source": "docs/cases/{taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json},work_balanced_audit/{summary.json,custom/taras_delta_full_refit_work_balanced.json}}",
+    "note": "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits"
   },
   {
     "key": "repro",

@@ -26,7 +26,9 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+from stylo.claims import BenchmarkRole, ClaimStatus  # noqa: E402
 from stylo.corpus_tools.fetch_classics import PUBLIC_DOMAIN_CLEAR  # noqa: E402
+from stylo.jsonio import dump_strict  # noqa: E402
 
 INPUT = ROOT / "input"
 OUT = ROOT / "data" / "ruaa_bench_v1"
@@ -54,6 +56,13 @@ DEATH_YEARS = {
 
 PROTOCOL_MD = """# RuAA-Bench v1.0 — протокол (заморожен)
 
+> **Статус: `reproducible_cv_legacy_not_blind` (claim_status: `exploratory_internal`).**
+> Это датированный воспроизводимый CV-срез на публичном корпусе, а не blind-
+> лидерборд и не научный default. `book_id = <author>/<book>` раскрывает истину,
+> поэтому пакет непригоден как слепой benchmark. Взвешивание обучения —
+> `chunk_weighted_training_legacy` (см. `docs/cases/work_balanced_audit/` и §5 prereg).
+> Слепой пакет и work-balanced пересчёт — в v2.
+
 Задача: закрытая атрибуция авторства на уровне книги.
 
 - Единица оценки: книга целиком. Оценка = leave-one-book-out (LOBO):
@@ -70,10 +79,11 @@ PROTOCOL_MD = """# RuAA-Bench v1.0 — протокол (заморожен)
   вероятности по классам. Скоринг: scripts/score_ruaa.py.
 
 Смежные ресурсы: томский корпус атрибуции не публичен; proza_ru_hard —
-сырой датасет коротких документов без замороженного протокола и official
-baselines; RusProfiling — профилирование автора; RuATD — детекция
-машинного текста. RuAA-Bench отличает связка: замороженный leak-free
-book-level протокол + манифест с полным SHA256 + официальная baseline-таблица.
+сырой датасет коротких документов без замороженного протокола и baseline-
+таблицы; RusProfiling — профилирование автора; RuATD — детекция
+машинного текста. RuAA-Bench v1 отличает связка: замороженный leak-free
+book-level протокол + манифест с полным SHA256 + baseline-таблица со
+статистикой значимости (не blind).
 """
 
 LICENSE_TXT = """Texts: public domain (Russian classics; authors died 70+ years
@@ -115,6 +125,9 @@ def main() -> int:
     bench = {
         "name": "RuAA-Bench",
         "version": "1.0",
+        "claim_status": ClaimStatus.EXPLORATORY_INTERNAL.value,
+        "benchmark_role": BenchmarkRole.REPRODUCIBLE_CV_LEGACY_NOT_BLIND.value,
+        "training_weighting": "chunk_weighted_training_legacy",
         "task": "closed-set book-level authorship attribution, Russian",
         "n_authors": len(selected),
         "n_books": sum(len(b) for b in selected.values()),
@@ -143,8 +156,7 @@ def main() -> int:
             "books": entries,
         }
 
-    (OUT / "manifest.json").write_text(
-        json.dumps(bench, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    dump_strict(bench, OUT / "manifest.json")
     (OUT / "protocol.md").write_text(PROTOCOL_MD, encoding="utf-8")
     (OUT / "LICENSE").write_text(LICENSE_TXT, encoding="utf-8")
 
@@ -154,8 +166,7 @@ def main() -> int:
             sums.append(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.relative_to(OUT)}")
     (OUT / "SHA256SUMS").write_text("\n".join(sums) + "\n", encoding="utf-8")
 
-    BENCH_DOC.write_text(json.dumps(bench, ensure_ascii=False, indent=2) + "\n",
-                         encoding="utf-8")
+    dump_strict(bench, BENCH_DOC)
     print(f"RuAA-Bench v1.0: {bench['n_authors']} авторов, {bench['n_books']} книг")
     for k, v in bench["dropped"].items():
         print(f"  dropped {k}: {len(v)}")

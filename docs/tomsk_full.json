@@ -37,8 +37,8 @@
       "buggy_random": 0.258,
       "buggy_grouped": 0.205,
       "fixed_random": 0.523,
-      "fixed_grouped": NaN,
-      "leak_premium_pp": NaN
+      "fixed_grouped": null,
+      "leak_premium_pp": null
     }
   }
 }

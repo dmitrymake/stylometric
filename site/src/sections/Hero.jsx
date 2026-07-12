@@ -43,6 +43,12 @@ export default function Hero() {
             <Stat label="авторов / книг · весь корпус" value={`${CORPUS.research.authors} / ${CORPUS.research.books}`} accent="var(--icon-blue)" hint={`${CORPUS.lobo.tested_authors} проверены без подсказок (${CORPUS.lobo.books} ${ruBooks(CORPUS.lobo.books)} в строгой проверке)`} />
             <Stat label="слов · полный корпус" value={fmtWordsM(HEADLINE.words)} accent="var(--cosmos)" />
           </div>
+          {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+            <p className="mono muted" style={{ marginTop: 12, fontSize: 12, maxWidth: "52ch" }}>
+              Пока при обучении длинная книга весит больше короткой. Пересчёт «одна книга — один голос»
+              ещё впереди — итоговое число может немного сдвинуться.
+            </p>
+          )}
         </div>
 
         <div className="reveal in" style={{ display: "grid", placeItems: "center", gap: 18 }}>

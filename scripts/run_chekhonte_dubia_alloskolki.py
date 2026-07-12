@@ -23,9 +23,16 @@ import sys
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 spec = importlib.util.spec_from_file_location("rd", ROOT / "scripts" / "run_chekhonte_dubia_oskolki.py")
 rd = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rd)
+from _gate_metrics import (  # noqa: E402
+    both_metrics,
+    leave_one_work_out,
+    work_permutation_p,
+)
 
 CASE = ROOT / "input_cases" / "chekhonte_dubia"
 BROTHER = CASE / "brother_panel"
@@ -77,7 +84,12 @@ def run(use_char3: bool, candidates: dict) -> dict:
             s = rd.sims([vec(txt)], cents)
             rows.append({"text": f.stem, "top": s[0]["candidate"], "second": s[1]["candidate"],
                          "margin": round(s[0]["cos"] - s[1]["cos"], 4)})
-    return {"pooled_prose": agg, "positive_control_loo": rd.loo(docvecs), "eligible_per_text": rows}
+    return {
+        "pooled_prose": agg,
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
+        "positive_control_loo": rd.loo(docvecs),
+        "eligible_per_text": rows,
+    }
 
 
 def _unit(v):
@@ -97,7 +109,7 @@ def robustness(candidates: dict, use_char3: bool, rng, iters: int = 2000) -> dic
     # (1) bootstrap-стабильность
     from collections import Counter
     stab = {t: Counter() for t in targets}
-    arr = {n: np.array(docvecs[n]) for n in names}
+    arr = {n: rd.work_centroids(docvecs[n]) for n in names}
     for _ in range(iters):
         bc = {n: _unit(arr[n][rng.integers(0, len(arr[n]), len(arr[n]))].mean(0)) for n in names}
         for t, tv in targets.items():
@@ -112,34 +124,20 @@ def robustness(candidates: dict, use_char3: bool, rng, iters: int = 2000) -> dic
         tvn = _unit(tv)
         win = max(cents, key=lambda n: float(np.dot(tvn, cents[n])))
         dist[t] = round(float(np.dot(tvn, cents[win]) - np.dot(tvn, mean_cent)), 4)
-    # (2) per-class recall гейта (raw accuracy прячет полностью неузнанные классы)
-    per_class = {}
-    for name in names:
-        dv = docvecs[name]
-        if len(dv) < 2:
-            per_class[name] = [0, len(dv)]
-            continue
-        ok = 0
-        for i, v in enumerate(dv):
-            nv = _unit(v)
-            row = {o: float(np.dot(nv, _unit(np.mean([x for j, x in enumerate(docvecs[o])
-                   if not (o == name and j == i)], axis=0)))) for o in names if docvecs[o]}
-            ok += max(row, key=row.get) == name
-        per_class[name] = [ok, len(dv)]
-    recalls = [c / t for c, t in per_class.values() if t]
-    macro_recall = round(float(np.mean(recalls)), 4)
-    # (3) permutation гейта LOO
-    vecs = [v for n in names for v in docvecs[n]]
-    obs = rd.loo(docvecs)["accuracy"]
-    null = []
-    lab = [n for n in names for _ in docvecs[n]]
-    for _ in range(iters):
-        rng.shuffle(lab)
-        dv: dict = {}
-        for n, v in zip(lab, vecs):
-            dv.setdefault(n, []).append(v)
-        null.append(rd.loo(dv)["accuracy"] or 0.0)
-    p = float((np.sum(np.array(null) >= obs) + 1) / (iters + 1))
+    # (2) Work-LOO gate and (3) work-label permutation use the same
+    # equal-direction train estimator as the maintained case framework.
+    gate_data = [
+        (name, work, vector)
+        for name in names
+        for work, vector in zip(docvecs[name].work_ids, docvecs[name])
+    ]
+    wcp, _confusion, _works = leave_one_work_out(gate_data, names)
+    gate_metrics = both_metrics(wcp, names)
+    per_class = gate_metrics["work_recall"]
+    macro_recall = gate_metrics["work_macro_recall"]
+    p, perm_method, perm_floor = work_permutation_p(
+        gate_data, lambda author: author, names, n_random=iters
+    )
     # (4) атрибуция ВСЕХ Dubia (не только 5 длинных) + базовый уровень Чехова
     from math import comb
     from collections import Counter as _C
@@ -166,12 +164,17 @@ def robustness(candidates: dict, use_char3: bool, rng, iters: int = 2000) -> dic
         "_leak_note": ("fw_only — фикс-список служебных слов, рефита нет, leave-one-out leak-free. "
                        "char-3gram словарь строится на всех данных, включая held-out, поэтому fw_char3 "
                        "LOO/permutation — диагностические, не формальные."),
-        "per_class_recall": {n: f"{c}/{t}" for n, (c, t) in per_class.items()},
+        "per_class_recall": per_class,
         "macro_recall": macro_recall,
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         "bootstrap_stability": boot,
         "distinctiveness_vs_central": dist,
-        "gate_permutation": {"observed_loo": obs, "null_mean": round(float(np.mean(null)), 4),
-                             "p_value": round(p, 4)},
+        "gate_permutation": {
+            "observed_work_macro_recall": macro_recall,
+            "method": perm_method,
+            "exact_floor": perm_floor,
+            "p_value": p,
+        },
         "all_27_attribution": {"winners": dict(all_win.most_common()), "n": n_all,
                                "chehov_share": round(chehov_share, 4),
                                "binom_p_ge4of5_chehov": base_p},
@@ -201,13 +204,13 @@ def main() -> None:
     report["robustness_fw_only"] = robustness(cands, False, rng)
     r = report["robustness_fw_only"]
     a27, ne = r["all_27_attribution"], r["ne_frequency"]
-    loo_pct = int(round(r["gate_permutation"]["observed_loo"] * 100))
-    rnd_pct = int(round(r["gate_permutation"]["null_mean"] * 100))
+    loo_pct = int(round(r["gate_permutation"]["observed_work_macro_recall"] * 100))
+    perm_p = r["gate_permutation"]["p_value"]
     report["verdict"] = (
         f"Все авторы взяты из одного журнала «Осколки» 1883-1885 — ни у кого нет преимущества «своего» "
         f"издания (точные числа в robustness_fw_only). Метод плохо различает самих авторов «Осколков»: "
         f"при проверке с поочерёдным исключением текстов он угадывает автора лишь в {loo_pct}% случаев "
-        f"(случайное угадывание дало бы около {rnd_pct}%). Александра он не узнаёт совсем "
+        f"(work-label permutation p={perm_p}). Александра он не узнаёт совсем "
         f"({r['per_class_recall']['alexander_chekhov']} текста) — выводы про Александра не делаем. Из пяти "
         f"длинных спорных текстов к Чехову устойчиво (при любых случайных пересборках выборки) тянется "
         f"только «Мачеха». «Корреспонденции» и «Ревнивый муж» формально тоже ближе к Чехову, но лишь "
@@ -222,7 +225,7 @@ def main() -> None:
         f"собранию). Это показывает предел метода на близких авторах одного журнала, а не разгадку."
     )
     report["confidence"] = "низкая"
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
     print("слов у кандидатов:", sizes)
     for feat in report["panels"]:

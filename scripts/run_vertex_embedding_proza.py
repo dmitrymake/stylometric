@@ -23,6 +23,9 @@ from sklearn.svm import LinearSVC
 
 SEED = 42
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 PARQUET = ROOT / "data" / "external" / "proza_ru_hard.parquet"
 CACHE = ROOT / "data" / "emb_proza_gemini.npy"
 NAUTH, PER = 50, 60
@@ -84,8 +87,9 @@ def embed_all(texts):
 
     def one(i_text):
         i, text = i_text
-        body = json.dumps({"instances": [{"content": text[:MAX_CHARS],
-                                          "task_type": "CLASSIFICATION"}]}).encode()
+        body = dumps_strict({"instances": [{"content": text[:MAX_CHARS],
+                                          "task_type": "CLASSIFICATION"}]},
+                            ensure_ascii=True).encode()
         for attempt in range(6):
             try:
                 req = urllib.request.Request(url, data=body, headers={
@@ -132,7 +136,7 @@ def main():
         "reference_same_split": prev,
     }
     (ROOT / "docs" / "vertex_embedding_proza.json").write_text(
-        json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+        dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
     log("saved docs/vertex_embedding_proza.json")
 
 

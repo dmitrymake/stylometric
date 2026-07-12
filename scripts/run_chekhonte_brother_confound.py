@@ -23,6 +23,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -269,27 +270,31 @@ def windows(text: str, size: int = 500, min_tail: int = 250) -> list[str]:
 
 def group_balacc(Vw: np.ndarray, is_a: np.ndarray, story: np.ndarray) -> dict:
     """Nearest-centroid с leave-one-STORY-out: окна одной истории не текут между train/test."""
-    sumA, nA = Vw[is_a].sum(0), int(is_a.sum())
-    sumB, nB = Vw[~is_a].sum(0), int((~is_a).sum())
-    cA_full, cB_full = unit(sumA / nA), unit(sumB / nB)
-    # суммы по (история): чтобы исключить всю историю окна из своего центроида
-    story_sum: dict[int, np.ndarray] = {}
-    story_cnt: dict[int, int] = {}
-    for i in range(len(Vw)):
-        story_sum[story[i]] = story_sum.get(story[i], 0) + Vw[i]
-        story_cnt[story[i]] = story_cnt.get(story[i], 0) + 1
+    story_ids = list(dict.fromkeys(story.tolist()))
+    story_cent = {g: unit(Vw[story == g].mean(0)) for g in story_ids}
+    story_label = {g: bool(is_a[story == g][0]) for g in story_ids}
+
+    def class_centroid(label, held=None):
+        rows = [story_cent[g] for g in story_ids if story_label[g] == label and g != held]
+        if not rows:
+            return None
+        return unit(np.mean(rows, axis=0))
+
+    cA_full, cB_full = class_centroid(True), class_centroid(False)
+    nA, nB = int(is_a.sum()), int((~is_a).sum())
     corr_a = corr_b = 0
     for i in range(len(Vw)):
         g = story[i]
         if is_a[i]:
-            cA = unit((sumA - story_sum[g]) / max(nA - story_cnt[g], 1))
+            cA = class_centroid(True, held=g)
             corr_a += np.dot(Vw[i], cA) > np.dot(Vw[i], cB_full)
         else:
-            cB = unit((sumB - story_sum[g]) / max(nB - story_cnt[g], 1))
+            cB = class_centroid(False, held=g)
             corr_b += np.dot(Vw[i], cB) > np.dot(Vw[i], cA_full)
     ra, rb = corr_a / nA, corr_b / nB
     return {"recall_anton": round(ra, 4), "recall_alexander": round(rb, 4),
-            "balanced_accuracy": round((ra + rb) / 2, 4), "n_windows_anton": nA, "n_windows_alexander": nB}
+            "balanced_accuracy": round((ra + rb) / 2, 4), "n_windows_anton": nA, "n_windows_alexander": nB,
+            "train_centroid_weighting": "equal_story_direction_after_within_story_window_mean_l2"}
 
 
 def _windowed_gate(texts_true: list[str], texts_false: list[str], vec, rng, perm_iters: int) -> dict:
@@ -593,9 +598,9 @@ def main() -> None:
         ],
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
-    print(json.dumps({"positive_control": report["positive_control"], "targets": targets, "verdict": report["verdict"]}, ensure_ascii=False, indent=2))
+    print(dumps_strict({"positive_control": report["positive_control"], "targets": targets, "verdict": report["verdict"]}, ensure_ascii=False, indent=2))
 
 
 def _verdict(gate_pass: bool, lenmatch: dict, oskolki_probe: dict, targets: dict) -> str:

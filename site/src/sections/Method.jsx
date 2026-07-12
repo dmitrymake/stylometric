@@ -130,6 +130,12 @@ export default function Method() {
             ({fmtScore(LOBO_STRICT.proxyTop1, 3)}). Числа близкие, но считаются по-разному
             и на разных наборах авторов. Поэтому между собой их не сравнивают.
           </p>
+          {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+            <p className="mono muted" style={{ fontSize: 12 }}>
+              Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+              один голос» ещё впереди — заголовочная цифра может немного сдвинуться.
+            </p>
+          )}
         </div>
 
         {/* Протокол без подсматривания */}
@@ -475,6 +481,12 @@ export default function Method() {
                   Деление на 5 частей ({fmtScore(LOBO_STRICT.proxyTop1, 3)}) сходится с ней в пределах шума. Голый посимвольный
                   косинус без обучаемого словаря даёт строгую нижнюю границу на одном признаке — {fmtScore(LOBO_STRICT.trueLoboTop1, 3)}.
                 </p>
+                {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+                  <p className="mono muted" style={{ fontSize: 12, marginTop: 8, maxWidth: "54ch" }}>
+                    Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+                    один голос» ещё впереди — заголовочная цифра может немного сдвинуться.
+                  </p>
+                )}
               </div>
               <div>
                 <div className="mono muted" style={{ fontSize: 11, margin: "0 0 10px" }}>

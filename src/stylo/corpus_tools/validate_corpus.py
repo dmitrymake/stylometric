@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import collections
 import hashlib
-import json
 import logging
 import pathlib
 import re
@@ -25,6 +24,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+from ..jsonio import dump_strict
 
 log = logging.getLogger("stylo.corpus_tools.validate")
 
@@ -191,10 +192,9 @@ def run(cfg=None, corpus_dir: str | None = None) -> CorpusReport:
     docs.mkdir(parents=True, exist_ok=True)
     txt = format_report(rep)
     (docs / "corpus_validation.txt").write_text(txt, encoding="utf-8")
-    (docs / "corpus_validation.json").write_text(
-        json.dumps({"summary": rep.summary, "authors": rep.authors,
-                    "findings": [vars(f) for f in rep.findings],
-                    "duplicates": rep.duplicates}, ensure_ascii=False, indent=2),
-        encoding="utf-8")
+    dump_strict({"summary": rep.summary, "authors": rep.authors,
+                 "findings": [vars(f) for f in rep.findings],
+                 "duplicates": rep.duplicates},
+                docs / "corpus_validation.json", trailing_newline=False)
     print(txt)
     return rep

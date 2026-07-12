@@ -26,6 +26,7 @@ const dcos = jload("docs/delta_cosine_lobo.json");        // cosine/книжны
 const nik = jload("docs/nikolas2_authorship.json");
 const cg = jload("docs/crossgenre_recall.json");          // кросс-жанровый перенос: train проза → test дневники/письма
 const prov = jload("docs/provenance_probe.json");         // адверсариальная проба «предскажи источник книги»
+const wbAudit = jload("docs/cases/work_balanced_audit/summary.json");
 
 const M = Object.fromEntries(sd.models.map((m) => [m.id, m]));
 const ci = (m) => `[${m.ci[0]}, ${m.ci[1]}]`;
@@ -44,6 +45,11 @@ const tarasStrict = taras.headline[0];
 const tarasLoose = taras.headline[1];
 const tarasSpeech = taras.speech;
 const tarasExt = taras.extended[0];
+const wbCase = (stem) => wbAudit.cases.find((row) => row.source_spec.endsWith(`/${stem}.yaml`));
+const wbTarasSusStrict = wbCase("taras_bulba_additions_strict_suspects_v2_fw_2000");
+const wbTarasSameStrict = wbCase("taras_bulba_additions_strict_sameperiod_fw_2000");
+const wbTarasAnn = wbCase("taras_bulba_additions_strict_annenkov_binary_fw_2000");
+const wbTarasSomov = wbCase("taras_bulba_additions_strict_somov_binary_fw_2000");
 
 // Читаемые числа: метрики до 4 знаков; p ≥ 1e-4 — десятичным до 5 знаков, меньше — научная запись (2 значащих).
 const f4 = (x) => (x == null ? "—" : (+x).toFixed(4).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, ""));
@@ -110,6 +116,11 @@ ${tr("Burrows Delta (чанки) · 150 MFW", M["delta:150"])}
 > всё обучаемое (vocab/IDF/MFW/scaler/классификатор) фитится на остальных книгах (\`docs/final_comparison.csv\`).
 > В LOBO-срезе оценивается ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)} (${sd.corpus.lobo.pool_authors - sd.corpus.lobo.tested_authors} автора с одной книгой в LOBO не тестируются — нет train-примера;
 > macro-F1 считается по ${sd.corpus.lobo.tested_authors} тестированным классам). StratifiedGroupKFold(5) — лишь быстрый прокси в sweep/ablation.
+>
+> **Взвешивание обучения — \`${styloCI.training_weighting}\`.** Длинная книга получает больший train-вес внутри автора,
+> vocab/IDF/MFW фитятся по чанкам. Work-balanced пересчёт (одна работа — один голос на train-стороне) ещё не проведён;
+> до него headline трактуется как legacy-оценка (\`docs/cases/work_balanced_audit/\`). LOBO держит тестовую книгу целиком —
+> смещение в train-взвешивании, не в утечке.
 > Строки Cosine Delta и Delta по книгам посчитаны тем же LOBO-протоколом отдельным скриптом
 > (\`log/experiments/delta_cosine_lobo.py\` → \`docs/delta_cosine_lobo.json\`); контроль воспроизведения: delta:150 этим
 > путём даёт ту же долю верных попаданий, что и канонический расчёт из final_comparison.csv (delta:150 на ${sd.corpus.lobo.books} книгах), —
@@ -161,17 +172,19 @@ Koppel–Winter) на ТД тоже прогнано: 0/4 томов вериф�
 этом сеттинге метод смещён: зрелые бесспорные вещи Шолохова тоже проваливают unmasking (1/4), поэтому «ТД→Крюков» по
 этим методам — артефакт, не свидетельство (\`docs/sholokhov_verify.json\`, \`docs/sholokhov_verify3_FW_ONLY.json\`).
 
-**Кейс «Тарас Бульба»** (\`docs/cases/taras_hardened/\`): проверена узкая гипотеза, что крупные добавления редакции
-1842 года написал не Гоголь, а чужая редакторская рука. Headline-протокол — фиксированные служебные слова
-(\`fw_fixed\`), Гоголь в панели **без** полного текста «Тараса Бульбы», gate сначала, атрибуция потом. Оба выделения
-больших добавлений проходят gate: strict — status **${tarasStrict.status}**, score ${tarasStrict.score}, gate ${f4(tarasStrict.gate)},
-p=${tarasStrict.p}, top=${tarasStrict.top}, chunks ${tarasStrict.perChunk.gogol}/${tarasStrict.targetChunks} к Гоголю;
-loose — status **${tarasLoose.status}**, score ${tarasLoose.score}, gate ${f4(tarasLoose.gate)}, top=${tarasLoose.top},
-chunks ${tarasLoose.perChunk.gogol}/${tarasLoose.targetChunks} к Гоголю. Отдельная «речь о товариществе» идёт к Гоголю,
-но это один chunk: статус ${tarasSpeech.status}, не headline. Расширенная панель с Толстым, Лесковым и Салтыковым-Щедриным
-честно **не проходит gate** (${f4(tarasExt.gate)} < 0.80), поэтому её top не интерпретируется. Вывод узкий:
-большие добавленные пассажи не поддерживают версию большой чужой руки; локальную редактуру, нормализацию и малые вставки
-этот тест не отрицает. Воспроизведение: \`stylo case run ...\`, сводка — \`docs/cases/taras_hardened/reports/dossier.md\`.
+**Кейс «Тарас Бульба» — статус после adversarial audit 2026-07-11.** Исторический headline был получен
+центроидами, в которых длинные произведения имели больше train-side веса по числу чанков. После исправления на
+\`L2(mean chunks/work) → equal mean works/author → L2\` многоавторная панель подозреваемых даёт gate
+${f4(wbTarasSusStrict.work_balanced.work_macro_recall)} и панель эпохи ${f4(wbTarasSameStrict.work_balanced.work_macro_recall)}:
+обе ниже предзарегистрированного порога 0.80, поэтому их top=Gogol **не интерпретируется**. Две бинарные панели
+разделимы, но отвечают по-разному: Гоголь–Анненков → ${wbTarasAnn.work_balanced.top}
+(${(100 * wbTarasAnn.work_balanced.winner_share.gogol).toFixed(1)}% чанков), Гоголь–Сомов →
+${wbTarasSomov.work_balanced.top} (${(100 * wbTarasSomov.work_balanced.winner_share.somov).toFixed(1)}%). Корректный вывод:
+простая версия «это Анненков» не поддержана в прямой паре, но уникальная гоголевская атрибуция крупных добавлений
+текущей батареей **не установлена**. Парный отчёт 16 кейсов и отдельные паспорта:
+\`docs/cases/work_balanced_audit/\`. Исправленный Delta full-refit rerun поддерживает Гоголя на suspects,
+но в валидной бинарной Гоголь–Сомов меняет top по признаку (fixed FW → Гоголь, MFW → Сомов),
+поэтому межпризнаковой/panel-invariant атрибуции также не даёт; старый Delta-отчёт остаётся legacy.
 
 ## Что это делает
 
@@ -238,14 +251,20 @@ spaCy и не дробят I/O. Sweep считает конфиги паралл
 
 \`\`\`bash
 uv venv --python=python3.11 && source .venv/bin/activate
-uv pip install -e .
+uv pip install -e ".[dev]"
 python -m spacy download ru_core_news_lg
+uv run pytest -q           # быстрый unit/release-hygiene smoke; uv.lock локален и игнорируется
+python scripts/check_release_hygiene.py --audit-local-refs   # перед релизом: publish-ref + индекс = FAIL при приватных путях; другие refs/stash = WARN
+git config core.hooksPath .githooks   # включить pre-push-гейт (блокирует пуш приватной истории до загрузки объектов)
 ./run.sh all                 # validate → split → warm → train → sweep → evaluate → predict → report
 python scripts/run_benchmark.py --pd-only   # публикуемое PD-число → docs/validation_pd.json
 python scripts/run_benchmark.py             # полный корпус → docs/validation.json
 node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # синхронизировать сайт и README с docs
 \`\`\`
-Точные пины — в \`requirements.lock\`.
+Файл \`.python-version\` фиксирует канонический runtime для \`uv run\`: Python 3.11.
+Канонические пины полного локального окружения — в \`requirements.lock\`. \`uv.lock\`
+не является release-артефактом и игнорируется: если он появился локально после \`uv run\`, его не коммитят.
+UMAP-визуализации требуют extra \`viz\`: \`uv pip install -e ".[viz]"\`.
 
 ## Точность и воспроизводимая валидация
 

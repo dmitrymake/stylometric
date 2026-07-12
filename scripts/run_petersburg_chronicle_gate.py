@@ -22,7 +22,9 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from _gate_metrics import work_permutation_p  # noqa: E402
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
+from _gate_metrics import work_balanced_centroid, work_permutation_p  # noqa: E402
 spec = importlib.util.spec_from_file_location("rd", ROOT / "scripts" / "run_chekhonte_dubia_oskolki.py")
 rd = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rd)
@@ -69,6 +71,9 @@ def main() -> None:
                 wc.append((wi, vec(ch)))
         work_chunks[name] = wc
     n_works = {n: len({wi for wi, _ in wc}) for n, wc in work_chunks.items()}
+    # ``make_model`` exposes chunk vectors but its legacy centroid is flat over
+    # chunks. Rebind every production attribution below to equal-work centroids.
+    cents = {n: work_balanced_centroid(work_chunks[n]) for n in names}
 
     from collections import Counter
     per_class = {}  # leave-one-WORK-out, ОДИН текст = ОДИН голос (большинство кусков работы)
@@ -80,14 +85,21 @@ def main() -> None:
         ok = tot = 0
         for wtest in works:
             test = [v for wi, v in work_chunks[name] if wi == wtest]
-            cen = {o: _unit(np.mean([v for wi, v in work_chunks[o] if not (o == name and wi == wtest)],
-                                    axis=0)) for o in names}
+            cen = {
+                o: work_balanced_centroid(
+                    (wi, v)
+                    for wi, v in work_chunks[o]
+                    if not (o == name and wi == wtest)
+                )
+                for o in names
+            }
             preds = [max(names, key=lambda o: float(np.dot(_unit(v), cen[o]))) for v in test]
             ok += Counter(preds).most_common(1)[0][0] == name  # один текст = один голос
             tot += 1
         per_class[name] = [ok, tot]
     computable = {n: v for n, v in per_class.items() if isinstance(v, list)}
     macro_recall = round(float(np.mean([c / t for c, t in computable.values()])), 4) if computable else 0.0
+    uncomputable = [n for n, value in per_class.items() if not isinstance(value, list)]
 
     # work-level перестановка ярлыков работ (4 класса → случайная с plus-one): значим ли перевес
     # позитив-контроля над случайной расстановкой меток. Единая с прочими кейсами проверка значимости;
@@ -122,14 +134,20 @@ def main() -> None:
         for wi, v in work_chunks[n]:
             works_of[n].setdefault(wi, []).append(v)
     work_ids = {n: list(works_of[n]) for n in names}
+    work_means = {
+        n: {wi: _unit(np.mean(vectors, axis=0)) for wi, vectors in works_of[n].items()}
+        for n in names
+    }
     tv = _unit(np.mean([vec(t) for t in target_docs], axis=0))
     win = Counter()
     for _ in range(2000):
         bc = {}
         for n in names:
             wids = work_ids[n]
-            sample = [v for wi in (wids[i] for i in rng.integers(0, len(wids), len(wids)))
-                      for v in works_of[n][wi]]
+            sample = [
+                work_means[n][wids[i]]
+                for i in rng.integers(0, len(wids), len(wids))
+            ]
             bc[n] = _unit(np.mean(sample, axis=0))
         win[max(bc, key=lambda m: float(np.dot(tv, bc[m])))] += 1
     boot = {n: round(c / 2000, 3) for n, c in win.most_common()}
@@ -166,15 +184,22 @@ def main() -> None:
                                           for n, v in per_class.items()},
             "works_per_class": n_works,
             "macro_recall": macro_recall,
-            "macro_recall_note": ("leave-one-WORK-out по классам с >=2 работами; Плещеев (1 работа) — "
-                                  "control_not_computable_single_work, исключён из macro и из заявления о "
-                                  "разделении рук"),
+            "macro_recall_note": (
+                "leave-one-WORK-out по классам с >=2 работами; "
+                + (
+                    "невычислимые single-work классы исключены: "
+                    + ", ".join(uncomputable)
+                    if uncomputable
+                    else "все классы вычислимы"
+                )
+            ),
             "work_level_permutation_p": perm_p,
             "permutation_method": perm_method,
             "permutation_exact_floor": perm_floor,
             "permutation_note": ("перестановка ярлыков работ среди классов панели: значим ли перевес над "
                                  "случайной расстановкой меток. Надёжность (status reliable) требует И "
                                  "macro_recall >= 0.80, И perm_p <= 0.05."),
+            "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
             "within_work_chunk_accuracy": within_work_chunk_accuracy,
             "within_work_note": "within-work диагностика (узнаёт текст работы, не руку); в решении НЕ участвует",
         },
@@ -213,9 +238,9 @@ def main() -> None:
         "analysis_command": "PYTHONPATH=src python3 scripts/run_petersburg_chronicle_gate.py",
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
-    print(json.dumps({"per_class": report["positive_control"], "FD": report["FD_feuilletons_attribution"],
+    print(dumps_strict({"per_class": report["positive_control"], "FD": report["FD_feuilletons_attribution"],
                       "gate_pass": gate_pass}, ensure_ascii=False, indent=1))
 
 
@@ -226,8 +251,8 @@ def _verdict(status, macro, perm_p, perm_method, feuil, boot, boot_dost) -> str:
             f"(«Дневник писателя») — к этому КОНКРЕТНОМУ классу {pub}% (доля по одному классу; Достоевский "
             f"занимает 2 класса из 4, поэтому суммарная «доля к Достоевскому» завышена базовой ставкой). "
             f"Средняя доля верных опознаний классов (с убранной целой работой) {macro}, перестановка ярлыков "
-            f"работ p={perm_p} ({perm_method}). Эталон Плещеева не проверяем — одна работа даёт вырожденный "
-            f"профиль и чужой регистр. На художественном эталоне фельетоны Ф.Д. уходят к фельетонно-светской "
+            f"работ p={perm_p} ({perm_method}). Эталон Плещеева включает несколько отдельных сцен, но остаётся "
+            f"жанрово чужим фельетону. На художественном эталоне фельетоны Ф.Д. уходят к фельетонно-светской "
             f"прозе Соллогуба, а не к беллетристике Достоевского.")
     if status == "reliable":
         return (base + " Доля выше порога 0.80 при значимой перестановке — позитив-контроль выполним; но это "

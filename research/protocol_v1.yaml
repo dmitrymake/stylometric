@@ -1,0 +1,127 @@
+schema_version: "1.0"
+
+campaign:
+  id: authorship_breakthrough_2026q3
+  title: "Robust Russian authorship attribution beyond topic and source"
+  status: protocol_draft_not_preregistered
+  created: "2026-07-10"
+  language: ru
+  tracks:
+    - spoof_ru
+    - idioshift_ru
+    - source_edition_invariance
+    - mixed_authorship_segmentation
+
+freeze:
+  required_before_blind_run:
+    - immutable_public_timestamp
+    - git_commit
+    - environment_lock_sha256
+    - manifest_sha256
+    - opaque_test_ids
+    - independent_truth_custodian
+    - redacted_submission_manifest
+    - escrowed_provenance_and_truth_hash
+  amendments_create_new_version: true
+
+data:
+  public_manifest_contains_blind_labels: false
+  document_id_is_opaque: true
+  blind_submission_manifest_redacts_title_source_and_case_identity: true
+  blind_provenance_is_escrowed_until_scoring: true
+  full_provenance_is_published_after_label_release: true
+  sha256_required: true
+  stable_source_revision_required: true
+  provenance_review_required: true
+  synthetic_data_claims: integration_only
+  split_grouping:
+    default_outer_group: work_id
+    never_split_same_work_across_train_test: true
+  training_aggregation:
+    author_centroid: equal_weight_per_work
+    work_profile: l2_of_mean_chunk_vectors
+    flat_chunk_mean_allowed_as_legacy_diagnostic_only: true
+
+tasks:
+  spoof_ru:
+    families:
+      - natural_impersonation
+      - ghostwriting
+      - editorial_intervention
+      - pseudonymous_publication
+    primary_unit: document
+  idioshift_ru:
+    families:
+      - diachronic_shift
+      - register_shift
+      - edition_shift
+    primary_unit: work
+  source_edition_invariance:
+    held_out_factors:
+      - topic
+      - genre
+      - period
+      - source
+      - edition
+    primary_unit: work
+  mixed_authorship_segmentation:
+    offset_unit: token
+    spans_are_half_open: true
+    negative_controls: single_author_works
+    decoder_tuning:
+      scope: development_controls_only
+      requires_single_author_specificity_gate: true
+      requires_mixed_boundary_sensitivity_gate: true
+      requires_small_contribution_recall_gate: true
+      outer_work_validation_required: true
+    named_attribution_forbids_truth_fitted_label_permutation: true
+    anonymous_partition_reported_separately: true
+
+baselines:
+  required:
+    - majority
+    - function_words_linear
+    - char_ngram_linear_svm
+    - cosine_delta
+    - luar_or_registered_authorship_encoder
+  all_tuning_inside_outer_train: true
+
+primary_endpoints:
+  attribution:
+    - macro_f1
+    - worst_group_accuracy
+    - selective_risk_coverage
+  nuisance_probe:
+    - source_balanced_accuracy
+    - edition_balanced_accuracy
+  segmentation:
+    - token_macro_f1
+    - unlabeled_boundary_f1
+    - segment_iou
+    - single_author_work_false_positive_rate
+
+uncertainty:
+  attribution_resampling_unit:
+    - author_id
+    - work_id
+  segmentation_resampling_unit:
+    - work_id
+    - document_id
+  iid_chunk_bootstrap_forbidden: true
+  confidence_level: 0.95
+
+multiplicity:
+  family_includes:
+    - models
+    - feature_sets
+    - candidate_panels
+    - targets
+    - boundary_tolerances
+  correction: holm
+
+decision_policy:
+  panel_gate_is_not_target_p_value: true
+  unknown_author_abstention_required: true
+  confirmatory_claim_requires_blind_external_test: true
+  independent_replication_required_for_historical_claim: true
+  previously_inspected_or_publicly_identified_case_is_development_only: true

@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import json
 import logging
 import pathlib
 import shutil
@@ -13,6 +12,7 @@ from typing import List, Sequence
 
 from ..chunking import CombinedDoc, make_sent_chunks, sentences_for_text
 from ..config import load_config
+from ..jsonio import dump_strict
 from ..nlp import load_sentencizer
 
 log = logging.getLogger("stylo.pipeline.split")
@@ -78,7 +78,6 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
             log.info("%s/%s: %d чанков -> %s", author, book_id, len(chunks),
                      "unknown" if to_unknown else "train")
 
-    with open(data / "chunk_map.json", "w", encoding="utf-8") as fh:
-        json.dump(mapping, fh, ensure_ascii=False, indent=2)
+    dump_strict(mapping, data / "chunk_map.json", trailing_newline=False)
     log.info("Нарезка завершена: %d чанков", n_chunks_total)
     return n_chunks_total

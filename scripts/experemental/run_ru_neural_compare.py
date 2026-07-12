@@ -26,6 +26,9 @@ from sklearn.svm import LinearSVC
 from sklearn.preprocessing import normalize
 from sklearn.metrics import accuracy_score, f1_score
 import warnings; warnings.filterwarnings("ignore")
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[2] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 
 SEED = 42
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -87,7 +90,7 @@ def dump(res, nA, ntexts):
         "comparison_top1_macroF1": {k: (list(v) if v else None) for k, v in res.items()},
         "note": "Сильные готовые многоязычные AA/style-эмбеддеры (XLM-R-L, контрастивные) vs char-stylo на русском. PER урезан — числа чуть шумнее полного (PER=60) среза, где char-SVM=0.881; смотреть на РАЗРЫВ, не на абсолют.",
     }
-    OUT.write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+    OUT.write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
 
 def main():
     import torch; torch.set_num_threads(int(os.environ["OMP_NUM_THREADS"]))

@@ -11,6 +11,7 @@ Methods:
 from __future__ import annotations
 import sys, json, time, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer, TfidfTransformer
 from sklearn.svm import LinearSVC
@@ -102,7 +103,7 @@ def main():
         log(f"  {k:46} {v[0]:.3f} / {v[1]:.3f}")
     out = {"dataset": "Proza.ru hard (50 авторов, 50/50 split)", "comparison": {k: (list(v) if v else None) for k, v in res.items()},
            "note": "Сравнение нашего решения с современными инструментами (LUAR SOTA author-emb, ruBERT) и классическим baseline (char-SVM≈stylo) на ИДЕНТИЧНОМ русском сплите."}
-    (ROOT / "docs" / "proza_compare.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+    (ROOT / "docs" / "proza_compare.json").write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
     log("\n✓ saved docs/proza_compare.json")
 
 if __name__ == "__main__":
