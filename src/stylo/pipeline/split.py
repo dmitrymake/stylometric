@@ -14,6 +14,8 @@ from ..chunking import CombinedDoc, make_sent_chunks, sentences_for_text
 from ..config import load_config
 from ..jsonio import dump_strict
 from ..nlp import load_sentencizer
+from ..workdoc import (MANIFEST_NAME, build_work_manifest, chunker_config_hash,
+                       frozen_chunker_config, sha256_text)
 
 log = logging.getLogger("stylo.pipeline.split")
 
@@ -22,11 +24,13 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
     cfg = cfg or load_config()
     src = pathlib.Path(cfg.get_path("paths.input_clean", "input_clean"))
     data = pathlib.Path(cfg.get_path("paths.data", "data"))
-    size = cfg.get_path("chunking.chunk_size", 500)
-    min_words = cfg.get_path("chunking.min_words", 200)
-    overlap = cfg.get_path("chunking.overlap", 0.0)
+    # single frozen chunker config, shared with the manifest hash (no int/float drift)
+    chunker = frozen_chunker_config(cfg)
+    size = chunker.chunk_size
+    min_words = chunker.min_words
+    overlap = chunker.overlap
     unknown_name = cfg.get_path("corpus_policy.unknown_dir_name", "unknown")
-    lang = cfg.get_path("language.code", "ru")
+    lang = chunker.language
 
     if not src.exists():
         raise FileNotFoundError(f"Нет {src}; сначала clean.")
@@ -44,6 +48,7 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
     leave = set(leave_out)
     mapping: List[dict] = []
     n_chunks_total = 0
+    cfg_chunker_hash = chunker_config_hash(cfg)
 
     for adir in sorted(src.iterdir()):
         if not adir.is_dir():
@@ -69,11 +74,20 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
             base = unk_root if to_unknown else train_root
             out_dir = base / author / book_id
             out_dir.mkdir(parents=True, exist_ok=True)
-            for idx, ch in enumerate(chunks):
-                p = out_dir / f"{book_id}_{idx:05d}.txt"
-                p.write_text(ch, "utf-8")
-                mapping.append({"path": str(p), "author": author, "book": book_id,
+            filenames = [f"{book_id}_{idx:05d}.txt" for idx in range(len(chunks))]
+            for name, ch in zip(filenames, chunks):
+                (out_dir / name).write_text(ch, "utf-8")
+                mapping.append({"path": str(out_dir / name), "author": author, "book": book_id,
                                 "split": "unknown" if to_unknown else "train"})
+            # canonical chunk manifest (P1 B0): stable per-chunk identity for work_balanced.
+            # provenance = sha of the exact cleaned source bytes the chunker consumed (raw).
+            manifest = build_work_manifest(
+                f"{author}/{book_id}", author, chunks, filenames,
+                provenance_sha256=sha256_text(raw),
+                chunker_config_hash=cfg_chunker_hash,
+                overlap=float(overlap),
+            )
+            dump_strict(manifest.to_dict(), out_dir / MANIFEST_NAME, trailing_newline=False)
             n_chunks_total += len(chunks)
             log.info("%s/%s: %d чанков -> %s", author, book_id, len(chunks),
                      "unknown" if to_unknown else "train")
