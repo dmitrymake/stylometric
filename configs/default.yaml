@@ -105,6 +105,10 @@ delta:
   metric: manhattan                # классика Burrows; cosine — вариант Smith–Aldridge
 
 evaluation:
+  # P1 §4.2: training-side estimand. chunk_weighted_legacy = pre-P1 headline (uniform
+  # chunk weight); work_balanced = each work one voice on the train side (learned
+  # feature state + loss weights). Default stays legacy until the paired audit signs off.
+  training_weighting: chunk_weighted_legacy   # chunk_weighted_legacy | work_balanced
   fold_strategy: lobo              # lobo (book-level, leakage-free) | groupkfold (быстрый прокси)
   groupkfold_k: 5                  # для быстрого прокси-sweep
   n_jobs: 8                        # НЕ -1: оставляем ядра соседним проектам на общей машине
