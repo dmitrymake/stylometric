@@ -49,6 +49,9 @@ docs/cases/taras_hardened/reports/ranking.json
 # результаты LOBO-прогона: per-book отчёт + форматированная таблица (воспроизводимость/инспекция)
 !docs/lobo_books.txt
 !docs/final_comparison.txt
+# CI-sign erratum: corrected .txt/leaderboard derivatives are part of the release inventory
+!docs/final_comparison.v2.txt
+!docs/ruaa_bench_leaderboard_v1.0.1.md
 
 # Belt-and-suspenders: never commit pickled models / numpy dumps anywhere.
 *.pkl

@@ -1,7 +1,7 @@
 import { Card, Stat, ConfidenceBar } from "@dmitrymake/rk-ui";
 import { MODELS, CHANNELS, HEADLINE, WORST_CLASSIC_P } from "../data.js";
 import { CORPUS } from "../corpus.js";
-import { fmtScore, fmtPct, fmtP, fmtRange } from "../format.js";
+import { fmtScore, fmtPct, fmtP } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
 
 const ACCENT = {
@@ -122,7 +122,7 @@ export default function Results() {
           <div className="grid cols-2" style={{ alignContent: "start" }}>
             <Stat label="stylo · доля угаданных книг" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
             <Stat label="мешок слов" value={fmtScore(bow.acc, 3)} accent="var(--icon-blue)" />
-            <Stat label="точность по авторам (macro-F1), 95% разброс" value={fmtRange(HEADLINE.macroF1CI[0], HEADLINE.macroF1CI[1], (x) => fmtScore(x, 3))} accent="var(--icon-blue)" hint={`на всём корпусе целиком выходит ${fmtScore(HEADLINE.styloMacroF1, 3)} — чуть выше верхней границы разброса`} />
+            <Stat label="точность по авторам (macro-F1)" value={fmtScore(HEADLINE.styloMacroF1, 3)} accent="var(--icon-blue)" hint="единая оценка на всех авторах сразу; author-clustered интервал отозван — пересборка по авторам меняет набор классов и недействительна как разброс macro-F1" />
             <Stat label="p · перевес над мешком слов" value={fmtP(bow.p)} accent="var(--gold)" hint="тот же парный тест: перевес не случаен" />
           </div>
         </div>

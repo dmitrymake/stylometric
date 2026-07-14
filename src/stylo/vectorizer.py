@@ -16,6 +16,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from .features.base import FeatureBlock
 from .features.registry import build_blocks
 from .features.reps import RepCache, make_rep_cache
+from .features.work_vectorizer import validate_work_ids
 
 
 class StyloVectorizer(BaseEstimator, TransformerMixin):
@@ -32,10 +33,16 @@ class StyloVectorizer(BaseEstimator, TransformerMixin):
     def _reps(self, X: Sequence[str]):
         return self.rep_cache.get_reps(list(X))
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, groups=None):
+        X = list(X)
+        if groups is not None:
+            groups = validate_work_ids(groups, len(X))   # single B0 contract, fail-closed, pre-_reps
         reps = self._reps(X)
         for b in self.blocks:
-            b.fit(X, reps)
+            if groups is None:
+                b.fit(X, reps)                            # exact legacy two-argument call (P0 parity)
+            else:
+                b.fit(X, reps, groups=groups)
         return self
 
     def transform(self, X) -> csr_matrix:
@@ -52,8 +59,10 @@ class StyloVectorizer(BaseEstimator, TransformerMixin):
             col += m.shape[1]
         return hstack(parts, format="csr")
 
-    def fit_transform(self, X, y=None) -> csr_matrix:
-        return self.fit(X, y).transform(X)
+    def fit_transform(self, X, y=None, groups=None) -> csr_matrix:
+        if groups is None:
+            return self.fit(X, y).transform(X)
+        return self.fit(X, y, groups=groups).transform(X)
 
     def feature_names(self) -> List[str]:
         names: List[str] = []

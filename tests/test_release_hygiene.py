@@ -39,6 +39,7 @@ def test_stylo_stack_is_explicit_experiment_not_default_headline():
     from stylo.eval.final import DEFAULT_SPECS, ECE_SPECS
     from stylo.config import load_config
 
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
     assert "stylo_stack" not in DEFAULT_SPECS
     assert "stylo_stack" in ECE_SPECS
-    assert callable(make_factory("stylo_stack", load_config()))
+    assert callable(make_factory("stylo_stack", load_config(), weighting=CHUNK_WEIGHTED_LEGACY))

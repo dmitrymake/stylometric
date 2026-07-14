@@ -12,6 +12,7 @@ import json, pathlib, re, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 import numpy as np
 from sklearn.metrics import f1_score
+from stylo.jsonio import dumps_strict
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "docs" / "lobo_books.txt"
@@ -91,7 +92,16 @@ def main():
     print(f"accuracy точка={acc:.4f} | author-clustered 95%CI=[{acc_lo:.4f},{acc_hi:.4f}] | медиана бутстрапа={acc_median:.4f}", flush=True)
 
     out = {
-        "method": "author-clustered bootstrap macro-F1 и accuracy (ресэмпл АВТОРОВ) из persisted per-book stylo-LR LOBO (docs/lobo_books.txt); без ре-рана",
+        "claim_status": "exploratory_internal",
+        "training_weighting": "chunk_weighted_training_legacy",
+        "legacy_caveat": (
+            "Обучение stylo взвешено по чанкам: длинная книга получает больший train-вес внутри автора, "
+            "словари/idf/MFW тоже фитятся по чанкам. Work-balanced пересчёт (одна работа — один голос на "
+            "train-стороне) не проведён, поэтому до него этот headline = chunk_weighted_training_legacy "
+            "(парный аудит центроидов — docs/cases/work_balanced_audit/). LOBO держит тестовую книгу "
+            "целиком; смещение касается train-взвешивания, не утечки."),
+        "method": ("author-clustered bootstrap macro-F1 и accuracy (ресэмпл АВТОРОВ) из persisted "
+                   "per-book stylo-LR LOBO (docs/lobo_books.txt); без ре-рана"),
         "source": f"docs/lobo_books.txt (final.py LOBO, {int(n)} книг)",
         "n_books": int(n),
         "n_authors_tested": int(len(au_list)),
@@ -100,18 +110,26 @@ def main():
         "accuracy_authorclustered_CI": [round(float(acc_lo), 4), round(float(acc_hi), 4)],
         "accuracy_bootstrap_median": round(acc_median, 4),
         "macro_f1_point": round(float(point), 4),
-        "macro_f1_authorclustered_CI": [round(float(lo), 4), round(float(hi), 4)],
+        # author-clustered CI macro-F1 ОТОЗВАН (null): ресэмпл авторов меняет набор классов
+        # macro-усреднения (выпавший, но предсказанный автор даёт F1=0) → это не CI фиксированной
+        # 43-классовой функции, недействителен как мера разброса; прежнее значение — в superseded.
+        "macro_f1_authorclustered_CI": None,
+        "macro_f1_authorclustered_interval_status": "withdrawn_pending_preregistered_recompute",
+        "macro_f1_authorclustered_superseded_interval": [round(float(lo), 4), round(float(hi), 4)],
+        "macro_f1_authorclustered_erratum_ref": "docs/macro_f1_ci_withdrawal.json",
         "macro_f1_bootstrap_median": round(median, 4),
         "n_boot": N_BOOT,
-        "note": ("канонический headline stylo-LR LOBO: macro-F1/accuracy + author-clustered 95% CI. "
-                 "Конвенция macro-F1 в репликах: f1_score(average='macro', zero_division=0) без labels= — "
-                 "усреднение по меткам y_true∪y_pred реплики; автор, выпавший из ресэмпла, но оставшийся "
-                 "среди предсказаний, даёт F1=0 и тянет реплику вниз. Интервал консервативен (смещён вниз), "
-                 "точечная оценка на полном пуле лежит выше 97.5-перцентиля — это свойство конвенции, "
-                 "а не признак ошибки в точке."),
+        "note": ("канонический headline stylo-LR LOBO: accuracy + author-clustered 95% CI. Точка "
+                 "macro-F1 описательная. Author-clustered 95% CI для macro-F1 не публикуется "
+                 "(macro_f1_authorclustered_CI=null). Author-clustered bootstrap ресэмплит авторов и "
+                 "меняет набор классов macro-усреднения: выпавший, но предсказанный автор даёт F1=0. "
+                 "Такой интервал не является CI одной фиксированной функции, поэтому недействителен "
+                 "как мера разброса macro-F1 (точка лежит выше его верхней границы); корректный интервал "
+                 "требует предрегистрированного протокола с фиксированным набором меток. Accuracy "
+                 "устойчива к той же процедуре."),
     }
     out_path = ROOT / "docs" / "stylo_lobo_authorci.json"
-    out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+    out_path.write_text(dumps_strict(out, indent=2) + "\n", encoding="utf-8")
     print(f"\n✓ {out_path}", flush=True)
 
 

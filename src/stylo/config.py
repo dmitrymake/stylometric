@@ -82,6 +82,19 @@ class ConfigNode(Mapping):
         return f"ConfigNode({list(self._d.keys())})"
 
 
+def with_overrides(cfg: "ConfigNode", dotted_overrides: Dict[str, Any]) -> "ConfigNode":
+    """Return a cfg-clone with dotted-path overrides — the sanctioned way to build a trusted
+    cfg with explicitly-allowed root/policy (e.g. the RuAA full-corpus benchmark contract)."""
+    raw = cfg.to_dict()
+    for k, v in dotted_overrides.items():
+        node = raw
+        parts = k.split(".")
+        for p in parts[:-1]:
+            node = node.setdefault(p, {})
+        node[parts[-1]] = v
+    return ConfigNode(raw)
+
+
 def _set_dotted(d: Dict[str, Any], dotted: str, value: Any) -> None:
     parts = dotted.split(".")
     node = d

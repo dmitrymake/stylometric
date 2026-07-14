@@ -16,6 +16,9 @@ from sklearn.metrics.pairwise import cosine_distances
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MaxAbsScaler
 
+from ..eval.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+                                   resolve_training_weighting)
+
 
 class MajorityBaseline:
     def __init__(self):
@@ -41,24 +44,51 @@ class CharCosineBaseline:
     """Char-n-gram TF-IDF + косинус к центроидам авторов (классический char-baseline)."""
 
     needs_groups = True
+    ARTIFACT_SCHEMA_VERSION = 2         # v2 adds training_weighting/_wv; a versionless pickle is v1
 
-    def __init__(self, ngram_range=(3, 3), max_features=5000, min_df=3):
+    def __init__(self, ngram_range=(3, 3), max_features=5000, min_df=3,
+                 training_weighting: str = CHUNK_WEIGHTED_LEGACY):
+        self._schema_version = self.ARTIFACT_SCHEMA_VERSION
         self.ngram_range = ngram_range
         self.max_features = max_features
         self.min_df = min_df
+        self.training_weighting = resolve_training_weighting(training_weighting)
         self.classes_ = None
         self._vec = None
+        self._wv = None                       # WorkLevelVectorizer в work_balanced-ветке
         self._centroids = None
+
+    def __setstate__(self, state):
+        # migrate pre-B2 pickles (schema v1, versionless): fill attributes introduced in B2
+        self.__dict__.update(state)
+        sv = self.__dict__.setdefault("_schema_version", 1)
+        if isinstance(sv, bool) or not isinstance(sv, int) or not (1 <= sv <= self.ARTIFACT_SCHEMA_VERSION):
+            raise ValueError(f"invalid CharCosineBaseline artifact schema version {sv!r}")
+        self.__dict__.setdefault("training_weighting", CHUNK_WEIGHTED_LEGACY)
+        self.__dict__.setdefault("_wv", None)
 
     def fit(self, texts, y, groups=None):
         texts = list(texts)
         y = np.asarray(y)
         if len(texts) != len(y):
             raise ValueError("texts and y must have the same length")
-        self._vec = TfidfVectorizer(analyzer="char", ngram_range=self.ngram_range,
-                                    max_features=self.max_features, min_df=self.min_df,
-                                    sublinear_tf=True)
-        X = self._vec.fit_transform(texts)
+        if self.training_weighting == WORK_BALANCED:
+            if groups is None:
+                raise ValueError("work_balanced char_cos needs per-chunk groups")
+            from ..features.work_vectorizer import WorkLevelVectorizer, MODE_TFIDF
+            self._wv = WorkLevelVectorizer(
+                analyzer_params={"analyzer": "char", "ngram_range": self.ngram_range, "lowercase": True},
+                mode=MODE_TFIDF, max_features=self.max_features, min_df_works=2, sublinear_tf=True,
+            )
+            self._wv.fit(texts, groups)
+            X = self._wv.transform(texts)
+            self._vec = None
+        else:
+            self._vec = TfidfVectorizer(analyzer="char", ngram_range=self.ngram_range,
+                                        max_features=self.max_features, min_df=self.min_df,
+                                        sublinear_tf=True)
+            X = self._vec.fit_transform(texts)
+            self._wv = None                   # clear any prior WB state on a legacy (re)fit
         self.classes_ = np.unique(y)
         group_X, group_y = _sparse_group_means(X, y, groups)
         self._centroids = np.vstack(
@@ -68,14 +98,18 @@ class CharCosineBaseline:
             ]
         )
         self.group_weighting_ = (
-            "equal_group_direction_after_within_group_mean_l2"
+            ("work_balanced_tfidf_direction_after_within_group_mean_l2"
+             if self.training_weighting == WORK_BALANCED
+             else "equal_group_direction_after_within_group_mean_l2")
             if groups is not None
             else "equal_row"
         )
         return self
 
     def predict_proba(self, texts):
-        X = self._vec.transform(list(texts))
+        wv = getattr(self, "_wv", None)          # getattr: pre-B2 pickles have no _wv
+        vec = wv if wv is not None else self._vec
+        X = vec.transform(list(texts))
         d = cosine_distances(X, self._centroids)
         x = -d
         x = x - x.max(axis=1, keepdims=True)

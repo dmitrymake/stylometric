@@ -29,6 +29,17 @@ def _softmax(x: np.ndarray) -> np.ndarray:
 
 def run(cfg=None, unknown_dir: str | None = None) -> dict:
     cfg = cfg or load_config()
+    from ..eval.provenance import UnsupportedVariantError
+    from ..eval.work_weighting import (CHUNK_WEIGHTED_LEGACY,
+                                       resolve_training_weighting)
+    weighting = resolve_training_weighting(cfg.get_path("evaluation.training_weighting"))
+    if weighting != CHUNK_WEIGHTED_LEGACY:
+        # B2-core has no work_balanced inference path yet — fail closed rather than silently
+        # scoring the unknown with the legacy production model (data/model.pkl).
+        raise UnsupportedVariantError(
+            f"predict under training_weighting={weighting!r} is not implemented in B2-core; "
+            "the legacy model must not be used to score a work_balanced run"
+        )
     data = pathlib.Path(cfg.get_path("paths.data", "data"))
     docs_dir = pathlib.Path(cfg.get_path("paths.docs", "docs"))
     docs_dir.mkdir(parents=True, exist_ok=True)

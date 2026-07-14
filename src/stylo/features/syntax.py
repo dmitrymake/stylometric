@@ -51,7 +51,7 @@ class SyntaxBlock(FeatureBlock):
         self.vowels_soft = vowels_soft
         self._active = [s for s in SUBBLOCK_ORDER if self.subblocks.get(s)]
 
-    def fit(self, texts, reps):
+    def fit(self, texts, reps, groups=None):
         return self
 
     def _compute_all(self, doc: Doc) -> Dict[str, List[float]]:

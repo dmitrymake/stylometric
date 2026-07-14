@@ -17,8 +17,10 @@ from spacy.tokens import Doc
 
 from ..lang import function_words
 from .base import FeatureBlock
+from .work_vectorizer import MODE_RELATIVE, WorkLevelVectorizer
 
 _TOKEN_PATTERN = r"(?u)\b\w+\b"
+_ANALYZER = {"analyzer": "word", "token_pattern": _TOKEN_PATTERN, "lowercase": True}
 
 
 class FunctionWordBlock(FeatureBlock):
@@ -30,25 +32,37 @@ class FunctionWordBlock(FeatureBlock):
         self.mode = mode
         self.mfw_count = mfw_count
         self.lang = lang
-        self._vec: CountVectorizer | None = None
+        self._vec: CountVectorizer | None = None       # legacy: raw counts, chunk-pooled
+        self._wv: WorkLevelVectorizer | None = None      # work_balanced: relative freq, equal-work
 
-    def fit(self, texts, reps):
-        if self.mode == "mfw":
-            self._vec = CountVectorizer(
-                max_features=self.mfw_count, lowercase=True, token_pattern=_TOKEN_PATTERN,
-            )
+    def fit(self, texts, reps, groups=None):
+        if groups is None:
+            if self.mode == "mfw":
+                self._vec = CountVectorizer(max_features=self.mfw_count, lowercase=True, token_pattern=_TOKEN_PATTERN)
+            else:
+                self._vec = CountVectorizer(vocabulary=sorted(function_words(self.lang)), lowercase=True, token_pattern=_TOKEN_PATTERN)
+            self._vec.fit(list(texts))
+            self._wv = None
         else:
-            vocab = sorted(function_words(self.lang))
-            self._vec = CountVectorizer(
-                vocabulary=vocab, lowercase=True, token_pattern=_TOKEN_PATTERN,
-            )
-        self._vec.fit(list(texts))
+            # work_balanced (D2): relative frequencies; MFW by equal-work rel-TF ranking
+            if self.mode == "mfw":
+                self._wv = WorkLevelVectorizer(analyzer_params=_ANALYZER, mode=MODE_RELATIVE,
+                                               max_features=self.mfw_count, min_df_works=2)
+            else:
+                self._wv = WorkLevelVectorizer(analyzer_params=_ANALYZER, mode=MODE_RELATIVE,
+                                               vocabulary=sorted(function_words(self.lang)))
+            self._wv.fit(list(texts), groups)
+            self._vec = None
         return self
 
     def transform(self, texts, reps) -> csr_matrix:
+        if getattr(self, "_wv", None) is not None:
+            return self._wv.transform(list(texts))
         assert self._vec is not None, "fit перед transform"
         return self._vec.transform(list(texts))
 
     def feature_names(self) -> List[str]:
+        if getattr(self, "_wv", None) is not None:
+            return [f"fw::{w}" for w in self._wv.feature_names()]
         assert self._vec is not None
         return [f"fw::{w}" for w in self._vec.get_feature_names_out()]

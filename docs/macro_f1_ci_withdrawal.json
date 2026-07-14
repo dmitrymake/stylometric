@@ -1,0 +1,24 @@
+{
+  "erratum": "macro_f1_authorclustered_ci_withdrawal",
+  "interval_status": "withdrawn_pending_preregistered_recompute",
+  "affected": {
+    "file": "docs/stylo_lobo_authorci.json",
+    "key": "macro_f1_authorclustered_CI",
+    "value_after_withdrawal": null
+  },
+  "superseded_interval": [
+    0.6222,
+    0.8369
+  ],
+  "macro_f1_point": 0.8398,
+  "reason": "Author-clustered bootstrap ресэмплит авторов и тем меняет набор классов в macro-усреднении: автор, выпавший из ресэмпла, но предсказанный, даёт F1=0. Интервал не является CI одной фиксированной 43-классовой функции, поэтому недействителен как мера разброса macro-F1 — точка 0.8398 лежит выше его верхней границы. Это не свойство «консервативности».",
+  "not_a_conservative_interval": true,
+  "unchanged": [
+    "macro_f1_point",
+    "accuracy_point",
+    "accuracy_authorclustered_CI",
+    "accuracy_bootstrap_median"
+  ],
+  "required_recompute": "Предрегистрированный протокол с фиксированным набором меток (43 класса), внутри которого macro-усреднение считается по одному и тому же знаменателю на каждой bootstrap-реплике.",
+  "note": "Point macro-F1 остаётся описательной величиной. Author-clustered accuracy CI действителен и публикуется; отзыв касается только macro-F1 author-clustered CI."
+}

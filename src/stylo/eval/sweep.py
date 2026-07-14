@@ -21,8 +21,9 @@ import pandas as pd
 from ..corpus import Dataset
 from ..features.registry import BLOCK_ORDER
 from ..features.syntax import SUBBLOCK_ORDER
-from .groupkfold import gkf_evaluate
-from .lobo import lobo_evaluate
+from .groupkfold import _gkf_run
+from .lobo import _lobo_run
+from .work_weighting import CHUNK_WEIGHTED_LEGACY
 from .metrics import accuracy, macro_f1, summarize_book_results
 from .significance import mcnemar
 
@@ -49,17 +50,19 @@ def _clone_with(cfg, dotted_overrides: Dict[str, object]):
     return ConfigNode(raw)
 
 
-def evaluate_case(cfg, dataset: Dataset, case: EvalCase, strategy: str = "gkf",
-                  n_jobs: Optional[int] = None) -> Dict:
+def _evaluate_case(cfg, dataset: Dataset, case: EvalCase, strategy: str = "gkf",
+                  n_jobs: Optional[int] = None, *, weighting: str, panel=None) -> Dict:
     eval_cfg = cfg
     if case.subblock_override:
         eval_cfg = _clone_with(cfg, {f"features.syntax.subblocks.{k}": v
                                      for k, v in case.subblock_override.items()})
     if strategy == "gkf":
-        df, probs, ytrue = gkf_evaluate(eval_cfg, dataset, case.spec, case.enabled_override)
+        df, probs, ytrue = _gkf_run(eval_cfg, dataset, case.spec, case.enabled_override, None, weighting, panel)
+    elif strategy == "lobo":
+        df, probs, ytrue = _lobo_run(eval_cfg, dataset, case.spec, case.enabled_override,
+                                     0, n_jobs, weighting)
     else:
-        df, probs, ytrue = lobo_evaluate(eval_cfg, dataset, case.spec, case.enabled_override,
-                                         n_jobs=n_jobs)
+        raise ValueError(f"unknown sweep strategy {strategy!r} (expected 'gkf' or 'lobo')")
     summ = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
                                   df["rank"].to_numpy(), dataset.authors,
                                   iters=cfg.get_path("evaluation.bootstrap_iters", 1000),
@@ -68,8 +71,7 @@ def evaluate_case(cfg, dataset: Dataset, case: EvalCase, strategy: str = "gkf",
     return {"label": case.label, "df": df, "probs": probs, "summary": summ}
 
 
-def _correct_by_book(df: pd.DataFrame) -> Dict[str, bool]:
-    return {f"{r.test_author}/{r.test_book}": bool(r.correct) for r in df.itertuples()}
+from .final import _correct_by_book, _fold_manifest  # noqa: E402  (shared exact-manifest helpers)
 
 
 def default_cases(cfg) -> Tuple[EvalCase, List[EvalCase], List[EvalCase]]:
@@ -100,7 +102,8 @@ def default_cases(cfg) -> Tuple[EvalCase, List[EvalCase], List[EvalCase]]:
 
 
 def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
-              include_baselines: bool = True, n_jobs: Optional[int] = None) -> Dict:
+              include_baselines: bool = True, n_jobs: Optional[int] = None,
+              *, weighting: str) -> Dict:
     """Полный ablation-sweep. Возвращает {'table': DataFrame, 'cases': {...}}.
 
     При strategy='gkf' каждый конфиг — отдельная (внутри последовательная) GKF-оценка,
@@ -108,24 +111,38 @@ def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
     При strategy='lobo' внутренняя LOBO уже параллельна по фолдам, поэтому конфиги
     считаем последовательно (без вложенного параллелизма).
     """
+    if strategy not in ("gkf", "lobo"):                # validate BEFORE any fit (no silent LOBO)
+        raise ValueError(f"unknown sweep strategy {strategy!r} (expected 'gkf' or 'lobo')")
+    from .dispatch import frozen_run_contract
+    from .provenance import verify_dataset_against_disk
+    weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
+    # legacy GKF screening runs on the FROZEN screening_panel_v1 (43 authors / 251 works): every
+    # sweep case sees the SAME folds, and each result is checked against the canonical manifest.
+    panel = None
+    if strategy == "gkf":
+        from .groupkfold import bind_screening_panel
+        dataset, panel = bind_screening_panel(cfg, dataset, weighting)
     full, loo, baselines = default_cases(cfg)
     cases = [full] + loo + (baselines if include_baselines else [])
 
     if strategy == "gkf":
         from joblib import Parallel, delayed
         njobs = n_jobs if n_jobs is not None else cfg.get_path("evaluation.n_jobs", -1)
-        log.info("sweep[gkf]: %d конфигов параллельно (n_jobs=%s)", len(cases), njobs)
+        log.info("sweep[gkf/%s]: %d конфигов параллельно (n_jobs=%s, panel=%s)",
+                 weighting, len(cases), njobs, panel is not None)
         out = Parallel(n_jobs=njobs, pre_dispatch="2*n_jobs")(
-            delayed(evaluate_case)(cfg, dataset, case, "gkf", 1) for case in cases
+            delayed(_evaluate_case)(cfg, dataset, case, "gkf", 1, weighting=weighting, panel=panel)
+            for case in cases
         )
         results = {case.label: r for case, r in zip(cases, out)}
     else:
         results = {}
         for case in cases:
-            log.info("sweep[lobo]: %s", case.label)
-            results[case.label] = evaluate_case(cfg, dataset, case, "lobo", n_jobs)
+            log.info("sweep[lobo/%s]: %s", weighting, case.label)
+            results[case.label] = _evaluate_case(cfg, dataset, case, "lobo", n_jobs, weighting=weighting)
 
     ref = results[full.label]
+    ref_manifest = _fold_manifest(ref["df"])          # ordered (book, true_label) — exact fold set
     ref_correct = _correct_by_book(ref["df"])
     ref_acc = ref["summary"]["accuracy"].point
 
@@ -142,12 +159,14 @@ def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
             "top2": s["top2"].point,
             "delta_acc_vs_full": s["accuracy"].point - ref_acc,
         }
-        # McNemar только для блок-ablation (парно по тем же книгам, что и full)
+        # McNemar только для блок-ablation (парно по ТОЧНО тому же fold-manifest, что и full)
         if label.startswith("-"):
+            if _fold_manifest(r["df"]) != ref_manifest:
+                raise ValueError(f"ablation {label} has a non-identical fold manifest vs full — refusing")
             cur = _correct_by_book(r["df"])
-            common = sorted(set(ref_correct) & set(cur))
-            mc = mcnemar(np.array([ref_correct[b] for b in common]),
-                         np.array([cur[b] for b in common]))
+            books = [b for b, _ in ref_manifest]
+            mc = mcnemar(np.array([ref_correct[b] for b in books]),
+                         np.array([cur[b] for b in books]))
             row["mcnemar_p"] = mc.p_value
         else:
             row["mcnemar_p"] = float("nan")

@@ -39,7 +39,9 @@ const prozaEqual = pzc["наш равновесный ансамбль (стар
 const prozaEns = pzc["НАШ ансамбль (reliability^6, test-favoured diagnostic)"][0]; // веса train-OOF (leak-free), но степень 6 — лучшая из свипа на тесте
 
 const wordsM = (cv.summary.total_words / 1e6).toFixed(1);
-const HCI = sd.headline.macroF1CI;                    // author-clustered 95% CI macro-F1 stylo-LR LOBO
+// author-clustered 95% CI macro-F1 ОТОЗВАН (sd.headline.macroF1CI = null): ресэмпл авторов меняет
+// набор классов macro-усреднения → это не CI фиксированной 43-классовой функции. Точка описательна.
+const MF1_WITHDRAWN = sd.headline.macroF1CI === null;
 const taras = sd.tarasCase;
 const tarasStrict = taras.headline[0];
 const tarasLoose = taras.headline[1];
@@ -103,7 +105,7 @@ ${prov.n_books} книг) даёт AUC ${prov.probes.char_3_5.book_auc_loao} н�
 
 | Модель | Accuracy (book-level) | macro-F1 | top-2 | vs stylo (McNemar) |
 |--------|----------------------|----------|-------|--------------------|
-| **stylo (все блоки)** | **${f4(M.stylo.acc)}** — по книгам ${ci(M.stylo)}, по авторам **[${styloCI.accuracy_authorclustered_CI[0]}, ${styloCI.accuracy_authorclustered_CI[1]}]** (медиана ${styloCI.accuracy_bootstrap_median}) | по авторам **[${HCI[0]}, ${HCI[1]}]**, медиана ${sd.headline.macroF1BootstrapMedian}; точка ${f4(M.stylo.f1)} — выше верха, см. оговорку ниже | ${f4(M.stylo.top2)} | — |
+| **stylo (все блоки)** | **${f4(M.stylo.acc)}** — по книгам ${ci(M.stylo)}, по авторам **[${styloCI.accuracy_authorclustered_CI[0]}, ${styloCI.accuracy_authorclustered_CI[1]}]** (медиана ${styloCI.accuracy_bootstrap_median}) | точка ${f4(M.stylo.f1)}; author-clustered CI отозван (см. оговорку ниже) | ${f4(M.stylo.top2)} | — |
 ${tr("Мешок слов + логрег", M.bow_lr)}
 ${tr("char-3gram cosine", M.char_cos)}
 | Cosine Delta · 150 / 300 / 500 MFW | ${f4(dcos.chunk_level["delta_cos:150"].accuracy)} / ${f4(dcos.chunk_level["delta_cos:300"].accuracy)} / ${f4(dcos.chunk_level["delta_cos:500"].accuracy)} | ${f4(dcos.chunk_level["delta_cos:150"].macro_f1)} / ${f4(dcos.chunk_level["delta_cos:300"].macro_f1)} / ${f4(dcos.chunk_level["delta_cos:500"].macro_f1)} | — | ${fp(dcos.chunk_level["delta_cos:500"].vs_stylo.mcnemar_p)} |
@@ -125,6 +127,9 @@ ${tr("Burrows Delta (чанки) · 150 MFW", M["delta:150"])}
 > (\`log/experiments/delta_cosine_lobo.py\` → \`docs/delta_cosine_lobo.json\`); контроль воспроизведения: delta:150 этим
 > путём даёт ту же долю верных попаданий, что и канонический расчёт из final_comparison.csv (delta:150 на ${sd.corpus.lobo.books} книгах), —
 > протокол воспроизводится.
+> Знак столбца author-clustered Δacc CI в исторических \`docs/final_comparison.csv\` (и \`docs/ruaa_bench_v1.json\`)
+> исправлен алгебраически в версионных \`docs/final_comparison.v2.csv\`/\`.v2.txt\` и \`docs/ruaa_bench_v1.0.1.json\` —
+> точка, accuracy, macro-F1, McNemar и флаг значимости не изменились (запись и SHA-инвентарь — \`docs/ci_sign_erratum.json\`).
 > McNemar-p считается по книгам; при коррелированных внутри автора книгах это антиконсервативная граница. Кластер-робастная
 > проверка главного сравнения: stylo−BoW Δacc +${crob.delta_accuracy}, author-clustered 95% CI [+${crob.author_clustered.ci95[0]}, +${crob.author_clustered.ci95[1]}]
 > (P(Δ≤0)=${crob.author_clustered.p_like_P_delta_le_0}) — преимущество переживает ресэмплинг по авторам. Это диагностика в GKF-режиме
@@ -146,10 +151,15 @@ ${tr("Burrows Delta (чанки) · 150 MFW", M["delta:150"])}
 (донская школа, одесситы, деревенщики) лексика путает похожих по теме, а структурный сигнал (синтаксис, служебные
 слова, символьные паттерны) их разводит.
 
-**Оговорка о CI (важно):** точечная macro-F1 ${f4(M.stylo.f1)} лежит выше верха author-clustered CI [${HCI[0]}, ${HCI[1]}]
-(медиана пересборок ${sd.headline.macroF1BootstrapMedian}). Это свойство конвенции бутстрепа, а не ошибка точки: в реплике авторы, выпавшие
-из ресэмпла, но оставшиеся среди предсказаний, дают F1=0 и тянут реплику вниз — интервал консервативен. Accuracy
-устойчива к той же процедуре: author-clustered CI [${styloCI.accuracy_authorclustered_CI[0]}, ${styloCI.accuracy_authorclustered_CI[1]}], медиана ${styloCI.accuracy_bootstrap_median} ≈ точке ${f4(M.stylo.acc)}.
+**Оговорка о macro-F1 CI (важно):** author-clustered 95% CI для macro-F1 не публикуется
+(\`docs/stylo_lobo_authorci.json\` → \`macro_f1_authorclustered_interval_status = ${sd.headline.macroF1CIStatus}\`,
+запись — \`${sd.headline.macroF1CIErratumRef}\`). Author-clustered bootstrap ресэмплит авторов и тем меняет набор
+классов в macro-усреднении: автор, выпавший из ресэмпла, но предсказанный, даёт F1=0. Это не CI одной фиксированной
+${sd.corpus.lobo.tested_authors}-классовой функции, поэтому интервал недействителен как мера разброса macro-F1 (точка
+${f4(M.stylo.f1)} лежит выше его верхней границы); корректный интервал требует предрегистрированного протокола с
+фиксированным набором меток. Точка macro-F1 ${f4(M.stylo.f1)} остаётся описательной. Accuracy устойчива к ресэмплингу
+авторов: author-clustered CI [${styloCI.accuracy_authorclustered_CI[0]}, ${styloCI.accuracy_authorclustered_CI[1]}],
+медиана ${styloCI.accuracy_bootstrap_median} ≈ точке ${f4(M.stylo.acc)}.
 Реальный размер выборки для по-авторных выводов — ${sd.corpus.lobo.tested_authors} тестированных автора, а не ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)}.
 
 **Кейс «Тихий Дон»** (см. \`site/\` — статья, и \`docs/sholokhov_*.json\`): единственный формальный confirmatory-тест —

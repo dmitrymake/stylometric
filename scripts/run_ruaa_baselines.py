@@ -74,21 +74,20 @@ DEFAULT_SPECS = ["stylo", "stylo_stack", "delta:300", "delta_cos:500",
 
 
 def bench_subset(ds: Dataset, bench: dict, max_authors: int = 0) -> Dataset:
+    from stylo.eval.provenance import derive_dataset
     keep_books = {f"{a}/{b['book']}"
                   for a, e in bench["authors"].items() for b in e["books"]}
     if max_authors:
         keep_authors = sorted(bench["authors"])[:max_authors]
         keep_books = {k for k in keep_books if k.split("/", 1)[0] in keep_authors}
-    mask = np.array([g in keep_books for g in ds.groups])
-    authors = sorted({g.split("/", 1)[0] for g in ds.groups[mask]})
-    a2i = {a: i for i, a in enumerate(authors)}
-    y = np.array([a2i[g.split("/", 1)[0]] for g in ds.groups[mask]])
-    sub = Dataset(texts=ds.texts[mask], y=y, groups=ds.groups[mask], authors=authors)
+    idx = [i for i, g in enumerate(ds.groups) if g in keep_books]
+    # provenance-preserving subset (no hand-built Dataset on a provenance-bearing path)
+    sub = derive_dataset(ds, idx)
     missing = keep_books - set(sub.groups.tolist())
     if missing:
         print(f"ВНИМАНИЕ: {len(missing)} книг бенчмарка нет во frags_train: "
               f"{sorted(missing)[:6]}...")
-    return sub
+    return sub, sorted(missing)
 
 
 def main() -> int:
@@ -102,11 +101,44 @@ def main() -> int:
     bench = json.loads(BENCH_DOC.read_text("utf-8"))
     cfg = load_config()
     full = load_dataset(ROOT / "data" / "frags_train")
-    ds = bench_subset(full, bench, args.max_authors)
+    ds, missing = bench_subset(full, bench, args.max_authors)
     print(f"RuAA-срез: авторов={ds.n_authors} книг={len(set(ds.groups.tolist()))} "
           f"чанков={len(ds)}")
 
-    out = run_final(cfg, ds, specs=specs, n_jobs=args.n_jobs)
+    # Canonical publish ONLY for a complete, whole-benchmark run; a quick/partial run goes to the
+    # exploratory namespace and never overwrites the canonical package / reference / SHA256SUMS.
+    # canonical ONLY for the literal full spec list and no author cap (a permuted list or
+    # --max-authors=-1 must NOT be treated as canonical)
+    quick = (specs != list(DEFAULT_SPECS)) or (args.max_authors != 0)
+    if missing and not quick:
+        print(f"FATAL: {len(missing)} книг бенчмарка отсутствуют — canonical publish невозможен.")
+        return 2
+    canonical = not quick and not missing
+    global OUT_JSON, OUT_MD, REF_CSV
+    if not canonical:
+        expl = ROOT / "docs" / "exploratory" / "ruaa"; expl.mkdir(parents=True, exist_ok=True)
+        OUT_JSON = expl / "ruaa_bench_v1.json"
+        OUT_MD = expl / "ruaa_bench_leaderboard.md"
+        REF_CSV = expl / "reference_submission_stylo.csv"
+        print(f"РЕЖИМ: exploratory (quick={quick}, missing={len(missing)}) → {expl.relative_to(ROOT)}")
+    else:
+        # docs/ruaa_bench_v1.json is a FROZEN P0 snapshot (its author-clustered CI sign is corrected
+        # only via the versioned docs/ruaa_bench_v1.0.1.json — see scripts/apply_ci_sign_erratum.py).
+        # A canonical re-run must not overwrite the frozen v1 paths; publish a new benchmark version.
+        from stylo.eval.ci_erratum import assert_publish_target_not_frozen
+        assert_publish_target_not_frozen(OUT_JSON)
+        assert_publish_target_not_frozen(OUT_MD)
+
+    # RuAA is pinned to the legacy estimand; the subset (built via derive_dataset) chains to the
+    # disk-anchored full corpus, so run_final's internal disk verification accepts it — no
+    # caller-supplied self-anchor.
+    from stylo.config import with_overrides
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    # RuAA evaluates exactly the bench authors, so its frozen contract is the FULL corpus with NO
+    # benchmark exclusions — expressed as a trusted cfg-clone (not a caller-supplied contract). The
+    # subset chains to that disk-anchored parent inside run_final's own verification.
+    bench_cfg = with_overrides(cfg, {"corpus_policy.exclude_from_benchmark": []})
+    out = run_final(bench_cfg, ds, specs=specs, n_jobs=args.n_jobs, weighting=CHUNK_WEIGHTED_LEGACY)
     table, results = out["table"], out["results"]
     print(format_final(table, results))
 

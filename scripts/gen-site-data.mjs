@@ -95,7 +95,12 @@ track("corpus.pd", "docs/validation_pd.json", "channels['АНСАМБЛЬ (ра�
 // отдельная диагностика (ensemble* ниже); НЕ headline.
 const stylo = loadModelsCsv().find(m => m.id === "stylo");
 const headline = {
+  // macroF1CI ОТОЗВАН (null): author-clustered bootstrap ресэмпла авторов меняет набор классов
+  // macro-усреднения → это не CI фиксированной 43-классовой функции. Статус/прежнее значение/ссылка ниже.
   accuracy: stylo.acc, macroF1: stylo.f1, macroF1CI: styloCI.macro_f1_authorclustered_CI,
+  macroF1CIStatus: styloCI.macro_f1_authorclustered_interval_status,
+  macroF1CISuperseded: styloCI.macro_f1_authorclustered_superseded_interval,
+  macroF1CIErratumRef: styloCI.macro_f1_authorclustered_erratum_ref,
   macroF1BootstrapMedian: styloCI.macro_f1_bootstrap_median,
   accCIAuthor: styloCI.accuracy_authorclustered_CI,               // author-clustered 95% CI accuracy
   accBootstrapMedian: styloCI.accuracy_bootstrap_median,
@@ -839,7 +844,7 @@ const holes = [];
   if (Array.isArray(o)) return o.forEach((x, i) => scan(x, `${path}[${i}]`));
   if (typeof o === "object") return Object.entries(o).forEach(([k, v]) => scan(v, `${path}.${k}`));
 })(data, "");
-const ALLOW = ["models", "tomsk.headroom"]; // p может быть null (stylo), headroom k20 может отсутствовать
+const ALLOW = ["models", "tomsk.headroom", "headline.macroF1CI"]; // p может быть null (stylo), headroom k20 может отсутствовать, macroF1CI ОТОЗВАН (null — не мера разброса)
 const realHoles = holes.filter(h => !ALLOW.some(a => h.includes(a)));
 if (realHoles.length) { console.error("COVERAGE-ГЕЙТ: пустые числа без источника:\n  " + realHoles.join("\n  ")); process.exit(1); }
 

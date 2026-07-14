@@ -14,11 +14,14 @@
   ],
   "accuracy_bootstrap_median": 0.8826,
   "macro_f1_point": 0.8398,
-  "macro_f1_authorclustered_CI": [
+  "macro_f1_authorclustered_CI": null,
+  "macro_f1_authorclustered_interval_status": "withdrawn_pending_preregistered_recompute",
+  "macro_f1_authorclustered_superseded_interval": [
     0.6222,
     0.8369
   ],
+  "macro_f1_authorclustered_erratum_ref": "docs/macro_f1_ci_withdrawal.json",
   "macro_f1_bootstrap_median": 0.7249,
   "n_boot": 10000,
-  "note": "канонический headline stylo-LR LOBO: macro-F1/accuracy + author-clustered 95% CI. Конвенция macro-F1 в репликах: f1_score(average='macro', zero_division=0) без labels= — усреднение по меткам y_true∪y_pred реплики; автор, выпавший из ресэмпла, но оставшийся среди предсказаний, даёт F1=0 и тянет реплику вниз. Интервал консервативен (смещён вниз), точечная оценка на полном пуле лежит выше 97.5-перцентиля — это свойство конвенции, а не признак ошибки в точке."
+  "note": "канонический headline stylo-LR LOBO: accuracy + author-clustered 95% CI. Точка macro-F1 = 0.8398 описательная. Author-clustered 95% CI для macro-F1 не публикуется (macro_f1_authorclustered_CI=null; статус — macro_f1_authorclustered_interval_status). Author-clustered bootstrap ресэмплит авторов и меняет набор классов в macro-усреднении: выпавший из ресэмпла, но предсказанный автор даёт F1=0. Такой интервал не является CI одной фиксированной 43-классовой функции, поэтому недействителен как мера разброса macro-F1 (точка лежит выше его верхней границы). Это не «консервативность» интервала; корректный интервал требует предрегистрированного протокола с фиксированным набором меток (macro_f1_authorclustered_erratum_ref). Прежнее значение сохранено в macro_f1_authorclustered_superseded_interval для аудита. Accuracy устойчива к той же процедуре — accuracy_authorclustered_CI действителен."
 }

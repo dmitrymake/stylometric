@@ -13,33 +13,57 @@ Delta считается КАК В КЛАССИКЕ:
 """
 from __future__ import annotations
 
+import numbers
 from typing import List
 
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_distances, manhattan_distances
 
+from ..eval.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+                                   resolve_training_weighting)
+
 _TOKEN_PATTERN = r"(?u)\b\w+\b"
+_ANALYZER = {"analyzer": "word", "token_pattern": _TOKEN_PATTERN, "lowercase": True}
 
 
 class BurrowsDelta:
     needs_groups = True
+    ARTIFACT_SCHEMA_VERSION = 2         # v2 adds training_weighting/_wv; a versionless pickle is v1
 
     def __init__(self, mfw_count: int = 300, metric: str = "manhattan",
-                 vocabulary: List[str] | None = None):
+                 vocabulary: List[str] | None = None,
+                 training_weighting: str = CHUNK_WEIGHTED_LEGACY):
         assert metric in {"manhattan", "cosine"}
+        self._schema_version = self.ARTIFACT_SCHEMA_VERSION
         self.mfw_count = mfw_count
         self.metric = metric
         # если задан фиксированный словарь (напр. служебные слова) — Delta считается ТОЛЬКО по нему
         # (тема-нейтральный вариант Delta); иначе — классические top-mfw_count слов корпуса.
         self.vocabulary = list(vocabulary) if vocabulary is not None else None
+        self.training_weighting = resolve_training_weighting(training_weighting)
         self._vec: CountVectorizer | None = None
+        self._wv = None                      # WorkLevelVectorizer в work_balanced-ветке
         self.mean_: np.ndarray | None = None
         self.std_: np.ndarray | None = None
         self.classes_: np.ndarray | None = None
         self.centroids_: np.ndarray | None = None
 
+    def __setstate__(self, state):
+        # migrate pre-B2 pickles (schema v1, versionless): fill attributes introduced in B1-c/B2 so
+        # an old delta.pkl loads + predicts + refits.
+        self.__dict__.update(state)
+        sv = self.__dict__.setdefault("_schema_version", 1)
+        if isinstance(sv, bool) or not isinstance(sv, int) or not (1 <= sv <= self.ARTIFACT_SCHEMA_VERSION):
+            raise ValueError(f"invalid BurrowsDelta artifact schema version {sv!r}")
+        self.__dict__.setdefault("training_weighting", CHUNK_WEIGHTED_LEGACY)
+        self.__dict__.setdefault("_wv", None)
+        self.__dict__.setdefault("vocabulary", None)
+
     def _rel_freq(self, texts) -> np.ndarray:
+        if getattr(self, "_wv", None) is not None:   # getattr: pre-B2 pickles have no _wv
+            # work_balanced: per-chunk count/ALL-tokens over the work-selected vocab
+            return self._wv.transform(list(texts)).toarray().astype(np.float64)
         counts = self._vec.transform(list(texts)).toarray().astype(np.float64)
         totals = counts.sum(axis=1, keepdims=True)
         totals[totals == 0] = 1.0
@@ -50,6 +74,8 @@ class BurrowsDelta:
         y = np.asarray(y)
         if len(texts) != len(y):
             raise ValueError("texts and y must have the same length")
+        if self.training_weighting == WORK_BALANCED:
+            return self._fit_work_balanced(texts, y, groups)
         if self.vocabulary is not None:
             self._vec = CountVectorizer(vocabulary=self.vocabulary, lowercase=True,
                                         token_pattern=_TOKEN_PATTERN)
@@ -57,6 +83,7 @@ class BurrowsDelta:
             self._vec = CountVectorizer(max_features=self.mfw_count, lowercase=True,
                                         token_pattern=_TOKEN_PATTERN)
         self._vec.fit(texts)
+        self._wv = None                       # clear any prior WB state on a legacy (re)fit
         freqs = self._rel_freq(texts)
         group_freqs, group_y = _group_means(freqs, y, groups)
         self.mean_ = group_freqs.mean(axis=0)
@@ -80,6 +107,47 @@ class BurrowsDelta:
             )
             if groups is not None
             else "equal_row"
+        )
+        return self
+
+    def _fit_work_balanced(self, texts, y, groups):
+        """Delta on work-balanced feature state (design §1): work-level MFW vocab + Σcounts/Σevents
+        z-input, then the unchanged z-mean/std/centroid math on ONE row per work."""
+        from ..features.work_vectorizer import WorkLevelVectorizer, MODE_RELATIVE, validate_work_ids
+        if groups is None:
+            raise ValueError("work_balanced Delta needs per-chunk groups")
+        g = validate_work_ids(groups, len(y))
+        for i, yi in enumerate(y):                     # exact integral labels (no float/bool merge)
+            if isinstance(yi, (bool, np.bool_)) or not isinstance(yi, numbers.Integral):
+                raise ValueError(f"work_balanced Delta labels must be non-bool integers, got y[{i}]={yi!r}")
+        if self.vocabulary is not None:
+            self._wv = WorkLevelVectorizer(analyzer_params=_ANALYZER, mode=MODE_RELATIVE,
+                                           vocabulary=self.vocabulary)
+        else:
+            self._wv = WorkLevelVectorizer(analyzer_params=_ANALYZER, mode=MODE_RELATIVE,
+                                           max_features=self.mfw_count, min_df_works=2)
+        self._wv.fit(texts, g)
+        self._vec = None
+        work_ids, rel_rows = self._wv.transform_grouped(texts, g)      # one row per work, Σ/Σ
+        group_freqs = rel_rows.toarray()
+        lbl: dict = {}
+        for gi, yi in zip(g, y):
+            yi = int(yi)
+            if gi in lbl and lbl[gi] != yi:
+                raise ValueError(f"work {gi!r} spans multiple classes")
+            lbl[gi] = yi
+        group_y = np.array([lbl[w] for w in work_ids], dtype=y.dtype)
+        self.mean_ = group_freqs.mean(axis=0)
+        self.std_ = group_freqs.std(axis=0)
+        self.std_[self.std_ == 0] = 1e-9
+        group_z = (group_freqs - self.mean_) / self.std_
+        if self.metric == "cosine":
+            group_z = group_z / (np.linalg.norm(group_z, axis=1, keepdims=True) + 1e-12)
+        self.classes_ = np.unique(y)
+        self.centroids_ = np.vstack([group_z[group_y == c].mean(axis=0) for c in self.classes_])
+        self.group_weighting_ = (
+            "work_balanced_sumcounts_over_sumtokens_z"
+            + ("_l2" if self.metric == "cosine" else "")
         )
         return self
 
@@ -107,6 +175,8 @@ class BurrowsDelta:
         return ex / (ex.sum(axis=1, keepdims=True) + 1e-12)
 
     def feature_names(self) -> List[str]:
+        if getattr(self, "_wv", None) is not None:
+            return list(self._wv.feature_names())
         return list(self._vec.get_feature_names_out()) if self._vec else []
 
 

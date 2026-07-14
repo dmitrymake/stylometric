@@ -60,6 +60,19 @@ def resolve_training_weighting(value: str | None, *, default: str = CHUNK_WEIGHT
     return chosen
 
 
+def require_weighting(value: str) -> str:
+    """Strict resolver for the lower runtime APIs: only the two enum values, NO None fallback.
+
+    A ``None`` reaching make_factory/lobo/gkf/run_final/train would otherwise silently mean the
+    legacy arm even under a work_balanced config (split-brain). The single toggle is resolved once
+    at the CLI; everything below must receive an explicit, valid value.
+    """
+    if value not in SUPPORTED_TRAINING_WEIGHTINGS:
+        allowed = ", ".join(sorted(SUPPORTED_TRAINING_WEIGHTINGS))
+        raise ValueError(f"weighting must be explicit ({allowed}); got {value!r}")
+    return value
+
+
 def to_claim_label(training_weighting: str | None) -> str:
     """Public claim label for a runtime weighting (runtime != public claim string).
 

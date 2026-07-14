@@ -31,10 +31,13 @@
   "headline": {
     "accuracy": 0.8804780876494024,
     "macroF1": 0.839785469888069,
-    "macroF1CI": [
+    "macroF1CI": null,
+    "macroF1CIStatus": "withdrawn_pending_preregistered_recompute",
+    "macroF1CISuperseded": [
       0.6222,
       0.8369
     ],
+    "macroF1CIErratumRef": "docs/macro_f1_ci_withdrawal.json",
     "macroF1BootstrapMedian": 0.7249,
     "accCIAuthor": [
       0.8116,

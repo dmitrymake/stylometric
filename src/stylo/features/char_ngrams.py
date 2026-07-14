@@ -14,6 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from spacy.tokens import Doc
 
 from .base import FeatureBlock
+from .work_vectorizer import MODE_TFIDF, WorkLevelVectorizer
 
 
 def bleach_doc(doc: Doc, replacements: Dict[str, str]) -> str:
@@ -57,29 +58,46 @@ class CharNgramBlock(FeatureBlock):
         }
         self.name = name or ("char_ngrams" if bleach else "char_ngrams_raw")
         self._vec: TfidfVectorizer | None = None
+        self._wv: WorkLevelVectorizer | None = None
 
     def _strings(self, texts, reps) -> List[str]:
         if self.bleach:
             return [r.bleach for r in reps]
         return [t.lower() for t in texts]
 
-    def fit(self, texts, reps):
-        self._vec = TfidfVectorizer(
-            analyzer="char",
-            ngram_range=self.ngram_range,
-            lowercase=False,           # bleach уже lower; raw приводим в _strings
-            min_df=self.min_df,
-            max_features=self.max_features,
-            sublinear_tf=self.sublinear_tf,
-            use_idf=True,
-        )
-        self._vec.fit(self._strings(texts, reps))
+    def fit(self, texts, reps, groups=None):
+        docs = self._strings(texts, reps)
+        if groups is None:
+            self._vec = TfidfVectorizer(
+                analyzer="char",
+                ngram_range=self.ngram_range,
+                lowercase=False,           # bleach уже lower; raw приводим в _strings
+                min_df=self.min_df,
+                max_features=self.max_features,
+                sublinear_tf=self.sublinear_tf,
+                use_idf=True,
+            )
+            self._vec.fit(docs)
+            self._wv = None
+        else:
+            # work_balanced: work-level char vocab/DF/IDF (equal weight per work)
+            self._wv = WorkLevelVectorizer(
+                analyzer_params={"analyzer": "char", "ngram_range": self.ngram_range, "lowercase": False},
+                mode=MODE_TFIDF, max_features=self.max_features, min_df_works=2, sublinear_tf=self.sublinear_tf,
+            )
+            self._wv.fit(docs, groups)
+            self._vec = None
         return self
 
     def transform(self, texts, reps) -> csr_matrix:
+        docs = self._strings(texts, reps)
+        if getattr(self, "_wv", None) is not None:
+            return self._wv.transform(docs)
         assert self._vec is not None, "fit перед transform"
-        return self._vec.transform(self._strings(texts, reps))
+        return self._vec.transform(docs)
 
     def feature_names(self) -> List[str]:
+        if getattr(self, "_wv", None) is not None:
+            return [f"char::{f}" for f in self._wv.feature_names()]
         assert self._vec is not None
         return [f"char::{f}" for f in self._vec.get_feature_names_out()]

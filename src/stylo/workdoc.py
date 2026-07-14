@@ -425,6 +425,9 @@ def load_work_balanced_dataset(
     if input_clean_root is None:
         input_clean_root = cfg.get_path("paths.input_clean", "input_clean")
     expected_hash = chunker_config_hash(cfg)
+    if isinstance(exclude_authors, (str, bytes)):     # a bare string would become a set of letters
+        raise ManifestError("exclude_authors must be an iterable of author ids, not a string")
+    exclude_authors = tuple(exclude_authors)          # materialize ONCE (a generator is consumed twice)
     excl = set(exclude_authors) | {unknown_name}
 
     def _real_subdirs(parent: pathlib.Path, what: str) -> list[pathlib.Path]:
@@ -458,11 +461,14 @@ def load_work_balanced_dataset(
         raise ManifestError(f"need >=2 authors, found {authors}")
     auth2idx = {a: i for i, a in enumerate(authors)}
 
+    from .eval.provenance import RowIdentity
+
     texts: list[str] = []
     y: list[int] = []
     groups: list[str] = []
     seen_work_ids: set[str] = set()
     used_paths: list[str] = []
+    row_ids: list = []
 
     for author in authors:
         adir = root / author
@@ -482,6 +488,11 @@ def load_work_balanced_dataset(
                 y.append(auth2idx[author])
                 groups.append(work_id)
                 used_paths.append(str(wdir / entry.path))
+                row_ids.append(RowIdentity(
+                    group=work_id, ordinal=entry.span_ordinal, text_sha256=entry.text_sha256,
+                    work_id=work_id, provenance_sha256=manifest.provenance_sha256,
+                    chunker_config_hash=manifest.chunker_config_hash,
+                ))
 
     if len(texts) < 10:
         raise ManifestError(f"too few fragments after canonical load: {len(texts)}")
@@ -492,11 +503,25 @@ def load_work_balanced_dataset(
     if set(y_arr.tolist()) != set(range(len(authors))):
         raise ManifestError("every author must contribute at least one observation")
 
+    from .eval.provenance import (WORK_BALANCED_MANIFEST, CorpusPolicyProvenance,
+                                  build_provenance)
+    manifest_hash = hashlib.sha256(
+        b"".join(f"{r.work_id}\x00{r.provenance_sha256}\x00".encode() for r in row_ids)
+    ).hexdigest()
+    prov = build_provenance(
+        loader_kind=WORK_BALANCED_MANIFEST,
+        texts=texts, y=y, groups=groups, authors=authors, row_ids=row_ids,
+        frags_root=str(root_resolved),
+        corpus_policy=CorpusPolicyProvenance.build(exclude_authors, unknown_name),
+        chunker_config_hash=expected_hash,
+        manifest_hash=manifest_hash,
+    )
     dataset = Dataset(
         texts=np.array(texts, dtype=object),
         y=y_arr,
         groups=np.array(groups, dtype=object),
         authors=authors,
+        provenance=prov,
     )
     dataset._manifest_paths = tuple(used_paths)  # type: ignore[attr-defined]
     return dataset

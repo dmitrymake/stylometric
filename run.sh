@@ -22,14 +22,18 @@ cmd="${1:-all}"; shift || true
 
 case "$cmd" in
   all)
-    run validate-corpus || true
-    run split
-    run warm
-    run train
+    # ОДИН override («$@», напр. --set evaluation.training_weighting=work_balanced) идёт во ВСЕ
+    # стадии, читающие конфиг — иначе split/train/evaluate остались бы legacy при WB-sweep.
+    # Preflight ВСЕГО плана ДО первой мутации: work_balanced не имеет predict/deploy-пути.
+    run preflight --stages train,sweep,evaluate,predict,report "$@"
+    run validate-corpus "$@"    # fatal validation must STOP the scientific pipeline (no `|| true`)
+    run split "$@"
+    run warm "$@"
+    run train "$@"
     run sweep "$@"        # скрининг блоков быстрым GKF-прокси
-    run evaluate          # финальные цифры полным leakage-free LOBO + baseline + значимость
-    run predict || true
-    run report
+    run evaluate "$@"     # финальные цифры полным leakage-free LOBO + baseline + значимость
+    run predict "$@"      # БЕЗ «|| true»: work_balanced predict fail-closes, чтобы не подсунуть legacy-модель
+    run report "$@"
     ;;
   validate)        run validate-corpus "$@" ;;
   clean)           run clean "$@" ;;

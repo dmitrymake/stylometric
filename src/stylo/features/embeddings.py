@@ -90,7 +90,7 @@ class EmbeddingBlock(FeatureBlock):
         mean = (summed / counts).cpu().numpy()
         return mean
 
-    def fit(self, texts, reps):
+    def fit(self, texts, reps, groups=None):
         return self
 
     def transform(self, texts, reps) -> csr_matrix:
