@@ -330,11 +330,10 @@ class TestDispatchAndLifecycle:
         d2.fit(["a b", "b c", "c a", "a c"], [0, 0, 1, 1],
                groups=["a/w1", "a/w1", "b/w2", "b/w2"])    # refit must work
 
-    def test_stack_blocked_under_wb(self):
-        with pytest.raises(UnsupportedVariantError):
-            make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)
-        # legacy stack is allowed to build
-        assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY) is not None
+    def test_stack_builds_under_wb(self):
+        # B3 lifted the B2-core block: stylo_stack is fully wired under work_balanced (B2a+B3)
+        assert make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)() is not None
+        assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY)() is not None
 
     def test_headline_write_guard(self):
         assert_headline_write_allowed(CHUNK_WEIGHTED_LEGACY)

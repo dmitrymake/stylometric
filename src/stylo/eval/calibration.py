@@ -7,19 +7,35 @@
 """
 from __future__ import annotations
 
-from typing import Callable, Dict, Tuple
+import collections.abc as cabc
+import numbers
+from collections import Counter, defaultdict
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import softmax
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedGroupKFold
 
 Calibrator = Callable[[np.ndarray], np.ndarray]
+_METHODS = ("identity", "temperature", "platt", "isotonic")
 
 
 def nll(probs: np.ndarray, y: np.ndarray) -> float:
     return float(-np.log(np.clip(probs[np.arange(len(y)), y], 1e-12, 1.0)).mean())
+
+
+def _work_loss_sum(probs: np.ndarray, y: np.ndarray, groups: np.ndarray) -> float:
+    """Sum over the held-out works of the mean per-chunk NLL inside each work. The pooled equal-work
+    NLL is this summed across all folds and divided by the total held-out works (== W, each work
+    held out exactly once) — so every work carries equal weight regardless of fold or chunk count."""
+    per_chunk = -np.log(np.clip(probs[np.arange(len(y)), y], 1e-12, 1.0))
+    buckets: Dict = defaultdict(list)
+    for i, w in enumerate(groups):
+        buckets[w].append(per_chunk[i])
+    return float(sum(np.mean(v) for v in buckets.values()))
 
 
 def _identity(scores: np.ndarray) -> np.ndarray:
@@ -74,23 +90,133 @@ def _fit_method(m: str, oof: np.ndarray, y: np.ndarray, seed: int):
 
 def choose_calibrator(oof: np.ndarray, y: np.ndarray,
                       methods=("identity", "temperature", "platt", "isotonic"),
-                      seed: int = 42) -> Tuple[Calibrator, Dict]:
+                      seed: int = 42, groups: Optional[np.ndarray] = None,
+                      n_splits: int = 3) -> Tuple[Calibrator, Dict]:
     """Лучший калибратор по held-out NLL внутри OOF-строк.
 
-    Обучаемые калибраторы (Platt, isotonic) на своих train-строках занижают NLL,
-    поэтому выбор метода делается на отложенной трети OOF; победитель затем
-    рефитится на всех OOF-строках. Тест нигде не участвует.
+    Обучаемые калибраторы (Platt, isotonic) на своих train-строках занижают NLL, поэтому выбор
+    метода делается на отложенной части OOF; победитель рефитится на всех OOF-строках. Тест нигде
+    не участвует.
+
+    ``groups=None`` — legacy: одна случайная отложенная треть чанков (chunk-level).
+    ``groups`` заданы (work_balanced, B3) — **group-aware**: StratifiedGroupKFold по работам, чтобы
+    чанки одной работы не расщеплялись между fit/held-out (иначе book-level утечка в выборе метода).
+    ``n_splits_eff = min(n_splits, min_works_per_class)``; если у класса < 2 работ или класс выпадает
+    из fit-фолда — калибровка **отключается целиком** (identity), без chunk-CV фоллбэка.
     """
-    rng = np.random.RandomState(seed)
-    idx = rng.permutation(len(y))
-    cut = max(1, len(y) // 3)
-    val_idx, fit_idx = idx[:cut], idx[cut:]
-    scores: Dict[str, float] = {}
-    for m in methods:
-        cal, _ = _fit_method(m, oof[fit_idx], y[fit_idx], seed)
-        scores[m] = nll(cal(oof[val_idx]), y[val_idx])
-    best = min(scores, key=scores.get)
+    # a Set/Mapping has no stable iteration order (PYTHONHASHSEED changes the chosen method) — reject;
+    # a sequence/generator is materialised ordered-unique.
+    if isinstance(methods, (cabc.Set, cabc.Mapping)):
+        raise ValueError("methods must be an ordered sequence (list/tuple), not a set/mapping")
+    methods = tuple(dict.fromkeys(methods))             # ordered-unique; materialises a generator once
+    if not methods:
+        raise ValueError("methods must be a non-empty collection")
+    bad = [m for m in methods if m not in _METHODS]
+    if bad:
+        raise ValueError(f"unknown calibration methods {bad}; allowed {_METHODS}")
+    if groups is None:
+        rng = np.random.RandomState(seed)
+        idx = rng.permutation(len(y))
+        cut = max(1, len(y) // 3)
+        val_idx, fit_idx = idx[:cut], idx[cut:]
+        scores: Dict[str, float] = {}
+        for m in methods:
+            cal, _ = _fit_method(m, oof[fit_idx], y[fit_idx], seed)
+            scores[m] = nll(cal(oof[val_idx]), y[val_idx])
+        best = min(scores, key=scores.get)
+        cal, params = _fit_method(best, oof, y, seed)
+        return cal, {"method": best, "params": params, "selection": "held-out треть OOF",
+                     "heldout_nll": {m: round(v, 4) for m, v in scores.items()}}
+    return _choose_calibrator_grouped(oof, y, groups, methods, seed, n_splits)
+
+
+def _identity_disabled(oof, y, seed, reason: str) -> Tuple[Calibrator, Dict]:
+    cal, params = _fit_method("identity", oof, y, seed)
+    return cal, {"method": "identity", "params": params, "group_aware": True,
+                 "calibration_disabled": True, "reason": reason}
+
+
+def _validate_grouped_inputs(oof, y, groups):
+    """Fail-closed input contract for group-aware calibration (finite 2-D oof; 1-D non-bool integral
+    y in [0, n_classes); equal non-empty lengths; validated work ids; exactly one label per work)."""
+    from ..features.work_vectorizer import validate_work_ids
+    # validate the RAW dtype BEFORE coercion: a float cast would silently accept bool / numeric
+    # strings / drop a complex imaginary part and still emit a normal passport.
+    oof_raw = np.asarray(oof)
+    if (oof_raw.dtype == bool or np.issubdtype(oof_raw.dtype, np.complexfloating)
+            or not np.issubdtype(oof_raw.dtype, np.number)):
+        raise ValueError("oof must be a real, non-bool, non-complex numeric array")
+    oof = oof_raw.astype(float)
+    if oof.ndim != 2 or oof.shape[0] == 0 or oof.shape[1] == 0:
+        raise ValueError("oof must be a non-empty 2-D score matrix")
+    if not np.isfinite(oof).all():
+        raise ValueError("oof has NaN/inf entries")
+    n, n_classes = oof.shape
+    y_arr = np.asarray(y)
+    if y_arr.ndim != 1 or len(y_arr) != n:
+        raise ValueError(f"y must be 1-D of length {n}")
+    if y_arr.dtype == bool or not all(
+            isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in y_arr.tolist()):
+        raise ValueError("y must be non-bool integer labels")
+    y_int = y_arr.astype(int)
+    if y_int.min() < 0 or y_int.max() >= n_classes:
+        raise ValueError(f"y labels must be within [0, {n_classes})")
+    groups = np.asarray(validate_work_ids(groups, n), dtype=object)   # fail-closed on bad/short groups
+    work_class: Dict = {}
+    for w, c in zip(groups, y_int):
+        c = int(c)
+        if w in work_class and work_class[w] != c:
+            raise ValueError(f"work {w!r} carries more than one label")
+        work_class[w] = c
+    return oof, y_int, groups, work_class, n_classes
+
+
+def _choose_calibrator_grouped(oof, y, groups, methods, seed, n_splits) -> Tuple[Calibrator, Dict]:
+    if isinstance(n_splits, bool) or not isinstance(n_splits, numbers.Integral) or int(n_splits) < 2:
+        raise ValueError(f"n_splits must be a non-bool integer >= 2, got {n_splits!r}")
+    n_splits = int(n_splits)
+    oof, y, groups, work_class, _ = _validate_grouped_inputs(oof, y, groups)
+    classes = np.unique(y)
+    all_classes = set(classes.tolist())
+    per_class_works = Counter(work_class.values())
+    min_works = min(int(per_class_works.get(int(c), 0)) for c in classes)
+    if min_works < 2:                                   # cannot hold a work out per class -> disable
+        return _identity_disabled(oof, y, seed, f"min_works_per_class={min_works} < 2")
+
+    n_splits_eff = min(n_splits, min_works)
+    sgkf = StratifiedGroupKFold(n_splits_eff, shuffle=True, random_state=seed)
+    splits = list(sgkf.split(oof, y, groups))
+    # BOTH sides of every split must carry all classes (build all splits, verify, THEN fit any method)
+    for fit_i, val_i in splits:
+        if (set(np.unique(y[fit_i]).tolist()) != all_classes
+                or set(np.unique(y[val_i]).tolist()) != all_classes):
+            return _identity_disabled(oof, y, seed, "a class is absent from a calibration fold (train or val)")
+
+    # fail-closed pooled-denominator contract: the splitter must hold out EVERY row in validation
+    # exactly once with disjoint train/validation (SGKF guarantees it; assert rather than assume, so
+    # the sum/W denominator is honest).
+    val_all = np.concatenate([v for _, v in splits]) if splits else np.empty(0, dtype=int)
+    n_rows = oof.shape[0]
+    all_rows = set(range(n_rows))
+    if sorted(int(i) for i in val_all) != list(range(n_rows)):
+        raise ValueError("calibration folds must hold out every row in validation exactly once")
+    for fit_i, val_i in splits:                            # train must be EXACTLY the complement of val
+        f, v = set(int(i) for i in fit_i), set(int(i) for i in val_i)
+        if (f & v) or (f | v) != all_rows:
+            raise ValueError("calibration fold train/validation must partition all rows")
+    n_works_total = len({str(w) for w in groups})
+
+    total_loss = {m: 0.0 for m in methods}
+    total_works = 0
+    for fit_i, val_i in splits:
+        total_works += len({str(w) for w in groups[val_i]})     # each work held out exactly once
+        for m in methods:
+            cal, _ = _fit_method(m, oof[fit_i], y[fit_i], seed)
+            total_loss[m] += _work_loss_sum(cal(oof[val_i]), y[val_i], groups[val_i])
+    if total_works != n_works_total:                            # each work in exactly one validation fold
+        raise ValueError("calibration works are not held out exactly once (grouped denominator invalid)")
+    best = min(total_loss, key=total_loss.get)          # pooled equal-work NLL (same divisor for all)
     cal, params = _fit_method(best, oof, y, seed)
-    passport = {"method": best, "params": params, "selection": "held-out треть OOF",
-                "heldout_nll": {m: round(v, 4) for m, v in scores.items()}}
-    return cal, passport
+    return cal, {"method": best, "params": params, "group_aware": True, "n_splits": n_splits_eff,
+                 "selection": "StratifiedGroupKFold pooled equal-work NLL",
+                 "heldout_work_nll": {m: round(total_loss[m] / total_works, 4) for m in methods}}

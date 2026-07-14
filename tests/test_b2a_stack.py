@@ -124,15 +124,13 @@ class TestHashingGroupsValidation:
             ch_char(["x y", "y z"], ["x"], gen)
 
 
-# ── still blocked in the run engines; calibration untouched (B3) ───────────────
-class TestStillBlockedUntilB3:
-    def test_factory_blocks_work_balanced_stack(self):
+# ── B3 lifted the block: the work_balanced stack is fully wired ────────────────
+class TestWorkBalancedStackWired:
+    def test_factory_builds_work_balanced_stack(self):
         from stylo.eval.lobo import make_factory
-        from stylo.eval.provenance import UnsupportedVariantError
-        with pytest.raises(UnsupportedVariantError):
-            make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)
-        assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY) is not None
+        assert make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)() is not None
+        assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY)() is not None
 
-    def test_calibration_is_not_group_aware_yet(self):
+    def test_calibration_is_group_aware(self):
         from stylo.eval.calibration import choose_calibrator
-        assert "groups" not in inspect.signature(choose_calibrator).parameters
+        assert "groups" in inspect.signature(choose_calibrator).parameters

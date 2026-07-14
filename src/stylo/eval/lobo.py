@@ -84,11 +84,7 @@ def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = N
     if spec == "majority":
         return lambda: MajorityBaseline()
     if spec == "stylo_stack":
-        if wb:
-            raise UnsupportedVariantError(
-                "stylo_stack under work_balanced is blocked in B2-core (feature/loss wiring is B2a, "
-                "calibration is B3)"
-            )
+        # B3: work_balanced stack is wired end-to-end (feature+loss=B2a, group-aware calibration=B3).
         from ..models.stacked_clf import StackedChannelClassifier
         st = cfg.get_path("evaluation.stacking", {}) or {}
         get = st.get if hasattr(st, "get") else (lambda *_: None)
@@ -98,6 +94,7 @@ def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = N
             svc_c=get("svc_c", 1.0) or 1.0,
             meta_c=get("meta_c", 1.0) or 1.0,
             seed=cfg.get_path("seed", 42),
+            training_weighting=weighting,
         )
     raise ValueError(f"Неизвестная модель: {spec}")
 

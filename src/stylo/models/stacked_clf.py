@@ -125,7 +125,11 @@ class StackedChannelClassifier:
         cal_passports = {}
         oof_probs = {}
         for name in channels:
-            cal, passport = choose_calibrator(oof[name], y_local, seed=self.seed)
+            # B3: group-aware calibrator selection under work_balanced (works held out whole; disabled
+            # fail-closed if a class has < 2 works). Legacy passes groups=None (chunk-level, unchanged).
+            cal, passport = choose_calibrator(
+                oof[name], y_local, seed=self.seed,
+                groups=(groups if self._wb else None))
             self._calibrators[name] = cal
             cal_passports[name] = passport
             oof_probs[name] = cal(oof[name])
@@ -134,35 +138,45 @@ class StackedChannelClassifier:
         eq_oof = np.mean(list(oof_probs.values()), axis=0)
         eq_acc = _book_top1(eq_oof, y_local, groups)
         Moof = np.hstack([oof_probs[n] for n in channels])
-        stack_hits, stack_total = 0, 0
-        inner = StratifiedGroupKFold(3, shuffle=True, random_state=self.seed)
-        for tr_i, te_i in inner.split(np.zeros(len(y)), y, groups):
-            meta = LogisticRegression(C=self.meta_c, max_iter=2000,
-                                      class_weight=self._class_weight(), random_state=self.seed)
-            meta.fit(Moof[tr_i], y_local[tr_i], sample_weight=self._fold_weights(y[tr_i], groups[tr_i]))
-            proba = np.zeros((len(te_i), n_cls))
-            proba[:, meta.classes_] = meta.predict_proba(Moof[te_i])
-            for g, mean_p in _book_level(proba, groups[te_i]).items():
-                yb = y_local[groups == g][0]
-                stack_hits += int(mean_p.argmax() == yb)
-                stack_total += 1
-        stack_acc = stack_hits / max(1, stack_total)
-
-        self.mode_ = "stacked" if stack_acc > eq_acc else "equal"
-        self.meta_ = None
-        if self.mode_ == "stacked":
-            self.meta_ = LogisticRegression(
-                C=self.meta_c, max_iter=2000, class_weight=self._class_weight(),
-                random_state=self.seed).fit(Moof, y_local,
-                                            sample_weight=self._fold_weights(y, groups))
+        # B3 signed contract: when calibration is disabled (a class has < 2 works, so no held-out work
+        # per class), the stack falls back to identity calibrators + an EQUAL-weight ensemble — no
+        # meta-CV / meta-LR selection may run and mode_ cannot become "stacked".
+        calibration_disabled = any(p.get("calibration_disabled") for p in cal_passports.values())
+        if calibration_disabled:
+            self.mode_ = "equal"
+            self.meta_ = None
+            stack_acc = None
+        else:
+            stack_hits, stack_total = 0, 0
+            inner = StratifiedGroupKFold(3, shuffle=True, random_state=self.seed)
+            for tr_i, te_i in inner.split(np.zeros(len(y)), y, groups):
+                meta = LogisticRegression(C=self.meta_c, max_iter=2000,
+                                          class_weight=self._class_weight(), random_state=self.seed)
+                meta.fit(Moof[tr_i], y_local[tr_i], sample_weight=self._fold_weights(y[tr_i], groups[tr_i]))
+                proba = np.zeros((len(te_i), n_cls))
+                proba[:, meta.classes_] = meta.predict_proba(Moof[te_i])
+                for g, mean_p in _book_level(proba, groups[te_i]).items():
+                    yb = y_local[groups == g][0]
+                    stack_hits += int(mean_p.argmax() == yb)
+                    stack_total += 1
+            stack_acc = stack_hits / max(1, stack_total)
+            self.mode_ = "stacked" if stack_acc > eq_acc else "equal"
+            self.meta_ = None
+            if self.mode_ == "stacked":
+                self.meta_ = LogisticRegression(
+                    C=self.meta_c, max_iter=2000, class_weight=self._class_weight(),
+                    random_state=self.seed).fit(Moof, y_local,
+                                                sample_weight=self._fold_weights(y, groups))
         self._train_texts = texts
         self._train_y = y
         self._train_groups = groups
         self._channel_names = list(channels)
         self.passport_ = {
             "mode": self.mode_,
-            "inner_oof_book_top1": {"equal": round(eq_acc, 4), "stacked": round(stack_acc, 4)},
+            "inner_oof_book_top1": {"equal": round(eq_acc, 4),
+                                    "stacked": (round(stack_acc, 4) if stack_acc is not None else None)},
             "calibration": cal_passports,
+            "calibration_disabled": calibration_disabled,
         }
         return self
 

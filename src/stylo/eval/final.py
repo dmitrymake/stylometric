@@ -57,9 +57,7 @@ def _variant_role(spec: str, weighting: str) -> str:
         return VariantRole.NOT_APPLICABLE.value
     if spec == "bow_lr_ref_legacy":
         return VariantRole.REFERENCE.value
-    if spec == "stylo_stack":
-        return VariantRole.BLOCKED_NOT_IMPLEMENTED.value
-    return VariantRole.PRIMARY.value
+    return VariantRole.PRIMARY.value       # stylo_stack is fully wired under work_balanced (B2a+B3)
 
 
 def _estimator_weighting(spec: str, weighting: str) -> str:
@@ -102,12 +100,9 @@ def run_final(cfg, dataset: Dataset, specs: List[str] | None = None,
         raise UnsupportedVariantError("bow_lr_ref_legacy is forbidden in the legacy arm")
     if "stylo" not in specs:
         raise ValueError("run_final requires 'stylo' (the paired-comparison reference)")
-    # preflight the WHOLE run-plan BEFORE the first fit: block variants + build every factory so a
-    # bad spec fails before any expensive LOBO runs (no partial suite left behind)
+    # preflight the WHOLE run-plan BEFORE the first fit: build every factory so a bad spec fails
+    # before any expensive LOBO runs (no partial suite left behind)
     for spec in specs:
-        if spec == "stylo_stack" and weighting == WORK_BALANCED:
-            raise UnsupportedVariantError(
-                "stylo_stack under work_balanced is blocked in B2-core (B2a wires it; B3 calibration)")
         make_factory(spec, cfg, weighting=weighting)()   # actually INSTANTIATE (catches e.g. delta.metric=bogus)
     iters = cfg.get_path("evaluation.bootstrap_iters", 1000)
     level = cfg.get_path("evaluation.ci_level", 0.95)
