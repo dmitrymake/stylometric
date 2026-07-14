@@ -23,6 +23,8 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.svm import LinearSVC
 
 from ..eval.calibration import choose_calibrator
+from ..eval.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+                                   resolve_training_weighting, training_sample_weights)
 from .channels import make_channels
 
 log = logging.getLogger("stylo.models.stacked")
@@ -50,17 +52,34 @@ class StackedChannelClassifier:
     needs_groups = True
 
     def __init__(self, cfg, inner_folds: int = 3, svc_c: float = 1.0,
-                 meta_c: float = 1.0, seed: int = 42):
+                 meta_c: float = 1.0, seed: int = 42,
+                 training_weighting: str = CHUNK_WEIGHTED_LEGACY):
         self.cfg = cfg
         self.inner_folds = inner_folds
         self.svc_c = svc_c
         self.meta_c = meta_c
         self.seed = seed
+        # B2a: work-balanced feature/loss. Default legacy reproduces the pre-B2a stack byte-for-byte;
+        # under work_balanced the loss drops class_weight="balanced" for None + fold-local
+        # work_sample_weights, and channel vectorizers fit at work level. Calibration is unchanged
+        # (B3), so the stack stays blocked in the run engines under work_balanced.
+        self.training_weighting = resolve_training_weighting(training_weighting)
         self.passport_: Dict = {}
 
     # -- внутренние помощники ------------------------------------------------
+    @property
+    def _wb(self) -> bool:
+        return self.training_weighting == WORK_BALANCED
+
+    def _class_weight(self):
+        return None if self._wb else "balanced"        # legacy=balanced, WB=None (+ sample_weight)
+
+    def _fold_weights(self, y_sub, groups_sub):
+        """Fold-local per-chunk sample weights (sum == that fit's W_train); None in the legacy arm."""
+        return training_sample_weights(y_sub, groups_sub, self.training_weighting)
+
     def _svc(self):
-        return LinearSVC(C=self.svc_c, class_weight="balanced", max_iter=3000,
+        return LinearSVC(C=self.svc_c, class_weight=self._class_weight(), max_iter=3000,
                          random_state=self.seed)
 
     def _decision_full(self, clf, X, n_classes: int, class_map: np.ndarray) -> np.ndarray:
@@ -92,8 +111,12 @@ class StackedChannelClassifier:
         for name, fn in channels.items():
             scores = np.full((len(y), n_cls), -30.0)
             for tr_i, te_i in splits:
-                Xtr, Xte = fn([texts[i] for i in tr_i], [texts[i] for i in te_i])
-                clf = self._svc().fit(Xtr, y[tr_i])
+                tr_t = [texts[i] for i in tr_i]
+                te_t = [texts[i] for i in te_i]
+                # legacy = strict 2-arg call (any pre-B2a channel); WB routes the fold's work groups
+                Xtr, Xte = fn(tr_t, te_t, groups[tr_i]) if self._wb else fn(tr_t, te_t)
+                clf = self._svc().fit(Xtr, y[tr_i],
+                                      sample_weight=self._fold_weights(y[tr_i], groups[tr_i]))
                 scores[te_i] = self._decision_full(clf, Xte, n_cls, clf.classes_)
             oof[name] = scores
 
@@ -115,8 +138,8 @@ class StackedChannelClassifier:
         inner = StratifiedGroupKFold(3, shuffle=True, random_state=self.seed)
         for tr_i, te_i in inner.split(np.zeros(len(y)), y, groups):
             meta = LogisticRegression(C=self.meta_c, max_iter=2000,
-                                      class_weight="balanced", random_state=self.seed)
-            meta.fit(Moof[tr_i], y_local[tr_i])
+                                      class_weight=self._class_weight(), random_state=self.seed)
+            meta.fit(Moof[tr_i], y_local[tr_i], sample_weight=self._fold_weights(y[tr_i], groups[tr_i]))
             proba = np.zeros((len(te_i), n_cls))
             proba[:, meta.classes_] = meta.predict_proba(Moof[te_i])
             for g, mean_p in _book_level(proba, groups[te_i]).items():
@@ -128,11 +151,13 @@ class StackedChannelClassifier:
         self.mode_ = "stacked" if stack_acc > eq_acc else "equal"
         self.meta_ = None
         if self.mode_ == "stacked":
-            self.meta_ = LogisticRegression(C=self.meta_c, max_iter=2000,
-                                            class_weight="balanced",
-                                            random_state=self.seed).fit(Moof, y_local)
+            self.meta_ = LogisticRegression(
+                C=self.meta_c, max_iter=2000, class_weight=self._class_weight(),
+                random_state=self.seed).fit(Moof, y_local,
+                                            sample_weight=self._fold_weights(y, groups))
         self._train_texts = texts
         self._train_y = y
+        self._train_groups = groups
         self._channel_names = list(channels)
         self.passport_ = {
             "mode": self.mode_,
@@ -146,9 +171,14 @@ class StackedChannelClassifier:
         channels = make_channels(self.cfg)
         n_cls = len(self.classes_)
         te_probs = {}
+        sw = self._fold_weights(self._train_y, self._train_groups)
         for name in self._channel_names:
-            Xtr, Xte = channels[name](self._train_texts, texts)
-            clf = self._svc().fit(Xtr, self._train_y)
+            # legacy = strict 2-arg call (any pre-B2a channel); WB routes the full-train work groups
+            if self._wb:
+                Xtr, Xte = channels[name](self._train_texts, texts, self._train_groups)
+            else:
+                Xtr, Xte = channels[name](self._train_texts, texts)
+            clf = self._svc().fit(Xtr, self._train_y, sample_weight=sw)
             scores = self._decision_full(clf, Xte, n_cls, clf.classes_)
             te_probs[name] = self._calibrators[name](scores)
         if self.mode_ == "equal":
