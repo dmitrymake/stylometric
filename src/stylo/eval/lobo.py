@@ -41,6 +41,29 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 log = logging.getLogger("stylo.eval.lobo")
 
 
+def make_factory_for_ablation(spec: str, cfg, *, ablation,
+                              enabled_override: Optional[Dict[str, bool]] = None) -> Callable:
+    """B4-B increment 1: the factory-routing entrypoint for the paired audit. An ``AblationConfig`` is
+    mapped to the weighting enum (the two corners only; an intermediate raises
+    AblationNotImplementedError) and the estimator is built by the unchanged ``make_factory`` — so the
+    A0/A4 corners reached this way reproduce the frozen goldens (no estimator math changes).
+
+    Fail-closed: ``ablation`` is keyword-only and must be **exactly** an ``AblationConfig`` (never a
+    duck-typed / subclass object whose ``to_weighting`` could route A4 axes to a legacy estimator), its
+    three axis fields are re-verified as plain bools, and the weighting is computed from a **freshly
+    constructed** ``AblationConfig`` via the **class** method — so an instance whose ``to_weighting``
+    was shadowed (``object.__setattr__``) cannot route A4 axes to a legacy model."""
+    from .work_weighting import AblationConfig
+    if type(ablation) is not AblationConfig:
+        raise TypeError(f"ablation must be exactly an AblationConfig, got {type(ablation).__name__}")
+    for f in ("weights", "feature_fit", "relative_fw"):
+        if type(getattr(ablation, f)) is not bool:
+            raise TypeError(f"ablation.{f} must be a plain bool")
+    fresh = AblationConfig(ablation.weights, ablation.feature_fit, ablation.relative_fw)   # clean, no shadowed attr
+    weighting = AblationConfig.to_weighting(fresh)              # the class method, never an instance override
+    return make_factory(spec, cfg, enabled_override, weighting=weighting)
+
+
 def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = None,
                  *, weighting: str) -> Callable:
     """spec + resolved weighting -> фабрика свежего эстиматора (fit/predict_proba/classes_).

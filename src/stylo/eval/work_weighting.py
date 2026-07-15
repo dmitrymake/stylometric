@@ -18,6 +18,7 @@ framework's ``centroid_weighting`` switch.
 """
 from __future__ import annotations
 
+import dataclasses
 from collections import defaultdict
 from typing import Any, Iterable, Sequence
 
@@ -26,6 +27,62 @@ import numpy as np
 WORK_BALANCED = "work_balanced"
 CHUNK_WEIGHTED_LEGACY = "chunk_weighted_legacy"
 SUPPORTED_TRAINING_WEIGHTINGS = frozenset({WORK_BALANCED, CHUNK_WEIGHTED_LEGACY})
+
+
+class AblationNotImplementedError(NotImplementedError):
+    """An intermediate (single-axis) ablation is requested before its estimator wiring exists.
+
+    B4-B increment 1 introduces the AblationConfig plumbing WITHOUT changing any estimator math, so
+    only the two corners (all-off == legacy, all-on == work_balanced) map to a runnable estimand. The
+    intermediate corners (FW/Delta four-corner etc.) are wired in later B4-B increments.
+    """
+
+
+@dataclasses.dataclass(frozen=True)
+class AblationConfig:
+    """The three work-balanced knobs as independent booleans (design §2.2).
+
+    ``weights`` — training loss / centroid aggregation is equal-work; ``feature_fit`` — learned
+    vocabulary/DF/IDF is fit at work level; ``relative_fw`` — function-word / MFW features use the
+    equal-work relative-frequency transform. Legacy == ``(F,F,F)``, full work_balanced == ``(T,T,T)``.
+    """
+    weights: bool
+    feature_fit: bool
+    relative_fw: bool
+
+    def __post_init__(self):
+        for f in ("weights", "feature_fit", "relative_fw"):
+            if type(getattr(self, f)) is not bool:
+                raise TypeError(f"AblationConfig.{f} must be a plain bool")
+
+    @property
+    def is_legacy_corner(self) -> bool:
+        return not (self.weights or self.feature_fit or self.relative_fw)
+
+    @property
+    def is_full_wb_corner(self) -> bool:
+        return self.weights and self.feature_fit and self.relative_fw
+
+    def to_weighting(self) -> str:
+        """Map a CORNER config to the runtime weighting enum; an intermediate raises (B4-B increment 1
+        supports only the two corners, unchanged math)."""
+        if self.is_legacy_corner:
+            return CHUNK_WEIGHTED_LEGACY
+        if self.is_full_wb_corner:
+            return WORK_BALANCED
+        raise AblationNotImplementedError(
+            f"intermediate ablation {self} has no estimator wiring yet (only the two corners are runnable)")
+
+    @staticmethod
+    def from_weighting(weighting: str) -> "AblationConfig":
+        # fail-closed: an exact str only (no None / np.str_ / str subclass silently becoming legacy)
+        if type(weighting) is not str:
+            raise TypeError(f"weighting must be an exact str, got {type(weighting).__name__}")
+        return FULL_WB_ABLATION if require_weighting(weighting) == WORK_BALANCED else LEGACY_ABLATION
+
+
+LEGACY_ABLATION = AblationConfig(False, False, False)
+FULL_WB_ABLATION = AblationConfig(True, True, True)
 
 # Runtime weighting label -> the public claim label used in result artifacts. The legacy
 # runtime value maps to the P0 headline claim, which stays exactly as committed.
@@ -38,6 +95,10 @@ __all__ = [
     "WORK_BALANCED",
     "CHUNK_WEIGHTED_LEGACY",
     "SUPPORTED_TRAINING_WEIGHTINGS",
+    "AblationConfig",
+    "AblationNotImplementedError",
+    "LEGACY_ABLATION",
+    "FULL_WB_ABLATION",
     "resolve_training_weighting",
     "to_claim_label",
     "work_author_map",
