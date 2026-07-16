@@ -105,3 +105,69 @@ def build_bow_lr_work_balanced() -> "WorkBalancedBowPipeline":
         ("scaler", MaxAbsScaler()),
         ("lr", LogisticRegression(max_iter=1000, class_weight=None, solver="lbfgs")),
     ])
+
+
+# ── B4-B increment 2: weights-only A1 (work-balanced LOSS, strictly legacy A0 feature state) ──
+class _WeightsOnlyPipeline(Pipeline):
+    """Audit-only base: the work-balanced training loss on top of an unchanged legacy (A0) feature side.
+
+    Identical loss wiring to ``_WorkBalancedPipeline`` — fold-local ``work_sample_weights`` (sum
+    ``W_train``), forced ``class_weight=None`` on the classifier, and pinned
+    ``enable_metadata_routing=False`` — but it routes ONLY the classifier ``sample_weight``. Crucially
+    the work ``groups`` are NEVER routed into the vectorizer, so the fitted vocabulary/DF/IDF stay the
+    exact chunk-pooled A0 projection (the vectorizer step is the plain legacy vectorizer, not the
+    work-level one). Any caller param that could smuggle in the F/R axes (``…__groups``) or replace the
+    signed W estimand (``…__sample_weight``) fails closed."""
+
+    needs_groups = True
+    _WEIGHT_PARAM: str = ""
+    _GROUPS_RESERVED: str = ""
+
+    def _reject_reserved(self, fit_params) -> None:
+        reserved = {"sample_weight", "groups", self._WEIGHT_PARAM, self._GROUPS_RESERVED}
+        hit = sorted(k for k in fit_params
+                     if k in reserved or k.endswith("__sample_weight") or k.endswith("__groups"))
+        if hit:
+            raise ValueError(
+                f"weights-only A1 computes weights internally and never fits F/R; do not pass {hit}")
+
+    def fit(self, X, y=None, *, groups, **fit_params):
+        if y is None:
+            raise ValueError("weights-only A1 fit needs y")
+        X = list(X)
+        groups = validate_work_ids(groups, len(X))
+        self._reject_reserved(fit_params)
+        weights = work_sample_weights(y, groups)                       # fold-local, sum = W_train
+        # Force class_weight=None regardless of any prior set_params: work weights already equalize
+        # class mass, so a "balanced" class_weight would double-count (§3.1: no double weighting).
+        clf_step = self._WEIGHT_PARAM.split("__", 1)[0]
+        clf = self.named_steps[clf_step]
+        if "class_weight" in clf.get_params():
+            clf.set_params(class_weight=None)
+        routed = {self._WEIGHT_PARAM: weights, **fit_params}           # groups deliberately NOT routed
+        with sklearn.config_context(enable_metadata_routing=False):
+            return super().fit(X, y, **routed)
+
+
+class WeightsOnlyStyloPipeline(_WeightsOnlyPipeline):
+    _WEIGHT_PARAM = "classifier__sample_weight"
+    _GROUPS_RESERVED = "vectorizer__groups"
+
+
+class WeightsOnlyBowPipeline(_WeightsOnlyPipeline):
+    _WEIGHT_PARAM = "lr__sample_weight"
+    _GROUPS_RESERVED = "bow__groups"
+
+
+def build_bow_lr_weights_only() -> "WeightsOnlyBowPipeline":
+    """A1 BoW: the EXACT legacy A0 ``CountVectorizer`` vocab/counts + fold-local work weights +
+    ``class_weight=None`` (the only difference from A0 is the work-balanced loss, not the features)."""
+    from sklearn.feature_extraction.text import CountVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import MaxAbsScaler
+    return WeightsOnlyBowPipeline([
+        ("bow", CountVectorizer(max_features=20000, ngram_range=(1, 2),
+                                token_pattern=r"(?u)\b\w+\b")),
+        ("scaler", MaxAbsScaler()),
+        ("lr", LogisticRegression(max_iter=1000, class_weight=None, solver="lbfgs")),
+    ])

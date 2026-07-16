@@ -33,9 +33,49 @@ class AblationNotImplementedError(NotImplementedError):
     """An intermediate (single-axis) ablation is requested before its estimator wiring exists.
 
     B4-B increment 1 introduces the AblationConfig plumbing WITHOUT changing any estimator math, so
-    only the two corners (all-off == legacy, all-on == work_balanced) map to a runnable estimand. The
-    intermediate corners (FW/Delta four-corner etc.) are wired in later B4-B increments.
+    only the two corners (all-off == legacy, all-on == work_balanced) map to a runnable estimand.
+    B4-B increment 2 additionally wires the weights-only corner A1 == ``(T,F,F)`` for the LR-family
+    (stylo/bow_lr/stylo_stack). The remaining five boolean configs (WFR ``010, 001, 110, 101, 011``)
+    are still not implemented and raise this until later B4-B increments.
     """
+
+
+_A1_APPLICABILITY_REASONS = frozenset({"already_in_legacy", "not_applicable"})
+
+
+class AblationNotApplicableError(ValueError):
+    """An audit-only ablation is requested for a model where that axis is not a new estimand.
+
+    Distinct from :class:`AblationNotImplementedError` (a corner whose wiring simply does not exist
+    yet): A1 (weights-only) is *fully implemented* but is not a meaningful new comparison for a model
+    whose W axis is already-in-legacy (Delta / char-centroid use equal-work centroids), or which has
+    no learnable loss axis at all (majority). Rather than silently return an A0-identical estimator —
+    which would falsely mark the cell as an applied W ablation in provenance — the factory fails
+    closed with an exact ``reason`` the future runner records as the cell's applicability status.
+
+    ``reason`` is the CELL-applicability status, one of exactly ``"already_in_legacy"`` (Delta family:
+    A1 would re-run the identical A0 estimand) or ``"not_applicable"`` (char_cos / majority / any other
+    non-LR model: A1 is not a distinct LR loss for them).
+
+    Note for the future applicability runner (schema NOT built here — that is a later increment): the
+    per-axis *effective* W status is a separate, spec-deterministic property and is not collapsed into
+    ``reason``. Both char_cos and the Delta family use equal-work centroids, so their effective
+    ``W`` is ``already_in_legacy`` at the axis level even though char_cos's cell status is
+    ``not_applicable`` (no learnable LR loss to reweight); majority has no learnable loss axis at all.
+    The runner derives ``effective_axes.W`` from that spec map, keeping ``reason`` a two-value contract.
+    """
+
+    def __init__(self, spec: str, reason: str):
+        if reason not in _A1_APPLICABILITY_REASONS:
+            allowed = ", ".join(sorted(_A1_APPLICABILITY_REASONS))
+            raise ValueError(f"reason must be one of {{{allowed}}}, got {reason!r}")
+        self.spec = spec
+        self.reason = reason
+        super().__init__(f"weights-only A1 is not applicable to {spec!r}: {reason}")
+
+    def __reduce__(self):
+        # default Exception pickling would call cls(message) and break the (spec, reason) signature
+        return (self.__class__, (self.spec, self.reason))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -63,15 +103,26 @@ class AblationConfig:
     def is_full_wb_corner(self) -> bool:
         return self.weights and self.feature_fit and self.relative_fw
 
+    @property
+    def is_weights_only_corner(self) -> bool:
+        """A1 == weights-only: the work-balanced loss/calibration protocol with a strictly legacy
+        (A0) feature side. Runnable only for the LR-family via ``make_factory_for_ablation``."""
+        return self.weights and not self.feature_fit and not self.relative_fw
+
     def to_weighting(self) -> str:
-        """Map a CORNER config to the runtime weighting enum; an intermediate raises (B4-B increment 1
-        supports only the two corners, unchanged math)."""
+        """Map a CORNER config to the runtime weighting enum; every non-corner raises.
+
+        Deliberately corner-ONLY: only A0/A4 map to the two production ``training_weighting`` values.
+        A1 (weights-only) is a real, runnable audit path but has NO production enum value — it must be
+        built through ``make_factory_for_ablation`` with axis-aware internal state, never collapsed to
+        ``WORK_BALANCED`` (which would falsely claim full work-balanced feature fitting)."""
         if self.is_legacy_corner:
             return CHUNK_WEIGHTED_LEGACY
         if self.is_full_wb_corner:
             return WORK_BALANCED
         raise AblationNotImplementedError(
-            f"intermediate ablation {self} has no estimator wiring yet (only the two corners are runnable)")
+            f"ablation {self} has no production weighting enum (only the two corners map; A1 is "
+            "audit-only via make_factory_for_ablation)")
 
     @staticmethod
     def from_weighting(weighting: str) -> "AblationConfig":
@@ -83,6 +134,8 @@ class AblationConfig:
 
 LEGACY_ABLATION = AblationConfig(False, False, False)
 FULL_WB_ABLATION = AblationConfig(True, True, True)
+# A1 (B4-B increment 2): work-balanced loss/calibration, legacy (A0) feature state. Audit-only.
+WEIGHTS_ONLY_ABLATION = AblationConfig(True, False, False)
 
 # Runtime weighting label -> the public claim label used in result artifacts. The legacy
 # runtime value maps to the P0 headline claim, which stays exactly as committed.
@@ -97,8 +150,10 @@ __all__ = [
     "SUPPORTED_TRAINING_WEIGHTINGS",
     "AblationConfig",
     "AblationNotImplementedError",
+    "AblationNotApplicableError",
     "LEGACY_ABLATION",
     "FULL_WB_ABLATION",
+    "WEIGHTS_ONLY_ABLATION",
     "resolve_training_weighting",
     "to_claim_label",
     "work_author_map",

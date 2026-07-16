@@ -30,7 +30,7 @@ from ..models.lr import make_full_pipeline, make_logreg, make_scaler
 from ..vectorizer import StyloVectorizer
 from .dispatch import fit_estimator, frozen_run_contract
 from .provenance import UnsupportedVariantError, verify_dataset_against_disk
-from .work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+from .work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
 
 # BLAS-потоки ограничиваем, чтобы не конфликтовать с joblib
@@ -43,16 +43,27 @@ log = logging.getLogger("stylo.eval.lobo")
 
 def make_factory_for_ablation(spec: str, cfg, *, ablation,
                               enabled_override: Optional[Dict[str, bool]] = None) -> Callable:
-    """B4-B increment 1: the factory-routing entrypoint for the paired audit. An ``AblationConfig`` is
-    mapped to the weighting enum (the two corners only; an intermediate raises
-    AblationNotImplementedError) and the estimator is built by the unchanged ``make_factory`` — so the
-    A0/A4 corners reached this way reproduce the frozen goldens (no estimator math changes).
+    """The factory-routing entrypoint for the paired audit (B4-B increments 1-2).
+
+    Three runnable ablations:
+
+    * **A0** (all axes off) and **A4** (all axes on) map to the two production weighting enums and are
+      built by the unchanged ``make_factory`` — so the corners reached this way reproduce the frozen
+      goldens byte-for-byte (no estimator math changes);
+    * **A1** (weights-only == ``(T,F,F)``) is an audit-only path: the work-balanced loss/calibration
+      protocol on a strictly legacy (A0) feature side, wired ONLY for the LR-family
+      (``stylo``/``bow_lr``/``stylo_stack``) via axis-aware estimators. A1 has NO production weighting
+      enum (``to_weighting`` stays corner-only), so it is never collapsed to ``WORK_BALANCED``.
+
+    A1 for a model where W is not a new loss axis fails closed with ``AblationNotApplicableError`` and an
+    exact ``reason`` (Delta → ``already_in_legacy``; char_cos/majority/other → ``not_applicable``); the
+    five remaining intermediates raise ``AblationNotImplementedError``.
 
     Fail-closed: ``ablation`` is keyword-only and must be **exactly** an ``AblationConfig`` (never a
     duck-typed / subclass object whose ``to_weighting`` could route A4 axes to a legacy estimator), its
-    three axis fields are re-verified as plain bools, and the weighting is computed from a **freshly
-    constructed** ``AblationConfig`` via the **class** method — so an instance whose ``to_weighting``
-    was shadowed (``object.__setattr__``) cannot route A4 axes to a legacy model."""
+    three axis fields are re-verified as plain bools, and every downstream decision is taken from a
+    **freshly constructed** ``AblationConfig`` via **class** methods — so an instance whose axis
+    properties or ``to_weighting`` were shadowed (``object.__setattr__``) cannot mis-route the axes."""
     from .work_weighting import AblationConfig
     if type(ablation) is not AblationConfig:
         raise TypeError(f"ablation must be exactly an AblationConfig, got {type(ablation).__name__}")
@@ -60,8 +71,60 @@ def make_factory_for_ablation(spec: str, cfg, *, ablation,
         if type(getattr(ablation, f)) is not bool:
             raise TypeError(f"ablation.{f} must be a plain bool")
     fresh = AblationConfig(ablation.weights, ablation.feature_fit, ablation.relative_fw)   # clean, no shadowed attr
-    weighting = AblationConfig.to_weighting(fresh)              # the class method, never an instance override
-    return make_factory(spec, cfg, enabled_override, weighting=weighting)
+    if AblationConfig.is_legacy_corner.fget(fresh) or AblationConfig.is_full_wb_corner.fget(fresh):
+        weighting = AblationConfig.to_weighting(fresh)         # class method, never an instance override
+        return make_factory(spec, cfg, enabled_override, weighting=weighting)
+    if AblationConfig.is_weights_only_corner.fget(fresh):
+        return _make_weights_only_factory(spec, cfg, enabled_override)
+    # the five remaining intermediates (WFR 010/001/110/101/011) have no estimator wiring yet
+    raise AblationNotImplementedError(
+        f"ablation {fresh} has no estimator wiring yet (runnable: A0/A4 corners and weights-only A1)")
+
+
+def _make_weights_only_factory(spec: str, cfg,
+                               enabled_override: Optional[Dict[str, bool]]) -> Callable:
+    """Build the audit-only weights-only (A1) estimator for an LR-family spec, or fail closed.
+
+    Feature side is the EXACT legacy A0 construction (legacy vectorizer, no ``groups`` routed to any
+    block/vectorizer); only the training loss/calibration protocol is work-balanced. For a model whose
+    W axis is not a new loss (Delta already-in-legacy; char/majority not applicable) it raises
+    ``AblationNotApplicableError`` with the exact ``reason`` the future runner records."""
+    from .work_weighting import AblationNotApplicableError, WEIGHTS_ONLY_ABLATION
+    if spec == "stylo":
+        from ..models.work_balanced import WeightsOnlyStyloPipeline
+        return lambda: WeightsOnlyStyloPipeline([
+            ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override)),   # legacy A0 vectorizer
+            ("scaler", make_scaler(cfg)),
+            ("classifier", make_logreg(cfg, class_weight=None)),
+        ])
+    if spec == "bow_lr":
+        from ..models.work_balanced import build_bow_lr_weights_only
+        return lambda: build_bow_lr_weights_only()
+    if spec == "stylo_stack":
+        from ..models.stacked_clf import StackedChannelClassifier
+        return lambda: StackedChannelClassifier(
+            cfg, **_stacked_kwargs(cfg),
+            training_weighting=CHUNK_WEIGHTED_LEGACY, ablation=WEIGHTS_ONLY_ABLATION)
+    if spec.startswith("delta:") or spec.startswith("delta_cos:"):
+        n = spec.split(":", 1)[1]                                    # must be a well-formed delta spec
+        if not (n.isdigit() and int(n) > 0):                        # delta:bogus / bare delta: are invalid
+            raise ValueError(f"invalid delta spec {spec!r}")
+        raise AblationNotApplicableError(spec, "already_in_legacy")   # W == equal-work centroids already
+    if spec in ("char_cos", "majority", "bow_lr_ref_legacy"):
+        raise AblationNotApplicableError(spec, "not_applicable")      # W is not a new learnable loss axis
+    raise ValueError(f"Неизвестная модель: {spec}")
+
+
+def _stacked_kwargs(cfg) -> Dict:
+    """Shared stack hyper-params (identical for A0/A4/A1 — only the axis wiring differs)."""
+    st = cfg.get_path("evaluation.stacking", {}) or {}
+    get = st.get if hasattr(st, "get") else (lambda *_: None)
+    return dict(
+        inner_folds=get("inner_folds", 3) or 3,
+        svc_c=get("svc_c", 1.0) or 1.0,
+        meta_c=get("meta_c", 1.0) or 1.0,
+        seed=cfg.get_path("seed", 42),
+    )
 
 
 def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = None,
@@ -109,16 +172,7 @@ def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = N
     if spec == "stylo_stack":
         # B3: work_balanced stack is wired end-to-end (feature+loss=B2a, group-aware calibration=B3).
         from ..models.stacked_clf import StackedChannelClassifier
-        st = cfg.get_path("evaluation.stacking", {}) or {}
-        get = st.get if hasattr(st, "get") else (lambda *_: None)
-        return lambda: StackedChannelClassifier(
-            cfg,
-            inner_folds=get("inner_folds", 3) or 3,
-            svc_c=get("svc_c", 1.0) or 1.0,
-            meta_c=get("meta_c", 1.0) or 1.0,
-            seed=cfg.get_path("seed", 42),
-            training_weighting=weighting,
-        )
+        return lambda: StackedChannelClassifier(cfg, **_stacked_kwargs(cfg), training_weighting=weighting)
     raise ValueError(f"Неизвестная модель: {spec}")
 
 

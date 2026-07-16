@@ -18,7 +18,7 @@ from stylo.eval.dispatch import fit_estimator
 from stylo.eval.lobo import make_factory, make_factory_for_ablation
 from stylo.eval.work_weighting import (AblationConfig, AblationNotImplementedError,
                                        CHUNK_WEIGHTED_LEGACY, FULL_WB_ABLATION,
-                                       LEGACY_ABLATION, WORK_BALANCED)
+                                       LEGACY_ABLATION, WEIGHTS_ONLY_ABLATION, WORK_BALANCED)
 
 CFG = load_config()
 FIXTURE = pathlib.Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "b4_goldens_v1.json"
@@ -35,13 +35,28 @@ def test_corners_map_to_the_two_enums():
 
 
 def test_intermediate_axes_are_not_yet_runnable():
-    for cfg in (AblationConfig(True, False, False), AblationConfig(False, True, False),
-                AblationConfig(False, False, True), AblationConfig(True, True, False)):
-        assert not (cfg.is_legacy_corner or cfg.is_full_wb_corner)
+    # the FIVE remaining intermediates (WFR 010/001/110/101/011); A1 (100) is wired in increment 2
+    for cfg in (AblationConfig(False, True, False), AblationConfig(False, False, True),
+                AblationConfig(True, True, False), AblationConfig(True, False, True),
+                AblationConfig(False, True, True)):
+        assert not (cfg.is_legacy_corner or cfg.is_full_wb_corner or cfg.is_weights_only_corner)
         with pytest.raises(AblationNotImplementedError):
             cfg.to_weighting()
         with pytest.raises(AblationNotImplementedError):        # and through the factory routing
             make_factory_for_ablation("stylo", CFG, ablation=cfg)
+
+
+def test_weights_only_A1_is_corner_only_in_to_weighting_but_routes_via_factory():
+    # A1 has NO production weighting enum (to_weighting stays corner-only) but IS runnable for the
+    # LR-family through the audit-only factory path — it must never collapse to WORK_BALANCED.
+    assert WEIGHTS_ONLY_ABLATION == AblationConfig(True, False, False)
+    assert WEIGHTS_ONLY_ABLATION.is_weights_only_corner
+    assert not (WEIGHTS_ONLY_ABLATION.is_legacy_corner or WEIGHTS_ONLY_ABLATION.is_full_wb_corner)
+    with pytest.raises(AblationNotImplementedError):
+        WEIGHTS_ONLY_ABLATION.to_weighting()
+    for spec in ("stylo", "bow_lr", "stylo_stack"):
+        est = make_factory_for_ablation(spec, CFG, ablation=WEIGHTS_ONLY_ABLATION)()
+        assert getattr(est, "training_weighting", CHUNK_WEIGHTED_LEGACY) != WORK_BALANCED
 
 
 def test_non_bool_axes_rejected():
