@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -136,7 +137,31 @@ def bind_screening_panel(cfg, dataset, weighting):
 
 def _gkf_run_panel(cfg, dataset, spec, enabled_override, weighting, manifest):
     """GKF over the FROZEN screening_panel_v1 folds; ``dataset`` is already the panel subset."""
+    factory = make_factory(spec, cfg, enabled_override, weighting=weighting)
+    df, prob_matrix, y_true, _timing = evaluate_frozen_panel_factory(
+        cfg, dataset, factory, manifest, spec=spec)
+    return df, prob_matrix, y_true
+
+
+def evaluate_frozen_panel_factory(
+    cfg,
+    dataset,
+    factory,
+    manifest,
+    *,
+    spec="injected",
+    clock=None,
+):
+    """Evaluate a fresh estimator from ``factory`` on each frozen screening-panel fold.
+
+    This is the reusable injected-factory seam for exploratory evaluations.  It deliberately keeps
+    the frozen-panel validation, class alignment, one-average-per-work aggregation and deterministic
+    row order identical to :func:`_gkf_run_panel`, while exposing fold-level wall-clock timings.
+    """
     from .screening_panel import (ScreeningPanelError, verify_result_against_panel)
+    if clock is None:
+        clock = time.perf_counter
+    total_started = clock()
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
     authors = list(dataset.authors)
     n_authors = dataset.n_authors
@@ -152,18 +177,34 @@ def _gkf_run_panel(cfg, dataset, spec, enabled_override, weighting, manifest):
     if actual_sizes != list(manifest["fold_sizes"]):
         raise ScreeningPanelError(f"actual fold_sizes {actual_sizes} != manifest {manifest['fold_sizes']}")
     texts, y = dataset.texts, dataset.y
-    factory = make_factory(spec, cfg, enabled_override, weighting=weighting)
 
     prob_by_work: Dict[str, np.ndarray] = {}
+    fold_timings = []
+    fit_seconds = 0.0
+    predict_seconds = 0.0
     for f in range(k):
         te = np.flatnonzero(row_fold == f)
         tr = np.flatnonzero(row_fold != f)
         est = factory()
+        fit_started = clock()
         fit_estimator(est, texts[tr], y[tr], groups[tr])
+        fold_fit_seconds = float(clock() - fit_started)
+        predict_started = clock()
         proba = np.asarray(est.predict_proba(texts[te]))
+        fold_predict_seconds = float(clock() - predict_started)
+        fit_seconds += fold_fit_seconds
+        predict_seconds += fold_predict_seconds
         _validate_proba(proba, est.classes_, n_authors, len(te))   # fail-closed (same as LOBO)
         classes_ = np.asarray(est.classes_)
         te_groups = groups[te]
+        fold_timings.append({
+            "fold": int(f),
+            "n_train_chunks": int(len(tr)),
+            "n_test_chunks": int(len(te)),
+            "n_test_works": int(np.unique(te_groups).size),
+            "fit_seconds": fold_fit_seconds,
+            "predict_seconds": fold_predict_seconds,
+        })
         for g in np.unique(te_groups):
             m = te_groups == g
             prob_by_work[str(g)] = _align_proba(proba[m], classes_, n_authors)
@@ -191,4 +232,10 @@ def _gkf_run_panel(cfg, dataset, spec, enabled_override, weighting, manifest):
     df = df.drop(columns=["_prob"])
     y_true = df["true_label"].to_numpy()
     log.info("GKF-panel[%s]: %d works, k=%d (%s)", spec, len(df), k, manifest["panel"])
-    return df, prob_matrix, y_true
+    timing = {
+        "fit_seconds": float(fit_seconds),
+        "predict_seconds": float(predict_seconds),
+        "total_seconds": float(clock() - total_started),
+        "folds": fold_timings,
+    }
+    return df, prob_matrix, y_true, timing
