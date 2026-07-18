@@ -27,8 +27,15 @@ class StyloVectorizer(BaseEstimator, TransformerMixin):
 
     @classmethod
     def from_config(cls, cfg, enabled_override: Optional[Dict[str, bool]] = None,
-                    topic_strict: bool = False) -> "StyloVectorizer":
-        return cls(build_blocks(cfg, enabled_override, topic_strict=topic_strict), make_rep_cache(cfg))
+                    topic_strict: bool = False,
+                    relative_fw: bool | None = None) -> "StyloVectorizer":
+        blocks = build_blocks(cfg, enabled_override, topic_strict=topic_strict, relative_fw=relative_fw)
+        # A3 fail-closed: an explicit relative-FW transform with no FunctionWord consumer would be a
+        # silent A0 no-op (R has no observable effect), so reject it rather than pass the wrong estimand.
+        if relative_fw is True and not any(getattr(b, "name", None) == "function_words" for b in blocks):
+            raise ValueError(
+                "relative_fw=True (A3) requires an enabled function_words block; none is configured")
+        return cls(blocks, make_rep_cache(cfg))
 
     def _reps(self, X: Sequence[str]):
         return self.rep_cache.get_reps(list(X))

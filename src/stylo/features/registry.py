@@ -25,12 +25,17 @@ BLOCK_ORDER = [
 ]
 
 
-def _build_one(name: str, fb, cfg, topic_strict: bool = False) -> Optional[FeatureBlock]:
+def _build_one(name: str, fb, cfg, topic_strict: bool = False,
+               relative_fw: bool | None = None) -> Optional[FeatureBlock]:
     """fb — ConfigNode для features.<name>; cfg — корневой конфиг.
 
     topic_strict: строгий topic-control — function_words=fixed_list
     (закрытый класс, без частотных СОДЕРЖАТЕЛЬНЫХ слов) + глушение жанро-несущих субблоков
     синтаксиса (pos_ratios, lexical_richness). Применяется к тематически-инвариантному набору.
+
+    relative_fw: R-axis policy for the FunctionWord block only (B4-B increment 3). ``None`` keeps the
+    legacy corner coupling (byte-exact A0/A4); an explicit bool selects the A2 (raw) / A3 (relative)
+    transform independently of F. Every other block ignores R.
     """
     lang = cfg.get_path("language.code", "ru")
     if name == "char_ngrams":
@@ -48,6 +53,7 @@ def _build_one(name: str, fb, cfg, topic_strict: bool = False) -> Optional[Featu
             mode=mode,
             mfw_count=fb.get("mfw_count", 300),
             lang=lang,
+            relative_fw=relative_fw,
         )
     if name == "syntax":
         sub = fb.get_path("subblocks")
@@ -89,7 +95,8 @@ def _build_one(name: str, fb, cfg, topic_strict: bool = False) -> Optional[Featu
 
 
 def build_blocks(cfg, enabled_override: Optional[Dict[str, bool]] = None,
-                 topic_strict: bool = False) -> List[FeatureBlock]:
+                 topic_strict: bool = False,
+                 relative_fw: bool | None = None) -> List[FeatureBlock]:
     override = enabled_override or {}
     blocks: List[FeatureBlock] = []
     feats = cfg.get_path("features")
@@ -100,7 +107,7 @@ def build_blocks(cfg, enabled_override: Optional[Dict[str, bool]] = None,
         enabled = override.get(name, fb.get("enabled", False))
         if not enabled:
             continue
-        block = _build_one(name, fb, cfg, topic_strict=topic_strict)
+        block = _build_one(name, fb, cfg, topic_strict=topic_strict, relative_fw=relative_fw)
         if block is not None:
             blocks.append(block)
     if not blocks:

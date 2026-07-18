@@ -66,12 +66,12 @@ def ch_word(tr: List[str], te: List[str], tr_groups=None):
         alternate_sign=False, norm=None))(tr, te, tr_groups)
 
 
-def block_channel(cfg, blocks: List[str]) -> ChannelFn:
+def block_channel(cfg, blocks: List[str], relative_fw: bool | None = None) -> ChannelFn:
     def f(tr, te, tr_groups=None):
         ov = {k: False for k in _ALL_BLOCKS}
         for b in blocks:
             ov[b] = True
-        vec = StyloVectorizer.from_config(cfg, enabled_override=ov)
+        vec = StyloVectorizer.from_config(cfg, enabled_override=ov, relative_fw=relative_fw)
         # groups=None -> legacy pooled-chunk fit; groups -> B1 work-level feature fitting
         Xtr = vec.fit_transform(list(tr)) if tr_groups is None \
             else vec.fit_transform(list(tr), groups=tr_groups)
@@ -81,13 +81,18 @@ def block_channel(cfg, blocks: List[str]) -> ChannelFn:
     return f
 
 
-def make_channels(cfg) -> Dict[str, ChannelFn]:
-    """Канальный набор бенчмарка (без DSP): идентичен scripts/run_benchmark.py."""
+def make_channels(cfg, relative_fw: bool | None = None) -> Dict[str, ChannelFn]:
+    """Канальный набор бенчмарка (без DSP): идентичен scripts/run_benchmark.py.
+
+    ``relative_fw`` (B4-B increment 3) is the FunctionWord R-axis policy; it is threaded ONLY into the
+    ``function_words`` channel (the sole FW consumer). ``None`` keeps the legacy corner coupling
+    (byte-exact A0/A4); an explicit bool selects A2 (raw) / A3 (relative) independently of the F axis.
+    Every other channel is R-agnostic and unchanged."""
     return {
         "char (2-5)": ch_char,
         "word (1-2)": ch_word,
         "syntax (dep+pos+syn)": block_channel(cfg, ["dependency", "pos_ngrams", "syntax"]),
         "dependency": block_channel(cfg, ["dependency"]),
-        "function_words": block_channel(cfg, ["function_words"]),
+        "function_words": block_channel(cfg, ["function_words"], relative_fw=relative_fw),
         "morphology": block_channel(cfg, ["morphology"]),
     }

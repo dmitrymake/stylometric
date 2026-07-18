@@ -74,44 +74,79 @@ def make_factory_for_ablation(spec: str, cfg, *, ablation,
     if AblationConfig.is_legacy_corner.fget(fresh) or AblationConfig.is_full_wb_corner.fget(fresh):
         weighting = AblationConfig.to_weighting(fresh)         # class method, never an instance override
         return make_factory(spec, cfg, enabled_override, weighting=weighting)
-    if AblationConfig.is_weights_only_corner.fget(fresh):
-        return _make_weights_only_factory(spec, cfg, enabled_override)
-    # the five remaining intermediates (WFR 010/001/110/101/011) have no estimator wiring yet
+    for cell in ("is_weights_only_corner", "is_feature_state_only_corner", "is_relative_fw_only_corner"):
+        if getattr(AblationConfig, cell).fget(fresh):
+            return _make_audit_factory(spec, cfg, enabled_override, fresh)   # A1 / A2 / A3
+    # the remaining intermediates (WFR 110/101/011) have no estimator wiring yet
     raise AblationNotImplementedError(
-        f"ablation {fresh} has no estimator wiring yet (runnable: A0/A4 corners and weights-only A1)")
+        f"ablation {fresh} has no estimator wiring yet (runnable: A0/A4 corners and audit A1/A2/A3)")
 
 
-def _make_weights_only_factory(spec: str, cfg,
-                               enabled_override: Optional[Dict[str, bool]]) -> Callable:
-    """Build the audit-only weights-only (A1) estimator for an LR-family spec, or fail closed.
+def _delta_n_or_raise(spec: str) -> int:
+    """A well-formed positive int after the colon; a malformed/bare delta spec is a plain ValueError
+    (never laundered into a clean applicability status)."""
+    n = spec.split(":", 1)[1]
+    if not (n.isdigit() and int(n) > 0):
+        raise ValueError(f"invalid delta spec {spec!r}")
+    return int(n)
 
-    Feature side is the EXACT legacy A0 construction (legacy vectorizer, no ``groups`` routed to any
-    block/vectorizer); only the training loss/calibration protocol is work-balanced. For a model whose
-    W axis is not a new loss (Delta already-in-legacy; char/majority not applicable) it raises
-    ``AblationNotApplicableError`` with the exact ``reason`` the future runner records."""
-    from .work_weighting import AblationNotApplicableError, WEIGHTS_ONLY_ABLATION
+
+def _make_audit_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]],
+                        ablation) -> Callable:
+    """Build the audit-only A1 (weights) / A2 (feature-state) / A3 (relative-FW) estimator, or fail
+    closed with the exact typed applicability signal the future runner records.
+
+    Loss/calibration: A1 is work-balanced (W on); A2/A3 keep the exact A0 loss (W off). Feature side:
+    A1 is exact legacy A0; A2 routes work-level feature fitting (F); A3 applies the pooled relative-FW
+    transform (R). Non-applicable cells raise ``AblationNotApplicableError`` (exact reason + requested)
+    or, for char_cos A2 which duplicates A4, ``AblationEquivalentError('A4')``."""
+    from .work_weighting import (AblationEquivalentError, AblationNotApplicableError,
+                                 CHUNK_WEIGHTED_LEGACY)
+    a1 = ablation.is_weights_only_corner
+    a2 = ablation.is_feature_state_only_corner
+    a3 = ablation.is_relative_fw_only_corner
+
     if spec == "stylo":
-        from ..models.work_balanced import WeightsOnlyStyloPipeline
-        return lambda: WeightsOnlyStyloPipeline([
-            ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override)),   # legacy A0 vectorizer
+        from ..models.work_balanced import (FeatureStateStyloPipeline, RelativeFwStyloPipeline,
+                                            WeightsOnlyStyloPipeline)
+        if a1:
+            return lambda: WeightsOnlyStyloPipeline([
+                ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override)),   # legacy A0 vec
+                ("scaler", make_scaler(cfg)),
+                ("classifier", make_logreg(cfg, class_weight=None))])                 # W on
+        if a2:
+            return lambda: FeatureStateStyloPipeline([
+                ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override, relative_fw=False)),
+                ("scaler", make_scaler(cfg)),
+                ("classifier", make_logreg(cfg))])                                   # A0 loss (canonical)
+        return lambda: RelativeFwStyloPipeline([                                      # a3
+            ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override, relative_fw=True)),
             ("scaler", make_scaler(cfg)),
-            ("classifier", make_logreg(cfg, class_weight=None)),
-        ])
+            ("classifier", make_logreg(cfg))])                                       # A0 loss (canonical)
     if spec == "bow_lr":
-        from ..models.work_balanced import build_bow_lr_weights_only
-        return lambda: build_bow_lr_weights_only()
+        from ..models.work_balanced import build_bow_lr_feature_state, build_bow_lr_weights_only
+        if a1:
+            return lambda: build_bow_lr_weights_only()
+        if a2:
+            return lambda: build_bow_lr_feature_state()
+        raise AblationNotApplicableError(spec, "not_applicable", ablation)            # a3: BoW has no R
     if spec == "stylo_stack":
         from ..models.stacked_clf import StackedChannelClassifier
-        return lambda: StackedChannelClassifier(
-            cfg, **_stacked_kwargs(cfg),
-            training_weighting=CHUNK_WEIGHTED_LEGACY, ablation=WEIGHTS_ONLY_ABLATION)
+        return lambda: StackedChannelClassifier(cfg, **_stacked_kwargs(cfg),
+                                                training_weighting=CHUNK_WEIGHTED_LEGACY, ablation=ablation)
     if spec.startswith("delta:") or spec.startswith("delta_cos:"):
-        n = spec.split(":", 1)[1]                                    # must be a well-formed delta spec
-        if not (n.isdigit() and int(n) > 0):                        # delta:bogus / bare delta: are invalid
-            raise ValueError(f"invalid delta spec {spec!r}")
-        raise AblationNotApplicableError(spec, "already_in_legacy")   # W == equal-work centroids already
-    if spec in ("char_cos", "majority", "bow_lr_ref_legacy"):
-        raise AblationNotApplicableError(spec, "not_applicable")      # W is not a new learnable loss axis
+        n = _delta_n_or_raise(spec)                                                   # plain ValueError if bad
+        if a1:
+            raise AblationNotApplicableError(spec, "already_in_legacy", ablation)     # W == equal-work already
+        metric = "cosine" if spec.startswith("delta_cos:") else cfg.get_path("delta.metric", "manhattan")
+        from ..models.delta import BurrowsDelta
+        return lambda: BurrowsDelta(n, metric, ablation=ablation)                     # A2/A3 F×R grid
+    if spec == "char_cos":
+        if a2:
+            raise AblationEquivalentError(spec, ablation, "A4")   # char A2 ≡ A4 (W legacy, no R, only F)
+        raise AblationNotApplicableError(spec, "not_applicable", ablation)            # A1/A3
+    if spec in ("majority", "bow_lr_ref_legacy"):
+        raise AblationNotApplicableError(spec, "not_applicable", ablation)
     raise ValueError(f"Неизвестная модель: {spec}")
 
 

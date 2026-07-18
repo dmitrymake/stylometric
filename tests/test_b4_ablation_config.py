@@ -35,11 +35,11 @@ def test_corners_map_to_the_two_enums():
 
 
 def test_intermediate_axes_are_not_yet_runnable():
-    # the FIVE remaining intermediates (WFR 010/001/110/101/011); A1 (100) is wired in increment 2
-    for cfg in (AblationConfig(False, True, False), AblationConfig(False, False, True),
-                AblationConfig(True, True, False), AblationConfig(True, False, True),
+    # the THREE remaining intermediates (WFR 110/101/011); A1 (100) wired in inc 2, A2/A3 (010/001) inc 3
+    for cfg in (AblationConfig(True, True, False), AblationConfig(True, False, True),
                 AblationConfig(False, True, True)):
-        assert not (cfg.is_legacy_corner or cfg.is_full_wb_corner or cfg.is_weights_only_corner)
+        assert not (cfg.is_legacy_corner or cfg.is_full_wb_corner or cfg.is_weights_only_corner
+                    or cfg.is_feature_state_only_corner or cfg.is_relative_fw_only_corner)
         with pytest.raises(AblationNotImplementedError):
             cfg.to_weighting()
         with pytest.raises(AblationNotImplementedError):        # and through the factory routing

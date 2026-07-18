@@ -40,42 +40,71 @@ class AblationNotImplementedError(NotImplementedError):
     """
 
 
-_A1_APPLICABILITY_REASONS = frozenset({"already_in_legacy", "not_applicable"})
+_APPLICABILITY_REASONS = frozenset({"already_in_legacy", "not_applicable"})
 
 
 class AblationNotApplicableError(ValueError):
     """An audit-only ablation is requested for a model where that axis is not a new estimand.
 
     Distinct from :class:`AblationNotImplementedError` (a corner whose wiring simply does not exist
-    yet): A1 (weights-only) is *fully implemented* but is not a meaningful new comparison for a model
-    whose W axis is already-in-legacy (Delta / char-centroid use equal-work centroids), or which has
-    no learnable loss axis at all (majority). Rather than silently return an A0-identical estimator —
-    which would falsely mark the cell as an applied W ablation in provenance — the factory fails
-    closed with an exact ``reason`` the future runner records as the cell's applicability status.
+    yet): the requested cell is *fully implemented* but is not a meaningful new comparison for this
+    model — its axis is already-in-legacy (Delta / char-centroid W == equal-work centroids), or it has
+    no learnable loss axis at all (majority), or the axis simply does not exist for it (BoW has no
+    relative-FW R). Rather than silently return an estimator that duplicates an existing cell — which
+    would falsely mark the requested axis as *applied* in provenance — the factory fails closed with an
+    exact ``reason`` the future runner records as the cell's applicability status.
 
     ``reason`` is the CELL-applicability status, one of exactly ``"already_in_legacy"`` (Delta family:
-    A1 would re-run the identical A0 estimand) or ``"not_applicable"`` (char_cos / majority / any other
-    non-LR model: A1 is not a distinct LR loss for them).
+    the request would re-run the identical A0 estimand) or ``"not_applicable"`` (char_cos / majority /
+    BoW-R / any other model where the axis is not a distinct estimand). ``requested`` carries the
+    fresh exact :class:`AblationConfig` the caller asked for, so the runner can bind the cell.
 
     Note for the future applicability runner (schema NOT built here — that is a later increment): the
-    per-axis *effective* W status is a separate, spec-deterministic property and is not collapsed into
+    per-axis *effective* status is a separate, spec-deterministic property and is not collapsed into
     ``reason``. Both char_cos and the Delta family use equal-work centroids, so their effective
     ``W`` is ``already_in_legacy`` at the axis level even though char_cos's cell status is
-    ``not_applicable`` (no learnable LR loss to reweight); majority has no learnable loss axis at all.
-    The runner derives ``effective_axes.W`` from that spec map, keeping ``reason`` a two-value contract.
+    ``not_applicable``; majority has no learnable loss axis at all. The runner derives
+    ``effective_axes`` from that spec map, keeping ``reason`` a two-value contract.
     """
 
-    def __init__(self, spec: str, reason: str):
-        if reason not in _A1_APPLICABILITY_REASONS:
-            allowed = ", ".join(sorted(_A1_APPLICABILITY_REASONS))
+    def __init__(self, spec: str, reason: str, requested: "AblationConfig | None" = None):
+        if reason not in _APPLICABILITY_REASONS:
+            allowed = ", ".join(sorted(_APPLICABILITY_REASONS))
             raise ValueError(f"reason must be one of {{{allowed}}}, got {reason!r}")
+        if requested is not None and type(requested) is not AblationConfig:
+            raise TypeError(f"requested must be an AblationConfig or None, got {type(requested).__name__}")
         self.spec = spec
         self.reason = reason
-        super().__init__(f"weights-only A1 is not applicable to {spec!r}: {reason}")
+        self.requested = requested                 # the exact requested cell (fresh AblationConfig)
+        super().__init__(f"ablation {requested} for {spec!r} is not applicable: {reason}")
 
     def __reduce__(self):
-        # default Exception pickling would call cls(message) and break the (spec, reason) signature
-        return (self.__class__, (self.spec, self.reason))
+        # default Exception pickling would call cls(message) and break the typed-field signature
+        return (self.__class__, (self.spec, self.reason, self.requested))
+
+
+class AblationEquivalentError(ValueError):
+    """A requested audit cell is IDENTICAL to an already-signed corner for this model (no new
+    estimand) — currently only ``char_cos`` A2, whose W is already equal-work, has no R axis, and
+    whose only remaining axis F is exactly what A4 changes, so A2 ≡ A4. Routed fail-closed BEFORE
+    construction/fit so the runner records ``equivalent_to`` rather than a silent A4-as-A2 duplicate
+    (never a metrics copy, never an n/a)."""
+
+    _EQUIVALENT_CORNERS = frozenset({"A4"})
+
+    def __init__(self, spec: str, requested: "AblationConfig", equivalent_to: str):
+        if equivalent_to not in self._EQUIVALENT_CORNERS:
+            allowed = ", ".join(sorted(self._EQUIVALENT_CORNERS))
+            raise ValueError(f"equivalent_to must be one of {{{allowed}}}, got {equivalent_to!r}")
+        if type(requested) is not AblationConfig:
+            raise TypeError(f"requested must be an AblationConfig, got {type(requested).__name__}")
+        self.spec = spec
+        self.requested = requested
+        self.equivalent_to = equivalent_to
+        super().__init__(f"ablation {requested} for {spec!r} is equivalent to {equivalent_to}")
+
+    def __reduce__(self):
+        return (self.__class__, (self.spec, self.requested, self.equivalent_to))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -109,6 +138,18 @@ class AblationConfig:
         (A0) feature side. Runnable only for the LR-family via ``make_factory_for_ablation``."""
         return self.weights and not self.feature_fit and not self.relative_fw
 
+    @property
+    def is_feature_state_only_corner(self) -> bool:
+        """A2 == feature-state only: work-level learned vocabulary/DF (F), with the legacy A0 training
+        loss (W off) and the legacy raw FunctionWord/MFW transform (R off)."""
+        return self.feature_fit and not self.weights and not self.relative_fw
+
+    @property
+    def is_relative_fw_only_corner(self) -> bool:
+        """A3 == relative-FW only: the equal-work relative FunctionWord/MFW transform (R), on the
+        pooled A0 vocabulary (F off) with the legacy A0 loss (W off)."""
+        return self.relative_fw and not self.weights and not self.feature_fit
+
     def to_weighting(self) -> str:
         """Map a CORNER config to the runtime weighting enum; every non-corner raises.
 
@@ -136,6 +177,9 @@ LEGACY_ABLATION = AblationConfig(False, False, False)
 FULL_WB_ABLATION = AblationConfig(True, True, True)
 # A1 (B4-B increment 2): work-balanced loss/calibration, legacy (A0) feature state. Audit-only.
 WEIGHTS_ONLY_ABLATION = AblationConfig(True, False, False)
+# A2/A3 (B4-B increment 3): feature-state-only and relative-FW-only. Audit-only, legacy A0 loss.
+FEATURE_STATE_ONLY_ABLATION = AblationConfig(False, True, False)
+RELATIVE_FW_ONLY_ABLATION = AblationConfig(False, False, True)
 
 # Runtime weighting label -> the public claim label used in result artifacts. The legacy
 # runtime value maps to the P0 headline claim, which stays exactly as committed.
@@ -151,9 +195,12 @@ __all__ = [
     "AblationConfig",
     "AblationNotImplementedError",
     "AblationNotApplicableError",
+    "AblationEquivalentError",
     "LEGACY_ABLATION",
     "FULL_WB_ABLATION",
     "WEIGHTS_ONLY_ABLATION",
+    "FEATURE_STATE_ONLY_ABLATION",
+    "RELATIVE_FW_ONLY_ABLATION",
     "resolve_training_weighting",
     "to_claim_label",
     "work_author_map",

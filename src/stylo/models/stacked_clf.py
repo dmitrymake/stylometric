@@ -61,12 +61,13 @@ class StackedChannelClassifier:
         self.svc_c = svc_c
         self.meta_c = meta_c
         self.seed = seed
-        # B2a/B3: the stack decomposes into a W axis (loss weights + class_weight=None + group-aware
-        # calibration) and an F axis (channel vectorizers fit at work level). The two PRODUCTION corners
-        # keep W==F: legacy A0 (both off, byte-for-byte the pre-B2a stack) and work_balanced A4 (both
-        # on). B4-B increment 2 adds the audit-only A1 corner (W on, F off) via an explicit ``ablation``
-        # — the loss/calibration protocol on a strictly legacy feature side. ``ablation`` is keyword-only
-        # and audit-only; production callers pass only ``training_weighting``.
+        # B2a/B3/B4: the stack decomposes into three independent axes — W (loss weights +
+        # class_weight=None + group-aware calibration), F (channel vectorizers fit at work level via the
+        # 3-arg ChannelFn call) and R (the FunctionWord channel's all-event relative transform). The two
+        # PRODUCTION corners keep W==F==R: legacy A0 (all off, byte-for-byte the pre-B2a stack) and
+        # work_balanced A4 (all on). The audit-only intermediates come via an explicit ``ablation``:
+        # A1 (W on, F/R off), A2 (F on, W/R off, A0 loss), A3 (R on, W/F off, A0 loss). ``ablation`` is
+        # keyword-only and audit-only; production callers pass only ``training_weighting``.
         #
         # ``self._axes`` is the SINGLE canonical source of the ablation state; the public
         # ``training_weighting`` and ``ablation_`` are read-only views derived from it (properties,
@@ -87,9 +88,11 @@ class StackedChannelClassifier:
                 if type(getattr(ablation, f)) is not bool:
                     raise TypeError(f"ablation.{f} must be a plain bool")
             axes = AblationConfig(ablation.weights, ablation.feature_fit, ablation.relative_fw)
-            # this increment wires only the weights-only intermediate; corners still go through the enum
-            if not axes.is_weights_only_corner:
-                raise ValueError(f"stack ablation override supports only weights-only A1, got {axes}")
+            # the ablation override wires the audit intermediates A1/A2/A3; the A0/A4 corners still go
+            # through the enum (ablation=None), never a runnable-label override.
+            if not (axes.is_weights_only_corner or axes.is_feature_state_only_corner
+                    or axes.is_relative_fw_only_corner):
+                raise ValueError(f"stack ablation override supports only audit cells A1/A2/A3, got {axes}")
             # split-brain guard: A1's feature side is legacy, so it must NOT carry the full-WB label —
             # pairing ablation=A1 with training_weighting=work_balanced would falsely claim full
             # work-balanced feature fitting in provenance while the math is W-on/F-off.
@@ -123,6 +126,22 @@ class StackedChannelClassifier:
         """F axis: channel vectorizers fit at work level (3-arg ChannelFn call routing groups)."""
         return self._axes.feature_fit
 
+    @property
+    def _relative_fw_on(self) -> bool:
+        """R axis: the FunctionWord channel uses the all-event relative transform (FW-only)."""
+        return self._axes.relative_fw
+
+    def _channels(self):
+        """Build the channel set with the R policy. A0/A1/A4 keep the legacy corner coupling
+        (R follows F, byte-exact goldens) via the EXACT legacy ``make_channels(cfg)`` call; A2/A3 — the
+        only cells where R and F diverge — pass the explicit FW R policy to the sole FunctionWord
+        channel. Keeping the A0/A1/A4 call kwarg-free preserves compatibility with any 2-arg-only
+        ``make_channels`` (older callers / test doubles)."""
+        relative_fw = None if self._feature_on == self._relative_fw_on else self._relative_fw_on
+        if relative_fw is None:
+            return make_channels(self.cfg)
+        return make_channels(self.cfg, relative_fw=relative_fw)
+
     def _class_weight(self):
         return None if self._weights_on else "balanced"  # legacy=balanced, W-on=None (+ sample_weight)
 
@@ -155,7 +174,7 @@ class StackedChannelClassifier:
         n_cls = len(self.classes_)
         y_local = np.searchsorted(self.classes_, y)
 
-        channels = make_channels(self.cfg)
+        channels = self._channels()
         skf = StratifiedGroupKFold(self.inner_folds, shuffle=True, random_state=self.seed)
         splits = list(skf.split(np.zeros(len(y)), y, groups))
 
@@ -236,7 +255,7 @@ class StackedChannelClassifier:
 
     def predict_proba(self, texts) -> np.ndarray:
         texts = list(texts)
-        channels = make_channels(self.cfg)
+        channels = self._channels()
         n_cls = len(self.classes_)
         te_probs = {}
         sw = self._fold_weights(self._train_y, self._train_groups)

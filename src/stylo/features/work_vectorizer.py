@@ -47,6 +47,21 @@ def _safe_reciprocal(x: np.ndarray) -> np.ndarray:
     return np.divide(1.0, x, out=np.zeros_like(x, dtype=np.float64), where=x > 0)
 
 
+def analyzer_event_counts(analyzer_params: dict, docs: Sequence[str]) -> np.ndarray:
+    """Total analyzer events (ALL tokens, before any vocabulary pruning) per chunk — the R1
+    denominator. Identical to :meth:`WorkLevelVectorizer._events`; shared so the pooled A3 FunctionWord
+    corner divides by the same all-events count as A4 without fitting a work-level vectorizer."""
+    analyze = CountVectorizer(**analyzer_params).build_analyzer()
+    return np.array([len(analyze(d)) for d in docs], dtype=np.float64)
+
+
+def relative_by_events(Xc: csr_matrix, events: np.ndarray) -> csr_matrix:
+    """The exact A4 relative transform: per-chunk ``selected_counts / all_analyzer_events`` as
+    ``diags(1/events) @ Xc`` (same floating op order as :meth:`WorkLevelVectorizer.transform`
+    MODE_RELATIVE), never densified; a zero-event chunk yields a zero row (no NaN/warning)."""
+    return (diags(_safe_reciprocal(events)) @ Xc.tocsr().astype(np.float64)).tocsr()
+
+
 def validate_work_ids(groups: Sequence, n_expected: Optional[int] = None) -> list[str]:
     """The single B0 work-balanced groups contract, checked before any use.
 
@@ -165,12 +180,8 @@ class WorkLevelVectorizer:
         self.idf_: Optional[np.ndarray] = None
 
     # ── fit ──────────────────────────────────────────────────────────────────
-    def _analyzer(self):
-        return CountVectorizer(**self.analyzer_params).build_analyzer()
-
     def _events(self, docs: Sequence[str]) -> np.ndarray:
-        analyze = self._analyzer()
-        return np.array([len(analyze(d)) for d in docs], dtype=np.float64)
+        return analyzer_event_counts(self.analyzer_params, docs)
 
     def fit(self, docs: Sequence[str], groups: Sequence) -> "WorkLevelVectorizer":
         docs = list(docs)
@@ -221,9 +232,7 @@ class WorkLevelVectorizer:
         if self.mode == MODE_COUNT:
             return Xc.tocsr()
         if self.mode == MODE_RELATIVE:
-            events = self._events(docs)
-            inv = _safe_reciprocal(events)
-            return (diags(inv) @ Xc).tocsr()
+            return relative_by_events(Xc, self._events(docs))
         # tfidf: (sublinear) tf * idf, then row L2
         tf = Xc.tocsr()
         if self.sublinear_tf:

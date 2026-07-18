@@ -6,10 +6,16 @@ touching ``run_fold``:
 * ``WorkLevelCountTransformer`` — a cloneable ``BaseEstimator`` step wrapping the signed
   ``WorkLevelVectorizer`` (count mode) so a work-level BoW vocab can live inside a ``Pipeline``
   (the bare vectorizer is not cloneable and collides with Pipeline's positional ``y``).
-* ``WorkBalancedStyloPipeline`` / ``WorkBalancedBowPipeline`` — ``Pipeline`` subclasses that
+* ``WorkBalancedStyloPipeline`` / ``WorkBalancedBowPipeline`` (A4) — ``Pipeline`` subclasses that
   recompute fold-local ``work_sample_weights`` (sum ``W_train``), route ONLY the two step-scoped
   params, force ``class_weight=None`` in the classifier, and pin ``enable_metadata_routing=False``
   so both ambient routing modes yield the identical estimand.
+
+Audit-only wrappers for the paired-audit off-diagonal cells (loss/feature axes decoupled):
+* ``WeightsOnly{Stylo,Bow}Pipeline`` (B4-B inc 2, A1) — the work-balanced loss on a legacy feature side;
+* ``{FeatureState,RelativeFw}StyloPipeline`` / ``FeatureStateBowPipeline`` (B4-B inc 3, A2/A3) — the
+  feature-state (F) and/or relative-FW (R) axis on the UNCHANGED A0 loss (canonical ``class_weight``
+  frozen against ``set_params``/clone tampering).
 
 All estimand math is delegated to already-signed B1 code — nothing new is fitted here.
 """
@@ -170,4 +176,107 @@ def build_bow_lr_weights_only() -> "WeightsOnlyBowPipeline":
                                 token_pattern=r"(?u)\b\w+\b")),
         ("scaler", MaxAbsScaler()),
         ("lr", LogisticRegression(max_iter=1000, class_weight=None, solver="lbfgs")),
+    ])
+
+
+# ── B4-B increment 3: feature-state A2 / relative-FW A3 (F/R axis, UNCHANGED A0 loss) ──
+def _cw_token(v):
+    """Canonicalize a class_weight to a comparison-safe token built ONLY from exact-type primitives —
+    never invoking a user ``__eq__``. Recognizes exactly ``None`` / a plain ``str`` / a plain ``dict``
+    of {exact int|str : exact int|float}; anything else (subclass, fake numeric, str-subclass) becomes a
+    unique INVALID token that matches nothing, so a forged weight cannot masquerade as the A0 value."""
+    if v is None:
+        return ("none",)
+    if type(v) is str:
+        return ("str", "".join(v))                     # "".join forces a plain str, defusing subclasses
+    if type(v) is dict:
+        parts = []
+        for k in v:
+            val = v[k]
+            if type(k) not in (int, str) or type(val) not in (int, float):
+                return ("invalid",)                    # non-canonical key/value type -> never matches
+            parts.append((type(k).__name__, k, type(val).__name__, val))
+        return ("dict", tuple(sorted(parts, key=lambda p: (p[0], str(p[1])))))
+    return ("invalid",)
+
+
+class _FeatureAxisPipeline(Pipeline):
+    """Audit-only base for A2/A3: an F (feature-state) and/or R (relative-FW) axis on top of the
+    UNCHANGED A0 loss/calibration — no ``sample_weight``, the legacy ``class_weight`` from the A0
+    builder. It routes ONLY the feature ``groups`` (A2, F on) or nothing (A3, F off); the R policy is
+    baked into the vectorizer construction, not here. Every caller fit-param (weights, class-weight,
+    groups) is rejected, AND the classifier ``class_weight`` is frozen at construction and re-checked
+    at fit, so neither the signed A0 loss nor the F/R estimand can be altered via ``set_params``."""
+
+    needs_groups = True
+    _GROUPS_PARAM: str = ""
+    _ROUTE_GROUPS: bool = True
+
+    def __init__(self, steps, *, memory=None, verbose=False):
+        super().__init__(steps, memory=memory, verbose=verbose)
+        # The A0-loss class_weight is a READ-ONLY canonical token snapshotted ONCE from the pristine step
+        # at construction and stored OUTSIDE get_params (so set_params cannot reach it). ``clone`` and
+        # ``pickle`` preserve the ORIGINAL token (see __sklearn_clone__), so a tamper→clone/joblib→fit is
+        # caught by the fit-time token check.
+        object.__setattr__(self, "_a0_cw_token", _cw_token(self._current_class_weight()))
+
+    def _current_class_weight(self):
+        clf = self.steps[-1][1]
+        params = clf.get_params()
+        return params["class_weight"] if "class_weight" in params else object()  # no cw -> unique -> mismatch
+
+    def __sklearn_clone__(self):
+        # a clone is UNFITTED but must carry the ORIGINAL canonical token, NOT re-derive it from the
+        # (possibly tampered) cloned steps — otherwise clone would launder a class_weight change.
+        cloned = type(self)([(name, sklearn.clone(est)) for name, est in self.steps],
+                            memory=self.memory, verbose=self.verbose)
+        object.__setattr__(cloned, "_a0_cw_token", self._a0_cw_token)
+        return cloned
+
+    def fit(self, X, y=None, *, groups, **fit_params):
+        if y is None:
+            raise ValueError("feature-axis A2/A3 fit needs y")
+        X = list(X)
+        groups = validate_work_ids(groups, len(X))
+        if fit_params:                                     # A0 loss, internal routing: no caller params
+            raise ValueError(
+                f"A2/A3 keeps the A0 loss and routes groups internally; do not pass {sorted(fit_params)}")
+        token = getattr(self, "_a0_cw_token", None)
+        if token is None or _cw_token(self._current_class_weight()) != token:
+            raise ValueError(
+                "A2/A3 keeps the A0 loss; the classifier class_weight must equal the canonical A0 value "
+                "(set_params / clone-of-tampered / forged-weight tampering rejected)")
+        routed = {self._GROUPS_PARAM: groups} if self._ROUTE_GROUPS else {}
+        # Pin routing OFF so the step-scoped groups param behaves identically under either ambient mode.
+        with sklearn.config_context(enable_metadata_routing=False):
+            return super().fit(X, y, **routed)
+
+
+class FeatureStateStyloPipeline(_FeatureAxisPipeline):        # A2: F on (work-vocab), R off (raw FW)
+    _GROUPS_PARAM = "vectorizer__groups"
+    _ROUTE_GROUPS = True
+
+
+class RelativeFwStyloPipeline(_FeatureAxisPipeline):          # A3: F off (pooled), R on (relative FW)
+    _GROUPS_PARAM = "vectorizer__groups"
+    _ROUTE_GROUPS = False
+
+
+class FeatureStateBowPipeline(_FeatureAxisPipeline):          # A2 BoW: work-level count vocab, A0 loss
+    _GROUPS_PARAM = "bow__groups"
+    _ROUTE_GROUPS = True
+
+
+def build_bow_lr_feature_state() -> "FeatureStateBowPipeline":
+    """A2 BoW: the A4 work-level count vocabulary (F) with the A0 loss (``class_weight='balanced'``,
+    no sample_weight) — features move, the loss does not."""
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import MaxAbsScaler
+    return FeatureStateBowPipeline([
+        ("bow", WorkLevelCountTransformer(
+            analyzer_params={"analyzer": "word", "ngram_range": (1, 2),
+                             "token_pattern": r"(?u)\b\w+\b", "lowercase": True},
+            max_features=20000, min_df_works=2)),
+        ("scaler", MaxAbsScaler()),
+        ("lr", LogisticRegression(max_iter=1000, class_weight="balanced", solver="lbfgs")),   # A0 loss
     ])

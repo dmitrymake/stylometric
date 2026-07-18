@@ -289,8 +289,8 @@ def test_A1_invalid_delta_spec_is_rejected_not_masked_as_applicability():
 
 
 def test_remaining_intermediates_still_not_implemented():
-    for bad in [(False, True, False), (False, False, True), (True, True, False),
-                (True, False, True), (False, True, True)]:
+    # 010/001 became A2/A3 in increment 3; only 110/101/011 remain unwired
+    for bad in [(True, True, False), (True, False, True), (False, True, True)]:
         with pytest.raises(AblationNotImplementedError):
             make_factory_for_ablation("stylo", CFG, ablation=AblationConfig(*bad))
 
