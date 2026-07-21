@@ -43,6 +43,13 @@ class TestPathGuard:
         with pytest.raises(pub.PublisherError):                       # not in any allowed namespace
             pub.assert_writable_audit_path(tmp_path / "random.json", docs_root=tmp_path)
 
+    def test_rejects_dotdot_tail_that_escapes_after_normalization(self, tmp_path):
+        # a non-existent tail climbing out with '..' must be rejected (normalized before containment)
+        escaping = (tmp_path / pub.ARCHIVE_DIRNAME / pub.VERSIONS_DIR / "tok"
+                    / ".." / ".." / ".." / ".." / "outside" / "pwned.json")
+        with pytest.raises(pub.PublisherError):
+            pub.assert_writable_audit_path(escaping, docs_root=tmp_path, allow_published=True)
+
     def test_allows_transient_and_published(self, tmp_path):
         t = tmp_path / pub.RUNS_SUBPATH / RUN_ID / "checkpoint.json"
         t.parent.mkdir(parents=True)

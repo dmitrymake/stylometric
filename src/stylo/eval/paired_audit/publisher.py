@@ -23,8 +23,8 @@ import tempfile
 from typing import Mapping
 
 from ...jsonio import dump_strict, dumps_strict, load_strict
-from ...pipeline.bundle import (_real_within, _safe_name, _sha256_file,
-                                _verify_real_dir_chain)
+from ...pipeline.bundle import (BundleError, _real_within, _safe_name,
+                                _sha256_file, _verify_real_dir_chain)
 
 RUNS_SUBPATH = pathlib.PurePosixPath("exploratory/work_balanced/audit/runs")
 SUMMARY_NAME = "work_balanced_paired_audit_v1.json"
@@ -69,8 +69,14 @@ def assert_writable_audit_path(path: pathlib.Path | str, *, docs_root: pathlib.P
     anchor = p
     while not anchor.exists():
         anchor = anchor.parent
-    _verify_real_dir_chain(anchor)
-    resolved = (anchor.resolve() / p.relative_to(anchor)) if anchor != p else anchor.resolve()
+    try:
+        _verify_real_dir_chain(anchor)
+    except BundleError as exc:
+        raise PublisherError(f"unsafe path chain: {exc}") from exc
+    # NORMALIZE the (possibly non-existent) tail before any containment test — a tail with `..`
+    # segments must not string-prefix-match an allowed base while its realpath escapes.
+    raw = (anchor.resolve() / p.relative_to(anchor)) if anchor != p else anchor.resolve()
+    resolved = pathlib.Path(os.path.normpath(str(raw)))
 
     def _within(base: pathlib.Path) -> bool:
         base = base.resolve()
@@ -233,6 +239,11 @@ def load_published_audit(docs_root: pathlib.Path | str) -> dict:
     versioned = archive_root / VERSIONS_DIR / token
     if not _version_complete(versioned, token):
         raise PublisherError("published archive version is partial, tampered, or conflicting")
+    complete = archive_root / COMPLETE_NAME
+    if not _real_within(complete, archive_root, must_file=True):
+        raise PublisherError("COMPLETE marker missing, a symlink, or escapes the archive root")
+    if load_strict(complete).get("version") != token:
+        raise PublisherError("COMPLETE marker version does not match the current pointer")
 
     summary = load_strict(versioned / SUMMARY_IN_VERSION)
     recorded = {k: v for k, v in summary.items() if k != "self_hash"}
