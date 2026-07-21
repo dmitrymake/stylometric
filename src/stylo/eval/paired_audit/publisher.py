@@ -245,14 +245,18 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
             if not isinstance(vs, Mapping) or vs.get("holm_p") != hp.get("holm_p") \
                     or bool(vs.get("significant")) != bool(hp.get("significant")):
                 raise PublisherError(f"Holm<->cell verdict inconsistency at {ds}/{key}")
-    # headline <-> CI consistency: the decision is the gate on the stored difference CI, and that CI
-    # equals the stylo A4-A0 cell difference CI in the lobo grid
-    from .headline import headline_gate
+    # headline <-> CI consistency: the margin MUST equal the run_id-bound frozen protocol margin (a
+    # publish-boundary craft cannot decide under a softer δ), the decision is the gate on the stored
+    # difference CI, and that CI equals the stylo A4-A0 cell difference CI in the lobo grid.
+    from .headline import HeadlineError, headline_gate
+    frozen_margin = plan.get("stats", {}).get("noninferiority_margin")
+    if hl.get("margin") != frozen_margin:
+        raise PublisherError("headline margin != the run_plan frozen noninferiority margin")
     dci = hl.get("diff_ci") or {}
     try:
-        gate = headline_gate(dci["lo"], dci["hi"], margin=hl.get("margin"))
-    except (KeyError, TypeError) as exc:
-        raise PublisherError(f"headline diff CI is malformed: {exc}") from exc
+        gate = headline_gate(dci["lo"], dci["hi"], margin=frozen_margin)
+    except (KeyError, TypeError, HeadlineError) as exc:
+        raise PublisherError(f"headline diff CI/margin is malformed: {exc}") from exc
     if gate != hl.get("decision"):
         raise PublisherError("headline decision != the gate applied to its own difference CI")
     a4_vs = cells.get("lobo", {}).get("stylo/A4", {}).get("vs_A0", {})

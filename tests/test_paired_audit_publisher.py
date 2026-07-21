@@ -248,6 +248,19 @@ class TestArtifactCompleteness:
             with pytest.raises(pub.PublisherError):
                 pub.verify_final_assembly(s, _vectors())
 
+    def test_headline_margin_must_equal_frozen_plan_margin(self):
+        # a publish-boundary craft cannot decide the headline under a softer margin than the frozen δ
+        s = _summary()
+        s["headline"] = {**s["headline"], "margin": 0.005, "decision": "inconclusive"}
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(s, _vectors())
+
+    def test_malformed_headline_ci_surfaces_as_publisher_error(self):
+        s = _summary()
+        s["headline"] = {**s["headline"], "diff_ci": {"point": 0.0, "lo": 0.5, "hi": -0.5}}
+        with pytest.raises(pub.PublisherError):                      # lo>hi -> HeadlineError -> PublisherError
+            pub.verify_final_assembly(s, _vectors())
+
     def test_published_summary_round_trips_and_recomputes_run_id(self, tmp_path):
         pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
         loaded = pub.load_published_audit(tmp_path)
