@@ -114,3 +114,24 @@ class TestFrozenUniverse:
                                    seed=42, config_hash="c" * 64, selection_digest="s" * 64)
         with pytest.raises(mf.FoldManifestError):
             mf.assert_ruaa_universe(m)
+
+    def test_bogus_class_order_contents_rejected(self):
+        ds = self._lobo_universe_ds([5] * 42 + [41], 4)
+        m = mf.build_fold_manifest("lobo", ds, parent_dataset_digest="p" * 64, algorithm="x",
+                                   seed=42, config_hash="c" * 64)
+        m["probability_class_order"] = ["bogus%02d" % i for i in range(47)]   # right length, wrong names
+        m["self_hash"] = mf.fold_manifest_self_hash(m)                        # re-sign the forgery
+        with pytest.raises(mf.FoldManifestError):
+            mf.assert_lobo_universe(m)
+
+    def test_malformed_input_raises_typed_error(self):
+        with pytest.raises(mf.FoldManifestError):
+            mf.assert_lobo_universe("not a dict")
+        ds = _toy_lobo()
+        m = mf.build_fold_manifest("lobo", ds, parent_dataset_digest="p" * 64, algorithm="x",
+                                   seed=42, config_hash="c" * 64)
+        m["works"][0]["tested"] = True
+        m["works"][0]["fold_index"] = None                       # tested but no fold_index
+        m["self_hash"] = mf.fold_manifest_self_hash(m)
+        with pytest.raises(mf.FoldManifestError):                 # typed, not a raw TypeError
+            mf.assert_lobo_universe(m)

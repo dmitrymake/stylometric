@@ -106,15 +106,24 @@ def verify_manifest_matches_rebuilt(committed, rebuilt) -> None:
 
 
 def _common_checks(manifest, schema) -> None:
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("works"), list):
+        raise FoldManifestError("manifest must be a dict with a works list")
     if manifest.get("schema") != schema:
         raise FoldManifestError(f"expected schema {schema!r}, got {manifest.get('schema')!r}")
     verify_manifest_self_hash(manifest)
-    tested = [w for w in manifest["works"] if w["tested"]]
-    folds = sorted(w["fold_index"] for w in tested)
-    if folds != list(range(len(tested))):
-        raise FoldManifestError("tested fold indices must be contiguous 0..n-1")
-    if any((w["fold_index"] is not None) != w["tested"] for w in manifest["works"]):
+    # 'fold_index iff tested' BEFORE any sort, so a tested row with fold_index=None fails typed
+    if any((w.get("fold_index") is not None) != bool(w.get("tested")) for w in manifest["works"]):
         raise FoldManifestError("fold_index must be set iff the work is tested")
+    tested = [w for w in manifest["works"] if w["tested"]]
+    if sorted(w["fold_index"] for w in tested) != list(range(len(tested))):
+        raise FoldManifestError("tested fold indices must be contiguous 0..n-1")
+    # class orders must equal the actual author sets (not just the right length)
+    authors = sorted({w["author_id"] for w in manifest["works"]})
+    tested_authors = sorted({w["author_id"] for w in manifest["works"] if w["tested"]})
+    if manifest.get("probability_class_order") != authors:
+        raise FoldManifestError("probability_class_order must equal the sorted train authors")
+    if manifest.get("metric_label_order") != tested_authors:
+        raise FoldManifestError("metric_label_order must equal the sorted tested authors")
 
 
 def assert_lobo_universe(manifest) -> None:
