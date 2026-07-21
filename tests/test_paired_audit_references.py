@@ -182,3 +182,18 @@ def test_ruaa_a0_exact_pred_match_and_mismatch():
                                     fields=ref.A0_RUAA_FIELDS, label="stylo ruaa")
     with pytest.raises(ref.ReferenceError):                              # duplicate book_id in reference
         ref.build_ruaa_reference_index({"rows": parsed["rows"] + [parsed["rows"][0]]})
+
+
+# ── §4.2 golden-fixture inventory computed FROM DISK ──────────────────────────
+def test_golden_fixture_inventory_from_disk(tmp_path):
+    a, b = tmp_path / "a.txt", tmp_path / "b.txt"
+    a.write_text("alpha", encoding="utf-8")
+    b.write_text("beta", encoding="utf-8")
+    d1 = ref.golden_fixture_inventory({"a": a, "b": b})
+    assert d1 == ref.golden_fixture_inventory({"a": a, "b": b})          # deterministic replay
+    a.write_text("ALPHA", encoding="utf-8")
+    assert ref.golden_fixture_inventory({"a": a, "b": b}) != d1          # a content change re-keys it
+    with pytest.raises(ref.ReferenceError):                             # empty inventory
+        ref.golden_fixture_inventory({})
+    with pytest.raises(ref.ReferenceError):                             # a missing golden file
+        ref.golden_fixture_inventory({"missing": tmp_path / "nope.txt"})

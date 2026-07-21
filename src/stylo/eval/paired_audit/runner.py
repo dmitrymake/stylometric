@@ -89,7 +89,7 @@ def _rebuild_manifest(dataset_kind: str, dataset, parent_digest: str, cfg, commi
 def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
                      committed_ruaa_manifest: Mapping, ruaa_work_ids, checkpoint_root, docs_root,
                      evaluator: Callable, a0_references: Mapping, tolerances: Mapping,
-                     golden_fixture_inventory_sha: str, run_kind: str = "smoke",
+                     run_kind: str = "smoke",
                      lobo_author_display_map: Mapping | None = None,
                      repo_root=None, src_root=None) -> dict:
     """Run the whole confirmatory chain on the published immutable ``audit_root`` and publish the
@@ -143,10 +143,16 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     eval_identity = rp.evaluator_identity(eval_spec, confirmatory=confirmatory)
     eval_fn = eval_spec.fn
 
+    # 4c. golden-fixture inventory computed FROM DISK over the SHA-pinned reference files (never a
+    # caller-supplied SHA); deterministic, so the loader can replay it.
+    golden_files = {k: a0_references[k] for k in ("lobo_books", "ruaa_reference_submission",
+                                                  "ruaa_sha256sums") if k in a0_references}
+    golden_sha = refmod.golden_fixture_inventory(golden_files)
+
     # 5. live RunPlan
     plan = _build_run_plan(datasets, manifests, corpus_manifest, run_kind=run_kind,
                            a0_references=a0_references, tolerances=tolerances,
-                           golden_fixture_inventory_sha=golden_fixture_inventory_sha,
+                           golden_fixture_inventory_sha=golden_sha,
                            evaluator_identity=eval_identity,
                            cfg=cfg, repo_root=repo_root, src_root=src_root)
     run_id = rp.run_id(plan)
@@ -427,11 +433,26 @@ def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dic
     head = hl.evaluate_headline(la[("stylo", "A4")]["correct"], la[("stylo", "A0")]["correct"],
                                 la[("stylo", "A4")]["authors"], margin=margin, iters=iters, seed=seed,
                                 quantiles=quantiles)
+    universes = {ds: {"n_train_works": m["n_train_works"], "n_tested_works": m["n_tested_works"],
+                      "n_train_authors": m["n_train_authors"], "n_tested_authors": m["n_tested_authors"],
+                      "dataset_digest": m["dataset_digest"], "fold_manifest_digest": m["self_hash"],
+                      "probability_class_order": m["probability_class_order"],
+                      "metric_label_order": m["metric_label_order"]}
+                 for ds, m in manifests.items()}
     summary = {"run_id": run_id, "claim_status": "exploratory_internal", "cells": cells_out,
                "holm": holm_out, "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
                                               "diff_ci": head["diff_ci"], "margin": head["margin"]},
+               # the canonical RunPlan is embedded so the publisher/loader can RECOMPUTE the run_id;
+               # both class orders, work universes/digests, tolerances and the full attestation travel
+               # with the artifact.
+               "run_plan": plan,
+               "universes": universes,
+               "continuous_tolerances": plan["tolerances"],
                "attestation": {"git_commit": plan["git_commit"], "run_kind": plan["run_kind"],
-                               "audit_version": plan["audit_version"]},
+                               "audit_version": plan["audit_version"],
+                               "execution_source_sha256": plan["execution_source_sha256"],
+                               "env_lock_sha256": plan["env_lock_sha256"], "config_id": plan["config_id"],
+                               "golden_fixture_inventory_sha": plan["golden_fixture_inventory_sha"]},
                "run_id_source": "canonical_run_plan_sha256"}
     return summary, per_work_vectors
 

@@ -37,6 +37,10 @@ _BLAS_POOL_ALLOWED = frozenset({"internal_api", "version", "num_threads", "threa
                                 "architecture"})
 REGISTERED_RUN_KINDS = frozenset({"confirmatory", "smoke", "dry_preflight"})
 REGISTERED_DTYPES = frozenset({"float64", "float32", "int64", "int32"})
+# every continuous quantity the audit compares needs a registered numerical tolerance — a confirmatory
+# run must bind ALL of them (an under-specified tolerance contract is fatal).
+REGISTERED_TOLERANCE_QUANTITIES = frozenset({"probability", "accuracy", "delta_accuracy",
+                                             "cluster_pvalue", "ci_endpoint"})
 
 
 def class_order_digest(order) -> str:
@@ -321,8 +325,9 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
         raise RunPlanError("tolerances must be a dict")
     for quantity, tol in tolerances.items():
         _validate_tolerance(quantity, tol)
-    if confirmatory and not tolerances:
-        raise RunPlanError("a confirmatory run requires non-empty continuous_tolerances")
+    if confirmatory and set(tolerances) != REGISTERED_TOLERANCE_QUANTITIES:
+        raise RunPlanError(
+            f"a confirmatory run must bind tolerances for exactly {sorted(REGISTERED_TOLERANCE_QUANTITIES)}")
     _validate_runtime_fields(runtime_fingerprint, blas_thread_fingerprint, confirmatory=confirmatory)
 
     # top-level §4.2 scalar identity inputs must be present and non-empty (fail-closed)

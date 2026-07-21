@@ -219,7 +219,8 @@ def test_synthetic_end_to_end_runner(tmp_path):
         checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs",
         evaluator=_dummy_evaluator,
         a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
-        tolerances={}, golden_fixture_inventory_sha="f" * 64, run_kind="smoke")
+        tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
+                    for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES}, run_kind="smoke")
 
     assert len(out["run_id"]) == 64
     # published + round-trips through the verified loader
@@ -261,7 +262,8 @@ def test_runner_resumes_from_checkpoints(tmp_path):
               committed_ruaa_manifest=ruaa_m, ruaa_work_ids=ruaa_work_ids,
               checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs",
               evaluator=_dummy_evaluator, a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
-              tolerances={}, golden_fixture_inventory_sha="f" * 64, run_kind="smoke")
+              tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
+                    for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES}, run_kind="smoke")
     a = rn.run_paired_audit(**kw)
     b = rn.run_paired_audit(**kw)                             # resumes; same run_id + version
     assert a["run_id"] == b["run_id"]

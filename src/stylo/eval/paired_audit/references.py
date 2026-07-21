@@ -190,6 +190,24 @@ def assert_a0_matches_index(a0_index: dict, reference_index: dict, *, fields, la
                 raise ReferenceError(f"{label} A0 {f} mismatch for {wid}: {got.get(f)!r} != {want[f]!r}")
 
 
+_GOLDEN_INVENTORY_VERSION = "paired_audit.golden_inventory.v1"
+
+
+def golden_fixture_inventory(named_paths: dict) -> str:
+    """Content digest over the golden fixture files, computed FROM DISK — each path must be a real,
+    non-symlink file. Deterministic, so a replay recomputes the same digest and a caller cannot inject
+    an arbitrary SHA. An empty set is fatal."""
+    if not named_paths:
+        raise ReferenceError("golden fixture inventory is empty")
+    h = hashlib.sha256()
+    h.update(len(_GOLDEN_INVENTORY_VERSION).to_bytes(8, "big") + _GOLDEN_INVENTORY_VERSION.encode("utf-8"))
+    for name in sorted(named_paths):
+        digest = _sha256(pathlib.Path(named_paths[name]))    # fails closed on missing/symlink
+        h.update(len(name).to_bytes(8, "big") + name.encode("utf-8"))
+        h.update(bytes.fromhex(digest))
+    return h.hexdigest()
+
+
 def verify_ruaa_inventory(ruaa_sha256sums: pathlib.Path | str, ruaa_root: pathlib.Path | str) -> int:
     """Verify EVERY file listed in the frozen RuAA SHA256SUMS against its recorded digest (fail-closed
     on any missing/symlinked/tampered file). Returns the number of verified files."""

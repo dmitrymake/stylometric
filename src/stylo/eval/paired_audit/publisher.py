@@ -174,10 +174,34 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
                                 assert_holm_family_complete, assert_matrix_invariants, registered_cells)
     from .headline import HEADLINE_ENDPOINT
 
+    from .run_plan import run_id as _recompute_run_id
+
     if not (isinstance(summary.get("run_id"), str) and _HEX64.match(summary["run_id"])):
         raise PublisherError("summary.run_id must be a sha256 hex string")
     if summary.get("claim_status") != "exploratory_internal":
         raise PublisherError("summary.claim_status must be exploratory_internal")
+
+    # the embedded canonical RunPlan must RECOMPUTE to the summary run_id (independent identity), and
+    # the completeness sections (both class orders / universes / tolerances / full attestation) present
+    plan = summary.get("run_plan")
+    if not isinstance(plan, Mapping):
+        raise PublisherError("summary must embed the canonical run_plan")
+    if _recompute_run_id(plan) != summary["run_id"]:
+        raise PublisherError("summary.run_id does not recompute from the embedded run_plan")
+    universes = summary.get("universes")
+    if not isinstance(universes, Mapping) or set(universes) != {"lobo", "ruaa"}:
+        raise PublisherError("summary.universes must cover lobo and ruaa")
+    for ds, u in universes.items():
+        if not all(u.get(k) for k in ("dataset_digest", "fold_manifest_digest",
+                                      "probability_class_order", "metric_label_order")):
+            raise PublisherError(f"summary.universes[{ds}] missing a class order / digest")
+    if not isinstance(summary.get("continuous_tolerances"), Mapping) or not summary["continuous_tolerances"]:
+        raise PublisherError("summary.continuous_tolerances must be non-empty")
+    att = summary.get("attestation")
+    if not isinstance(att, Mapping) or not all(att.get(k) for k in
+                                               ("git_commit", "execution_source_sha256", "env_lock_sha256",
+                                                "config_id", "golden_fixture_inventory_sha")):
+        raise PublisherError("summary.attestation must carry the full run attestation")
 
     cells = summary.get("cells")
     if not isinstance(cells, Mapping) or set(cells) != {"lobo", "ruaa"}:
@@ -206,10 +230,6 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
         raise PublisherError("summary.headline must use the registered stylo A4-A0 endpoint")
     if hl.get("decision") not in _HEADLINE_DECISIONS:
         raise PublisherError("summary.headline decision must be relabel/keep_legacy/inconclusive")
-
-    att = summary.get("attestation")
-    if not isinstance(att, Mapping) or not att.get("git_commit"):
-        raise PublisherError("summary.attestation must carry a git_commit")
 
     if not isinstance(per_work_vectors, Mapping) or not per_work_vectors:
         raise PublisherError("per_work_vectors must be a non-empty mapping")
@@ -339,6 +359,11 @@ def load_published_audit(docs_root: pathlib.Path | str) -> dict:
     recorded = {k: v for k, v in summary.items() if k != "self_hash"}
     if summary.get("self_hash") != _self_hash(recorded):
         raise PublisherError("published summary self-hash mismatch")
+    # the run_id must RECOMPUTE from the embedded canonical run_plan (identity is not merely asserted)
+    from .run_plan import run_id as _recompute_run_id
+    if not isinstance(summary.get("run_plan"), dict) \
+            or _recompute_run_id(summary["run_plan"]) != summary.get("run_id"):
+        raise PublisherError("loaded run_id does not recompute from the embedded run_plan")
     for key, ref in summary.get("per_work_archive", {}).items():
         fpath = versioned / ref["filename"]
         if not _real_within(fpath, versioned, must_file=True) or _sha256_file(fpath) != ref["sha256"]:

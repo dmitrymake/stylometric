@@ -8,9 +8,47 @@ import pytest
 from stylo.jsonio import dump_strict, load_strict
 from stylo.eval.paired_audit import applicability as ap
 from stylo.eval.paired_audit import publisher as pub
+from stylo.eval.paired_audit import run_plan as rp
 from stylo.eval.paired_audit.headline import HEADLINE_ENDPOINT
+from stylo.eval.paired_audit.semantic_parity import LEGACY_ANCHOR
 
-RUN_ID = "a" * 64
+
+def _run_plan():
+    return rp.build_run_plan(
+        run_kind="smoke", git_commit="a" * 40, git_dirty=True,
+        execution_source_sha256="1" * 64, env_lock_sha256="2" * 64, config_id="3" * 64,
+        runtime_fingerprint={"python": "3.11", "libc": "glibc/2.39", "numpy": "2", "scipy": "1",
+                             "sklearn": "1"},
+        blas_thread_fingerprint={"threadpools": [], "thread_env": {}},
+        applicability_matrix_digest=ap.applicability_matrix_digest(),
+        a0_reference_shas={"lobo_books_txt": "4" * 64, "ruaa_reference_submission": "5" * 64},
+        evaluator_identity={"name": "smoke_dummy", "import_module": "m", "import_qualname": "q",
+                            "source_digest": "a" * 64, "estimator_config_digest": "b" * 64,
+                            "mechanism_passport_digest": "c" * 64},
+        tolerances={}, corpus_chain={"legacy_anchor": LEGACY_ANCHOR, "semantic_parity_digest": "6" * 64},
+        golden_fixture_inventory_sha="7" * 64,
+        lobo=dict(dataset_digest="a" * 64, fold_manifest_digest="b" * 64,
+                  probability_class_order=["x", "z"], metric_label_order=["x"], run_contract_digest="c" * 64),
+        ruaa=dict(dataset_digest="d" * 64, fold_manifest_digest="e" * 64,
+                  probability_class_order=["x"], metric_label_order=["x"], run_contract_digest="f" * 64,
+                  selection_digest="9" * 64))
+
+
+_PLAN = _run_plan()
+RUN_ID = rp.run_id(_PLAN)
+
+
+def _universes():
+    return {ds: {"dataset_digest": "a" * 64, "fold_manifest_digest": "b" * 64,
+                 "probability_class_order": ["x", "z"], "metric_label_order": ["x"],
+                 "n_train_works": 2, "n_tested_works": 2, "n_train_authors": 2, "n_tested_authors": 1}
+            for ds in ("lobo", "ruaa")}
+
+
+def _attestation():
+    return {"git_commit": "a" * 40, "run_kind": "smoke", "audit_version": rp.AUDIT_VERSION,
+            "execution_source_sha256": "1" * 64, "env_lock_sha256": "2" * 64, "config_id": "3" * 64,
+            "golden_fixture_inventory_sha": "7" * 64}
 
 
 def _evidence(m, c):
@@ -53,7 +91,9 @@ def _summary(**over):
          "cells": {"lobo": _grid(), "ruaa": _grid()},
          "holm": {"lobo": _holm(), "ruaa": _holm()},
          "headline": {"endpoint": HEADLINE_ENDPOINT, "decision": "inconclusive"},
-         "attestation": {"git_commit": "a" * 40}}
+         "run_plan": _PLAN, "universes": _universes(),
+         "continuous_tolerances": {"probability": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}},
+         "attestation": _attestation()}
     s.update(over)
     return s
 
@@ -188,6 +228,27 @@ class TestArchiveCommittable:
 
     def test_guard_is_noop_outside_git(self, tmp_path):
         pub.assert_archive_committable(tmp_path / "docs")             # not a git repo -> no-op
+
+
+class TestArtifactCompleteness:
+    def test_run_id_must_recompute_from_embedded_run_plan(self):
+        with pytest.raises(pub.PublisherError):                # run_id != rp.run_id(run_plan)
+            pub.verify_final_assembly(_summary(run_id="f" * 64), _vectors())
+        with pytest.raises(pub.PublisherError):                # a bogus/partial run_plan
+            pub.verify_final_assembly(_summary(run_plan={"schema": "x"}), _vectors())
+        with pytest.raises(pub.PublisherError):               # no embedded run_plan at all
+            s = _summary(); s.pop("run_plan"); pub.verify_final_assembly(s, _vectors())
+
+    def test_missing_completeness_sections_rejected(self):
+        for section in ("universes", "continuous_tolerances", "attestation"):
+            s = _summary(); s.pop(section)
+            with pytest.raises(pub.PublisherError):
+                pub.verify_final_assembly(s, _vectors())
+
+    def test_published_summary_round_trips_and_recomputes_run_id(self, tmp_path):
+        pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+        loaded = pub.load_published_audit(tmp_path)
+        assert rp.run_id(loaded["summary"]["run_plan"]) == loaded["summary"]["run_id"] == RUN_ID
 
 
 class TestPublishFailClosed:

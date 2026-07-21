@@ -170,7 +170,8 @@ def _bindings(**over):
         blas_thread_fingerprint={"threadpools": [], "thread_env": {}},
         applicability_matrix_digest=ap.applicability_matrix_digest(),
         a0_reference_shas={"lobo_books_txt": "4" * 64, "ruaa_reference_submission": "5" * 64},
-        tolerances={"proba": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}},
+        tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
+                    for q in rp.REGISTERED_TOLERANCE_QUANTITIES},
         corpus_chain={"legacy_anchor": rp_anchor(), "semantic_parity_digest": "6" * 64},
         golden_fixture_inventory_sha="7" * 64,
         evaluator_identity={"name": "work_balanced_ablation_factory",
@@ -277,6 +278,17 @@ class TestRunPlan:
         with pytest.raises(rp.RunPlanError):
             rp.build_run_plan(**_bindings(tolerances={"proba": {"atol": 1e-9}}))  # missing rtol/dtype
         assert rp.run_id(rp.build_run_plan(**_bindings(run_kind="smoke", git_dirty=True)))
+
+    def test_confirmatory_requires_all_registered_tolerance_quantities(self):
+        full = {q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
+                for q in rp.REGISTERED_TOLERANCE_QUANTITIES}
+        assert rp.run_id(rp.build_run_plan(**_bindings(tolerances=full)))     # exact set -> ok
+        partial = {q: full[q] for q in list(full)[:-1]}                       # drop one quantity
+        with pytest.raises(rp.RunPlanError):
+            rp.build_run_plan(**_bindings(tolerances=partial))
+        extra = {**full, "bogus": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}}
+        with pytest.raises(rp.RunPlanError):                                  # an unregistered quantity
+            rp.build_run_plan(**_bindings(tolerances=extra))
 
     def test_class_order_digest_deterministic_and_order_sensitive(self):
         a = rp.class_order_digest(["x", "y", "z"])
