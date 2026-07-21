@@ -106,3 +106,79 @@ def test_a0_preflight_requires_ruaa_when_absent(tmp_path):
                                 ruaa_reference_submission=tmp_path / "nope.csv",
                                 ruaa_sha256sums=tmp_path / "nope.sums",
                                 ruaa_root=tmp_path / "nope", require_ruaa=True)
+
+
+# ── §3.2 exact one-to-one A0 contract (compare by full work id, pred included, no basename) ──
+# a tiny display-space reference: two authors, plus a book named "w1" under BOTH (duplicate basename)
+_PARSED = {"per_work": [
+    {"book": "w1", "author_display": "Автор А", "pred_display": "Автор А", "correct": True, "rank": 1},
+    {"book": "w2", "author_display": "Автор А", "pred_display": "Автор Б", "correct": False, "rank": 3},
+    {"book": "w1", "author_display": "Автор Б", "pred_display": "Автор Б", "correct": True, "rank": 1}]}
+_MAP = {"Автор А": "aa", "Автор Б": "bb"}
+
+
+def _ref_index():
+    return ref.build_lobo_reference_index(_PARSED, _MAP)
+
+
+def test_lobo_reference_index_keeps_duplicate_basename_distinct():
+    idx = _ref_index()
+    # the two "w1" books are NOT collapsed — distinct work ids under distinct authors
+    assert set(idx) == {"aa/w1", "aa/w2", "bb/w1"}
+    assert idx["aa/w1"]["true_author"] == "aa" and idx["bb/w1"]["true_author"] == "bb"
+
+
+def test_lobo_a0_exact_match_passes():
+    idx = _ref_index()
+    a0 = {k: dict(v) for k, v in idx.items()}
+    ref.assert_a0_matches_index(a0, idx, fields=ref.A0_LOBO_FIELDS, label="stylo lobo")
+
+
+def test_lobo_a0_all_preds_wrong_but_correct_rank_match_is_rejected():
+    # every prediction is forged to the wrong author while correct/rank are left intact — must fail
+    idx = _ref_index()
+    a0 = {k: {**v, "pred": "bb" if v["pred"] == "aa" else "aa"} for k, v in idx.items()}
+    with pytest.raises(ref.ReferenceError):
+        ref.assert_a0_matches_index(a0, idx, fields=ref.A0_LOBO_FIELDS, label="stylo lobo")
+
+
+def test_lobo_a0_duplicate_work_id_is_fatal_at_build():
+    dup = {"per_work": _PARSED["per_work"] + [_PARSED["per_work"][0]]}   # repeat aa/w1 exactly
+    with pytest.raises(ref.ReferenceError):
+        ref.build_lobo_reference_index(dup, _MAP)
+
+
+def test_lobo_a0_missing_and_extra_rows_are_fatal():
+    idx = _ref_index()
+    missing = {k: v for k, v in idx.items() if k != "bb/w1"}             # a reference key absent
+    with pytest.raises(ref.ReferenceError):
+        ref.assert_a0_matches_index(missing, idx, fields=ref.A0_LOBO_FIELDS, label="stylo lobo")
+    extra = {**idx, "cc/w9": {"true_author": "cc", "pred": "cc", "correct": True, "rank": 1}}
+    with pytest.raises(ref.ReferenceError):
+        ref.assert_a0_matches_index(extra, idx, fields=ref.A0_LOBO_FIELDS, label="stylo lobo")
+
+
+def test_lobo_a0_row_permutation_still_matches():
+    # order independence: reversing insertion order changes nothing (comparison is by work id)
+    idx = _ref_index()
+    shuffled = dict(reversed(list(idx.items())))
+    ref.assert_a0_matches_index(shuffled, idx, fields=ref.A0_LOBO_FIELDS, label="stylo lobo")
+
+
+def test_lobo_reference_unmapped_author_or_pred_is_fatal():
+    with pytest.raises(ref.ReferenceError):    # pred name not in the display->slug map
+        ref.build_lobo_reference_index(
+            {"per_work": [{"book": "w1", "author_display": "Автор А", "pred_display": "Кто-то",
+                           "correct": False, "rank": 4}]}, _MAP)
+
+
+def test_ruaa_a0_exact_pred_match_and_mismatch():
+    parsed = {"rows": [{"book_id": "b1", "pred_author": "aa"}, {"book_id": "b2", "pred_author": "bb"}]}
+    idx = ref.build_ruaa_reference_index(parsed)
+    ref.assert_a0_matches_index({"b1": {"pred": "aa"}, "b2": {"pred": "bb"}}, idx,
+                                fields=ref.A0_RUAA_FIELDS, label="stylo ruaa")
+    with pytest.raises(ref.ReferenceError):                              # b2 pred forged
+        ref.assert_a0_matches_index({"b1": {"pred": "aa"}, "b2": {"pred": "aa"}}, idx,
+                                    fields=ref.A0_RUAA_FIELDS, label="stylo ruaa")
+    with pytest.raises(ref.ReferenceError):                              # duplicate book_id in reference
+        ref.build_ruaa_reference_index({"rows": parsed["rows"] + [parsed["rows"][0]]})

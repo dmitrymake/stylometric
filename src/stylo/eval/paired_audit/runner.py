@@ -79,6 +79,7 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
                      committed_ruaa_manifest: Mapping, ruaa_work_ids, checkpoint_root, docs_root,
                      evaluator: Callable, a0_references: Mapping, tolerances: Mapping,
                      golden_fixture_inventory_sha: str, run_kind: str = "smoke",
+                     lobo_author_display_map: Mapping | None = None,
                      repo_root=None, src_root=None) -> dict:
     """Run the whole confirmatory chain on the published immutable ``audit_root`` and publish the
     verified summary. Returns ``{run_id, summary, per_work_vectors, published}``."""
@@ -133,9 +134,17 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     present = store.assert_run_complete(expected)
 
     # 9-13. metrics, cluster p, Holm, headline; assemble the verified summary + per-work vectors.
-    # For a confirmatory run the LOBO A0 per-work pred/correct/rank must match the pinned 221/251 ref.
-    summary, per_work_vectors = _assemble(present, manifests, run_id, plan,
-                                          lobo_reference=preflight["lobo"] if confirmatory else None)
+    # For a confirmatory run the stylo A0 result must match the pinned reference EXACTLY, keyed by the
+    # full work id and comparing pred (LOBO: true_author/pred/correct/rank; RuAA: pred). The display->slug
+    # map is a required §11 provisioning input so the pred comparison can never be silently skipped.
+    a0_confirm = None
+    if confirmatory:
+        if lobo_author_display_map is None:
+            raise RunnerError("confirmatory run requires lobo_author_display_map to compare A0 predictions")
+        a0_confirm = {
+            "lobo": refmod.build_lobo_reference_index(preflight["lobo"], dict(lobo_author_display_map)),
+            "ruaa": refmod.build_ruaa_reference_index(preflight["ruaa"])}
+    summary, per_work_vectors = _assemble(present, manifests, run_id, plan, a0_confirm=a0_confirm)
 
     # 14. validated publisher
     published = pub.publish_audit(summary, per_work_vectors, docs_root=docs_root)
@@ -203,30 +212,39 @@ def _digest(res) -> str:
     return hashlib.sha256(dumps_strict(res, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def _assert_a0_matches_reference(a0, lobo_reference) -> None:
-    """§3.2: the stylo LOBO A0 per-work pred/correct/rank + the 221/251 count must match the pinned
-    reference (compared by book id; the reference author names are display strings)."""
-    ref_by_book = {r["book"]: r for r in lobo_reference["per_work"]}
-    if len(a0["works"]) != lobo_reference["n_total"]:
-        raise RunnerError(f"stylo LOBO A0 has {len(a0['works'])} works, reference {lobo_reference['n_total']}")
-    n_correct = 0
-    for w, cor, rk in zip(a0["works"], a0["correct"], a0["ranks"]):
-        parts = str(w).split("/", 1)
-        if len(parts) != 2:
-            raise RunnerError(f"stylo LOBO A0 work id lacks an author/book separator: {w!r}")
-        book = parts[1]
-        ref = ref_by_book.get(book)
-        if ref is None:
-            raise RunnerError(f"stylo LOBO A0 work {w} not in the pinned reference")
-        if bool(cor) != ref["correct"] or int(rk) != ref["rank"]:
-            raise RunnerError(f"stylo LOBO A0 correct/rank mismatch vs reference for {book}")
-        n_correct += 1 if cor else 0
-    if n_correct != lobo_reference["n_correct"]:
-        raise RunnerError(f"stylo LOBO A0 {n_correct}/{len(a0['works'])} != reference "
-                          f"{lobo_reference['n_correct']}/{lobo_reference['n_total']}")
+def _a0_index(dataset_kind: str, a: dict, prob_order) -> dict:
+    """Build the exact A0 result index keyed by the FULL work id (never a basename), resolving the
+    predicted class index to its author slug. Duplicate work ids are fatal (via ``index_from_records``);
+    an out-of-range pred index is fatal here rather than silently wrapping."""
+    width = len(prob_order)
+
+    def gen():
+        for i, w in enumerate(a["works"]):
+            pr = int(a["preds"][i])
+            if not (0 <= pr < width):
+                raise RunnerError(f"stylo {dataset_kind} A0 pred index {pr} out of range [0,{width}) for {w!r}")
+            pred_author = prob_order[pr]
+            if dataset_kind == "lobo":
+                yield str(w), {"true_author": _author_of(w), "pred": pred_author,
+                               "correct": bool(a["correct"][i]), "rank": int(a["ranks"][i])}
+            else:
+                yield str(w), {"pred": pred_author}
+    return refmod.index_from_records(gen(), label=f"stylo {dataset_kind} A0")
 
 
-def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple[dict, dict]:
+def _assert_a0_matches_reference(dataset_kind: str, a: dict, prob_order, reference_index) -> None:
+    """§3.2: exact one-to-one comparison of the stylo A0 result against the pinned reference index,
+    keyed by the full work id and comparing pred explicitly (so all-wrong preds with matching
+    correct/rank are rejected)."""
+    fields = refmod.A0_LOBO_FIELDS if dataset_kind == "lobo" else refmod.A0_RUAA_FIELDS
+    try:
+        refmod.assert_a0_matches_index(_a0_index(dataset_kind, a, prob_order), reference_index,
+                                       fields=fields, label=f"stylo {dataset_kind}")
+    except refmod.ReferenceError as exc:                            # surface as a runner fail-close
+        raise RunnerError(str(exc)) from exc
+
+
+def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dict, dict]:
     """Assemble the verified summary + per-work vectors from the COMPLETE checkpoints."""
     cells_out = {ds: {} for ds in _DATASETS}
     holm_out = {ds: {} for ds in _DATASETS}
@@ -254,8 +272,8 @@ def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple
             trues = [prob_order.index(a) if a in prob_order else -1 for a in authors]
             cell_arrays[(model, cell)] = dict(correct=correct, ranks=ranks, authors=authors,
                                               works=works, probas=probas, preds=preds, trues=trues)
-        if ds == "lobo" and lobo_reference is not None:            # §3.2: A0 == the 221/251 reference
-            _assert_a0_matches_reference(cell_arrays[("stylo", "A0")], lobo_reference)
+        if a0_confirm is not None and a0_confirm.get(ds) is not None:   # §3.2: exact A0 vs pinned reference
+            _assert_a0_matches_reference(ds, cell_arrays[("stylo", "A0")], prob_order, a0_confirm[ds])
         # per-cell records + Holm + headline
         B = plan["stats"]["bootstrap_B"]
         raw_ps = {}

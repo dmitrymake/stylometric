@@ -129,6 +129,67 @@ def parse_ruaa_a0_reference(ruaa_reference_submission: pathlib.Path | str) -> di
     return {"n_rows": len(rows), "rows": rows}
 
 
+# ── exact one-to-one A0 contract (§3.2): compare by full work_id, never by basename ──────────
+A0_LOBO_FIELDS = ("true_author", "pred", "correct", "rank")
+A0_RUAA_FIELDS = ("pred",)
+
+
+def index_from_records(records, *, label: str) -> dict:
+    """Build a ``{work_id: fields}`` index from ``(work_id, fields)`` pairs, rejecting any duplicate
+    work id (two rows sharing a basename under different authors keep DISTINCT work ids and are not
+    collapsed; a genuinely repeated work id is fatal)."""
+    index: dict = {}
+    for work_id, fields in records:
+        key = str(work_id)
+        if key in index:
+            raise ReferenceError(f"{label} has a duplicate work id {key!r}")
+        index[key] = fields
+    return index
+
+
+def build_lobo_reference_index(parsed: dict, author_display_to_slug: dict) -> dict:
+    """Turn the display-space parsed lobo reference into a slug-keyed ``{work_id: {true_author, pred,
+    correct, rank}}`` index. Every display name that appears as a true author OR as a prediction must be
+    in the map; an unmapped name is fatal (the comparison never silently drops a pred)."""
+    def gen():
+        for w in parsed["per_work"]:
+            a = author_display_to_slug.get(w["author_display"])
+            if a is None:
+                raise ReferenceError(f"lobo reference author {w['author_display']!r} not in the display->slug map")
+            p = author_display_to_slug.get(w["pred_display"])
+            if p is None:
+                raise ReferenceError(f"lobo reference pred {w['pred_display']!r} not in the display->slug map")
+            yield f"{a}/{w['book']}", {"true_author": a, "pred": p,
+                                       "correct": bool(w["correct"]), "rank": int(w["rank"])}
+    return index_from_records(gen(), label="lobo reference")
+
+
+def build_ruaa_reference_index(parsed: dict) -> dict:
+    """Turn the parsed RuAA submission into a ``{book_id: {pred}}`` index (the submission carries only
+    book_id + pred_author; true author + rank live in the corpus, not the reference)."""
+    return index_from_records(((r["book_id"], {"pred": r["pred_author"]}) for r in parsed["rows"]),
+                              label="ruaa reference")
+
+
+def assert_a0_matches_index(a0_index: dict, reference_index: dict, *, fields, label: str) -> None:
+    """Exact one-to-one comparison of an A0 result index against a reference index, both keyed by the
+    full unique work id. Fails closed on any missing reference key, any extra result key, and any
+    per-field disagreement over ``fields`` (true_author/pred/correct/rank for LOBO, pred for RuAA).
+    A run whose predictions are all wrong but whose correct/rank happen to match is REJECTED because the
+    pred field is compared explicitly."""
+    a_keys, r_keys = set(a0_index), set(reference_index)
+    missing, extra = r_keys - a_keys, a_keys - r_keys
+    if missing:
+        raise ReferenceError(f"{label} A0 is missing {len(missing)} reference work(s), e.g. {sorted(missing)[:3]}")
+    if extra:
+        raise ReferenceError(f"{label} A0 has {len(extra)} work(s) absent from the reference, e.g. {sorted(extra)[:3]}")
+    for wid in sorted(r_keys):
+        got, want = a0_index[wid], reference_index[wid]
+        for f in fields:
+            if got.get(f) != want[f]:
+                raise ReferenceError(f"{label} A0 {f} mismatch for {wid}: {got.get(f)!r} != {want[f]!r}")
+
+
 def verify_ruaa_inventory(ruaa_sha256sums: pathlib.Path | str, ruaa_root: pathlib.Path | str) -> int:
     """Verify EVERY file listed in the frozen RuAA SHA256SUMS against its recorded digest (fail-closed
     on any missing/symlinked/tampered file). Returns the number of verified files."""

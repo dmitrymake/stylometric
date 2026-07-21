@@ -70,17 +70,30 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
             "probabilities": proba}
 
 
+def test_a0_index_resolves_pred_and_rejects_out_of_range():
+    # the runner resolves the pred CLASS INDEX to its author slug and keys by the full work id
+    prob_order = ["aa", "bb"]
+    a = {"works": ["aa/w1", "bb/w1"], "correct": [1, 0], "ranks": [1, 3], "preds": [0, 0]}
+    idx = rn._a0_index("lobo", a, prob_order)
+    assert idx == {"aa/w1": {"true_author": "aa", "pred": "aa", "correct": True, "rank": 1},
+                   "bb/w1": {"true_author": "bb", "pred": "aa", "correct": False, "rank": 3}}
+    with pytest.raises(rn.RunnerError):                            # pred index out of range
+        rn._a0_index("lobo", {"works": ["aa/w1"], "correct": [1], "ranks": [1], "preds": [9]}, prob_order)
+
+
 def test_a0_reference_mismatch_is_fatal():
-    # §3.2: the stylo LOBO A0 per-work correct/rank + count must match the pinned reference
-    ref = {"n_total": 2, "n_correct": 1,
-           "per_work": [{"book": "b1", "correct": True, "rank": 1},
-                        {"book": "b2", "correct": False, "rank": 5}]}
-    ok = {"works": ["x/b1", "x/b2"], "correct": [1, 0], "ranks": [1, 5]}
-    rn._assert_a0_matches_reference(ok, ref)                       # matches -> ok
-    with pytest.raises(rn.RunnerError):                            # b2 rank forged to 1
-        rn._assert_a0_matches_reference({"works": ["x/b1", "x/b2"], "correct": [1, 1], "ranks": [1, 1]}, ref)
-    with pytest.raises(rn.RunnerError):                            # wrong work count
-        rn._assert_a0_matches_reference({"works": ["x/b1"], "correct": [1], "ranks": [1]}, ref)
+    # §3.2: exact one-to-one vs the pinned reference index, pred included, keyed by full work id
+    prob_order = ["aa", "bb"]
+    ref_index = {"aa/b1": {"true_author": "aa", "pred": "aa", "correct": True, "rank": 1},
+                 "bb/b2": {"true_author": "bb", "pred": "aa", "correct": False, "rank": 5}}
+    ok = {"works": ["aa/b1", "bb/b2"], "correct": [1, 0], "ranks": [1, 5], "preds": [0, 0]}
+    rn._assert_a0_matches_reference("lobo", ok, prob_order, ref_index)      # matches -> ok
+    forged_pred = {"works": ["aa/b1", "bb/b2"], "correct": [1, 0], "ranks": [1, 5], "preds": [0, 1]}
+    with pytest.raises(rn.RunnerError):                            # bb/b2 pred forged to bb
+        rn._assert_a0_matches_reference("lobo", forged_pred, prob_order, ref_index)
+    short = {"works": ["aa/b1"], "correct": [1], "ranks": [1], "preds": [0]}
+    with pytest.raises(rn.RunnerError):                            # missing reference work
+        rn._assert_a0_matches_reference("lobo", short, prob_order, ref_index)
 
 
 @_needs_git
