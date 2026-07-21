@@ -211,7 +211,10 @@ def _assert_a0_matches_reference(a0, lobo_reference) -> None:
         raise RunnerError(f"stylo LOBO A0 has {len(a0['works'])} works, reference {lobo_reference['n_total']}")
     n_correct = 0
     for w, cor, rk in zip(a0["works"], a0["correct"], a0["ranks"]):
-        book = str(w).split("/", 1)[1]
+        parts = str(w).split("/", 1)
+        if len(parts) != 2:
+            raise RunnerError(f"stylo LOBO A0 work id lacks an author/book separator: {w!r}")
+        book = parts[1]
         ref = ref_by_book.get(book)
         if ref is None:
             raise RunnerError(f"stylo LOBO A0 work {w} not in the pinned reference")
@@ -230,6 +233,8 @@ def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple
     per_work_vectors = {}
     headline_arms = {}
     iters, seed = plan["stats"]["bootstrap_iters"], plan["stats"]["seed"]
+    quantiles = plan["stats"]["quantiles"]
+    margin = plan["stats"]["noninferiority_margin"]
 
     for ds in _DATASETS:
         m = manifests[ds]
@@ -258,7 +263,8 @@ def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple
             a = cell_arrays[(model, cell)]
             point = _point_metrics(a, metric_idx)
             reg = ap.cell_status(model, cell)
-            abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=iters, seed=seed)
+            abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=iters, seed=seed,
+                                                     quantiles=quantiles)
             rec = {"status": "applied", "requested_axes": reg["requested_axes"],
                    "effective_axes": reg["effective_axes"],
                    "point": point, "per_work": _per_work(a),
@@ -268,7 +274,7 @@ def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple
             if cell != "A0":
                 base = cell_arrays[(model, "A0")]
                 dacc_ci = hl.paired_accuracy_diff_ci(a["correct"], base["correct"], a["authors"],
-                                                     iters=iters, seed=seed)
+                                                     iters=iters, seed=seed, quantiles=quantiles)
                 cp = inf.paired_cluster_pvalue(a["correct"], base["correct"], a["authors"], B=B, seed=seed)
                 mc = inf.mcnemar_diagnostic(a["correct"], base["correct"])
                 rec["vs_A0"] = {"dacc": point["accuracy"] - _point_metrics(base, metric_idx)["accuracy"],
@@ -296,10 +302,11 @@ def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple
             vs["holm_p"], vs["significant"] = hp["holm_p"], hp["significant"]
         headline_arms[ds] = cell_arrays
 
-    # headline: stylo LOBO A4 - A0 only (bound to the RunPlan stats)
+    # headline: stylo LOBO A4 - A0 only, fully bound to the run-id RunPlan stats
     la = headline_arms["lobo"]
     head = hl.evaluate_headline(la[("stylo", "A4")]["correct"], la[("stylo", "A0")]["correct"],
-                                la[("stylo", "A4")]["authors"], iters=iters, seed=seed)
+                                la[("stylo", "A4")]["authors"], margin=margin, iters=iters, seed=seed,
+                                quantiles=quantiles)
     summary = {"run_id": run_id, "claim_status": "exploratory_internal", "cells": cells_out,
                "holm": holm_out, "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
                                               "diff_ci": head["diff_ci"], "margin": head["margin"]},
