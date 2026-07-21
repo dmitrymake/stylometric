@@ -21,7 +21,7 @@ import pathlib
 import re
 from typing import Iterable, Mapping
 
-from ...jsonio import dump_strict, dumps_strict, load_strict
+from ...jsonio import dumps_strict, load_strict
 from ...pipeline.bundle import (BundleError, _real_within, _safe_name,
                                 _verify_real_dir_chain)
 
@@ -30,7 +30,9 @@ _DATASETS = ("lobo", "ruaa")
 _REQUIRED_BINDING_KEYS = ("dataset_digest", "fold_manifest_digest",
                           "probability_class_order_digest", "metric_label_order_digest")
 _IDENTITY_KEYS = ("run_id", "dataset", "model", "cell", "fold_index", "work_id")
+_RESULT_KEYS = ("pred_label", "correct", "rank", "probabilities")
 _FILENAME_RE = re.compile(r"^\d{4}-[0-9a-f]{16}\.json$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class CheckpointError(RuntimeError):
@@ -42,6 +44,14 @@ def _slug(name: str) -> str:
     if not _safe_name(slug):
         raise CheckpointError(f"unsafe path component derived from {name!r}")
     return slug
+
+
+def _validate_model_cell(model: str, cell: str) -> None:
+    from .applicability import CELLS, MODELS
+    if model not in MODELS:
+        raise CheckpointError(f"unknown model {model!r}; not in the registered matrix")
+    if cell not in CELLS:
+        raise CheckpointError(f"unknown cell {cell!r}; not in the registered matrix")
 
 
 def _self_hash(record: Mapping) -> str:
@@ -69,8 +79,8 @@ class CheckpointStore:
 
     def __init__(self, root: pathlib.Path | str, run_id: str, dataset_bindings: Mapping[str, Mapping]):
         self.root = pathlib.Path(root)
-        if not (isinstance(run_id, str) and run_id):
-            raise CheckpointError("run_id must be a non-empty string")
+        if not (isinstance(run_id, str) and _HEX64.match(run_id)):
+            raise CheckpointError("run_id must be a sha256 hex string")
         self.run_id = run_id
         self.dataset_bindings: dict[str, dict] = {}
         for ds in _DATASETS:
@@ -85,6 +95,7 @@ class CheckpointStore:
     def _cell_dir(self, dataset: str, model: str, cell: str) -> pathlib.Path:
         if dataset not in _DATASETS:
             raise CheckpointError(f"unknown dataset {dataset!r}")
+        _validate_model_cell(model, cell)                # model/cell must be in the registered matrix
         return self.root / _slug(dataset) / _slug(model) / _slug(cell)
 
     def checkpoint_filename(self, fold_index: int, work_id: str) -> str:
@@ -118,6 +129,13 @@ class CheckpointStore:
                result: Mapping, fold_local_evidence: Mapping) -> dict:
         if dataset not in self.dataset_bindings:
             raise CheckpointError(f"unknown dataset {dataset!r}")
+        _validate_model_cell(model, cell)
+        if not isinstance(result, Mapping) or any(k not in result for k in _RESULT_KEYS):
+            raise CheckpointError(f"checkpoint result must be a mapping carrying {_RESULT_KEYS}")
+        if not isinstance(result["probabilities"], (list, tuple)) or not result["probabilities"]:
+            raise CheckpointError("checkpoint result.probabilities must be a non-empty list")
+        if not isinstance(fold_local_evidence, Mapping):
+            raise CheckpointError("fold_local_evidence must be a mapping")
         record = {
             "schema": _CHECKPOINT_SCHEMA,
             "run_id": self.run_id,
@@ -142,19 +160,36 @@ class CheckpointStore:
                              result, fold_local_evidence)
         self.verify_bindings(record)
         path = self.checkpoint_path(dataset, model, cell, fold_index, work_id)
+        # path/symlink guard BEFORE any filesystem mutation (mkdir), then again after
+        self._guard_chain(self.root)
         path.parent.mkdir(parents=True, exist_ok=True)
+        self._guard_chain(path.parent)
+        # atomic create-WITHOUT-overwrite, safe under concurrent writers: write a fully-formed temp,
+        # then os.link it into place (atomic; fails if the target already exists).
+        data = (dumps_strict(record, sort_keys=True) + "\n").encode("utf-8")
+        tag = hashlib.sha256(f"{os.getpid()}:{path.name}".encode("utf-8")).hexdigest()[:16]
+        tmp = path.parent / f".ckpt_{tag}.tmp"
+        with open(tmp, "wb") as fh:
+            fh.write(data)
         try:
-            _verify_real_dir_chain(path.parent)
-        except BundleError as exc:
-            raise CheckpointError(f"unsafe checkpoint path chain: {exc}") from exc
-        if path.exists() or path.is_symlink():
+            os.link(tmp, path)                           # atomic; FileExistsError if path exists
+        except FileExistsError:
             existing = self._load_path(path)
             if existing != record:
                 raise CheckpointError(f"conflicting checkpoint already exists at {path}")
             return path                                  # identical — idempotent
-        # atomic write (dump_strict: leading-dot mkstemp + os.replace); path does not exist here
-        dump_strict(record, path, trailing_newline=True)
+        finally:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
         return path
+
+    def _guard_chain(self, path: pathlib.Path) -> None:
+        try:
+            _verify_real_dir_chain(path)
+        except BundleError as exc:
+            raise CheckpointError(f"unsafe checkpoint path chain: {exc}") from exc
 
     def _load_path(self, path: pathlib.Path) -> dict:
         if path.is_symlink() or not path.is_file():
@@ -223,3 +258,34 @@ class CheckpointStore:
             raise CheckpointError(
                 f"cell {dataset}/{model}/{cell} incomplete: {len(state['pending'])} folds pending")
         return state["present"]
+
+    def assert_run_complete(self, expected: Mapping) -> dict:
+        """COMPLETE for the WHOLE run: ``expected`` must key EXACTLY the 21 registered applied cells ×
+        both datasets to their fold lists; every cell must be complete and there must be NO extra
+        dataset/model/cell dir on disk."""
+        from .applicability import registered_cells
+        required = {(ds, m, c) for ds in _DATASETS for (m, c) in registered_cells()}
+        if set(expected) != required:
+            raise CheckpointError("expected cell set != the 21 applied cells across both datasets")
+        present = {key: self.assert_cell_complete(key[0], key[1], key[2], folds)
+                   for key, folds in expected.items()}
+        self._assert_no_extra_dirs(required)
+        return present
+
+    def _assert_no_extra_dirs(self, required_cells) -> None:
+        allowed = {(_slug(ds), _slug(m), _slug(c)) for (ds, m, c) in required_cells}
+        if not self.root.is_dir():
+            raise CheckpointError("checkpoint root is not a directory")
+        for ds_e in os.scandir(self.root):
+            if ds_e.name.startswith("."):
+                continue
+            if not ds_e.is_dir(follow_symlinks=False):
+                raise CheckpointError(f"unexpected file at checkpoint root: {ds_e.path}")
+            for m_e in os.scandir(ds_e.path):
+                if not m_e.is_dir(follow_symlinks=False):
+                    raise CheckpointError(f"unexpected file under {ds_e.name}: {m_e.path}")
+                for c_e in os.scandir(m_e.path):
+                    if not c_e.is_dir(follow_symlinks=False):
+                        raise CheckpointError(f"unexpected file under {ds_e.name}/{m_e.name}: {c_e.path}")
+                    if (ds_e.name, m_e.name, c_e.name) not in allowed:
+                        raise CheckpointError(f"extra/unexpected cell dir: {c_e.path}")

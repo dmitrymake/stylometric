@@ -8,7 +8,7 @@ import pytest
 from stylo.jsonio import dump_strict, load_strict
 from stylo.eval.paired_audit.checkpoints import CheckpointError, CheckpointStore
 
-RUN_ID = "r" * 64
+RUN_ID = "a" * 64          # a sha256-shaped run_id (hex)
 
 
 def _bindings():
@@ -24,10 +24,16 @@ def _store(tmp_path, run_id=RUN_ID):
     return CheckpointStore(tmp_path / "ck", run_id, _bindings())
 
 
+def _result(**over):
+    r = {"pred_label": 1, "correct": True, "rank": 1, "probabilities": [0.5, 0.5]}
+    r.update(over)
+    return r
+
+
 def _save(store, fold_index=0, work_id="stylo_book", model="stylo", cell="A0", dataset="lobo",
           result=None):
     return store.save(dataset, model, cell, fold_index, work_id,
-                      result=result or {"pred_label": 1, "correct": True, "rank": 1},
+                      result=result or _result(),
                       fold_local_evidence={"proba_digest": "e" * 64})
 
 
@@ -61,7 +67,7 @@ class TestSaveResume:
     def test_delta_model_slug_path_is_safe(self, tmp_path):
         store = _store(tmp_path)
         store.save("lobo", "delta_cos:500", "A2", 3, "wq",
-                   result={"correct": False}, fold_local_evidence={})
+                   result=_result(correct=False), fold_local_evidence={})
         assert store.scan_cell("lobo", "delta_cos:500", "A2")[3]["model"] == "delta_cos:500"
 
 
@@ -79,9 +85,9 @@ class TestComplete:
 class TestFailClosed:
     def test_conflicting_checkpoint_is_fatal(self, tmp_path):
         store = _store(tmp_path)
-        _save(store, fold_index=0, work_id="w0", result={"correct": True})
+        _save(store, fold_index=0, work_id="w0", result=_result(correct=True))
         with pytest.raises(CheckpointError):              # same identity, different result -> no overwrite
-            _save(store, fold_index=0, work_id="w0", result={"correct": False})
+            _save(store, fold_index=0, work_id="w0", result=_result(correct=False))
 
     def test_corrupt_self_hash_is_fatal(self, tmp_path):
         store = _store(tmp_path)
@@ -117,7 +123,7 @@ class TestFailClosed:
     def test_wrong_run_id_rejects_on_load(self, tmp_path):
         store = _store(tmp_path)
         _save(store, fold_index=0, work_id="w0")
-        other = CheckpointStore(tmp_path / "ck", "z" * 64, _bindings())
+        other = CheckpointStore(tmp_path / "ck", "b" * 64, _bindings())  # different valid run_id
         with pytest.raises(CheckpointError):              # run_id mismatch -> conflicting identity
             other.scan_cell("lobo", "stylo", "A0")
 
@@ -160,3 +166,40 @@ class TestFailClosed:
         bad["ruaa"]["dataset_digest"] = ""
         with pytest.raises(CheckpointError):
             CheckpointStore(tmp_path / "ck", RUN_ID, bad)
+
+    def test_run_id_must_be_sha256(self, tmp_path):
+        with pytest.raises(CheckpointError):
+            CheckpointStore(tmp_path / "ck", "not-a-sha", _bindings())
+
+    def test_unknown_model_or_cell_rejected(self, tmp_path):
+        store = _store(tmp_path)
+        with pytest.raises(CheckpointError):
+            store.save("lobo", "bogus_model", "A0", 0, "w", result=_result(), fold_local_evidence={})
+        with pytest.raises(CheckpointError):
+            store.save("lobo", "stylo", "A9", 0, "w", result=_result(), fold_local_evidence={})
+
+    def test_result_must_carry_core_keys(self, tmp_path):
+        store = _store(tmp_path)
+        with pytest.raises(CheckpointError):
+            store.save("lobo", "stylo", "A0", 0, "w", result={"correct": True}, fold_local_evidence={})
+        with pytest.raises(CheckpointError):
+            store.save("lobo", "stylo", "A0", 0, "w",
+                       result=_result(probabilities=[]), fold_local_evidence={})
+
+
+class TestRunComplete:
+    def test_run_complete_requires_exact_cell_set(self, tmp_path):
+        store = _store(tmp_path)
+        with pytest.raises(CheckpointError):
+            store.assert_run_complete({})            # empty != the 21 applied cells x 2 datasets
+
+    def test_extra_cell_dir_is_fatal(self, tmp_path):
+        from stylo.eval.paired_audit.applicability import registered_cells
+        from stylo.eval.paired_audit.checkpoints import _DATASETS
+        store = _store(tmp_path)
+        _save(store, fold_index=0, work_id="w0")     # creates lobo/stylo/A0
+        required = {(ds, m, c) for ds in _DATASETS for (m, c) in registered_cells()}
+        store._assert_no_extra_dirs(required)        # only registered dirs so far -> ok
+        (tmp_path / "ck" / "lobo" / "stylo" / "ZZZ").mkdir(parents=True)   # not a registered cell
+        with pytest.raises(CheckpointError):
+            store._assert_no_extra_dirs(required)
