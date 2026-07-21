@@ -162,22 +162,34 @@ class TestBuilder:
         assert pointer["version"] == root.name
         assert ac.resolve_current_root(tmp_path / "audit") == root
 
-    def test_published_root_loads_both_arms_at_parity(self, tmp_path):
+    def test_audit_dataset_is_work_balanced_for_every_cell(self, tmp_path):
+        # §1.4: the audit dataset is the same WB-manifest dataset for A0..A4 (no legacy-loaded A0)
         _, _, root = self._build(tmp_path)
-        legacy = ac.load_audit_dataset(root, CFG, weighting="chunk_weighted_legacy")
-        wb = ac.load_audit_dataset(root, CFG, weighting=WORK_BALANCED)
+        ds = ac.load_audit_dataset(root, CFG)
+        assert ds.provenance.loader_kind == "work_balanced_manifest"
+        assert ac.verify_audit_dataset(ds) == sp.dataset_semantic_digest(ds)
+
+    def test_published_root_legacy_and_wb_at_parity(self, tmp_path):
+        # the §1.2 anchor/parity proof uses the raw loaders directly (not the confirmatory loader)
+        from stylo.corpus import load_dataset
+        from stylo.workdoc import load_work_balanced_dataset
+        _, _, root = self._build(tmp_path)
+        rf, rc = root / ac.FRAGS_SUBDIR, root / ac.INPUT_CLEAN_SUBDIR
+        legacy = load_dataset(rf)
+        wb = load_work_balanced_dataset(rf, cfg=CFG, input_clean_root=rc)
         assert sp.assert_semantic_parity(legacy, wb)
-        assert ac.verify_audit_dataset(wb) == sp.dataset_semantic_digest(wb)
 
     def test_audit_only_verifier_rejects_legacy_dataset(self, tmp_path):
+        # a runner must never feed the A0 cell a legacy-recursive-loaded dataset (§1.4)
+        from stylo.corpus import load_dataset
         _, _, root = self._build(tmp_path)
-        legacy = ac.load_audit_dataset(root, CFG, weighting="chunk_weighted_legacy")
+        legacy = load_dataset(root / ac.FRAGS_SUBDIR)
         with pytest.raises(ac.AuditCorpusError):
             ac.verify_audit_dataset(legacy)
 
     def test_audit_only_verifier_rejects_mutated_arrays(self, tmp_path):
         _, _, root = self._build(tmp_path)
-        wb = ac.load_audit_dataset(root, CFG, weighting=WORK_BALANCED)
+        wb = ac.load_audit_dataset(root, CFG)
         wb.texts[0] = "forged content after load"
         with pytest.raises(ac.AuditCorpusError):
             ac.verify_audit_dataset(wb)
@@ -195,7 +207,7 @@ class TestBuilder:
             source_frags_root=frags, input_clean_root=ic, cfg=CFG,
             audit_parent=tmp_path / "audit", legacy_anchor=_toy_anchor(frags),
             work_ids=["alpha/a1", "beta/b1", "gamma/g1"], expected_n_works=3)
-        wb = ac.load_audit_dataset(root, CFG, weighting=WORK_BALANCED)
+        wb = ac.load_audit_dataset(root, CFG)
         assert sorted(set(str(g) for g in wb.groups)) == ["alpha/a1", "beta/b1", "gamma/g1"]
 
     def test_wrong_expected_count_fails(self, tmp_path):

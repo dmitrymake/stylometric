@@ -369,26 +369,25 @@ def _reverify_published_root(published_root: pathlib.Path, cfg, legacy_anchor: O
 
 
 # ── published-root loader (§1.3) ─────────────────────────────────────────────
-def load_audit_dataset(published_root: pathlib.Path | str, cfg, *, weighting: str,
+def load_audit_dataset(published_root: pathlib.Path | str, cfg, *,
                        exclude_authors: Iterable[str] = (), unknown_name: str = "unknown"):
-    """Load the audit dataset from a VERIFIED immutable root (never the live corpus).
+    """Load the confirmatory audit dataset from a VERIFIED immutable root (never the live corpus).
 
-    ``weighting`` selects the arm: the legacy A0 estimand loads via the recursive loader, the
-    work-balanced arm via the manifest loader; both read the same immutable ``frags``/``input_clean``
-    subtrees so the arms stay byte-identical.
+    §1.4: EVERY confirmatory cell — **including the legacy A0 estimand** — runs on the **same**
+    ``work_balanced_manifest`` dataset. The ablation axis (A0..A4) is applied at the estimator
+    (``make_factory_for_ablation``), orthogonal to the dataset contract, so A0 must never be fed a
+    legacy-recursive-loaded dataset. The legacy recursive loader is used ONLY for the §1.2 anchor /
+    parity proof inside :func:`build_audit_corpus`, never to feed a confirmatory cell. The returned
+    dataset passes :func:`verify_audit_dataset`.
     """
-    from ...corpus import load_dataset
     from ...workdoc import load_work_balanced_dataset
-    from ..work_weighting import WORK_BALANCED, resolve_training_weighting
 
     published_root = pathlib.Path(published_root)
     verify_published_corpus(published_root)
     root_frags = published_root / FRAGS_SUBDIR
     root_clean = published_root / INPUT_CLEAN_SUBDIR
-    if resolve_training_weighting(weighting) == WORK_BALANCED:
-        return load_work_balanced_dataset(root_frags, cfg=cfg, input_clean_root=root_clean,
-                                          exclude_authors=exclude_authors, unknown_name=unknown_name)
-    return load_dataset(root_frags, exclude_authors=exclude_authors, unknown_name=unknown_name)
+    return load_work_balanced_dataset(root_frags, cfg=cfg, input_clean_root=root_clean,
+                                      exclude_authors=exclude_authors, unknown_name=unknown_name)
 
 
 def resolve_current_root(audit_parent: pathlib.Path | str) -> pathlib.Path:
