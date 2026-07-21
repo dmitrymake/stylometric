@@ -36,8 +36,8 @@ scope and bound nowhere.
 
 | Check | Command | Result |
 |---|---|---|
-| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 199 passed |
-| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 195 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
+| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 202 passed |
+| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 198 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
 | Full clean `git clone` | `git clone --no-hardlinks . /tmp/c; PYTHONPATH=/tmp/c/src pytest /tmp/c/tests/` | 4 failed, 786 passed, 6 skipped — the 4 are pre-existing packaging debt (`test_ci_sign_erratum`, `test_macro_f1_ci_withdrawal`; missing `scripts/gen-paper.mjs`), **zero** paired-audit |
 | D synthetic e2e | `pytest tests/test_paired_audit_runner.py` | full chain publish + transient round-trip + resume + result-audit tamper |
 | E adversarial path/race | checkpoint (`os.link` no-overwrite, symlinked-ancestor), publisher (`..`-after-normalize, symlink chain, guard-before-mkdir, root tamper) | covered by the fail-closed + security tests |
@@ -84,11 +84,22 @@ summary read):
 - **Fix (R2.10 fix 4)** — the auditor recomputes `mcnemar_p_diagnostic` and asserts exact author-set
   equality on `per_author_recall`; `_require`/`stats` type-guard to `RunPlanError` and the publisher /
   loader map `TypeError`/`ValueError` from the plan re-validation to `PublisherError`. Closed with tests.
-- **Round E (this final commit)** — the fix-4 changes are re-reviewed at the exact final SHA; the
+- **Round E (convergence + deep sweep after fix 4)** — the mcnemar/recall/plan-field fixes verified
+  closed; both reviewers converged on ONE class of residual: several published fields (attestation,
+  universes digests + counts, continuous_tolerances, non-applied `reason`, the in-cell `per_work` copy)
+  echoed run-id-bound authoritative values but were checked truthy-only, so a publish-boundary forgery
+  could carry an inconsistent DECORATIVE value (neither reviewer found it verdict-affecting — the
+  load-bearing metrics/p-values/Holm/headline stayed recomputed or run_id-bound).
+- **Fix (R2.10 fix 5)** — `verify_final_assembly` binds every echoed field to the run_plan (attestation,
+  universes digests + class orders, tolerances), reconciles the in-cell `per_work` with the archive, and
+  rejects a forged non-applied `reason`; the decorative unbindable `n_*` counts are dropped. The one
+  remaining checkpoint-derived field (`evidence.*_digest`) is documented as an accepted, mitigated
+  publish-boundary limitation (immutable checkpoints + summary self_hash; diagnostic, not verdict).
+- **Round F (this final commit)** — the fix-5 changes are re-reviewed at the exact final SHA; the
   reviewed SHA is the final SHA and no code change follows a positive sign-off.
 
-- Reviewed SHA: the final commit carrying this record (Round-E review target).
-- Verdict: sign-off for §11 **preparation** only — recorded when the Round-E review of this exact SHA
+- Reviewed SHA: the final commit carrying this record (Round-F review target).
+- Verdict: sign-off for §11 **preparation** only — recorded when the Round-F review of this exact SHA
   passes with no residual finding.
 
 ## Open items for the OWNER (do not block §11 preparation; close before the confirmatory EXECUTION)

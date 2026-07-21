@@ -61,8 +61,8 @@ out of scope and is not bound anywhere.
 - **Diff vs `release` HEAD `2f6c3dc3`:** 26 files, additions only (14 modules + 10 tests + this audit
   pair); zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and
   never imports the uncommitted working-tree rework. The owner's 66 M/D rework entries are untouched.
-- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 199 passed.
-- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 195 passed, 4 skipped (3 runner-e2e
+- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 202 passed.
+- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 198 passed, 4 skipped (3 runner-e2e
   need a live `.git` for the commit binding; 1 RuAA-reference needs the gitignored private data) —
   self-contained, no rework dependency.
 - **Full clean `git clone` suite** (`pytest tests/`): 4 failed, 786 passed, 6 skipped. All 4 failures
@@ -70,6 +70,18 @@ out of scope and is not bound anywhere.
   present on `release`) caused by `scripts/gen-paper.mjs` not being tracked in git; **zero** are
   paired-audit tests. No paired-audit regression.
 - `python -m py_compile` clean on every module and test. `ruff` is absent from the environment and CI.
+
+## Publish-boundary evidence note (accepted, mitigated)
+
+The per-cell `evidence.*_digest` values are the runner's deterministic aggregate of the immutable
+per-fold checkpoints (`_aggregate_evidence`). The publisher validates them as hex64 with the exact
+required axis/passport keys but cannot RECOMPUTE them at the publish boundary (the per-fold checkpoints
+are not present there). They are mitigated by being atomically-immutable, create-without-overwrite
+per-fold checkpoints that are re-verified at COMPLETE, aggregated deterministically, and bound into the
+published summary `self_hash`. This is the one published field that is checkpoint-derived rather than
+recomputed/run_id-bound; it is diagnostic evidence, not a metric/p-value/Holm/headline number, so it
+cannot alter any verdict. A publish-time recompute would require carrying the immutable checkpoints
+into the publisher, which is a §11-execution wiring decision, not a control-plane one.
 
 ## Provisioning finding for §11
 
