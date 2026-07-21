@@ -16,6 +16,7 @@ bound digests via :meth:`CheckpointStore.verify_bindings`.
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import pathlib
 import re
@@ -30,7 +31,8 @@ _DATASETS = ("lobo", "ruaa")
 _REQUIRED_BINDING_KEYS = ("dataset_digest", "parent_dataset_digest", "fold_manifest_digest",
                           "probability_class_order_digest", "metric_label_order_digest")
 _IDENTITY_KEYS = ("run_id", "dataset", "model", "cell", "fold_index", "work_id")
-_RESULT_KEYS = ("pred_label", "correct", "rank", "probabilities")
+_RESULT_KEYS = ("pred_label", "true_label", "correct", "rank", "probabilities")
+_PROBA_SUM_TOL = 1e-6
 _FILENAME_RE = re.compile(r"^\d{4}-[0-9a-f]{16}\.json$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -57,6 +59,45 @@ def _validate_model_cell(model: str, cell: str) -> None:
 def _self_hash(record: Mapping) -> str:
     body = {k: v for k, v in record.items() if k != "self_hash"}
     return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _is_int(v) -> bool:
+    return type(v) is int
+
+
+def _validate_result(result: Mapping) -> None:
+    """Fail-closed unless the per-fold result is internally coherent (§4.3): a normalized probability
+    vector (finite, [0,1], sums to 1), an integer pred/true label in range, an integer rank in
+    ``1..width``, and pred==argmax / correct==(pred==true) / (correct ⇒ rank 1) consistency."""
+    if not isinstance(result, Mapping) or any(k not in result for k in _RESULT_KEYS):
+        raise CheckpointError(f"checkpoint result must carry {_RESULT_KEYS}")
+    proba = result["probabilities"]
+    if not isinstance(proba, (list, tuple)) or not proba:
+        raise CheckpointError("checkpoint result.probabilities must be a non-empty list")
+    width = len(proba)
+    for p in proba:
+        if isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p) or not (0.0 <= p <= 1.0):
+            raise CheckpointError("checkpoint probabilities must be finite numbers in [0,1]")
+    if abs(sum(proba) - 1.0) > _PROBA_SUM_TOL:
+        raise CheckpointError(f"checkpoint probabilities must sum to 1 (got {sum(proba)!r})")
+    pred, true, rank = result["pred_label"], result["true_label"], result["rank"]
+    if not _is_int(pred) or not (0 <= pred < width):
+        raise CheckpointError(f"pred_label must be an int in [0,{width})")
+    if not _is_int(true) or not (0 <= true < width):
+        raise CheckpointError(f"true_label must be an int in [0,{width})")
+    if not _is_int(rank) or not (1 <= rank <= width):
+        raise CheckpointError(f"rank must be an int in [1,{width}]")
+    if type(result["correct"]) is not bool:
+        raise CheckpointError("correct must be a bool")
+    if proba[pred] != max(proba):                        # pred must be a top pick (argmax)
+        raise CheckpointError("pred_label is not the argmax of the probability vector")
+    if result["correct"] != (pred == true):
+        raise CheckpointError("correct must equal (pred_label == true_label)")
+    expected_rank = 1 + sum(1 for p in proba if p > proba[true])   # rank of the true label
+    if rank != expected_rank:
+        raise CheckpointError(f"rank {rank} != the true label's rank {expected_rank} by the proba vector")
+    if result["correct"] and rank != 1:
+        raise CheckpointError("a correct fold must have the true label at rank 1")
 
 
 def dataset_bindings(dataset_digest: str, parent_dataset_digest: str, fold_manifest_digest: str,
@@ -135,12 +176,9 @@ class CheckpointStore:
         if dataset not in self.dataset_bindings:
             raise CheckpointError(f"unknown dataset {dataset!r}")
         _validate_model_cell(model, cell)
-        if not isinstance(result, Mapping) or any(k not in result for k in _RESULT_KEYS):
-            raise CheckpointError(f"checkpoint result must be a mapping carrying {_RESULT_KEYS}")
-        if not isinstance(result["probabilities"], (list, tuple)) or not result["probabilities"]:
-            raise CheckpointError("checkpoint result.probabilities must be a non-empty list")
-        if not isinstance(fold_local_evidence, Mapping):
-            raise CheckpointError("fold_local_evidence must be a mapping")
+        _validate_result(result)                         # strict schema: labels/rank/proba coherence
+        if not isinstance(fold_local_evidence, Mapping) or not fold_local_evidence:
+            raise CheckpointError("fold_local_evidence must be a non-empty mapping")
         record = {
             "schema": _CHECKPOINT_SCHEMA,
             "run_id": self.run_id,

@@ -24,7 +24,8 @@ def _cell_record(m, c):
         r = {"status": "applied", "requested_axes": reg["requested_axes"],
              "effective_axes": reg["effective_axes"],
              "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
-             "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
+             "per_work": [{"work_id": "a/w", "true_label": 0, "pred_label": 0, "correct": True,
+                           "rank": 1, "proba": [0.5, 0.5]}],
              "abs_accuracy_authorclustered_ci": [0.8, 0.95],
              "evidence": _evidence(m, c), "claim_status": "exploratory_internal"}
         if c != "A0":

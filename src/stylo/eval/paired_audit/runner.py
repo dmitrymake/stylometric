@@ -222,6 +222,7 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator, ctx) 
         ablation = _CELL_ABLATION[cell]
         for ds in _DATASETS:
             manifest = manifests[ds]
+            prob_order = manifest["probability_class_order"]
             expected = _expected_folds(manifest)
             _reattest(ctx, full=True)                              # before the cell: FULL disk re-attest
             _reverify_bindings(store, ds, manifest)
@@ -234,8 +235,13 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator, ctx) 
                     raise RunnerError(f"{ds}/{model}/{cell} fold {work_id}: estimator supplied no "
                                       f"fold-local evidence (synthesis is forbidden)")
                 _assert_fold_evidence(model, cell, evidence)       # real axis/state digests, no fallback
+                author = _author_of(work_id)
+                if author not in prob_order:
+                    raise RunnerError(f"{ds}/{model}/{cell} fold {work_id}: author not in class order")
+                # the AUTHORITATIVE true label comes from the manifest class order, not the estimator
                 store.save(ds, model, cell, fold_index, work_id,
                            result={"pred_label": int(res["pred_label"]),
+                                   "true_label": prob_order.index(author),
                                    "correct": bool(res["correct"]), "rank": int(res["rank"]),
                                    "probabilities": [float(p) for p in res["probabilities"]]},
                            fold_local_evidence=dict(evidence))
@@ -364,7 +370,7 @@ def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dic
             works = [recs[f]["work_id"] for f in folds]
             probas = [recs[f]["result"]["probabilities"] for f in folds]
             preds = [recs[f]["result"]["pred_label"] for f in folds]
-            trues = [prob_order.index(a) if a in prob_order else -1 for a in authors]
+            trues = [recs[f]["result"]["true_label"] for f in folds]   # authoritative, stored per fold
             cell_arrays[(model, cell)] = dict(correct=correct, ranks=ranks, authors=authors,
                                               works=works, probas=probas, preds=preds, trues=trues,
                                               evidence=_aggregate_evidence(model, cell, recs))
@@ -444,5 +450,7 @@ def _point_metrics(a, metric_idx) -> dict:
 
 
 def _per_work(a) -> list:
-    return [{"work_id": w, "pred_label": p, "rank": r, "proba": pr}
-            for w, p, r, pr in zip(a["works"], a["preds"], a["ranks"], a["probas"])]
+    # §4.1/§8: the per-work vector carries everything needed to INDEPENDENTLY recompute the metrics
+    return [{"work_id": w, "true_label": t, "pred_label": p, "correct": bool(c), "rank": r, "proba": pr}
+            for w, t, p, c, r, pr in zip(a["works"], a["trues"], a["preds"], a["correct"], a["ranks"],
+                                         a["probas"])]

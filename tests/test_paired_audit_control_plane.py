@@ -17,15 +17,7 @@ _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _evidence(model, cell):
-    eff = ap.cell_status(model, cell)["effective_axes"]
-    ev = {"proba_digest": "e" * 64}
-    if eff["W"] == "applied":
-        ev["ordered_weight_digest"] = "1" * 64
-    if eff["F"] == "applied":
-        ev["vocab_digest"], ev["idf_digest"] = "2" * 64, "3" * 64
-    if eff["R"] == "applied":
-        ev["r_denominator_trace_digest"] = "4" * 64
-    return ev
+    return {key: "e" * 64 for key in ap.required_evidence_digests(model, cell)}
 
 
 def _applied_record(model="stylo", cell="A4", with_vs_a0=True):
@@ -33,7 +25,8 @@ def _applied_record(model="stylo", cell="A4", with_vs_a0=True):
     r = {"status": "applied",
          "requested_axes": reg["requested_axes"], "effective_axes": reg["effective_axes"],
          "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
-         "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
+         "per_work": [{"work_id": "a/w", "true_label": 0, "pred_label": 0, "correct": True,
+                       "rank": 1, "proba": [0.5, 0.5]}],
          "abs_accuracy_authorclustered_ci": [0.8, 0.95],
          "evidence": _evidence(model, cell),
          "claim_status": "exploratory_internal"}

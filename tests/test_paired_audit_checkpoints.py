@@ -26,8 +26,12 @@ def _store(tmp_path, run_id=RUN_ID):
     return CheckpointStore(tmp_path / "ck", run_id, _bindings())
 
 
-def _result(**over):
-    r = {"pred_label": 1, "correct": True, "rank": 1, "probabilities": [0.5, 0.5]}
+def _result(correct=True, **over):
+    # a coherent width-2 result: correct -> pred==true==1 (rank 1); incorrect -> pred=0 true=1 (rank 2)
+    if correct:
+        r = {"pred_label": 1, "true_label": 1, "correct": True, "rank": 1, "probabilities": [0.4, 0.6]}
+    else:
+        r = {"pred_label": 0, "true_label": 1, "correct": False, "rank": 2, "probabilities": [0.6, 0.4]}
     r.update(over)
     return r
 
@@ -70,7 +74,7 @@ class TestSaveResume:
     def test_delta_model_slug_path_is_safe(self, tmp_path):
         store = _store(tmp_path)
         store.save("lobo", "delta_cos:500", "A2", 3, "wq",
-                   result=_result(correct=False), fold_local_evidence={})
+                   result=_result(correct=False), fold_local_evidence={"proba_digest": "e" * 64})
         assert store.scan_cell("lobo", "delta_cos:500", "A2")[3]["model"] == "delta_cos:500"
 
 
@@ -184,10 +188,32 @@ class TestFailClosed:
     def test_result_must_carry_core_keys(self, tmp_path):
         store = _store(tmp_path)
         with pytest.raises(CheckpointError):
-            store.save("lobo", "stylo", "A0", 0, "w", result={"correct": True}, fold_local_evidence={})
+            store.save("lobo", "stylo", "A0", 0, "w", result={"correct": True},
+                       fold_local_evidence={"proba_digest": "e" * 64})
         with pytest.raises(CheckpointError):
             store.save("lobo", "stylo", "A0", 0, "w",
-                       result=_result(probabilities=[]), fold_local_evidence={})
+                       result=_result(probabilities=[]), fold_local_evidence={"proba_digest": "e" * 64})
+
+    def test_strict_result_schema_rejects_incoherent_folds(self, tmp_path):
+        store = _store(tmp_path)
+        ev = {"proba_digest": "e" * 64}
+
+        def bad(**over):
+            with pytest.raises(CheckpointError):
+                store.save("lobo", "stylo", "A0", 0, "w", result=_result(**over), fold_local_evidence=ev)
+
+        bad(rank=-1)                                            # negative rank
+        bad(rank=9)                                             # rank out of [1,width]
+        bad(pred_label=5)                                       # pred out of range
+        bad(true_label=5)                                       # true label out of range
+        bad(probabilities=[0.6, 0.6])                           # does not sum to 1
+        bad(probabilities=[1.4, -0.4])                          # outside [0,1]
+        bad(pred_label=0)                                       # pred != argmax (proba[0]=0.4 < 0.6)
+        bad(correct=True, true_label=0)                         # correct but pred(1) != true(0)
+        bad(correct=True, rank=2)                               # correct but true not at rank 1
+        # empty evidence is rejected even with a coherent result
+        with pytest.raises(CheckpointError):
+            store.save("lobo", "stylo", "A0", 0, "w", result=_result(), fold_local_evidence={})
 
 
 class TestRunComplete:

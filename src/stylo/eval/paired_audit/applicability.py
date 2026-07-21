@@ -299,13 +299,21 @@ def _validate_applied_record(model, cell, record, probability_class_order, work_
     for item in pw:
         if not isinstance(item, dict) or type(item.get("work_id")) is not str:
             raise ApplicabilityError(f"applied cell ({model},{cell}) per_work item needs a str work_id")
-        if type(item.get("rank")) is not int:
-            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work rank must be an int")
+        # §8: the vector must independently support metric recompute -> true/pred labels + correct + rank
+        for key in ("true_label", "pred_label", "rank"):
+            if type(item.get(key)) is not int:
+                raise ApplicabilityError(f"applied cell ({model},{cell}) per_work {key} must be an int")
+        if type(item.get("correct")) is not bool:
+            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work correct must be a bool")
         proba = item.get("proba")
         if not isinstance(proba, list) or not all(_finite(v) for v in proba):
             raise ApplicabilityError(f"applied cell ({model},{cell}) per_work proba must be finite numbers")
         if probability_class_order is not None and len(proba) != len(probability_class_order):
             raise ApplicabilityError(f"applied cell ({model},{cell}) proba width != probability_class_order")
+        if not (0 <= item["pred_label"] < len(proba)) or not (0 <= item["true_label"] < len(proba)):
+            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work label out of proba range")
+        if item["correct"] != (item["pred_label"] == item["true_label"]):
+            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work correct != (pred==true)")
         work_ids.append(item["work_id"])
     if len(set(work_ids)) != len(work_ids):
         raise ApplicabilityError(f"applied cell ({model},{cell}) per_work has duplicate work_id")
