@@ -6,25 +6,55 @@ import pathlib
 import pytest
 
 from stylo.jsonio import dump_strict, load_strict
+from stylo.eval.paired_audit import applicability as ap
 from stylo.eval.paired_audit import publisher as pub
+from stylo.eval.paired_audit.headline import HEADLINE_ENDPOINT
 
-RUN_ID = "a" * 32
+RUN_ID = "a" * 64
+
+
+def _cell_record(m, c):
+    reg = ap.cell_status(m, c)
+    if reg["status"] == "applied":
+        r = {"status": "applied", "requested_axes": reg["requested_axes"],
+             "effective_axes": reg["effective_axes"],
+             "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
+             "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
+             "abs_accuracy_authorclustered_ci": [0.8, 0.95],
+             "evidence": {"proba_digest": "e" * 64}, "claim_status": "exploratory_internal"}
+        if c != "A0":
+            r["vs_A0"] = {"dacc": 0.02, "dacc_authorclustered_ci": [-0.01, 0.05], "cluster_p": 0.01,
+                          "holm_p": 0.05, "mcnemar_p_diagnostic": 0.2, "significant": False}
+        return r
+    r = {"status": reg["status"], "requested_axes": reg["requested_axes"],
+         "effective_axes": reg["effective_axes"], "claim_status": "exploratory_internal"}
+    if reg["equivalent_to"] is not None:
+        r["equivalent_to"] = reg["equivalent_to"]
+    return r
+
+
+def _grid():
+    return {f"{m}/{c}": _cell_record(m, c) for m in ap.MODELS for c in ap.CELLS}
+
+
+def _holm():
+    return {f"{m}/{c}": {"raw_p": 0.001, "holm_p": 0.015, "significant": True}
+            for (m, c) in ap.holm_family()}
 
 
 def _summary(**over):
-    s = {"claim_status": "exploratory_internal", "run_id": RUN_ID,
-         "endpoint": "stylo_lobo_a4_minus_a0_accuracy", "decision": "inconclusive"}
+    s = {"run_id": RUN_ID, "claim_status": "exploratory_internal",
+         "cells": {"lobo": _grid(), "ruaa": _grid()},
+         "holm": {"lobo": _holm(), "ruaa": _holm()},
+         "headline": {"endpoint": HEADLINE_ENDPOINT, "decision": "inconclusive"},
+         "attestation": {"git_commit": "a" * 40}}
     s.update(over)
     return s
 
 
 def _vectors():
-    return {
-        "lobo/stylo/A4": [{"work_id": "auth/w1", "proba": [0.1, 0.9]},
-                          {"work_id": "auth/w2", "proba": [0.7, 0.3]}],
-        "lobo/stylo/A0": [{"work_id": "auth/w1", "proba": [0.2, 0.8]}],
-        "ruaa/char_cos/A4": [{"work_id": "b/w9", "proba": [0.5, 0.5]}],
-    }
+    return {f"{ds}/{m}/{c}": [{"work_id": "a/w", "proba": [0.5, 0.5]}]
+            for ds in ("lobo", "ruaa") for (m, c) in ap.registered_cells()}
 
 
 class TestPathGuard:
@@ -105,6 +135,35 @@ class TestPublish:
         del s["run_id"]
         with pytest.raises(pub.PublisherError):
             pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+
+    def test_recovers_from_staging_orphan(self, tmp_path):
+        # a leftover .staging_ dir (crash before os.replace) is inert; publish + load still succeed
+        versions = tmp_path / pub.ARCHIVE_DIRNAME / pub.VERSIONS_DIR
+        versions.mkdir(parents=True)
+        (versions / ".staging_orphan").mkdir()
+        (versions / ".staging_orphan" / "half.json").write_text("{", encoding="utf-8")
+        published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+        assert pub.load_published_audit(tmp_path)["version"] == published["version"]
+
+
+class TestFinalAssembly:
+    def test_arbitrary_or_partial_summary_rejected(self, tmp_path):
+        with pytest.raises(pub.PublisherError):                       # arbitrary mapping
+            pub.publish_audit({"run_id": "a" * 64, "claim_status": "exploratory_internal"},
+                              _vectors(), docs_root=tmp_path)
+        with pytest.raises(pub.PublisherError):                       # non-sha run_id
+            pub.publish_audit(_summary(run_id="short"), _vectors(), docs_root=tmp_path)
+        with pytest.raises(pub.PublisherError):                       # missing a dataset in cells
+            bad = _summary(); bad["cells"].pop("ruaa")
+            pub.publish_audit(bad, _vectors(), docs_root=tmp_path)
+        with pytest.raises(pub.PublisherError):                       # incomplete Holm family
+            bad = _summary(); bad["holm"]["lobo"].pop(next(iter(bad["holm"]["lobo"])))
+            pub.publish_audit(bad, _vectors(), docs_root=tmp_path)
+        with pytest.raises(pub.PublisherError):                       # per-work vectors missing cells
+            pub.publish_audit(_summary(), {"lobo/stylo/A4": [{"work_id": "a/w"}]}, docs_root=tmp_path)
+        with pytest.raises(pub.PublisherError):                       # wrong headline endpoint
+            pub.publish_audit(_summary(headline={"endpoint": "bogus", "decision": "relabel"}),
+                              _vectors(), docs_root=tmp_path)
 
 
 class TestArchiveCommittable:

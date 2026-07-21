@@ -28,7 +28,7 @@ test here touches the real closed corpus.
   - missing ckpt pending until COMPLETE . test_paired_audit_checkpoints::test_assert_complete_success_and_incomplete_fatal
   - incomplete COMPLETE fatal ........... test_paired_audit_checkpoints::test_assert_complete_success_and_incomplete_fatal
   - path traversal / headline write ..... test_paired_audit_publisher::TestPathGuard
-  - atomic publisher crash/failure ...... this::test_publisher_recovers_from_staging_orphan
+  - atomic publisher crash/failure ...... test_paired_audit_publisher::test_recovers_from_staging_orphan
   - content-addressed archive verify .... test_paired_audit_publisher::test_publish_and_load_round_trip
   - self-hash tampering ................. test_paired_audit_publisher::test_tampered_summary_self_hash_rejected
   - cluster-p degenerate cases .......... test_paired_audit_inference::TestClusterPValue (rule1/rule2)
@@ -51,7 +51,6 @@ from stylo.config import load_config
 from stylo.jsonio import dump_strict, load_strict
 from stylo.workdoc import chunker_config_hash
 from stylo.eval.paired_audit import corpus as ac
-from stylo.eval.paired_audit import publisher as pub
 from stylo.eval.paired_audit import semantic_parity as sp
 
 CFG = load_config()
@@ -94,22 +93,5 @@ def test_duplicate_chunk_identity_aborts_build(tmp_path):
                               audit_parent=tmp_path / "audit", legacy_anchor=anchor)
 
 
-def _summary():
-    return {"claim_status": "exploratory_internal", "run_id": "a" * 32, "decision": "inconclusive"}
-
-
-def _vectors():
-    return {"lobo/stylo/A4": [{"work_id": "auth/w1", "proba": [0.1, 0.9]}]}
-
-
-def test_publisher_recovers_from_staging_orphan(tmp_path):
-    # simulate a crash that left a staging dir before os.replace — publish must still succeed cleanly
-    versions = tmp_path / pub.ARCHIVE_DIRNAME / pub.VERSIONS_DIR
-    versions.mkdir(parents=True)
-    orphan = versions / ".staging_orphan"
-    orphan.mkdir()
-    (orphan / "half_written.json").write_text("{", encoding="utf-8")
-    published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
-    loaded = pub.load_published_audit(tmp_path)
-    assert loaded["version"] == published["version"]
-    assert orphan.exists()                                  # orphan is inert, never referenced
+# publisher crash-orphan recovery is proven in test_paired_audit_publisher::TestPublishFailClosed
+# (it needs a complete verified assembly), so it lives there rather than here.

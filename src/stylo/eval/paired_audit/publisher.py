@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
+import re
 import shutil
 import tempfile
 from typing import Mapping
@@ -160,22 +161,80 @@ def _version_complete(versioned: pathlib.Path, token: str) -> bool:
         return False
 
 
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+_HEADLINE_DECISIONS = frozenset({"relabel", "keep_legacy", "inconclusive"})
+
+
+def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
+    """Fail-closed unless the summary is a COMPLETE verified assembly (§4.1/§4.4): sha256 run_id,
+    exploratory claim, the full 30-cell applicability matrix for BOTH datasets with valid records, the
+    exact 15-member Holm family per dataset, the registered headline endpoint/decision, an attestation,
+    and per-work vectors covering exactly the applied cells. An arbitrary/partial Mapping is rejected."""
+    from .applicability import (CELLS, MODELS, ApplicabilityError, assert_cell_record,
+                                assert_holm_family_complete, assert_matrix_invariants, registered_cells)
+    from .headline import HEADLINE_ENDPOINT
+
+    if not (isinstance(summary.get("run_id"), str) and _HEX64.match(summary["run_id"])):
+        raise PublisherError("summary.run_id must be a sha256 hex string")
+    if summary.get("claim_status") != "exploratory_internal":
+        raise PublisherError("summary.claim_status must be exploratory_internal")
+
+    cells = summary.get("cells")
+    if not isinstance(cells, Mapping) or set(cells) != {"lobo", "ruaa"}:
+        raise PublisherError("summary.cells must cover exactly lobo and ruaa")
+    grid_keys = {f"{m}/{c}" for m in MODELS for c in CELLS}
+    holm = summary.get("holm")
+    if not isinstance(holm, Mapping) or set(holm) != {"lobo", "ruaa"}:
+        raise PublisherError("summary.holm must cover lobo and ruaa")
+    try:                                                 # surface applicability failures as PublisherError
+        assert_matrix_invariants()
+        for ds, grid in cells.items():
+            if not isinstance(grid, Mapping) or set(grid) != grid_keys:
+                raise PublisherError(f"summary.cells[{ds}] must carry all 30 (model,cell) records")
+            for m in MODELS:
+                for c in CELLS:
+                    assert_cell_record(m, c, grid[f"{m}/{c}"])
+        for ds, fam in holm.items():
+            if not isinstance(fam, Mapping):
+                raise PublisherError(f"summary.holm[{ds}] must be a mapping")
+            assert_holm_family_complete([tuple(k.split("/", 1)) for k in fam])
+    except ApplicabilityError as exc:
+        raise PublisherError(f"invalid applicability/Holm content in the assembly: {exc}") from exc
+
+    hl = summary.get("headline")
+    if not isinstance(hl, Mapping) or hl.get("endpoint") != HEADLINE_ENDPOINT:
+        raise PublisherError("summary.headline must use the registered stylo A4-A0 endpoint")
+    if hl.get("decision") not in _HEADLINE_DECISIONS:
+        raise PublisherError("summary.headline decision must be relabel/keep_legacy/inconclusive")
+
+    att = summary.get("attestation")
+    if not isinstance(att, Mapping) or not att.get("git_commit"):
+        raise PublisherError("summary.attestation must carry a git_commit")
+
+    if not isinstance(per_work_vectors, Mapping) or not per_work_vectors:
+        raise PublisherError("per_work_vectors must be a non-empty mapping")
+    applied_keys = {f"{ds}/{m}/{c}" for ds in ("lobo", "ruaa") for (m, c) in registered_cells()}
+    if set(per_work_vectors) != applied_keys:
+        raise PublisherError("per_work_vectors must cover exactly the applied cells across both datasets")
+    for k, vec in per_work_vectors.items():
+        if not isinstance(vec, list) or not vec:
+            raise PublisherError(f"per_work_vectors[{k}] must be a non-empty list")
+
+
 def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
                   docs_root: pathlib.Path | str) -> dict:
-    """Verified publication: stage the content-addressed per-work archive, bind it into the summary
-    self-hash, publish the immutable version dir + atomic ``current.json``/``COMPLETE`` pointer, and
-    write the committed summary JSON — all path-guarded, never a headline path."""
-    if summary.get("claim_status") != "exploratory_internal":
-        raise PublisherError("audit summary must carry claim_status=exploratory_internal")
-    if not summary.get("run_id"):
-        raise PublisherError("audit summary must carry a run_id")
+    """Verified publication: validate the COMPLETE assembly, stage the content-addressed per-work
+    archive, bind it into the summary self-hash, publish the immutable version dir + atomic
+    ``current.json``/``COMPLETE`` pointer, and write the committed summary JSON — all path-guarded,
+    never a headline path."""
+    verify_final_assembly(summary, per_work_vectors)     # reject an arbitrary/partial assembly first
 
     droot = _docs_root(docs_root)
     assert_archive_committable(droot)                    # §4.4 durability: refuse if the archive is gitignored
     archive_root = droot / ARCHIVE_DIRNAME
     versions = archive_root / VERSIONS_DIR
+    assert_writable_audit_path(versions, docs_root=docs_root, allow_published=True)  # guard BEFORE mkdir
     versions.mkdir(parents=True, exist_ok=True)
-    assert_writable_audit_path(versions, docs_root=docs_root, allow_published=True)
     _verify_real_dir_chain(versions)
 
     staging = pathlib.Path(tempfile.mkdtemp(dir=versions, prefix=".staging_"))
@@ -205,15 +264,13 @@ def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
         if staging is not None and staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
 
-    # atomic pointer + COMPLETE marker
+    # atomic pointer + COMPLETE marker (dump_strict itself does a secure mkstemp + os.replace)
     for name, body in ((CURRENT_NAME, {"schema": _PUBLISH_SCHEMA, "version": published["version"]}),
                        (COMPLETE_NAME, {"schema": _PUBLISH_SCHEMA, "version": published["version"],
                                         "run_id": summary["run_id"]})):
         target = archive_root / name
         assert_writable_audit_path(target, docs_root=docs_root, allow_published=True)
-        tmp = pathlib.Path(tempfile.mktemp(dir=archive_root, prefix="." + name + "_"))
-        dump_strict(body, tmp, trailing_newline=True)
-        os.replace(tmp, target)
+        dump_strict(body, target, trailing_newline=True)
 
     # committed summary JSON (matched by !docs/*.json)
     summary_path = droot / SUMMARY_NAME
@@ -286,4 +343,27 @@ def load_published_audit(docs_root: pathlib.Path | str) -> dict:
         fpath = versioned / ref["filename"]
         if not _real_within(fpath, versioned, must_file=True) or _sha256_file(fpath) != ref["sha256"]:
             raise PublisherError(f"archive file for {key} missing or content-hash mismatch")
+
+    # SHA256SUMS must parse, match the summary digest, and cover EXACTLY the per-work files
+    sums_path = versioned / SHA256SUMS_NAME
+    if not _real_within(sums_path, versioned, must_file=True):
+        raise PublisherError("archive SHA256SUMS missing or a symlink")
+    if _sha256_file(sums_path) != summary.get("archive_sha256sums_digest"):
+        raise PublisherError("archive_sha256sums_digest does not match the SHA256SUMS file")
+    listed = {}
+    for raw in sums_path.read_text(encoding="utf-8").splitlines():
+        if not raw.strip():
+            continue
+        digest, _, name = raw.partition("  ")
+        listed[name.strip()] = digest.strip()
+    referenced = {r["filename"]: r["sha256"] for r in summary.get("per_work_archive", {}).values()}
+    if listed != referenced:
+        raise PublisherError("SHA256SUMS does not match the summary per-work inventory")
+    # exact directory inventory: no extra or missing file in the immutable version dir
+    on_disk = {e.name for e in os.scandir(versioned)}
+    expected = set(referenced) | {SHA256SUMS_NAME, SUMMARY_IN_VERSION}
+    if on_disk != expected:
+        raise PublisherError(
+            f"version dir inventory mismatch (extra {sorted(on_disk - expected)[:3]}, "
+            f"missing {sorted(expected - on_disk)[:3]})")
     return {"version": token, "versioned_dir": versioned, "summary": summary}
