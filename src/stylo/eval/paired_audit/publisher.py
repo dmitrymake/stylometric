@@ -197,7 +197,7 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     from .run_plan import RunPlanError, assert_wellformed_run_plan
     try:
         assert_wellformed_run_plan(plan)
-    except RunPlanError as exc:
+    except (RunPlanError, TypeError, ValueError) as exc:         # any malformed plan field -> fail closed
         raise PublisherError(f"embedded run_plan is not well-formed: {exc}") from exc
     universes = summary.get("universes")
     if not isinstance(universes, Mapping) or set(universes) != {"lobo", "ruaa"}:
@@ -449,7 +449,7 @@ def load_published_audit(docs_root: pathlib.Path | str, *, run_kind: str = "conf
         raise PublisherError("loaded run_id does not recompute from the embedded run_plan")
     try:
         assert_wellformed_run_plan(summary["run_plan"])
-    except RunPlanError as exc:
+    except (RunPlanError, TypeError, ValueError) as exc:
         raise PublisherError(f"loaded run_plan is not well-formed: {exc}") from exc
     for key, ref in summary.get("per_work_archive", {}).items():
         fpath = versioned / ref["filename"]

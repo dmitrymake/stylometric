@@ -275,6 +275,8 @@ _REQUIRED_DATASET_KEYS = ("dataset_digest", "fold_manifest_digest",
 
 
 def _require(mapping: dict, keys, where: str) -> None:
+    if not isinstance(mapping, dict):
+        raise RunPlanError(f"{where} must be a dict")
     missing = [k for k in keys if k not in mapping or mapping[k] in (None, "")]
     if missing:
         raise RunPlanError(f"{where} missing required keys: {missing}")
@@ -321,7 +323,12 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
     if run_kind not in REGISTERED_RUN_KINDS:
         raise RunPlanError(f"unknown run_kind {run_kind!r}; allowed {sorted(REGISTERED_RUN_KINDS)}")
     confirmatory = run_kind == "confirmatory"
-    stats = dict(FROZEN_STATS) if stats is None else dict(stats)
+    if stats is None:
+        stats = dict(FROZEN_STATS)
+    elif not isinstance(stats, dict):
+        raise RunPlanError("stats must be a dict")
+    else:
+        stats = dict(stats)
     if set(stats) != set(FROZEN_STATS):
         raise RunPlanError("stats must carry exactly the frozen stat keys (§3.3/§3.5)")
     if confirmatory and stats != FROZEN_STATS:

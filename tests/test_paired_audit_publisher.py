@@ -352,6 +352,28 @@ class TestPublishGate:
         with pytest.raises(pub.PublisherError):
             pub.publish_audit(_summary(), bad, docs_root=tmp_path)
 
+    def test_forged_diagnostic_mcnemar_is_recomputed(self, tmp_path):
+        # the diagnostic-only mcnemar p is published, so the auditor recomputes it too
+        s = _summary()
+        s["cells"]["lobo"]["stylo/A4"]["vs_A0"]["mcnemar_p_diagnostic"] = 0.123456
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+
+    def test_ghost_author_in_recall_is_rejected(self, tmp_path):
+        # an EXTRA (never-recomputed) author in per_author_recall must be caught by set-equality
+        s = _summary()
+        s["cells"]["lobo"]["stylo/A0"]["point"]["per_author_recall"]["GHOST"] = 0.9999
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+
+    def test_non_dict_plan_field_surfaces_as_publisher_error(self):
+        # a malformed embedded plan field (non-dict) fails closed as PublisherError, never an uncaught crash
+        plan = copy.deepcopy(_PLAN)
+        plan["a0_reference_shas"] = None
+        s = _summary(run_plan=plan, run_id=rp.run_id(plan))
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(s, _vectors())
+
 
 class TestPublicationSecurity:
     def test_swapped_committed_root_summary_is_detected(self, tmp_path):

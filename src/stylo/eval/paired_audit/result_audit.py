@@ -99,8 +99,11 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
             for k in ("accuracy", "macro_f1", "top2"):
                 _require(_close(point[k], rec["point"][k], tol_acc),
                          f"{ds}/{model}/{cell} {k} recompute {point[k]} != {rec['point'][k]}")
+            pub_recall = rec["point"].get("per_author_recall", {})
+            _require(isinstance(pub_recall, dict) and set(pub_recall) == set(point["per_author_recall"]),
+                     f"{ds}/{model}/{cell} per_author_recall author set != recompute (a ghost author?)")
             for au, r in point["per_author_recall"].items():
-                _require(_close(r, rec["point"]["per_author_recall"].get(au, float("nan")), tol_acc),
+                _require(_close(r, pub_recall.get(au, float("nan")), tol_acc),
                          f"{ds}/{model}/{cell} recall[{au}] mismatch")
             abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=iters, seed=seed,
                                                      quantiles=quantiles)
@@ -120,6 +123,10 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
                 cp = inf.paired_cluster_pvalue(a["correct"], base["correct"], a["authors"], B=B, seed=seed)
                 _require(_close(cp, rec["vs_A0"]["cluster_p"], tol_p),
                          f"{ds}/{model}/{cell} cluster_p recompute {cp} != {rec['vs_A0']['cluster_p']}")
+                mc = inf.mcnemar_diagnostic(a["correct"], base["correct"])   # diagnostic-only, but published
+                _require(_close(mc["mcnemar_p_diagnostic"], rec["vs_A0"].get("mcnemar_p_diagnostic",
+                                                                            float("nan")), tol_p),
+                         f"{ds}/{model}/{cell} mcnemar_p_diagnostic recompute mismatch")
                 raw_ps[(model, cell)] = cp
 
         # Holm over the independently recomputed cluster p-values must match the published Holm family
