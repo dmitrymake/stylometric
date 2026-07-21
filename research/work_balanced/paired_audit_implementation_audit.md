@@ -1,20 +1,21 @@
 # Paired-audit control-plane implementation audit
 
-Status: control plane + confirmatory runner implemented, Gate-10 remediation applied, and committed on
-branch `paired-audit-control-plane` as additions only. No real audit corpus, no fold manifest, and no
-confirmatory cell has been prepared or run on real data. Execution stays gated behind an independent
-code review of the exact final commit and a separate execution authorization (protocol §11–14).
+Status: control plane + confirmatory runner + independent result-auditor implemented, Gate-10
+remediation **round 2** applied (R2.1–R2.9), and committed on branch `paired-audit-control-plane` as
+additions only. No real audit corpus, no fold manifest, and no confirmatory cell has been prepared or
+run on real data. Execution stays gated behind an independent code review of the exact final commit and
+a separate execution authorization (protocol §11–14).
 
 Normative source: [`paired_audit_protocol.md`](paired_audit_protocol.md) (v3.1). On any conflict the
 protocol governs. This document is a declarative implementation record, not a sign-off; the sign-off
 lives in [`paired_audit_review_provenance.md`](paired_audit_review_provenance.md).
 
-## Package inventory (13 modules, 10 test files — all committed additions)
+## Package inventory (14 modules, 10 test files — all committed additions)
 
 `src/stylo/eval/paired_audit/`: `semantic_parity`, `corpus`, `work_subset`, `applicability`,
-`run_plan`, `inference`, `headline`, `checkpoints`, `publisher`, `manifest`, `references`, `runner`,
-`__init__`. `tests/test_paired_audit_{corpus, control_plane, inference, headline, checkpoints,
-publisher, manifest, fail_closed_sweep, references, runner}.py`.
+`run_plan`, `inference`, `headline`, `checkpoints`, `publisher`, `manifest`, `references`,
+`result_audit`, `runner`, `__init__`. `tests/test_paired_audit_{corpus, control_plane, inference,
+headline, checkpoints, publisher, manifest, fail_closed_sweep, references, runner}.py`.
 
 ## Requirement → module → test trace
 
@@ -37,26 +38,37 @@ publisher, manifest, fail_closed_sweep, references, runner}.py`.
 | §5 (runner) | One chain refs→dataset→manifests→matrix→RunPlan→cells→checkpoints→COMPLETE→metrics→cluster-p→Holm→headline→publisher; synthetic-only | `runner` | `runner` (synthetic end-to-end + resume) |
 | §9 | Full fail-closed catalog | all above | `fail_closed_sweep` (coverage manifest) |
 
-## Gate-10 remediation (independent-review blockers closed, separate commits, no amend)
+## Gate-10 remediation round 2 (requirement → code → adversarial test)
 
-#1 real runner (synthetic-only); #2 A0 on the WB-manifest dataset; #3 self-contained committed snapshot
-(no rework-only `canonical_hash`; unit suite independent of ignored RuAA data); #4 manifest counts
-recomputed from works + strict validation; #5 complete §3.2 A0 reference parse/verify; #6 §4.1 status
-values + effective_axes; #7 verified publisher (full-assembly verification); #8 checkpoint atomic
-os.link / guards / registry / run-COMPLETE; #9 RunPlan structural runtime allowlist + finite tolerances;
-#10 statistics input validation.
+An owner-authored independent probe found the round-1 remediation was still a primitive library with
+13 substantive blockers. Round 2 closes each as a separate commit (no amend). The OS kernel is entirely
+out of scope and is not bound anywhere.
 
-## Verification results
+| # | Requirement | Code | Adversarial test |
+|---|---|---|---|
+| R2.1 | Exact one-to-one A0 contract (work_id + true author + **pred** + correct + rank; no basename; no duplicate/missing/extra); RuAA A0 vs `reference_submission_stylo.csv` | `references.{index_from_records,build_lobo_reference_index,build_ruaa_reference_index,assert_a0_matches_index}`, `runner._a0_index/_assert_a0_matches_reference` | all-preds-wrong-but-correct/rank-match; duplicate basename kept distinct; genuine duplicate work id; missing/extra row; row permutation; RuAA pred mismatch |
+| R2.2 | Confirmatory evaluator identity in run_id (registered name, source digest, import identity, estimator config, mechanism passport); no bare callable | `run_plan.{EvaluatorSpec,evaluator_identity,REGISTERED_CONFIRMATORY_EVALUATORS}` + `build_run_plan` binding | source recompute + config re-keying; bare callable rejected; unregistered name fatal only confirmatory; empty config/passport; identity folds into run_id |
+| R2.3 | Real fold-local evidence persisted + aggregated (no synthesis); missing required axis/passport digest fatal | `applicability.required_evidence_digests`, `runner._assert_fold_evidence/_aggregate_evidence` | fold-evidence required+hex+stack passport; aggregate propagation (changed fold digest → changed artifact, missing fatal); e2e artifact == aggregate of real checkpoints |
+| R2.4 | Live DISK re-attestation before/after each fold+cell (code/config/env/corpus/manifest), not in-memory self-compare | `corpus.verify_corpus_manifest_light`, `runner._reattest` | config / corpus-chain / manifest drift and a physical on-disk manifest tamper each fail closed |
+| R2.5 | Non-tautological manifest binding (registered algorithm/seed + actual disk digests, not copied); child+parent+selection bound; work_id↔dataset labels | `manifest.{REGISTERED_ALGORITHM,assert_manifest_consistent_with_dataset}` + child `dataset_digest`, `checkpoints.dataset_bindings(parent)`, `runner._rebuild_manifest` | forged algorithm/parent caught by rebuild; tampered manifest author label / disagreeing dataset labels |
+| R2.6 | Strict checkpoint/result schema (pred/true range, correct/rank/argmax coherence, normalized proba, non-empty evidence); richer per_work | `checkpoints._validate_result`, `runner` authoritative true_label + `_per_work`, `applicability._validate_applied_record` | negative/out-of-range rank, out-of-range labels, non-normalized / out-of-[0,1] proba, pred≠argmax, correct/label + correct/rank inconsistency, empty evidence |
+| R2.7 | Artifact completeness (embedded run_plan, both class orders, universes/digests, tolerances, full attestation) + golden inventory FROM DISK + all registered tolerance quantities | `run_plan.REGISTERED_TOLERANCE_QUANTITIES`, `references.golden_fixture_inventory`, `runner` run_plan/universes, `publisher` run_id recompute | golden inventory deterministic/re-keying/missing-fatal; tolerance exact-set; run_id must recompute; missing completeness sections; round-trip recomputes run_id |
+| R2.8 | Independent result-auditor recomputes accuracy/F1/top2/recall/Δ/CI/cluster-p/Holm/headline from vectors; publisher accepts only PASS; headline decision a separate stage; smoke/dry never write the committed artifact | `result_audit.audit_results`, `runner` (candidate→audit→decide→publish), `publisher.{verify_final_assembly,publish_audit,load_published_audit}` | auditor rejects a tampered accuracy / cluster p; Holm↔cell + headline↔CI consistency; smoke writes no committed artifact + transient round-trip; root↔version equality |
+| R2.9 | Path guard BEFORE any mkdir/write + re-check; loader detects a swapped committed root summary | `publisher.write_transient` (guard→mkdir→re-check), `publisher.load_published_audit` root↔version | swapped committed root summary detected; write_transient rejects a symlinked run namespace before mkdir |
 
-- Diff vs `release` HEAD `2f6c3dc3`: 25 files, additions only; no modified/deleted tracked file — the
-  control plane depends only on committed HEAD APIs and does not import the uncommitted working-tree
-  rework.
-- Clean committed-snapshot replay via `git archive` (mandatory check C): self-contained; the runner
-  end-to-end tests skip without a git repo (they need a live commit binding), the RuAA-reference test
-  skips without the gitignored private data.
-- Full working-tree suite (check B) and the synthetic end-to-end runner (check D) pass; adversarial
-  path/symlink/race guards (check E) are covered by the checkpoint (os.link, symlinked-ancestor) and
-  publisher (traversal-after-normalization, symlink chain) fail-closed tests.
+## Verification results (mandatory checks)
+
+- **Diff vs `release` HEAD `2f6c3dc3`:** 26 files, additions only (14 modules + 10 tests + this audit
+  pair); zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and
+  never imports the uncommitted working-tree rework. The owner's 66 M/D rework entries are untouched.
+- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 185 passed.
+- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 181 passed, 4 skipped (3 runner-e2e
+  need a live `.git` for the commit binding; 1 RuAA-reference needs the gitignored private data) —
+  self-contained, no rework dependency.
+- **Full clean `git clone` suite** (`pytest tests/`): 4 failed, 786 passed, 6 skipped. All 4 failures
+  are pre-existing packaging debt (`test_ci_sign_erratum.py`, `test_macro_f1_ci_withdrawal.py` — both
+  present on `release`) caused by `scripts/gen-paper.mjs` not being tracked in git; **zero** are
+  paired-audit tests. No paired-audit regression.
 - `python -m py_compile` clean on every module and test. `ruff` is absent from the environment and CI.
 
 ## Provisioning finding for §11
