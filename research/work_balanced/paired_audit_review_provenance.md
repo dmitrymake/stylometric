@@ -36,8 +36,8 @@ scope and bound nowhere.
 
 | Check | Command | Result |
 |---|---|---|
-| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 196 passed |
-| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 192 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
+| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 199 passed |
+| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 195 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
 | Full clean `git clone` | `git clone --no-hardlinks . /tmp/c; PYTHONPATH=/tmp/c/src pytest /tmp/c/tests/` | 4 failed, 786 passed, 6 skipped — the 4 are pre-existing packaging debt (`test_ci_sign_erratum`, `test_macro_f1_ci_withdrawal`; missing `scripts/gen-paper.mjs`), **zero** paired-audit |
 | D synthetic e2e | `pytest tests/test_paired_audit_runner.py` | full chain publish + transient round-trip + resume + result-audit tamper |
 | E adversarial path/race | checkpoint (`os.link` no-overwrite, symlinked-ancestor), publisher (`..`-after-normalize, symlink chain, guard-before-mkdir, root tamper) | covered by the fail-closed + security tests |
@@ -76,11 +76,19 @@ summary read):
   via `build_run_plan` and requires bit-equality (re-applying every build invariant); the publisher and
   loader both call it, the universes class orders are bound to the run_plan, and a malformed-vector
   crash maps to `PublisherError`. Closed with tests.
-- **Round D (this final commit)** — the fix-3 changes are re-reviewed at the exact final SHA; the
+- **Round D (convergence + deep sweep after fix 3)** — the embedded-plan re-validation verified closed;
+  the deep sweep found three residual MEDIUM/LOW: the diagnostic-only `mcnemar_p_diagnostic` was a
+  published-but-unrecomputed (forgeable) number; an EXTRA ghost author in `per_author_recall` slipped
+  a forward-only check; a non-dict embedded plan field raised a bare `TypeError` outside the
+  `PublisherError` contract.
+- **Fix (R2.10 fix 4)** — the auditor recomputes `mcnemar_p_diagnostic` and asserts exact author-set
+  equality on `per_author_recall`; `_require`/`stats` type-guard to `RunPlanError` and the publisher /
+  loader map `TypeError`/`ValueError` from the plan re-validation to `PublisherError`. Closed with tests.
+- **Round E (this final commit)** — the fix-4 changes are re-reviewed at the exact final SHA; the
   reviewed SHA is the final SHA and no code change follows a positive sign-off.
 
-- Reviewed SHA: the final commit carrying this record (Round-D review target).
-- Verdict: sign-off for §11 **preparation** only — recorded when the Round-D review of this exact SHA
+- Reviewed SHA: the final commit carrying this record (Round-E review target).
+- Verdict: sign-off for §11 **preparation** only — recorded when the Round-E review of this exact SHA
   passes with no residual finding.
 
 ## Open items for the OWNER (do not block §11 preparation; close before the confirmatory EXECUTION)

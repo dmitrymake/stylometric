@@ -61,8 +61,8 @@ out of scope and is not bound anywhere.
 - **Diff vs `release` HEAD `2f6c3dc3`:** 26 files, additions only (14 modules + 10 tests + this audit
   pair); zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and
   never imports the uncommitted working-tree rework. The owner's 66 M/D rework entries are untouched.
-- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 196 passed.
-- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 192 passed, 4 skipped (3 runner-e2e
+- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 199 passed.
+- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 195 passed, 4 skipped (3 runner-e2e
   need a live `.git` for the commit binding; 1 RuAA-reference needs the gitignored private data) —
   self-contained, no rework dependency.
 - **Full clean `git clone` suite** (`pytest tests/`): 4 failed, 786 passed, 6 skipped. All 4 failures
