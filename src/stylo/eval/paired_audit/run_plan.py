@@ -14,13 +14,15 @@ libc and the numerical stack (Python / NumPy / SciPy / scikit-learn / spaCy / BL
 from __future__ import annotations
 
 import hashlib
+import inspect
 import math
 import os
 import pathlib
 import platform
 import re
 import subprocess
-from typing import Optional
+from dataclasses import dataclass
+from typing import Callable, Optional
 
 from ...jsonio import dumps_strict
 
@@ -64,6 +66,66 @@ FROZEN_STATS = {
 
 class RunPlanError(ValueError):
     """Fail-closed: the RunPlan is missing a required binding or carries a forbidden identity field."""
+
+
+# ── production evaluator identity (§4.2) ─────────────────────────────────────
+# A confirmatory run may only execute a REGISTERED evaluator (by name); its source bytes, import
+# identity, estimator config and mechanism passport are all folded into the run_id. A smoke/dummy
+# evaluator is never in this allowlist, so it can never be run confirmatorily.
+REGISTERED_CONFIRMATORY_EVALUATORS = frozenset({"work_balanced_ablation_factory"})
+_EVALUATOR_IDENTITY_KEYS = ("name", "import_module", "import_qualname", "source_digest",
+                            "estimator_config_digest", "mechanism_passport_digest")
+
+
+@dataclass(frozen=True)
+class EvaluatorSpec:
+    """A registered per-fold estimator: its stable ``name``, the callable ``fn`` whose source bytes are
+    hashed, its ``estimator_config`` and its ``mechanism_passport`` (the axis-mechanism description).
+    All four bind into the run_id via :func:`evaluator_identity`."""
+    name: str
+    fn: Callable
+    estimator_config: dict
+    mechanism_passport: dict
+
+
+def evaluator_identity(spec, *, confirmatory: bool) -> dict:
+    """Resolve the run_id-binding identity of an :class:`EvaluatorSpec`: recompute the source-byte
+    digest (so a changed factory re-keys the run), bind the import module+qualname, and hash the
+    estimator config + mechanism passport. A confirmatory evaluator MUST be registered by name; a bare
+    callable (no spec) is rejected outright."""
+    if not isinstance(spec, EvaluatorSpec):
+        raise RunPlanError("evaluator must be a registered EvaluatorSpec, not a bare callable")
+    fn = spec.fn
+    if not callable(fn):
+        raise RunPlanError("EvaluatorSpec.fn is not callable")
+    module = getattr(fn, "__module__", None)
+    qualname = getattr(fn, "__qualname__", None)
+    if not module or not qualname:
+        raise RunPlanError("EvaluatorSpec.fn lacks a stable import identity (module/qualname)")
+    try:
+        source = inspect.getsource(fn)
+    except (OSError, TypeError) as exc:
+        raise RunPlanError(f"cannot read evaluator source for {qualname}: {exc}") from exc
+    if not (isinstance(spec.name, str) and spec.name):
+        raise RunPlanError("EvaluatorSpec.name must be a non-empty string")
+    if not isinstance(spec.estimator_config, dict) or not spec.estimator_config:
+        raise RunPlanError("EvaluatorSpec.estimator_config must be a non-empty dict")
+    if not isinstance(spec.mechanism_passport, dict) or not spec.mechanism_passport:
+        raise RunPlanError("EvaluatorSpec.mechanism_passport must be a non-empty dict")
+    if confirmatory and spec.name not in REGISTERED_CONFIRMATORY_EVALUATORS:
+        raise RunPlanError(
+            f"evaluator {spec.name!r} is not a registered confirmatory evaluator "
+            f"{sorted(REGISTERED_CONFIRMATORY_EVALUATORS)}")
+    return {
+        "name": spec.name,
+        "import_module": module,
+        "import_qualname": qualname,
+        "source_digest": _sha256_bytes(source.encode("utf-8")),
+        "estimator_config_digest": hashlib.sha256(
+            dumps_strict(spec.estimator_config, sort_keys=True).encode("utf-8")).hexdigest(),
+        "mechanism_passport_digest": hashlib.sha256(
+            dumps_strict(spec.mechanism_passport, sort_keys=True).encode("utf-8")).hexdigest(),
+    }
 
 
 def _repo_root() -> pathlib.Path:
@@ -239,7 +301,7 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
                    runtime_fingerprint: dict, blas_thread_fingerprint: dict,
                    applicability_matrix_digest: str, a0_reference_shas: dict,
                    tolerances: dict, corpus_chain: dict, golden_fixture_inventory_sha: str,
-                   lobo: dict, ruaa: dict, stats: Optional[dict] = None,
+                   evaluator_identity: dict, lobo: dict, ruaa: dict, stats: Optional[dict] = None,
                    audit_version: str = AUDIT_VERSION) -> dict:
     """Assemble the canonical RunPlan binding every §4.2 identity input. Missing bindings fail
     closed; OS/kernel strings are rejected. The plan is strict-JSON canonical (sort_keys)."""
@@ -281,6 +343,12 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
     _require(ruaa, _REQUIRED_DATASET_KEYS + ("selection_digest",), "ruaa")
     _require(a0_reference_shas, ("lobo_books_txt", "ruaa_reference_submission"), "a0_reference_shas")
     _require(corpus_chain, ("legacy_anchor", "semantic_parity_digest"), "corpus_chain")
+    _require(evaluator_identity, _EVALUATOR_IDENTITY_KEYS, "evaluator_identity")
+    if confirmatory and evaluator_identity["name"] not in REGISTERED_CONFIRMATORY_EVALUATORS:
+        raise RunPlanError(f"confirmatory evaluator {evaluator_identity['name']!r} is not registered")
+    for k in ("source_digest", "estimator_config_digest", "mechanism_passport_digest"):
+        if not (isinstance(evaluator_identity.get(k), str) and _HEX64.match(evaluator_identity[k])):
+            raise RunPlanError(f"evaluator_identity.{k} must be a sha256 hex digest")
     if not isinstance(git_dirty, bool):
         raise RunPlanError("git_dirty must be a bool")
 
@@ -297,6 +365,7 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
         "blas_thread_fingerprint": blas_thread_fingerprint,
         "applicability_matrix_digest": applicability_matrix_digest,
         "a0_reference_shas": a0_reference_shas,
+        "evaluator_identity": evaluator_identity,
         "tolerances": tolerances,
         "stats": stats,
         "corpus_chain": corpus_chain,

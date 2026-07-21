@@ -114,10 +114,23 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     # 4. exact applicability matrix
     ap.assert_matrix_invariants()
 
+    # 4b. resolve the production evaluator identity and bind it into the run_id (§4.2): a confirmatory
+    # run requires a REGISTERED EvaluatorSpec whose source bytes / import identity / estimator config /
+    # mechanism passport all fold into the plan; a bare smoke callable is wrapped as a NON-registered
+    # identity (usable only under smoke/dry, never confirmatory).
+    if confirmatory and not isinstance(evaluator, rp.EvaluatorSpec):
+        raise RunnerError("a confirmatory run requires a registered EvaluatorSpec, not a bare callable")
+    eval_spec = evaluator if isinstance(evaluator, rp.EvaluatorSpec) else rp.EvaluatorSpec(
+        name="smoke_dummy", fn=evaluator, estimator_config={"smoke": True},
+        mechanism_passport={"smoke": True})
+    eval_identity = rp.evaluator_identity(eval_spec, confirmatory=confirmatory)
+    eval_fn = eval_spec.fn
+
     # 5. live RunPlan
     plan = _build_run_plan(datasets, manifests, corpus_manifest, run_kind=run_kind,
                            a0_references=a0_references, tolerances=tolerances,
                            golden_fixture_inventory_sha=golden_fixture_inventory_sha,
+                           evaluator_identity=eval_identity,
                            cfg=cfg, repo_root=repo_root, src_root=src_root)
     run_id = rp.run_id(plan)
 
@@ -126,7 +139,7 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
                             {ds: _bindings_for(manifests[ds]) for ds in _DATASETS})
 
     # 7. per-fold estimator execution with before/after binding verification + checkpoint resume
-    _run_all_cells(store, datasets, manifests, evaluator)
+    _run_all_cells(store, datasets, manifests, eval_fn)
 
     # 8. all-cell COMPLETE
     expected = {(ds, m, c): _expected_folds(manifests[ds])
@@ -153,7 +166,7 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
 
 
 def _build_run_plan(datasets, manifests, corpus_manifest, *, run_kind, a0_references, tolerances,
-                    golden_fixture_inventory_sha, cfg, repo_root, src_root) -> dict:
+                    golden_fixture_inventory_sha, evaluator_identity, cfg, repo_root, src_root) -> dict:
     # the A0 references were SHA-verified in the preflight; bind the pinned digests here (the two
     # call sites of a0_references have incompatible signatures, so never re-call verify_a0_references).
     a0_shas = {"lobo_books_txt": refmod.LOBO_BOOKS_SHA256,
@@ -178,7 +191,7 @@ def _build_run_plan(datasets, manifests, corpus_manifest, *, run_kind, a0_refere
         runtime_fingerprint=rp.runtime_fingerprint(),
         blas_thread_fingerprint=rp.blas_thread_fingerprint(),
         applicability_matrix_digest=ap.applicability_matrix_digest(),
-        a0_reference_shas=a0_shas, tolerances=dict(tolerances),
+        a0_reference_shas=a0_shas, evaluator_identity=evaluator_identity, tolerances=dict(tolerances),
         corpus_chain={"legacy_anchor": corpus_manifest["legacy_anchor"],
                       "semantic_parity_digest": corpus_manifest["source_semantic_parity_digest"]},
         golden_fixture_inventory_sha=golden_fixture_inventory_sha,

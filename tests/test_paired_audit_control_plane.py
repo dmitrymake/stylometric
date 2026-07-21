@@ -180,6 +180,11 @@ def _bindings(**over):
         tolerances={"proba": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}},
         corpus_chain={"legacy_anchor": rp_anchor(), "semantic_parity_digest": "6" * 64},
         golden_fixture_inventory_sha="7" * 64,
+        evaluator_identity={"name": "work_balanced_ablation_factory",
+                            "import_module": "stylo.work_balanced_ablation_screen",
+                            "import_qualname": "make_factory_for_ablation",
+                            "source_digest": "a" * 64, "estimator_config_digest": "b" * 64,
+                            "mechanism_passport_digest": "c" * 64},
         lobo=dict(dataset_digest="a" * 64, fold_manifest_digest="b" * 64,
                   probability_class_order=["x", "z"], metric_label_order=["x"],
                   run_contract_digest="c" * 64),
@@ -306,3 +311,61 @@ class TestRunPlan:
                     {"proba": {"atol": 1e-9, "rtol": 0, "dtype": "float16"}}):   # unregistered dtype
             with pytest.raises(rp.RunPlanError):
                 rp.build_run_plan(**_bindings(tolerances=bad))
+
+
+# ── §4.2 production evaluator identity ────────────────────────────────────────
+def _fake_factory(dataset, ds_obj, model, cell, fold_index, work_id, ablation):   # a stand-in estimator
+    return {"pred_label": 0, "correct": True, "rank": 1, "probabilities": [1.0]}
+
+
+def _spec(name, **over):
+    kw = dict(estimator_config={"C": 1.0, "solver": "liblinear"},
+              mechanism_passport={"W": "ordered_weight", "F": "feature_state", "R": "relative_fw"})
+    kw.update(over)
+    return rp.EvaluatorSpec(name=name, fn=_fake_factory, **kw)
+
+
+class TestEvaluatorIdentity:
+    def test_identity_recomputes_source_and_binds_config(self):
+        ident = rp.evaluator_identity(_spec("work_balanced_ablation_factory"), confirmatory=True)
+        assert set(ident) == set(rp._EVALUATOR_IDENTITY_KEYS)
+        assert ident["import_qualname"] == "_fake_factory"
+        assert _HEX64.match(ident["source_digest"])
+        # a different estimator config re-keys the identity (and thus the run_id)
+        other = rp.evaluator_identity(_spec("work_balanced_ablation_factory",
+                                            estimator_config={"C": 2.0}), confirmatory=True)
+        assert other["estimator_config_digest"] != ident["estimator_config_digest"]
+
+    def test_bare_callable_rejected(self):
+        with pytest.raises(rp.RunPlanError):
+            rp.evaluator_identity(_fake_factory, confirmatory=False)     # not an EvaluatorSpec
+
+    def test_unregistered_name_rejected_only_in_confirmatory(self):
+        with pytest.raises(rp.RunPlanError):
+            rp.evaluator_identity(_spec("smoke_dummy"), confirmatory=True)
+        # allowed under a non-confirmatory kind
+        assert rp.evaluator_identity(_spec("smoke_dummy"), confirmatory=False)["name"] == "smoke_dummy"
+
+    def test_empty_config_or_passport_rejected(self):
+        with pytest.raises(rp.RunPlanError):
+            rp.evaluator_identity(_spec("work_balanced_ablation_factory", estimator_config={}),
+                                  confirmatory=True)
+        with pytest.raises(rp.RunPlanError):
+            rp.evaluator_identity(_spec("work_balanced_ablation_factory", mechanism_passport={}),
+                                  confirmatory=True)
+
+    def test_identity_folds_into_run_id(self):
+        base = rp.run_id(rp.build_run_plan(**_bindings()))
+        moved = rp.build_run_plan(**_bindings(evaluator_identity={
+            **_bindings()["evaluator_identity"], "source_digest": "0" * 64}))
+        assert rp.run_id(moved) != base
+
+    def test_confirmatory_plan_rejects_unregistered_evaluator(self):
+        with pytest.raises(rp.RunPlanError):
+            rp.build_run_plan(**_bindings(evaluator_identity={
+                **_bindings()["evaluator_identity"], "name": "smoke_dummy"}))
+
+    def test_plan_rejects_non_hex_identity_digest(self):
+        with pytest.raises(rp.RunPlanError):
+            rp.build_run_plan(**_bindings(evaluator_identity={
+                **_bindings()["evaluator_identity"], "source_digest": "nothex"}))
