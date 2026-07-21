@@ -36,8 +36,8 @@ scope and bound nowhere.
 
 | Check | Command | Result |
 |---|---|---|
-| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 202 passed |
-| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 198 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
+| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 204 passed |
+| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 200 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
 | Full clean `git clone` | `git clone --no-hardlinks . /tmp/c; PYTHONPATH=/tmp/c/src pytest /tmp/c/tests/` | 4 failed, 786 passed, 6 skipped — the 4 are pre-existing packaging debt (`test_ci_sign_erratum`, `test_macro_f1_ci_withdrawal`; missing `scripts/gen-paper.mjs`), **zero** paired-audit |
 | D synthetic e2e | `pytest tests/test_paired_audit_runner.py` | full chain publish + transient round-trip + resume + result-audit tamper |
 | E adversarial path/race | checkpoint (`os.link` no-overwrite, symlinked-ancestor), publisher (`..`-after-normalize, symlink chain, guard-before-mkdir, root tamper) | covered by the fail-closed + security tests |
@@ -95,12 +95,28 @@ summary read):
   rejects a forged non-applied `reason`; the decorative unbindable `n_*` counts are dropped. The one
   remaining checkpoint-derived field (`evidence.*_digest`) is documented as an accepted, mitigated
   publish-boundary limitation (immutable checkpoints + summary self_hash; diagnostic, not verdict).
-- **Round F (this final commit)** — the fix-5 changes are re-reviewed at the exact final SHA; the
+- **Round F (convergence + broad sweep after fix 5)** — **both reviewers signed off** (no MEDIUM+
+  defect remains; the plane has converged). Both noted only residual LOW echo/label fields
+  (`holm.raw_p`, `run_id_source`, `result_audit.auditor`, no strict top-level shape) — all covered by
+  the summary `self_hash`, set by trusted in-process code on the honest path, and non-verdict-affecting.
+- **Fix (R2.10 fix 6)** — `verify_final_assembly` pins the exact top-level summary key set, requires
+  `run_id_source` == the canonical constant and `result_audit` == the fixed passing stamp; the auditor
+  recomputes and binds `holm.raw_p`. The ONLY remaining unbound published field is now the documented,
+  mitigated, checkpoint-derived `evidence.*_digest` (diagnostic-only, not verdict-affecting).
+- **Round G (this final commit)** — the fix-6 consolidation is confirmed at the exact final SHA; the
   reviewed SHA is the final SHA and no code change follows a positive sign-off.
 
-- Reviewed SHA: the final commit carrying this record (Round-F review target).
-- Verdict: sign-off for §11 **preparation** only — recorded when the Round-F review of this exact SHA
-  passes with no residual finding.
+## Sign-off
+
+Two independent reviewers signed off at **Round F** (both `SIGN-OFF: yes`, no MEDIUM+ defect); the
+Round-G confirmation re-review of the fix-6 consolidation (this exact final commit) is the reviewed SHA.
+
+- Reviewed SHA: the final commit carrying this record (Round-G confirmation target = final SHA).
+- Verdict: **sign-off for separately-authorized §11 real-corpus PREPARATION only.** Six review rounds
+  (A–F) each found a defect of monotonically decreasing severity, all closed as separate no-amend
+  commits; the sole residual is the documented, mitigated, non-verdict-affecting checkpoint-derived
+  evidence digest. The confirmatory **execution** and any headline decision remain behind a separate
+  execution authorization.
 
 ## Open items for the OWNER (do not block §11 preparation; close before the confirmatory EXECUTION)
 
