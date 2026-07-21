@@ -102,13 +102,16 @@ def assert_writable_audit_path(path: pathlib.Path | str, *, docs_root: pathlib.P
 
 def write_transient(run_id: str, relname: str, obj: Mapping, *,
                     docs_root: pathlib.Path | str) -> pathlib.Path:
-    """Atomically write a transient run artifact under the gitignored run namespace."""
+    """Atomically write a transient run artifact under the gitignored run namespace. The path is
+    guarded BEFORE any mkdir (so a symlinked run-namespace ancestor is caught before it can be created
+    through) and re-checked AFTER the mkdir."""
     if not _safe_name(relname):
         raise PublisherError(f"unsafe transient artifact name: {relname!r}")
     droot = _docs_root(docs_root)
     path = droot / RUNS_SUBPATH / run_id / relname
+    assert_writable_audit_path(path, docs_root=docs_root, run_id=run_id)   # guard BEFORE mkdir
     path.parent.mkdir(parents=True, exist_ok=True)
-    assert_writable_audit_path(path, docs_root=docs_root, run_id=run_id)
+    assert_writable_audit_path(path, docs_root=docs_root, run_id=run_id)   # re-check AFTER mkdir
     dump_strict(dict(obj), path, trailing_newline=True)
     return path
 

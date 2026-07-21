@@ -254,6 +254,30 @@ class TestArtifactCompleteness:
         assert rp.run_id(loaded["summary"]["run_plan"]) == loaded["summary"]["run_id"] == RUN_ID
 
 
+class TestPublicationSecurity:
+    def test_swapped_committed_root_summary_is_detected(self, tmp_path):
+        pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)     # confirmatory
+        root = tmp_path / pub.SUMMARY_NAME
+        body = load_strict(root)
+        body["claim_status"] = "swapped"                                 # swap the committed root file
+        dump_strict(body, root, trailing_newline=True)
+        with pytest.raises(pub.PublisherError):                          # root != version summary
+            pub.load_published_audit(tmp_path)
+
+    def test_write_transient_guards_symlinked_namespace_before_mkdir(self, tmp_path):
+        rid = "a" * 64
+        runs = tmp_path / "exploratory" / "work_balanced" / "audit" / "runs"
+        runs.mkdir(parents=True)
+        (tmp_path / "evil").mkdir()
+        (runs / rid).symlink_to(tmp_path / "evil")                       # symlinked run dir
+        with pytest.raises(pub.PublisherError):
+            pub.write_transient(rid, "x.json", {"k": 1}, docs_root=tmp_path)
+
+    def test_write_transient_writes_inside_the_run_namespace(self, tmp_path):
+        p = pub.write_transient("b" * 64, "note.json", {"k": 1}, docs_root=tmp_path)
+        assert p.exists() and "runs" in p.parts and p.name == "note.json"
+
+
 class TestPublishFailClosed:
     def test_tampered_per_work_file_rejected_on_load(self, tmp_path):
         published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
