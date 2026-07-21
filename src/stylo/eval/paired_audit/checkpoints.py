@@ -160,14 +160,16 @@ class CheckpointStore:
                              result, fold_local_evidence)
         self.verify_bindings(record)
         path = self.checkpoint_path(dataset, model, cell, fold_index, work_id)
-        # path/symlink guard BEFORE any filesystem mutation (mkdir), then again after
-        self._guard_chain(self.root)
+        # path/symlink guard BEFORE any filesystem mutation: _verify_real_dir_chain walks every
+        # EXISTING component of path.parent, so a symlinked intermediate (e.g. root/lobo) is caught
+        # before mkdir can create through it; re-checked after mkdir.
+        self._guard_chain(path.parent)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._guard_chain(path.parent)
-        # atomic create-WITHOUT-overwrite, safe under concurrent writers: write a fully-formed temp,
-        # then os.link it into place (atomic; fails if the target already exists).
+        # atomic create-WITHOUT-overwrite, safe under concurrent writers: write a per-writer-UNIQUE
+        # temp, then os.link it into place (atomic; fails if the target already exists).
         data = (dumps_strict(record, sort_keys=True) + "\n").encode("utf-8")
-        tag = hashlib.sha256(f"{os.getpid()}:{path.name}".encode("utf-8")).hexdigest()[:16]
+        tag = hashlib.sha256(f"{os.getpid()}:{path.name}:{os.urandom(8).hex()}".encode()).hexdigest()[:16]
         tmp = path.parent / f".ckpt_{tag}.tmp"
         with open(tmp, "wb") as fh:
             fh.write(data)

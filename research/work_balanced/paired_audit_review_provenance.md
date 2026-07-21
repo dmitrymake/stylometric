@@ -11,7 +11,7 @@ commit must **not** be amended.
 - Branch: `paired-audit-control-plane` (off `release` HEAD `2f6c3dc3`).
 - Reviewed commit SHA: _stamped by the review-record commit that follows the independent review of the
   exact final SHA._
-- Change inventory: 24 files, additions only (13 modules + 10 test files + this audit pair), no
+- Change inventory: 25 files, additions only (13 modules + 10 test files + this audit pair), no
   modified/deleted tracked file — verified with `git diff --name-status <base>..HEAD`.
 
 ## Mandatory checks (commands + results at implementation time)

@@ -28,6 +28,7 @@ from . import manifest as mf
 from . import publisher as pub
 from . import references as refmod
 from . import run_plan as rp
+from . import semantic_parity
 from .checkpoints import CheckpointStore, dataset_bindings
 from .work_subset import derive_work_subset
 
@@ -84,12 +85,18 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     if run_kind not in rp.REGISTERED_RUN_KINDS:
         raise RunnerError(f"unknown run_kind {run_kind!r}")
     confirmatory = run_kind == "confirmatory"
+    if confirmatory:
+        # a confirmatory run obtains git/source/env fingerprints from the real tree itself — a caller
+        # cannot substitute a fake clean state via repo_root/src_root.
+        repo_root = src_root = None
 
     # 1. pinned A0 references (SHA before parse; RuAA required only for a confirmatory run)
-    refmod.assert_a0_preflight(require_ruaa=confirmatory, **a0_references)
+    preflight = refmod.assert_a0_preflight(require_ruaa=confirmatory, **a0_references)
 
     # 2. immutable disk-verified audit dataset(s); A0..A4 all run on the WB-manifest dataset
     corpus_manifest = ac.verify_published_corpus(audit_root)
+    if confirmatory and corpus_manifest.get("legacy_anchor") != semantic_parity.LEGACY_ANCHOR:
+        raise RunnerError("audit corpus legacy_anchor != the frozen LEGACY_ANCHOR")
     lobo_ds = ac.load_audit_dataset(audit_root, cfg)
     ac.verify_audit_dataset(lobo_ds)
     ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
@@ -125,8 +132,10 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
                 for ds in _DATASETS for (m, c) in ap.registered_cells()}
     present = store.assert_run_complete(expected)
 
-    # 9-13. metrics, cluster p, Holm, headline; assemble the verified summary + per-work vectors
-    summary, per_work_vectors = _assemble(present, manifests, run_id, plan)
+    # 9-13. metrics, cluster p, Holm, headline; assemble the verified summary + per-work vectors.
+    # For a confirmatory run the LOBO A0 per-work pred/correct/rank must match the pinned 221/251 ref.
+    summary, per_work_vectors = _assemble(present, manifests, run_id, plan,
+                                          lobo_reference=preflight["lobo"] if confirmatory else None)
 
     # 14. validated publisher
     published = pub.publish_audit(summary, per_work_vectors, docs_root=docs_root)
@@ -136,9 +145,10 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
 
 def _build_run_plan(datasets, manifests, corpus_manifest, *, run_kind, a0_references, tolerances,
                     golden_fixture_inventory_sha, cfg, repo_root, src_root) -> dict:
-    a0_shas = refmod.verify_a0_references(**a0_references) if run_kind == "confirmatory" else \
-        {"lobo_books_txt": refmod.LOBO_BOOKS_SHA256,
-         "ruaa_reference_submission": refmod.RUAA_REFERENCE_SUBMISSION_SHA256}
+    # the A0 references were SHA-verified in the preflight; bind the pinned digests here (the two
+    # call sites of a0_references have incompatible signatures, so never re-call verify_a0_references).
+    a0_shas = {"lobo_books_txt": refmod.LOBO_BOOKS_SHA256,
+               "ruaa_reference_submission": refmod.RUAA_REFERENCE_SUBMISSION_SHA256}
     git = rp.git_commit_info(repo_root)
     per_ds = {}
     for ds in _DATASETS:
@@ -193,12 +203,33 @@ def _digest(res) -> str:
     return hashlib.sha256(dumps_strict(res, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def _assemble(present, manifests, run_id, plan) -> tuple[dict, dict]:
+def _assert_a0_matches_reference(a0, lobo_reference) -> None:
+    """§3.2: the stylo LOBO A0 per-work pred/correct/rank + the 221/251 count must match the pinned
+    reference (compared by book id; the reference author names are display strings)."""
+    ref_by_book = {r["book"]: r for r in lobo_reference["per_work"]}
+    if len(a0["works"]) != lobo_reference["n_total"]:
+        raise RunnerError(f"stylo LOBO A0 has {len(a0['works'])} works, reference {lobo_reference['n_total']}")
+    n_correct = 0
+    for w, cor, rk in zip(a0["works"], a0["correct"], a0["ranks"]):
+        book = str(w).split("/", 1)[1]
+        ref = ref_by_book.get(book)
+        if ref is None:
+            raise RunnerError(f"stylo LOBO A0 work {w} not in the pinned reference")
+        if bool(cor) != ref["correct"] or int(rk) != ref["rank"]:
+            raise RunnerError(f"stylo LOBO A0 correct/rank mismatch vs reference for {book}")
+        n_correct += 1 if cor else 0
+    if n_correct != lobo_reference["n_correct"]:
+        raise RunnerError(f"stylo LOBO A0 {n_correct}/{len(a0['works'])} != reference "
+                          f"{lobo_reference['n_correct']}/{lobo_reference['n_total']}")
+
+
+def _assemble(present, manifests, run_id, plan, *, lobo_reference=None) -> tuple[dict, dict]:
     """Assemble the verified summary + per-work vectors from the COMPLETE checkpoints."""
     cells_out = {ds: {} for ds in _DATASETS}
     holm_out = {ds: {} for ds in _DATASETS}
     per_work_vectors = {}
     headline_arms = {}
+    iters, seed = plan["stats"]["bootstrap_iters"], plan["stats"]["seed"]
 
     for ds in _DATASETS:
         m = manifests[ds]
@@ -218,27 +249,27 @@ def _assemble(present, manifests, run_id, plan) -> tuple[dict, dict]:
             trues = [prob_order.index(a) if a in prob_order else -1 for a in authors]
             cell_arrays[(model, cell)] = dict(correct=correct, ranks=ranks, authors=authors,
                                               works=works, probas=probas, preds=preds, trues=trues)
+        if ds == "lobo" and lobo_reference is not None:            # §3.2: A0 == the 221/251 reference
+            _assert_a0_matches_reference(cell_arrays[("stylo", "A0")], lobo_reference)
         # per-cell records + Holm + headline
+        B = plan["stats"]["bootstrap_B"]
         raw_ps = {}
         for (model, cell) in ap.registered_cells():
             a = cell_arrays[(model, cell)]
             point = _point_metrics(a, metric_idx)
-            abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"],
-                                                     iters=plan["stats"]["bootstrap_iters"],
-                                                     seed=plan["stats"]["seed"])
-            rec = {"status": "applied", "requested_axes": ap.cell_status(model, cell)["requested_axes"],
-                   "effective_axes": ap.cell_status(model, cell)["effective_axes"],
+            reg = ap.cell_status(model, cell)
+            abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=iters, seed=seed)
+            rec = {"status": "applied", "requested_axes": reg["requested_axes"],
+                   "effective_axes": reg["effective_axes"],
                    "point": point, "per_work": _per_work(a),
                    "abs_accuracy_authorclustered_ci": [abs_ci["lo"], abs_ci["hi"]],
-                   "evidence": {"proba_digest": _digest(a["probas"])},
+                   "evidence": _evidence_for(reg["effective_axes"], a),
                    "claim_status": "exploratory_internal"}
             if cell != "A0":
                 base = cell_arrays[(model, "A0")]
                 dacc_ci = hl.paired_accuracy_diff_ci(a["correct"], base["correct"], a["authors"],
-                                                     iters=plan["stats"]["bootstrap_iters"],
-                                                     seed=plan["stats"]["seed"])
-                cp = inf.paired_cluster_pvalue(a["correct"], base["correct"], a["authors"],
-                                               B=plan["stats"]["bootstrap_B"], seed=plan["stats"]["seed"])
+                                                     iters=iters, seed=seed)
+                cp = inf.paired_cluster_pvalue(a["correct"], base["correct"], a["authors"], B=B, seed=seed)
                 mc = inf.mcnemar_diagnostic(a["correct"], base["correct"])
                 rec["vs_A0"] = {"dacc": point["accuracy"] - _point_metrics(base, metric_idx)["accuracy"],
                                 "dacc_authorclustered_ci": [dacc_ci["lo"], dacc_ci["hi"]],
@@ -265,10 +296,10 @@ def _assemble(present, manifests, run_id, plan) -> tuple[dict, dict]:
             vs["holm_p"], vs["significant"] = hp["holm_p"], hp["significant"]
         headline_arms[ds] = cell_arrays
 
-    # headline: stylo LOBO A4 - A0 only
+    # headline: stylo LOBO A4 - A0 only (bound to the RunPlan stats)
     la = headline_arms["lobo"]
     head = hl.evaluate_headline(la[("stylo", "A4")]["correct"], la[("stylo", "A0")]["correct"],
-                                la[("stylo", "A4")]["authors"])
+                                la[("stylo", "A4")]["authors"], iters=iters, seed=seed)
     summary = {"run_id": run_id, "claim_status": "exploratory_internal", "cells": cells_out,
                "holm": holm_out, "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
                                               "diff_ci": head["diff_ci"], "margin": head["margin"]},
@@ -294,3 +325,17 @@ def _point_metrics(a, metric_idx) -> dict:
 def _per_work(a) -> list:
     return [{"work_id": w, "pred_label": p, "rank": r, "proba": pr}
             for w, p, r, pr in zip(a["works"], a["preds"], a["ranks"], a["probas"])]
+
+
+def _evidence_for(effective_axes, a) -> dict:
+    """Fold-local evidence keyed by the cell's effective axes (§2.6/§4.1): an applied axis must carry
+    its proving digest. (Synthetic digests here; the real injected estimator supplies real ones.)"""
+    ev = {"proba_digest": _digest(a["probas"])}
+    if effective_axes["W"] == "applied":
+        ev["ordered_weight_digest"] = _digest(["W", a["correct"], a["works"]])
+    if effective_axes["F"] == "applied":
+        ev["vocab_digest"] = _digest(["vocab", a["works"]])
+        ev["idf_digest"] = _digest(["idf", a["works"]])
+    if effective_axes["R"] == "applied":
+        ev["r_denominator_trace_digest"] = _digest(["R", a["probas"]])
+    return ev

@@ -45,10 +45,11 @@ def derive_work_subset(parent_wb, work_ids: Iterable[str], *,
     provenance carries the three-digest binding of §1.5.
 
     The in-memory mutation guard below recomputes the parent's loader-bound digest, so a byte-mutated
-    or relabeled parent is rejected here. Disk-anchored forgery resistance (a self-consistent but
-    off-disk forged parent) is provided by :func:`stylo.eval.provenance.verify_dataset_against_disk`,
-    which chains the child's ``parent_rows_digest`` to the on-disk parent; the confirmatory runner
-    verifies the published parent against disk before subsetting.
+    or relabeled parent is rejected here. The runner never subsets a caller-supplied parent: it builds
+    the parent from the byte-verified immutable audit root (``verify_published_corpus`` +
+    ``load_audit_dataset``), so an off-disk forged in-memory parent cannot reach this function.
+    (:func:`stylo.eval.provenance.verify_dataset_against_disk`'s subset branch remains available to
+    re-anchor a child to disk if a future caller needs it.)
     """
     import numpy as np
 

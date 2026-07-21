@@ -13,6 +13,18 @@ from stylo.eval.paired_audit.headline import HEADLINE_ENDPOINT
 RUN_ID = "a" * 64
 
 
+def _evidence(m, c):
+    eff = ap.cell_status(m, c)["effective_axes"]
+    ev = {"proba_digest": "e" * 64}
+    if eff["W"] == "applied":
+        ev["ordered_weight_digest"] = "1" * 64
+    if eff["F"] == "applied":
+        ev["vocab_digest"], ev["idf_digest"] = "2" * 64, "3" * 64
+    if eff["R"] == "applied":
+        ev["r_denominator_trace_digest"] = "4" * 64
+    return ev
+
+
 def _cell_record(m, c):
     reg = ap.cell_status(m, c)
     if reg["status"] == "applied":
@@ -21,7 +33,7 @@ def _cell_record(m, c):
              "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
              "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
              "abs_accuracy_authorclustered_ci": [0.8, 0.95],
-             "evidence": {"proba_digest": "e" * 64}, "claim_status": "exploratory_internal"}
+             "evidence": _evidence(m, c), "claim_status": "exploratory_internal"}
         if c != "A0":
             r["vs_A0"] = {"dacc": 0.02, "dacc_authorclustered_ci": [-0.01, 0.05], "cluster_p": 0.01,
                           "holm_p": 0.05, "mcnemar_p_diagnostic": 0.2, "significant": False}

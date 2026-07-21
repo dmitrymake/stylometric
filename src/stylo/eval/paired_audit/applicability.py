@@ -286,6 +286,18 @@ def _validate_applied_record(model, cell, record, probability_class_order, work_
     for k, v in evidence.items():
         if k.endswith("_digest") and not (isinstance(v, str) and _HEX64_RE.match(v)):
             raise ApplicabilityError(f"applied cell ({model},{cell}) evidence.{k} must be a sha256 hex digest")
+    # §2.6/§4.1: an applied axis must carry its proving digest (not merely proba_digest)
+    eff = cell_status(model, cell)["effective_axes"]
+    required = ["proba_digest"]
+    if eff["W"] == "applied":
+        required.append("ordered_weight_digest")
+    if eff["F"] == "applied":
+        required += ["vocab_digest", "idf_digest"]
+    if eff["R"] == "applied":
+        required.append("r_denominator_trace_digest")
+    missing = [k for k in required if k not in evidence]
+    if missing:
+        raise ApplicabilityError(f"applied cell ({model},{cell}) evidence missing required digests {missing}")
 
     if cell != "A0":
         vs = record.get("vs_A0")

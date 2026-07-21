@@ -48,7 +48,7 @@ os.link / guards / registry / run-COMPLETE; #9 RunPlan structural runtime allowl
 
 ## Verification results
 
-- Diff vs `release` HEAD `2f6c3dc3`: 24 files, additions only; no modified/deleted tracked file — the
+- Diff vs `release` HEAD `2f6c3dc3`: 25 files, additions only; no modified/deleted tracked file — the
   control plane depends only on committed HEAD APIs and does not import the uncommitted working-tree
   rework.
 - Clean committed-snapshot replay via `git archive` (mandatory check C): self-contained; the runner

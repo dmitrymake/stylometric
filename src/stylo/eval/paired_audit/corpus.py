@@ -46,10 +46,10 @@ def verify_audit_dataset(dataset) -> str:
     work-balanced-manifest dataset (``dataset_contract=work_balanced_manifest``), independent of
     which estimator cell (A0..A4) runs on it. Asserts the declared contract axis and recomputes the
     loader-bound provenance digest over the CURRENT arrays, so a mutated/relabeled Dataset cannot
-    pose as the audit dataset. Disk-anchored forgery resistance (a self-consistent but off-disk
-    forged Dataset) is provided separately by
-    :func:`stylo.eval.provenance.verify_dataset_against_disk` in the confirmatory runner. Returns
-    the loader-agnostic semantic digest for downstream binding.
+    pose as the audit dataset. Disk anchoring is provided by :func:`verify_published_corpus`, which
+    byte-verifies the whole immutable root (its content digest) before :func:`load_audit_dataset`
+    builds the Dataset from that verified root — so the runner never trusts a caller-supplied Dataset.
+    Returns the loader-agnostic semantic digest for downstream binding.
     """
     from ..provenance import DatasetProvenance, canonical_digest
 
@@ -324,11 +324,9 @@ def build_audit_corpus(
             shutil.rmtree(published_root, ignore_errors=True)
         raise
 
-    # only now flip the pointer atomically
-    tmp_ptr = pathlib.Path(tempfile.mktemp(dir=audit_parent, prefix=".current_"))
+    # only now flip the pointer atomically (dump_strict does a secure mkstemp + os.replace)
     dump_strict({"schema": _CORPUS_DIGEST_VERSION, "version": published_root.name},
-                tmp_ptr, trailing_newline=True)
-    os.replace(tmp_ptr, audit_parent / CURRENT_NAME)
+                audit_parent / CURRENT_NAME, trailing_newline=True)
     return published_root
 
 

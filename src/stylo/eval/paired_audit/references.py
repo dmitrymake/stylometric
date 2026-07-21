@@ -142,7 +142,8 @@ def verify_ruaa_inventory(ruaa_sha256sums: pathlib.Path | str, ruaa_root: pathli
             continue
         digest, _, name = raw.partition("  ")
         digest, name = digest.strip(), name.strip()
-        if not (_HEX64_RE.match(digest) and name and ".." not in pathlib.PurePosixPath(name).parts):
+        rel = pathlib.PurePosixPath(name)
+        if not (_HEX64_RE.match(digest) and name and ".." not in rel.parts and not rel.is_absolute()):
             raise ReferenceError(f"malformed/unsafe SHA256SUMS entry: {raw[:48]!r}")
         if _sha256(root / name) != digest:                     # _sha256 fails closed on missing/symlink
             raise ReferenceError(f"RuAA inventory digest mismatch for {name}")

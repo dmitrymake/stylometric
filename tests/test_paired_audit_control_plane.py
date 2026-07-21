@@ -16,6 +16,18 @@ from stylo.eval.paired_audit import run_plan as rp
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
+def _evidence(model, cell):
+    eff = ap.cell_status(model, cell)["effective_axes"]
+    ev = {"proba_digest": "e" * 64}
+    if eff["W"] == "applied":
+        ev["ordered_weight_digest"] = "1" * 64
+    if eff["F"] == "applied":
+        ev["vocab_digest"], ev["idf_digest"] = "2" * 64, "3" * 64
+    if eff["R"] == "applied":
+        ev["r_denominator_trace_digest"] = "4" * 64
+    return ev
+
+
 def _applied_record(model="stylo", cell="A4", with_vs_a0=True):
     reg = ap.cell_status(model, cell)
     r = {"status": "applied",
@@ -23,7 +35,7 @@ def _applied_record(model="stylo", cell="A4", with_vs_a0=True):
          "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
          "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
          "abs_accuracy_authorclustered_ci": [0.8, 0.95],
-         "evidence": {"proba_digest": "e" * 64},
+         "evidence": _evidence(model, cell),
          "claim_status": "exploratory_internal"}
     if with_vs_a0:
         r["vs_A0"] = {"dacc": 0.02, "cluster_p": 0.01, "holm_p": 0.05, "significant": False,
@@ -121,6 +133,11 @@ class TestApplicability:
         bad_digest["evidence"]["proba_digest"] = "nothex"
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("stylo", "A4", bad_digest)
+        # an applied axis must carry its proving digest (stylo A4 has W applied -> ordered_weight_digest)
+        missing_wd = _applied_record("stylo", "A4")
+        del missing_wd["evidence"]["ordered_weight_digest"]
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo", "A4", missing_wd)
 
     def test_cell_record_whitelist_rejects_any_metric_key(self):
         na = _nonapplied_record("bow_lr", "A3")

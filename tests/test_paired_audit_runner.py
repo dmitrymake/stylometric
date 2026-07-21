@@ -70,6 +70,19 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
             "probabilities": proba}
 
 
+def test_a0_reference_mismatch_is_fatal():
+    # §3.2: the stylo LOBO A0 per-work correct/rank + count must match the pinned reference
+    ref = {"n_total": 2, "n_correct": 1,
+           "per_work": [{"book": "b1", "correct": True, "rank": 1},
+                        {"book": "b2", "correct": False, "rank": 5}]}
+    ok = {"works": ["x/b1", "x/b2"], "correct": [1, 0], "ranks": [1, 5]}
+    rn._assert_a0_matches_reference(ok, ref)                       # matches -> ok
+    with pytest.raises(rn.RunnerError):                            # b2 rank forged to 1
+        rn._assert_a0_matches_reference({"works": ["x/b1", "x/b2"], "correct": [1, 1], "ranks": [1, 1]}, ref)
+    with pytest.raises(rn.RunnerError):                            # wrong work count
+        rn._assert_a0_matches_reference({"works": ["x/b1"], "correct": [1], "ranks": [1]}, ref)
+
+
 @_needs_git
 def test_synthetic_end_to_end_runner(tmp_path):
     frags, ic = _make_corpus(tmp_path)
