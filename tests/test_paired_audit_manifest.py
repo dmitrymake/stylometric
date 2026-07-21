@@ -23,7 +23,7 @@ def _groups(author_workcounts, prefix, chunks=2):
 def _lobo_groups(multi_counts, n_singletons):
     g = _groups(multi_counts, "m")
     for s in range(n_singletons):
-        g += [f"s{s:02d}/only"] * 2
+        g += [f"{mf.LOBO_SINGLETON_AUTHORS[s]}/only"] * 2   # the registered singleton authors
     return g
 
 
@@ -76,12 +76,14 @@ class TestRuaaSelectionBinding:
 
 class TestVerify:
     def test_rebuild_equality_and_tamper(self):
-        ds = _toy_lobo()
+        # verify_manifest_matches_rebuilt now also runs the frozen-universe validator, so use a real
+        # 47/255 LOBO universe (with the registered singletons)
+        ds = _DS(_lobo_groups([5] * 42 + [41], 4))
         a = mf.build_fold_manifest("lobo", ds, parent_dataset_digest="p" * 64,
                                    algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
         b = mf.build_fold_manifest("lobo", ds, parent_dataset_digest="p" * 64,
                                    algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
-        mf.verify_manifest_matches_rebuilt(a, b)                 # identical -> ok
+        mf.verify_manifest_matches_rebuilt(a, b)                 # identical + valid universe -> ok
         b2 = dict(b)
         b2["seed"] = 7
         b2["self_hash"] = mf.fold_manifest_self_hash(b2)
@@ -128,6 +130,17 @@ class TestFrozenUniverse:
         ds = _DS(_groups([6] * 21 + [10], "r"))                  # 136 works
         m = mf.build_fold_manifest("ruaa", ds, parent_dataset_digest="p" * 64, algorithm="whole_work",
                                    seed=42, config_hash="c" * 64, selection_digest="s" * 64)
+        with pytest.raises(mf.FoldManifestError):
+            mf.assert_ruaa_universe(m)
+
+    def test_recompute_rejects_lying_n_works(self):
+        # the core blocker regression: a manifest with 22 work rows but n_works=137 must fail
+        ds = _DS(_groups([2] * 11, "r"))                         # 11 authors, 22 works
+        m = mf.build_fold_manifest("ruaa", ds, parent_dataset_digest="p" * 64, algorithm="whole_work",
+                                   seed=42, config_hash="c" * 64, selection_digest="s" * 64)
+        assert m["n_train_works"] == 22
+        m["n_train_works"] = 137                                 # lie about the count
+        m["self_hash"] = mf.fold_manifest_self_hash(m)           # re-sign the forgery
         with pytest.raises(mf.FoldManifestError):
             mf.assert_ruaa_universe(m)
 

@@ -26,6 +26,8 @@ _KIND_SCHEMA = {"lobo": LOBO_SCHEMA, "ruaa": RUAA_SCHEMA}
 LOBO_UNIVERSE = {"n_train_authors": 47, "n_train_works": 255, "n_tested_authors": 43,
                  "n_tested_works": 251, "n_singleton_train_only": 4}
 RUAA_UNIVERSE = {"n_authors": 22, "n_works": 137}
+# the four single-work authors kept train-only in the frozen LOBO universe (§1.1)
+LOBO_SINGLETON_AUTHORS = ("goncharov", "grigorovich", "reshetnikov", "voloshin")
 
 
 class FoldManifestError(ValueError):
@@ -104,69 +106,87 @@ def verify_manifest_self_hash(manifest) -> None:
 
 def verify_manifest_matches_rebuilt(committed, rebuilt) -> None:
     """The runner requires the committed manifest to EXACTLY equal a manifest freshly rebuilt from
-    disk (it never self-signs the committed one). Both self-hashes are checked, then exact equality."""
+    disk (it never self-signs the committed one), then runs the frozen-universe validator for its
+    schema. Both self-hashes are checked before the equality compare."""
     verify_manifest_self_hash(committed)
     verify_manifest_self_hash(rebuilt)
     if committed != rebuilt:
         raise FoldManifestError("committed fold manifest does not match the disk-rebuilt manifest")
+    schema = committed.get("schema")
+    if schema == LOBO_SCHEMA:
+        assert_lobo_universe(committed)
+    elif schema == RUAA_SCHEMA:
+        assert_ruaa_universe(committed)
+    else:
+        raise FoldManifestError(f"unknown manifest schema {schema!r}")
 
 
-def _common_checks(manifest, schema) -> None:
-    if not isinstance(manifest, dict) or not isinstance(manifest.get("works"), list):
-        raise FoldManifestError("manifest must be a dict with a works list")
+def _recompute(manifest, schema) -> dict:
+    """Recompute EVERY count from ``works`` (never trust the declared ``n_*``) after strict per-work
+    type and consistency checks; require the declared fields to equal the recomputed values."""
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("works"), list) or not manifest["works"]:
+        raise FoldManifestError("manifest must be a dict with a non-empty works list")
     if manifest.get("schema") != schema:
         raise FoldManifestError(f"expected schema {schema!r}, got {manifest.get('schema')!r}")
     verify_manifest_self_hash(manifest)
-    # 'fold_index iff tested' BEFORE any sort, so a tested row with fold_index=None fails typed
-    if any((w.get("fold_index") is not None) != bool(w.get("tested")) for w in manifest["works"]):
-        raise FoldManifestError("fold_index must be set iff the work is tested")
-    tested = [w for w in manifest["works"] if w["tested"]]
-    if sorted(w["fold_index"] for w in tested) != list(range(len(tested))):
-        raise FoldManifestError("tested fold indices must be contiguous 0..n-1")
-    # class orders must equal the actual author sets (not just the right length)
+    for w in manifest["works"]:
+        if not isinstance(w, dict):
+            raise FoldManifestError("each work row must be a dict")
+        if type(w.get("work_id")) is not str or type(w.get("author_id")) is not str:
+            raise FoldManifestError("work_id/author_id must be str")
+        if type(w.get("tested")) is not bool:
+            raise FoldManifestError("tested must be a bool")
+        fi = w.get("fold_index")
+        if not (fi is None or (type(fi) is int and fi >= 0)):
+            raise FoldManifestError("fold_index must be a non-negative int or null")
+        if (fi is not None) != w["tested"]:
+            raise FoldManifestError("fold_index must be set iff the work is tested")
+        if w["author_id"] != w["work_id"].split("/", 1)[0]:
+            raise FoldManifestError("author_id must equal the work_id prefix")
+    work_ids = [w["work_id"] for w in manifest["works"]]
+    if len(set(work_ids)) != len(work_ids):
+        raise FoldManifestError("duplicate work_id in manifest")
     authors = sorted({w["author_id"] for w in manifest["works"]})
     tested_authors = sorted({w["author_id"] for w in manifest["works"] if w["tested"]})
+    rc = {"n_train_works": len(manifest["works"]), "n_train_authors": len(authors),
+          "n_tested_works": sum(1 for w in manifest["works"] if w["tested"]),
+          "n_tested_authors": len(tested_authors), "authors": authors, "tested_authors": tested_authors}
+    for k in ("n_train_works", "n_train_authors", "n_tested_works", "n_tested_authors"):
+        if manifest.get(k) != rc[k]:
+            raise FoldManifestError(f"{k}={manifest.get(k)} != {rc[k]} recomputed from works")
+    folds = sorted(w["fold_index"] for w in manifest["works"] if w["tested"])
+    if folds != list(range(len(folds))):
+        raise FoldManifestError("tested fold indices must be contiguous 0..n-1")
     if manifest.get("probability_class_order") != authors:
         raise FoldManifestError("probability_class_order must equal the sorted train authors")
     if manifest.get("metric_label_order") != tested_authors:
         raise FoldManifestError("metric_label_order must equal the sorted tested authors")
+    return rc
 
 
 def assert_lobo_universe(manifest) -> None:
-    """Fail-closed unless the LOBO manifest matches the frozen 47/255/43/251 universe with exactly
-    four single-work train-only authors."""
-    _common_checks(manifest, LOBO_SCHEMA)
-    for key, want in LOBO_UNIVERSE.items():
-        if key == "n_singleton_train_only":
-            continue
-        if manifest.get(key) != want:
-            raise FoldManifestError(f"LOBO {key}={manifest.get(key)} != {want}")
-    if len(manifest["probability_class_order"]) != 47:
-        raise FoldManifestError("LOBO probability_class_order must be 47-wide")
-    if len(manifest["metric_label_order"]) != 43:
-        raise FoldManifestError("LOBO metric_label_order must be 43-wide")
-    train_only = [w for w in manifest["works"] if not w["tested"]]
-    train_only_authors = {w["author_id"] for w in train_only}
-    if len(train_only) != 4 or len(train_only_authors) != 4:
-        raise FoldManifestError("LOBO must have exactly four single-work train-only authors")
+    """Fail-closed unless the LOBO manifest matches the frozen 47/255/43/251 universe with exactly the
+    four registered single-work train-only authors — every count recomputed from ``works``."""
+    rc = _recompute(manifest, LOBO_SCHEMA)
+    if (rc["n_train_authors"], rc["n_train_works"]) != (47, 255):
+        raise FoldManifestError(f"LOBO train universe {rc['n_train_authors']}/{rc['n_train_works']} != 47/255")
+    if (rc["n_tested_authors"], rc["n_tested_works"]) != (43, 251):
+        raise FoldManifestError(f"LOBO tested universe {rc['n_tested_authors']}/{rc['n_tested_works']} != 43/251")
+    train_only_authors = sorted(set(rc["authors"]) - set(rc["tested_authors"]))
+    if train_only_authors != sorted(LOBO_SINGLETON_AUTHORS):
+        raise FoldManifestError(f"LOBO train-only authors {train_only_authors} != the 4 registered singletons")
     awc = Counter(w["author_id"] for w in manifest["works"])
     if any(awc[a] != 1 for a in train_only_authors):
-        raise FoldManifestError("each train-only author must own exactly one work")
+        raise FoldManifestError("each train-only singleton author must own exactly one work")
 
 
 def assert_ruaa_universe(manifest) -> None:
-    """Fail-closed unless the RuAA manifest is exactly 137 whole works / 22 authors, both orders 22,
-    with a bound selection digest and every work tested."""
-    _common_checks(manifest, RUAA_SCHEMA)
-    if manifest.get("n_train_works") != RUAA_UNIVERSE["n_works"]:
-        raise FoldManifestError(f"RuAA must hold exactly {RUAA_UNIVERSE['n_works']} works")
-    if manifest.get("n_train_authors") != RUAA_UNIVERSE["n_authors"]:
-        raise FoldManifestError(f"RuAA must hold exactly {RUAA_UNIVERSE['n_authors']} authors")
-    if len(manifest["probability_class_order"]) != 22 or len(manifest["metric_label_order"]) != 22:
-        raise FoldManifestError("RuAA probability and metric orders must both be 22-wide")
-    if manifest.get("n_tested_works") != RUAA_UNIVERSE["n_works"]:
+    """Fail-closed unless the RuAA manifest is exactly 137 whole works / 22 authors (recomputed from
+    ``works``), both orders 22, every work tested, with a bound selection digest."""
+    rc = _recompute(manifest, RUAA_SCHEMA)
+    if rc["n_train_works"] != RUAA_UNIVERSE["n_works"] or rc["n_train_authors"] != RUAA_UNIVERSE["n_authors"]:
+        raise FoldManifestError(f"RuAA universe {rc['n_train_authors']}/{rc['n_train_works']} != 22/137")
+    if rc["n_tested_works"] != RUAA_UNIVERSE["n_works"]:
         raise FoldManifestError("RuAA is a whole-work panel: every work must be tested")
     if not manifest.get("selection_digest"):
         raise FoldManifestError("RuAA manifest must bind a selection_digest")
-    if not all(w["tested"] for w in manifest["works"]):
-        raise FoldManifestError("RuAA whole-work panel: every work must be tested")
