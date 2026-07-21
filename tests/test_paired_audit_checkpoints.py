@@ -13,9 +13,11 @@ RUN_ID = "a" * 64          # a sha256-shaped run_id (hex)
 
 def _bindings():
     return {
-        "lobo": {"dataset_digest": "a" * 64, "fold_manifest_digest": "b" * 64,
+        "lobo": {"dataset_digest": "a" * 64, "parent_dataset_digest": "a" * 64,
+                 "fold_manifest_digest": "b" * 64,
                  "probability_class_order_digest": "c" * 64, "metric_label_order_digest": "d" * 64},
-        "ruaa": {"dataset_digest": "1" * 64, "fold_manifest_digest": "2" * 64,
+        "ruaa": {"dataset_digest": "1" * 64, "parent_dataset_digest": "a" * 64,
+                 "fold_manifest_digest": "2" * 64,
                  "probability_class_order_digest": "3" * 64, "metric_label_order_digest": "4" * 64},
     }
 
@@ -40,10 +42,11 @@ def _save(store, fold_index=0, work_id="stylo_book", model="stylo", cell="A0", d
 def test_dataset_bindings_derive_class_order_digests(tmp_path):
     from stylo.eval.paired_audit.checkpoints import dataset_bindings
     from stylo.eval.paired_audit.run_plan import class_order_digest
-    b = dataset_bindings("a" * 64, "b" * 64, ["p", "q"], ["p"])
+    b = dataset_bindings("a" * 64, "p" * 64, "b" * 64, ["p", "q"], ["p"])
     assert b["probability_class_order_digest"] == class_order_digest(["p", "q"])
     assert b["metric_label_order_digest"] == class_order_digest(["p"])
-    store = CheckpointStore(tmp_path / "ck", RUN_ID, {"lobo": b, "ruaa": b})   # valid 4-key bindings
+    assert b["parent_dataset_digest"] == "p" * 64
+    store = CheckpointStore(tmp_path / "ck", RUN_ID, {"lobo": b, "ruaa": b})   # valid 5-key bindings
     assert store.dataset_bindings["lobo"]["probability_class_order_digest"]
 
 

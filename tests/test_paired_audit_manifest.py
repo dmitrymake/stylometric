@@ -1,15 +1,20 @@
 """Synthetic tests for the LOBO/RuAA fold-manifest builder, verifier, and frozen universes (§1.6/§12)."""
 from __future__ import annotations
 
+import types
+
 import pytest
 
 from stylo.eval.paired_audit import manifest as mf
 
 
 class _DS:
-    """Minimal dataset stub — the builder derives works/authors/folds from .groups only."""
-    def __init__(self, groups):
+    """Minimal dataset stub — the builder derives works/authors/folds from .groups; provenance carries
+    the child rows_digest (and, for a subset, its selection digest)."""
+    def __init__(self, groups, rows_digest="d" * 64, selection_manifest_digest=None):
         self.groups = groups
+        self.provenance = types.SimpleNamespace(rows_digest=rows_digest,
+                                                selection_manifest_digest=selection_manifest_digest)
 
 
 def _groups(author_workcounts, prefix, chunks=2):
@@ -61,7 +66,45 @@ class TestBuild:
 class _DSProv(_DS):
     def __init__(self, groups, sel):
         super().__init__(groups)
-        self.provenance = type("P", (), {"selection_manifest_digest": sel})()
+        self.provenance = type("P", (), {"selection_manifest_digest": sel, "rows_digest": "d" * 64})()
+
+
+class _LabeledDS(_DS):
+    """Dataset stub carrying real labels (y/authors) for the manifest<->dataset consistency check."""
+    def __init__(self, groups, y, authors):
+        super().__init__(groups)
+        self.y = y
+        self.authors = authors
+
+
+class TestManifestDatasetConsistency:
+    def _ds(self):
+        groups = ["aa/w1", "aa/w1", "bb/w1", "bb/w1"]
+        return _LabeledDS(groups, [0, 0, 1, 1], ["aa", "bb"])
+
+    def _manifest(self, ds):
+        return mf.build_fold_manifest("ruaa", ds, parent_dataset_digest="p" * 64,
+                                      algorithm="whole_work", seed=42, config_hash="c" * 64,
+                                      selection_digest="s" * 64)
+
+    def test_consistent_manifest_passes(self):
+        ds = self._ds()
+        mf.assert_manifest_consistent_with_dataset(self._manifest(ds), ds)
+
+    def test_tampered_manifest_author_label_rejected(self):
+        ds = self._ds()
+        m = self._manifest(ds)
+        bad = {**m, "works": [dict(w) for w in m["works"]]}
+        bad["works"][0] = {**bad["works"][0], "author_id": "bb"}    # work_id is aa/w1 -> inconsistent
+        with pytest.raises(mf.FoldManifestError):
+            mf.assert_manifest_consistent_with_dataset(bad, ds)
+
+    def test_dataset_labels_disagreeing_with_manifest_rejected(self):
+        ds = self._ds()
+        m = self._manifest(ds)
+        ds_bad = _LabeledDS(ds.groups, [1, 1, 1, 1], ["aa", "bb"])  # dataset now labels every row bb
+        with pytest.raises(mf.FoldManifestError):
+            mf.assert_manifest_consistent_with_dataset(m, ds_bad)
 
 
 class TestRuaaSelectionBinding:

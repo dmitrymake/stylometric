@@ -61,19 +61,28 @@ def _expected_folds(manifest) -> list[tuple[int, str]]:
 
 
 def _bindings_for(manifest) -> dict:
-    return dataset_bindings(manifest["parent_dataset_digest"], manifest["self_hash"],
-                            manifest["probability_class_order"], manifest["metric_label_order"])
+    return dataset_bindings(manifest["dataset_digest"], manifest["parent_dataset_digest"],
+                            manifest["self_hash"], manifest["probability_class_order"],
+                            manifest["metric_label_order"])
 
 
-def _rebuild_manifest(dataset_kind: str, dataset, committed: Mapping):
-    """Rebuild the expected manifest from the on-disk dataset using the committed build parameters
-    (the runner never self-signs the committed manifest)."""
+def _rebuild_manifest(dataset_kind: str, dataset, parent_digest: str, cfg, committed: Mapping, *,
+                      confirmatory: bool):
+    """Rebuild the expected manifest from the on-disk dataset, sourcing the algorithm/seed from the
+    REGISTERED constants and the parent/child/selection digests from the ACTUAL datasets — never from
+    the committed manifest, so verifying those fields is non-tautological. A confirmatory run
+    additionally pins ``config_hash`` to the independently computed config id (a smoke/dry run keeps the
+    committed value so synthetic fixtures round-trip)."""
+    config_hash = rp.config_id(cfg) if confirmatory else committed["config_hash"]
+    selection_digest = None
+    if dataset_kind == "ruaa":
+        selection_digest = getattr(getattr(dataset, "provenance", None),
+                                   "selection_manifest_digest", None)
     return mf.build_fold_manifest(
         dataset_kind, dataset,
-        parent_dataset_digest=committed["parent_dataset_digest"],
-        algorithm=committed["algorithm"], seed=committed["seed"],
-        config_hash=committed["config_hash"],
-        selection_digest=committed.get("selection_digest"))
+        parent_dataset_digest=parent_digest,
+        algorithm=mf.REGISTERED_ALGORITHM[dataset_kind], seed=mf.REGISTERED_SEED,
+        config_hash=config_hash, selection_digest=selection_digest)
 
 
 # ── the chain ────────────────────────────────────────────────────────────────
@@ -105,11 +114,17 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
     datasets = {"lobo": lobo_ds, "ruaa": ruaa_ds}
 
-    # 3. rebuilt-vs-committed manifests + universe checks
+    # 3. rebuilt-vs-committed manifests + universe checks. The rebuild sources algorithm/seed from the
+    # REGISTERED constants and the parent/child/selection digests from the ACTUAL on-disk datasets, and
+    # the committed manifest is additionally checked against the actual dataset labels — so verifying
+    # those fields is non-tautological (a forged manifest cannot self-certify).
+    parent_digest = lobo_ds.provenance.rows_digest
     committed = {"lobo": committed_lobo_manifest, "ruaa": committed_ruaa_manifest}
     manifests = {}
     for ds in _DATASETS:
-        rebuilt = _rebuild_manifest(ds, datasets[ds], committed[ds])
+        rebuilt = _rebuild_manifest(ds, datasets[ds], parent_digest, cfg, committed[ds],
+                                    confirmatory=confirmatory)
+        mf.assert_manifest_consistent_with_dataset(committed[ds], datasets[ds])
         mf.verify_manifest_matches_rebuilt(committed[ds], rebuilt, universe=confirmatory)
         manifests[ds] = committed[ds]
 

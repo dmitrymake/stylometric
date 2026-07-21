@@ -178,6 +178,23 @@ def test_reattest_detects_disk_mutation(tmp_path):
         rn._reattest(ctx, full=False)
 
 
+def test_forged_manifest_caught_by_nontautological_rebuild(tmp_path):
+    # §5: the rebuild sources algorithm/seed/parent from REGISTERED constants + the actual dataset, so
+    # a committed manifest that lies about them (and re-self-hashes) still fails the equality check
+    audit_root, lobo_ds, _ruaa_ids, _lm, _rm = _built_corpus(tmp_path)
+    real_parent = lobo_ds.provenance.rows_digest
+    forged_algo = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest=real_parent,
+                                         algorithm="whole_work", seed=42, config_hash="c" * 64)
+    rebuilt = rn._rebuild_manifest("lobo", lobo_ds, real_parent, CFG, forged_algo, confirmatory=False)
+    with pytest.raises(mf.FoldManifestError):
+        mf.verify_manifest_matches_rebuilt(forged_algo, rebuilt, universe=False)
+    forged_parent = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest="0" * 64,
+                                           algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
+    rebuilt2 = rn._rebuild_manifest("lobo", lobo_ds, real_parent, CFG, forged_parent, confirmatory=False)
+    with pytest.raises(mf.FoldManifestError):
+        mf.verify_manifest_matches_rebuilt(forged_parent, rebuilt2, universe=False)
+
+
 @_needs_git
 def test_synthetic_end_to_end_runner(tmp_path):
     frags, ic = _make_corpus(tmp_path)

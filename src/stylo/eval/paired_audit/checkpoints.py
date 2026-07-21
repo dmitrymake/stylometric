@@ -27,7 +27,7 @@ from ...pipeline.bundle import (BundleError, _real_within, _safe_name,
 
 _CHECKPOINT_SCHEMA = "paired_audit.checkpoint.v1"
 _DATASETS = ("lobo", "ruaa")
-_REQUIRED_BINDING_KEYS = ("dataset_digest", "fold_manifest_digest",
+_REQUIRED_BINDING_KEYS = ("dataset_digest", "parent_dataset_digest", "fold_manifest_digest",
                           "probability_class_order_digest", "metric_label_order_digest")
 _IDENTITY_KEYS = ("run_id", "dataset", "model", "cell", "fold_index", "work_id")
 _RESULT_KEYS = ("pred_label", "correct", "rank", "probabilities")
@@ -59,14 +59,19 @@ def _self_hash(record: Mapping) -> str:
     return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def dataset_bindings(dataset_digest: str, fold_manifest_digest: str,
+def dataset_bindings(dataset_digest: str, parent_dataset_digest: str, fold_manifest_digest: str,
                      probability_class_order, metric_label_order) -> dict:
     """Derive the per-dataset checkpoint bindings from the RunPlan/manifest class-order LISTS via the
     single shared ``class_order_digest`` producer — so the checkpoint's class-order digests provably
-    equal the run-id-bound / fold-manifest class orders (no invented scheme, no silent divergence)."""
+    equal the run-id-bound / fold-manifest class orders (no invented scheme, no silent divergence).
+
+    Binds the manifest's OWN (child) ``dataset_digest`` AND its ``parent_dataset_digest`` — so a RuAA
+    checkpoint is bound to the actual child-subset digest (matching the RunPlan) as well as the parent,
+    not to the parent alone."""
     from .run_plan import class_order_digest
     return {
         "dataset_digest": dataset_digest,
+        "parent_dataset_digest": parent_dataset_digest,
         "fold_manifest_digest": fold_manifest_digest,
         "probability_class_order_digest": class_order_digest(probability_class_order),
         "metric_label_order_digest": class_order_digest(metric_label_order),

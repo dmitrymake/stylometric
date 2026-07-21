@@ -22,6 +22,11 @@ LOBO_SCHEMA = "lobo_fold_manifest_v1"
 RUAA_SCHEMA = "ruaa_fold_manifest_v1"
 _KIND_SCHEMA = {"lobo": LOBO_SCHEMA, "ruaa": RUAA_SCHEMA}
 
+# the REGISTERED fold algorithm/seed per dataset kind — the runner sources these (and the actual disk
+# dataset digests) independently of the committed manifest, so verifying them is non-tautological.
+REGISTERED_ALGORITHM = {"lobo": "leave_one_work_out", "ruaa": "whole_work"}
+REGISTERED_SEED = 42
+
 # frozen expected universe counts (§1.1/§1.5)
 LOBO_UNIVERSE = {"n_train_authors": 47, "n_train_works": 255, "n_tested_authors": 43,
                  "n_tested_works": 251, "n_singleton_train_only": 4}
@@ -55,6 +60,9 @@ def build_fold_manifest(dataset_kind: str, dataset, *, parent_dataset_digest: st
         raise FoldManifestError(f"unknown dataset_kind {dataset_kind!r}")
     if not parent_dataset_digest:
         raise FoldManifestError("parent_dataset_digest is required")
+    dataset_digest = getattr(getattr(dataset, "provenance", None), "rows_digest", None)
+    if not dataset_digest:
+        raise FoldManifestError("dataset carries no provenance rows_digest")
     if dataset_kind == "ruaa" and not selection_digest:
         raise FoldManifestError("RuAA manifest requires a selection_digest (three-digest binding)")
     if dataset_kind == "ruaa":
@@ -86,6 +94,7 @@ def build_fold_manifest(dataset_kind: str, dataset, *, parent_dataset_digest: st
         "probability_class_order": authors,
         "metric_label_order": tested_authors,
         "works": work_rows,
+        "dataset_digest": dataset_digest,                    # the manifest's OWN (child) dataset digest
         "parent_dataset_digest": parent_dataset_digest,
         "algorithm": algorithm,
         "seed": int(seed),
@@ -164,6 +173,35 @@ def _recompute(manifest, schema) -> dict:
     if manifest.get("metric_label_order") != tested_authors:
         raise FoldManifestError("metric_label_order must equal the sorted tested authors")
     return rc
+
+
+def assert_manifest_consistent_with_dataset(manifest, dataset) -> None:
+    """Fail-closed unless the manifest's works/authors agree with the ACTUAL dataset labels
+    (``dataset.groups``/``dataset.y``/``dataset.authors``), not merely with themselves. Catches a
+    manifest whose author labels were tampered while the work_id prefixes were left intact."""
+    groups = [str(g) for g in dataset.groups]
+    y = [int(v) for v in dataset.y]
+    authors = list(dataset.authors)
+    if len(groups) != len(y):
+        raise FoldManifestError("dataset groups/y length mismatch")
+    work_author: dict[str, str] = {}
+    for g, yi in zip(groups, y):
+        if not (0 <= yi < len(authors)):
+            raise FoldManifestError(f"dataset y index {yi} out of range for {g!r}")
+        a = authors[yi]
+        if work_author.setdefault(g, a) != a:
+            raise FoldManifestError(f"dataset assigns multiple authors to work {g!r}")
+    man = {w["work_id"]: w["author_id"] for w in manifest["works"]}
+    if set(man) != set(work_author):
+        raise FoldManifestError("manifest work set != dataset work set")
+    for w, a in man.items():
+        if a != work_author[w]:
+            raise FoldManifestError(f"manifest author {a!r} for {w!r} != dataset label {work_author[w]!r}")
+        if a != w.split("/", 1)[0]:
+            raise FoldManifestError(f"manifest author {a!r} != work_id prefix for {w!r}")
+    present = sorted(set(work_author.values()))
+    if manifest.get("probability_class_order") != present:
+        raise FoldManifestError("probability_class_order != the dataset's present authors")
 
 
 def assert_lobo_universe(manifest) -> None:
