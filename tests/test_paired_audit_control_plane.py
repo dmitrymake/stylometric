@@ -122,7 +122,7 @@ def _bindings(**over):
         git_commit="a" * 40, git_dirty=False,
         execution_source_sha256="1" * 64, env_lock_sha256="2" * 64, config_id="3" * 64,
         runtime_fingerprint={"python": "3.11.0", "libc": "glibc/2.39", "numpy": "2.0",
-                             "scipy": "1.13", "sklearn": "1.5"},
+                             "scipy": "1.13", "sklearn": "1.5", "spacy": "3.8"},
         blas_thread_fingerprint={"threadpools": [], "thread_env": {}},
         applicability_matrix_digest=ap.applicability_matrix_digest(),
         a0_reference_shas={"lobo_books_txt": "4" * 64, "ruaa_reference_submission": "5" * 64},
@@ -234,24 +234,24 @@ class TestRunPlan:
         assert a == rp.class_order_digest(["x", "y", "z"]) and _HEX64.match(a)
         assert a != rp.class_order_digest(["y", "x", "z"])
 
-    def test_kernel_string_injection_rejected(self):
-        # run_kind='smoke' so the confirmatory tolerances validation does not pre-empt the kernel walk
-        release = platform.release()
-        if not release:
-            pytest.skip("no kernel release string on this platform")
+    def test_runtime_fingerprint_allowlist_rejects_unknown_field(self):
+        # structural allowlist: a kernel/OS field is not even representable (no denylist scan)
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(run_kind="smoke", tolerances={"proba": {"dtype": release}}))
+            rp.build_run_plan(**_bindings(runtime_fingerprint={
+                "python": "3.11", "libc": "glibc/2.39", "numpy": "2.0", "scipy": "1", "sklearn": "1",
+                "spacy": "3.8", "kernel_release": "7.1.3-arch"}))
 
-    def test_machine_string_injection_rejected(self):
-        machine = platform.machine()
-        if not machine:
-            pytest.skip("no machine string on this platform")
-        with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(run_kind="smoke", tolerances={"proba": {"dtype": machine}}))
+    def test_confirmatory_requires_spacy_and_valid_run_kind(self):
+        with pytest.raises(rp.RunPlanError):                        # confirmatory without spaCy
+            rp.build_run_plan(**_bindings(runtime_fingerprint={
+                "python": "3.11", "libc": "glibc/2.39", "numpy": "2.0", "scipy": "1", "sklearn": "1"}))
+        with pytest.raises(rp.RunPlanError):                        # unknown run_kind
+            rp.build_run_plan(**_bindings(run_kind="whatever"))
 
-    def test_bare_os_name_not_falsely_rejected(self):
-        system = platform.system()
-        if not system or system == platform.machine():
-            pytest.skip("no distinct OS-name string")
-        plan = rp.build_run_plan(**_bindings(run_kind="smoke", tolerances={"proba": {"dtype": system}}))
-        assert rp.run_id(plan)
+    def test_nonfinite_or_bad_dtype_tolerances_rejected(self):
+        for bad in ({"proba": {"atol": float("nan"), "rtol": 0, "dtype": "float64"}},
+                    {"proba": {"atol": float("inf"), "rtol": 0, "dtype": "float64"}},
+                    {"proba": {"atol": -1e-9, "rtol": 0, "dtype": "float64"}},
+                    {"proba": {"atol": 1e-9, "rtol": 0, "dtype": "float16"}}):   # unregistered dtype
+            with pytest.raises(rp.RunPlanError):
+                rp.build_run_plan(**_bindings(tolerances=bad))

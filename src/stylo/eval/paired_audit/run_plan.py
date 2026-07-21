@@ -14,6 +14,7 @@ libc and the numerical stack (Python / NumPy / SciPy / scikit-learn / spaCy / BL
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import pathlib
 import platform
@@ -24,6 +25,16 @@ from typing import Optional
 from ...jsonio import dumps_strict
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+# the runtime identity is a STRUCTURAL allowlist of numerical-stack fields — the kernel/OS is never
+# collected and never scanned for (kernel strings do not participate in the scientific identity, not
+# even as an anti-field fingerprint).
+RUNTIME_ALLOWED_FIELDS = frozenset({"python", "python_implementation", "libc", "numpy", "scipy",
+                                    "sklearn", "spacy", "joblib", "threadpoolctl"})
+_BLAS_POOL_ALLOWED = frozenset({"internal_api", "version", "num_threads", "threading_layer",
+                                "architecture"})
+REGISTERED_RUN_KINDS = frozenset({"confirmatory", "smoke", "dry_preflight"})
+REGISTERED_DTYPES = frozenset({"float64", "float32", "int64", "int32"})
 
 
 def class_order_digest(order) -> str:
@@ -186,17 +197,41 @@ def config_id(cfg) -> str:
 # ── the canonical RunPlan ────────────────────────────────────────────────────
 _REQUIRED_DATASET_KEYS = ("dataset_digest", "fold_manifest_digest",
                           "probability_class_order", "metric_label_order", "run_contract_digest")
-# kernel/OS/hardware identity strings that must NEVER appear anywhere in the RunPlan. platform.system()
-# (the bare OS name "Linux"/"Darwin") is deliberately excluded — it is a short, collision-prone token
-# that would false-abort a legitimate field, and release/version/platform already prevent kernel drift.
-_FORBIDDEN_IDENTITY = {platform.release(), platform.version(), platform.platform(),
-                       platform.machine(), platform.node(), platform.processor()}
 
 
 def _require(mapping: dict, keys, where: str) -> None:
     missing = [k for k in keys if k not in mapping or mapping[k] in (None, "")]
     if missing:
         raise RunPlanError(f"{where} missing required keys: {missing}")
+
+
+def _validate_tolerance(quantity: str, tol) -> None:
+    if not isinstance(tol, dict):
+        raise RunPlanError(f"tolerances[{quantity!r}] must be a dict")
+    for k in ("atol", "rtol"):
+        v = tol.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
+            raise RunPlanError(f"tolerances[{quantity!r}].{k} must be a finite, non-negative number")
+    if tol.get("dtype") not in REGISTERED_DTYPES:
+        raise RunPlanError(f"tolerances[{quantity!r}].dtype must be one of {sorted(REGISTERED_DTYPES)}")
+
+
+def _validate_runtime_fields(runtime_fingerprint, blas_thread_fingerprint, *, confirmatory: bool) -> None:
+    """Structural allowlist for the runtime + BLAS fingerprints — the kernel/OS is never present."""
+    if not isinstance(runtime_fingerprint, dict) or set(runtime_fingerprint) - RUNTIME_ALLOWED_FIELDS:
+        raise RunPlanError(f"runtime_fingerprint may only carry {sorted(RUNTIME_ALLOWED_FIELDS)}")
+    if any(not runtime_fingerprint.get(k) for k in ("python", "libc", "numpy", "scipy", "sklearn")):
+        raise RunPlanError("runtime_fingerprint must bind python/libc/numpy/scipy/sklearn")
+    if confirmatory and not runtime_fingerprint.get("spacy"):
+        raise RunPlanError("a confirmatory runtime fingerprint must include spaCy (§4.2)")
+    if not (isinstance(blas_thread_fingerprint, dict)
+            and set(blas_thread_fingerprint) == {"threadpools", "thread_env"}):
+        raise RunPlanError("blas_thread_fingerprint must carry exactly threadpools/thread_env")
+    if not isinstance(blas_thread_fingerprint["threadpools"], list):
+        raise RunPlanError("blas threadpools must be a list")
+    for pool in blas_thread_fingerprint["threadpools"]:
+        if not isinstance(pool, dict) or set(pool) - _BLAS_POOL_ALLOWED:
+            raise RunPlanError(f"a blas threadpool may only carry {sorted(_BLAS_POOL_ALLOWED)}")
 
 
 def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
@@ -208,22 +243,25 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
                    audit_version: str = AUDIT_VERSION) -> dict:
     """Assemble the canonical RunPlan binding every §4.2 identity input. Missing bindings fail
     closed; OS/kernel strings are rejected. The plan is strict-JSON canonical (sort_keys)."""
+    if run_kind not in REGISTERED_RUN_KINDS:
+        raise RunPlanError(f"unknown run_kind {run_kind!r}; allowed {sorted(REGISTERED_RUN_KINDS)}")
+    confirmatory = run_kind == "confirmatory"
     stats = dict(FROZEN_STATS) if stats is None else dict(stats)
     if set(stats) != set(FROZEN_STATS):
         raise RunPlanError("stats must carry exactly the frozen stat keys (§3.3/§3.5)")
-    if run_kind == "confirmatory" and stats != FROZEN_STATS:
+    if confirmatory and stats != FROZEN_STATS:
         raise RunPlanError("a confirmatory run requires the frozen stat values (seed/B/δ/α/quantiles)")
-    if run_kind == "confirmatory" and git_dirty:
+    if confirmatory and git_dirty:
         raise RunPlanError("a confirmatory run requires a clean tree (git_dirty must be False)")
-    if run_kind == "confirmatory":
-        if not isinstance(tolerances, dict) or not tolerances:
-            raise RunPlanError("a confirmatory run requires non-empty continuous_tolerances")
-        for quantity, tol in tolerances.items():
-            if not (isinstance(tol, dict) and isinstance(tol.get("atol"), (int, float))
-                    and not isinstance(tol.get("atol"), bool)
-                    and isinstance(tol.get("rtol"), (int, float)) and not isinstance(tol.get("rtol"), bool)
-                    and isinstance(tol.get("dtype"), str) and tol["dtype"]):
-                raise RunPlanError(f"tolerances[{quantity!r}] must carry numeric atol/rtol and a dtype string")
+    # tolerances: reject NaN/Inf/negative and unregistered dtype for ANY run_kind (a NaN would
+    # serialize identically and collide run_ids); require non-empty for a confirmatory run.
+    if not isinstance(tolerances, dict):
+        raise RunPlanError("tolerances must be a dict")
+    for quantity, tol in tolerances.items():
+        _validate_tolerance(quantity, tol)
+    if confirmatory and not tolerances:
+        raise RunPlanError("a confirmatory run requires non-empty continuous_tolerances")
+    _validate_runtime_fields(runtime_fingerprint, blas_thread_fingerprint, confirmatory=confirmatory)
 
     # top-level §4.2 scalar identity inputs must be present and non-empty (fail-closed)
     _require({"run_kind": run_kind, "audit_version": audit_version, "git_commit": git_commit,
@@ -238,12 +276,6 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
                  ("golden_fixture_inventory_sha", golden_fixture_inventory_sha)):
         if not (isinstance(v, str) and _HEX64.match(v)):
             raise RunPlanError(f"{k} must be a sha256 hex digest")
-    if not (isinstance(runtime_fingerprint, dict)
-            and all(runtime_fingerprint.get(k) for k in ("python", "libc", "numpy", "scipy", "sklearn"))):
-        raise RunPlanError("runtime_fingerprint must bind python/libc/numpy/scipy/sklearn")
-    if not (isinstance(blas_thread_fingerprint, dict)
-            and {"threadpools", "thread_env"} <= set(blas_thread_fingerprint)):
-        raise RunPlanError("blas_thread_fingerprint must carry threadpools/thread_env")
 
     _require(lobo, _REQUIRED_DATASET_KEYS, "lobo")
     _require(ruaa, _REQUIRED_DATASET_KEYS + ("selection_digest",), "ruaa")
@@ -272,29 +304,7 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
         "lobo": lobo,
         "ruaa": ruaa,
     }
-    assert_run_plan_omits_kernel_strings(plan)
     return plan
-
-
-def _iter_strings(obj):
-    if isinstance(obj, str):
-        yield obj
-    elif isinstance(obj, dict):
-        for k, v in obj.items():
-            yield from _iter_strings(k)
-            yield from _iter_strings(v)
-    elif isinstance(obj, (list, tuple)):
-        for v in obj:
-            yield from _iter_strings(v)
-
-
-def assert_run_plan_omits_kernel_strings(plan: dict) -> None:
-    """Fail-closed if any OS/kernel/platform identity string leaked into the RunPlan (the scientific
-    identity must not depend on the kernel release)."""
-    forbidden = {s for s in _FORBIDDEN_IDENTITY if s}
-    for s in _iter_strings(plan):
-        if s in forbidden:
-            raise RunPlanError(f"RunPlan must not bind an OS/kernel/platform string: {s!r}")
 
 
 def run_id(run_plan: dict) -> str:
