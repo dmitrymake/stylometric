@@ -26,6 +26,11 @@ from stylo.eval.paired_audit.work_subset import derive_work_subset
 CFG = load_config()
 _CHASH = chunker_config_hash(CFG)
 
+# the runner obtains the git commit LIVE (blocker #9: a caller cannot spoof a clean state), so the
+# end-to-end test needs a real git repo; a bare `git archive` snapshot has no .git and skips.
+_HAS_GIT = rn.rp.git_commit_info().get("git_commit") is not None
+_needs_git = pytest.mark.skipif(not _HAS_GIT, reason="runner e2e needs a git repo for the live commit binding")
+
 
 def _make_corpus(tmp: pathlib.Path):
     frags, ic = tmp / "frags", tmp / "clean"
@@ -65,6 +70,7 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
             "probabilities": proba}
 
 
+@_needs_git
 def test_synthetic_end_to_end_runner(tmp_path):
     frags, ic = _make_corpus(tmp_path)
     anchor = load_dataset(frags).provenance.rows_digest
@@ -102,6 +108,7 @@ def test_synthetic_end_to_end_runner(tmp_path):
     assert len(loaded["summary"]["holm"]["ruaa"]) == 15
 
 
+@_needs_git
 def test_runner_resumes_from_checkpoints(tmp_path):
     # a second run over the same checkpoint root reuses every fold (idempotent resume) and republishes
     frags, ic = _make_corpus(tmp_path)
