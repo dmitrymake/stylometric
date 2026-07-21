@@ -104,21 +104,23 @@ def verify_manifest_self_hash(manifest) -> None:
         raise FoldManifestError("fold manifest self-hash mismatch (tampered)")
 
 
-def verify_manifest_matches_rebuilt(committed, rebuilt) -> None:
+def verify_manifest_matches_rebuilt(committed, rebuilt, *, universe: bool = True) -> None:
     """The runner requires the committed manifest to EXACTLY equal a manifest freshly rebuilt from
-    disk (it never self-signs the committed one), then runs the frozen-universe validator for its
-    schema. Both self-hashes are checked before the equality compare."""
+    disk (it never self-signs the committed one). Both self-hashes are checked before the equality
+    compare, then the structural checks (counts recomputed from ``works``). ``universe=True`` (the
+    confirmatory run) additionally enforces the frozen 47/255 / 137/22 universe; ``universe=False``
+    (a synthetic/dry-preflight run) does the structural checks only."""
     verify_manifest_self_hash(committed)
     verify_manifest_self_hash(rebuilt)
     if committed != rebuilt:
         raise FoldManifestError("committed fold manifest does not match the disk-rebuilt manifest")
     schema = committed.get("schema")
-    if schema == LOBO_SCHEMA:
-        assert_lobo_universe(committed)
-    elif schema == RUAA_SCHEMA:
-        assert_ruaa_universe(committed)
-    else:
+    if schema not in (LOBO_SCHEMA, RUAA_SCHEMA):
         raise FoldManifestError(f"unknown manifest schema {schema!r}")
+    if universe:
+        (assert_lobo_universe if schema == LOBO_SCHEMA else assert_ruaa_universe)(committed)
+    else:
+        _recompute(committed, schema)                # structural checks only (counts from works)
 
 
 def _recompute(manifest, schema) -> dict:
