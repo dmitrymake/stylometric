@@ -17,6 +17,7 @@ from stylo.config import load_config
 from stylo.corpus import load_dataset
 from stylo.jsonio import dump_strict
 from stylo.workdoc import chunker_config_hash, load_work_balanced_dataset
+from stylo.eval.paired_audit import applicability as ap
 from stylo.eval.paired_audit import corpus as ac
 from stylo.eval.paired_audit import manifest as mf
 from stylo.eval.paired_audit import publisher as pub
@@ -66,8 +67,11 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
     pred_label = true_label if correct else (true_label + 1) % width
     proba = [0.05] * width
     proba[pred_label] = 1.0 - 0.05 * (width - 1)
+    # supply the REAL fold-local evidence this applied cell requires (the runner never synthesizes it)
+    evidence = {key: hashlib.sha256(f"{key}:{model}:{cell}:{work_id}".encode()).hexdigest()
+                for key in ap.required_evidence_digests(model, cell)}
     return {"pred_label": pred_label, "correct": correct, "rank": 1 if correct else 2,
-            "probabilities": proba}
+            "probabilities": proba, "evidence": evidence}
 
 
 def test_a0_index_resolves_pred_and_rejects_out_of_range():
@@ -94,6 +98,40 @@ def test_a0_reference_mismatch_is_fatal():
     short = {"works": ["aa/b1"], "correct": [1], "ranks": [1], "preds": [0]}
     with pytest.raises(rn.RunnerError):                            # missing reference work
         rn._assert_a0_matches_reference("lobo", short, prob_order, ref_index)
+
+
+def test_fold_evidence_required_and_hex():
+    # stylo A1 exercises W -> requires proba_digest + ordered_weight_digest, each sha256-hex
+    ok = {"proba_digest": "1" * 64, "ordered_weight_digest": "2" * 64}
+    rn._assert_fold_evidence("stylo", "A1", ok)
+    with pytest.raises(rn.RunnerError):                            # missing ordered_weight_digest
+        rn._assert_fold_evidence("stylo", "A1", {"proba_digest": "1" * 64})
+    with pytest.raises(rn.RunnerError):                            # non-hex digest
+        rn._assert_fold_evidence("stylo", "A1", {"proba_digest": "nope", "ordered_weight_digest": "2" * 64})
+    # stylo_stack A4 additionally requires the stack calibration passport
+    with pytest.raises(rn.RunnerError):
+        rn._assert_fold_evidence("stylo_stack", "A4",
+                                 {"proba_digest": "1" * 64, "ordered_weight_digest": "2" * 64,
+                                  "vocab_digest": "3" * 64, "idf_digest": "4" * 64,
+                                  "r_denominator_trace_digest": "5" * 64})   # no stack_calibration_digest
+
+
+def test_evidence_aggregates_real_fold_digests_not_synthetic():
+    recs = {0: {"work_id": "aa/w1", "fold_local_evidence": {"proba_digest": "1" * 64,
+                                                            "ordered_weight_digest": "2" * 64}},
+            1: {"work_id": "bb/w1", "fold_local_evidence": {"proba_digest": "3" * 64,
+                                                            "ordered_weight_digest": "4" * 64}}}
+    ev1 = rn._aggregate_evidence("stylo", "A1", recs)
+    assert set(ev1) == {"proba_digest", "ordered_weight_digest"}
+    # changing a fold's REAL weight digest changes the aggregate (byte/digest propagation)
+    recs[0]["fold_local_evidence"]["ordered_weight_digest"] = "9" * 64
+    ev2 = rn._aggregate_evidence("stylo", "A1", recs)
+    assert ev2["ordered_weight_digest"] != ev1["ordered_weight_digest"]
+    assert ev2["proba_digest"] == ev1["proba_digest"]             # untouched digest is stable
+    # a missing required fold digest is fatal (no synthesis)
+    del recs[1]["fold_local_evidence"]["proba_digest"]
+    with pytest.raises(rn.RunnerError):
+        rn._aggregate_evidence("stylo", "A1", recs)
 
 
 @_needs_git
@@ -132,6 +170,15 @@ def test_synthetic_end_to_end_runner(tmp_path):
     assert set(loaded["summary"]["cells"]) == {"lobo", "ruaa"}
     assert len(loaded["summary"]["cells"]["lobo"]) == 30
     assert len(loaded["summary"]["holm"]["ruaa"]) == 15
+    # byte/digest propagation evaluator -> checkpoint -> artifact: the published cell evidence is
+    # EXACTLY the aggregate of the real per-fold evidence stored in the checkpoints (not synthesized)
+    from stylo.eval.paired_audit.checkpoints import CheckpointStore
+    store = CheckpointStore(tmp_path / "ck", out["run_id"],
+                            {"lobo": rn._bindings_for(lobo_m), "ruaa": rn._bindings_for(ruaa_m)})
+    recs = store.scan_cell("lobo", "stylo", "A1")
+    art_ev = loaded["summary"]["cells"]["lobo"]["stylo/A1"]["evidence"]
+    assert art_ev == rn._aggregate_evidence("stylo", "A1", recs)
+    assert set(art_ev) == {"proba_digest", "ordered_weight_digest"} and all(len(v) == 64 for v in art_ev.values())
 
 
 @_needs_git

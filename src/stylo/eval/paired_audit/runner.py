@@ -14,6 +14,7 @@ estimator (make_factory_for_ablation), the synthetic tests inject a deterministi
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Callable, Mapping
 
 from ...jsonio import dumps_strict
@@ -35,6 +36,7 @@ from .work_subset import derive_work_subset
 _DATASETS = ("lobo", "ruaa")
 _CELL_ABLATION = {"A0": LEGACY_ABLATION, "A1": WEIGHTS_ONLY_ABLATION, "A2": FEATURE_STATE_ONLY_ABLATION,
                   "A3": RELATIVE_FW_ONLY_ABLATION, "A4": FULL_WB_ABLATION}
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class RunnerError(RuntimeError):
@@ -208,11 +210,16 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator) -> No
             state = store.resume_cell(ds, model, cell, expected)
             for fold_index, work_id in state["pending"]:
                 res = evaluator(ds, datasets[ds], model, cell, fold_index, work_id, ablation)
+                evidence = res.get("evidence")
+                if not isinstance(evidence, Mapping):
+                    raise RunnerError(f"{ds}/{model}/{cell} fold {work_id}: estimator supplied no "
+                                      f"fold-local evidence (synthesis is forbidden)")
+                _assert_fold_evidence(model, cell, evidence)       # real axis/state digests, no fallback
                 store.save(ds, model, cell, fold_index, work_id,
                            result={"pred_label": int(res["pred_label"]),
                                    "correct": bool(res["correct"]), "rank": int(res["rank"]),
                                    "probabilities": [float(p) for p in res["probabilities"]]},
-                           fold_local_evidence=dict(res.get("evidence", {}) or {"proba_digest": _digest(res)}))
+                           fold_local_evidence=dict(evidence))
             _reverify_bindings(store, ds, manifest)                # after the cell
 
 
@@ -223,6 +230,36 @@ def _reverify_bindings(store: CheckpointStore, dataset: str, manifest) -> None:
 
 def _digest(res) -> str:
     return hashlib.sha256(dumps_strict(res, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _assert_fold_evidence(model: str, cell: str, evidence: Mapping) -> None:
+    """The estimator MUST supply the real fold-local evidence digests this applied cell requires
+    (§2.6); the runner never synthesizes them. Each required digest must be a sha256 hex string."""
+    for key in ap.required_evidence_digests(model, cell):
+        v = evidence.get(key)
+        if not (isinstance(v, str) and _HEX64_RE.match(v)):
+            raise RunnerError(f"{model}/{cell} fold-local evidence.{key} must be a sha256 hex digest "
+                              f"(got {v!r})")
+
+
+def _aggregate_evidence(model: str, cell: str, recs: Mapping) -> dict:
+    """Aggregate the REAL per-fold evidence stored in the checkpoints into the cell-level evidence.
+
+    Each required digest becomes a sha256 over the sorted ``(work_id, fold_digest)`` pairs, so the
+    published cell evidence is a pure function of the estimator's stored fold digests — a changed fold
+    digest provably changes the artifact. Nothing is re-synthesized from works/correct/probas.
+    """
+    out = {}
+    for key in ap.required_evidence_digests(model, cell):
+        parts = []
+        for f in sorted(recs):
+            v = recs[f]["fold_local_evidence"].get(key)
+            if not (isinstance(v, str) and _HEX64_RE.match(v)):
+                raise RunnerError(f"{model}/{cell} checkpoint {recs[f]['work_id']} missing/invalid "
+                                  f"evidence.{key}")
+            parts.append([recs[f]["work_id"], v])
+        out[key] = _digest(["evidence", key, sorted(parts)])
+    return out
 
 
 def _a0_index(dataset_kind: str, a: dict, prob_order) -> dict:
@@ -284,7 +321,8 @@ def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dic
             preds = [recs[f]["result"]["pred_label"] for f in folds]
             trues = [prob_order.index(a) if a in prob_order else -1 for a in authors]
             cell_arrays[(model, cell)] = dict(correct=correct, ranks=ranks, authors=authors,
-                                              works=works, probas=probas, preds=preds, trues=trues)
+                                              works=works, probas=probas, preds=preds, trues=trues,
+                                              evidence=_aggregate_evidence(model, cell, recs))
         if a0_confirm is not None and a0_confirm.get(ds) is not None:   # §3.2: exact A0 vs pinned reference
             _assert_a0_matches_reference(ds, cell_arrays[("stylo", "A0")], prob_order, a0_confirm[ds])
         # per-cell records + Holm + headline
@@ -300,7 +338,7 @@ def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dic
                    "effective_axes": reg["effective_axes"],
                    "point": point, "per_work": _per_work(a),
                    "abs_accuracy_authorclustered_ci": [abs_ci["lo"], abs_ci["hi"]],
-                   "evidence": _evidence_for(reg["effective_axes"], a),
+                   "evidence": a["evidence"],                       # aggregated from real checkpoints
                    "claim_status": "exploratory_internal"}
             if cell != "A0":
                 base = cell_arrays[(model, "A0")]
@@ -363,17 +401,3 @@ def _point_metrics(a, metric_idx) -> dict:
 def _per_work(a) -> list:
     return [{"work_id": w, "pred_label": p, "rank": r, "proba": pr}
             for w, p, r, pr in zip(a["works"], a["preds"], a["ranks"], a["probas"])]
-
-
-def _evidence_for(effective_axes, a) -> dict:
-    """Fold-local evidence keyed by the cell's effective axes (§2.6/§4.1): an applied axis must carry
-    its proving digest. (Synthetic digests here; the real injected estimator supplies real ones.)"""
-    ev = {"proba_digest": _digest(a["probas"])}
-    if effective_axes["W"] == "applied":
-        ev["ordered_weight_digest"] = _digest(["W", a["correct"], a["works"]])
-    if effective_axes["F"] == "applied":
-        ev["vocab_digest"] = _digest(["vocab", a["works"]])
-        ev["idf_digest"] = _digest(["idf", a["works"]])
-    if effective_axes["R"] == "applied":
-        ev["r_denominator_trace_digest"] = _digest(["R", a["probas"]])
-    return ev

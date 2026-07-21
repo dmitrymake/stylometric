@@ -95,6 +95,12 @@ _STATUS: dict[str, dict[str, tuple]] = {
     },
 }
 
+# model-specific fold-local state passports (§2.6): Delta carries an equal-work centroid/scaling state,
+# the stacked classifier carries a calibration passport. These are real estimator artifacts the runner
+# NEVER synthesizes — the injected estimator must supply them per fold.
+_MODEL_EVIDENCE = {"stylo_stack": ("stack_calibration_digest",),
+                   "delta_cos:500": ("delta_state_digest",)}
+
 # a non-applied produced record may carry ONLY these keys (whitelist) — anything else (accuracy,
 # cluster_p, proba, significant, ...) is a forbidden silent metric copy (§4.1)
 _NONAPPLIED_ALLOWED_KEYS = frozenset({
@@ -123,6 +129,32 @@ _EXPECTED_HOLM = (
 
 class ApplicabilityError(ValueError):
     """Fail-closed: the applicability matrix, a produced cell record, or the Holm family is invalid."""
+
+
+def required_evidence_digests(model: str, cell: str) -> tuple:
+    """The fold-local evidence digests an APPLIED cell must carry (§2.6/§4.1), used identically at
+    checkpoint-ingress and at cell-record validation so the two contracts cannot diverge:
+
+    - ``proba_digest`` always (the fold's real probability vector);
+    - the per-applied-axis proving digest (W → ordered_weight_digest, F → vocab_digest + idf_digest,
+      R → r_denominator_trace_digest);
+    - the model state passport (Delta state / stack calibration).
+
+    A non-applied cell requires none. The runner never synthesizes these — the estimator supplies them.
+    """
+    reg = cell_status(model, cell)
+    if reg["status"] != "applied":
+        return ()
+    eff = reg["effective_axes"]
+    req = ["proba_digest"]
+    if eff["W"] == "applied":
+        req.append("ordered_weight_digest")
+    if eff["F"] == "applied":
+        req += ["vocab_digest", "idf_digest"]
+    if eff["R"] == "applied":
+        req.append("r_denominator_trace_digest")
+    req += list(_MODEL_EVIDENCE.get(model, ()))
+    return tuple(req)
 
 
 def cell_status(model: str, cell: str) -> dict:
@@ -286,16 +318,9 @@ def _validate_applied_record(model, cell, record, probability_class_order, work_
     for k, v in evidence.items():
         if k.endswith("_digest") and not (isinstance(v, str) and _HEX64_RE.match(v)):
             raise ApplicabilityError(f"applied cell ({model},{cell}) evidence.{k} must be a sha256 hex digest")
-    # §2.6/§4.1: an applied axis must carry its proving digest (not merely proba_digest)
-    eff = cell_status(model, cell)["effective_axes"]
-    required = ["proba_digest"]
-    if eff["W"] == "applied":
-        required.append("ordered_weight_digest")
-    if eff["F"] == "applied":
-        required += ["vocab_digest", "idf_digest"]
-    if eff["R"] == "applied":
-        required.append("r_denominator_trace_digest")
-    missing = [k for k in required if k not in evidence]
+    # §2.6/§4.1: an applied axis (and the model state passport) must carry its proving digest — the
+    # SAME contract the runner enforces at checkpoint-ingress (single source of truth)
+    missing = [k for k in required_evidence_digests(model, cell) if k not in evidence]
     if missing:
         raise ApplicabilityError(f"applied cell ({model},{cell}) evidence missing required digests {missing}")
 

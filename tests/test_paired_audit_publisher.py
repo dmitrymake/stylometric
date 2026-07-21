@@ -14,15 +14,8 @@ RUN_ID = "a" * 64
 
 
 def _evidence(m, c):
-    eff = ap.cell_status(m, c)["effective_axes"]
-    ev = {"proba_digest": "e" * 64}
-    if eff["W"] == "applied":
-        ev["ordered_weight_digest"] = "1" * 64
-    if eff["F"] == "applied":
-        ev["vocab_digest"], ev["idf_digest"] = "2" * 64, "3" * 64
-    if eff["R"] == "applied":
-        ev["r_denominator_trace_digest"] = "4" * 64
-    return ev
+    # exactly the digests the single-source contract requires for this applied cell (axes + passports)
+    return {key: "e" * 64 for key in ap.required_evidence_digests(m, c)}
 
 
 def _cell_record(m, c):
