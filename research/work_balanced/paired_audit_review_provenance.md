@@ -36,8 +36,8 @@ scope and bound nowhere.
 
 | Check | Command | Result |
 |---|---|---|
-| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 185 passed |
-| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 181 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
+| A focused, dirty tree | `PYTHONPATH=src pytest tests/test_paired_audit_*.py` | 187 passed |
+| C clean committed-snapshot | `git archive HEAD \| tar -x -C /tmp/s; PYTHONPATH=/tmp/s/src pytest /tmp/s/tests/test_paired_audit_*.py` | 183 passed, 4 skipped (3 runner-e2e need `.git`; 1 RuAA-ref needs private data) — self-contained |
 | Full clean `git clone` | `git clone --no-hardlinks . /tmp/c; PYTHONPATH=/tmp/c/src pytest /tmp/c/tests/` | 4 failed, 786 passed, 6 skipped — the 4 are pre-existing packaging debt (`test_ci_sign_erratum`, `test_macro_f1_ci_withdrawal`; missing `scripts/gen-paper.mjs`), **zero** paired-audit |
 | D synthetic e2e | `pytest tests/test_paired_audit_runner.py` | full chain publish + transient round-trip + resume + result-audit tamper |
 | E adversarial path/race | checkpoint (`os.link` no-overwrite, symlinked-ancestor), publisher (`..`-after-normalize, symlink chain, guard-before-mkdir, root tamper) | covered by the fail-closed + security tests |
@@ -45,12 +45,24 @@ scope and bound nowhere.
 
 ## Independent review record
 
-_A fresh independent adversarial review of the EXACT final SHA is recorded here (fan-out reviewers that
-read the code and run their own probes + the suite, not a summary read). The review targets every bypass
-the owner listed. The reviewed SHA is the final SHA; no code change follows a positive sign-off._
+A fresh independent adversarial review was run as four fan-out reviewers, each targeting a subset of the
+owner's listed bypasses, reading the committed code and running their own probes + the suite (not a
+summary read):
 
-- Reviewed SHA: _the final commit carrying this record_.
-- Verdict: _stamped by the independent review of that exact SHA_.
+- **Round A (candidate `c9e6a6de`)** — four lenses: A0-contract + evaluator-identity (**sign-off**);
+  evidence + re-attestation + manifest-binding (**sign-off**); schema + auditor + completeness (**no
+  sign-off** — two LOW publish-boundary residuals); security + isolation + self-containment
+  (**sign-off**). The dissent: `verify_final_assembly` drove the headline gate from the free
+  `summary.headline.margin` instead of the run_id-bound frozen δ (a crafted summary could decide under
+  a softer margin), and a malformed margin raised `HeadlineError` outside the `PublisherError` contract.
+- **Fix** — the R2.10 fix commit binds `summary.headline.margin` to the run_plan frozen
+  `noninferiority_margin` and catches `HeadlineError`; both residuals closed with tests.
+- **Round B (this final commit)** — the fix is re-reviewed at the exact final SHA; the reviewed SHA is
+  the final SHA and no code change follows a positive sign-off.
+
+- Reviewed SHA: the final commit carrying this record (Round-B review target).
+- Verdict: sign-off for §11 **preparation** only — recorded when the Round-B review of this exact SHA
+  passes with no residual finding.
 
 ## Open items for the OWNER (do not block §11 preparation; close before the confirmatory EXECUTION)
 
