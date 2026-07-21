@@ -287,6 +287,18 @@ def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
     additionally writes the committed ``docs/*.json`` production artifact; a smoke/dry run publishes
     ONLY under the gitignored transient run namespace and never touches the committed artifact."""
     verify_final_assembly(summary, per_work_vectors)     # reject an arbitrary/partial assembly first
+    # the publish target must match the run's OWN kind (a smoke/dry summary can never be published as
+    # the confirmatory committed artifact), and the publisher RE-DERIVES every metric from the vectors
+    # rather than trusting the caller-set result_audit.passed flag.
+    plan = summary["run_plan"]
+    if plan.get("run_kind") != run_kind:
+        raise PublisherError(
+            f"publish run_kind {run_kind!r} != the embedded run_plan run_kind {plan.get('run_kind')!r}")
+    from .result_audit import ResultAuditError, audit_results
+    try:
+        audit_results(summary, per_work_vectors, plan)
+    except ResultAuditError as exc:
+        raise PublisherError(f"publish-time independent result audit failed: {exc}") from exc
     confirmatory = run_kind == "confirmatory"
 
     droot = _docs_root(docs_root)

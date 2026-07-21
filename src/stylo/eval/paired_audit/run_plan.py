@@ -41,6 +41,15 @@ REGISTERED_DTYPES = frozenset({"float64", "float32", "int64", "int32"})
 # run must bind ALL of them (an under-specified tolerance contract is fatal).
 REGISTERED_TOLERANCE_QUANTITIES = frozenset({"probability", "accuracy", "delta_accuracy",
                                              "cluster_pvalue", "ci_endpoint"})
+# the FROZEN confirmatory tolerances — tight (the recompute is deterministic, so these guard only float
+# noise). Pinned like FROZEN_STATS so an oversized tolerance can never neuter the independent auditor.
+FROZEN_TOLERANCES = {
+    "probability": {"atol": 1e-9, "rtol": 0.0, "dtype": "float64"},
+    "accuracy": {"atol": 1e-9, "rtol": 0.0, "dtype": "float64"},
+    "delta_accuracy": {"atol": 1e-9, "rtol": 0.0, "dtype": "float64"},
+    "cluster_pvalue": {"atol": 1e-9, "rtol": 0.0, "dtype": "float64"},
+    "ci_endpoint": {"atol": 1e-9, "rtol": 0.0, "dtype": "float64"},
+}
 
 
 def class_order_digest(order) -> str:
@@ -325,9 +334,10 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
         raise RunPlanError("tolerances must be a dict")
     for quantity, tol in tolerances.items():
         _validate_tolerance(quantity, tol)
-    if confirmatory and set(tolerances) != REGISTERED_TOLERANCE_QUANTITIES:
+    if confirmatory and tolerances != FROZEN_TOLERANCES:
         raise RunPlanError(
-            f"a confirmatory run must bind tolerances for exactly {sorted(REGISTERED_TOLERANCE_QUANTITIES)}")
+            "a confirmatory run must bind EXACTLY the frozen tolerances (no oversized value can neuter "
+            "the independent auditor)")
     _validate_runtime_fields(runtime_fingerprint, blas_thread_fingerprint, confirmatory=confirmatory)
 
     # top-level §4.2 scalar identity inputs must be present and non-empty (fail-closed)

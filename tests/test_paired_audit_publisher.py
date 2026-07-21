@@ -5,32 +5,53 @@ import pathlib
 
 import pytest
 
+import copy
+
 from stylo.jsonio import dump_strict, load_strict
 from stylo.eval.paired_audit import applicability as ap
+from stylo.eval.paired_audit import headline as hl
+from stylo.eval.paired_audit import inference as inf
 from stylo.eval.paired_audit import publisher as pub
+from stylo.eval.paired_audit import result_audit as ra
 from stylo.eval.paired_audit import run_plan as rp
 from stylo.eval.paired_audit.headline import HEADLINE_ENDPOINT
 from stylo.eval.paired_audit.semantic_parity import LEGACY_ANCHOR
 
+# A confirmatory-shaped fixture built with the REAL metric functions so the publisher's publish-time
+# independent auditor passes it (the publisher no longer trusts a bare result_audit.passed flag).
+_STATS = rp.FROZEN_STATS
+_ITERS, _SEED, _Q = _STATS["bootstrap_iters"], _STATS["seed"], _STATS["quantiles"]
+_MARGIN, _B = _STATS["noninferiority_margin"], _STATS["bootstrap_B"]
+_PROB = ["aa", "bb"]
+_MIDX = [0, 1]
+# 4 works / 2 authors, one wrong; every cell shares these vectors (so A4 == A0 -> dacc 0, cluster_p 1)
+_VEC = [
+    {"work_id": "aa/w1", "true_label": 0, "pred_label": 0, "correct": True, "rank": 1, "proba": [0.6, 0.4]},
+    {"work_id": "aa/w2", "true_label": 0, "pred_label": 0, "correct": True, "rank": 1, "proba": [0.7, 0.3]},
+    {"work_id": "bb/w1", "true_label": 1, "pred_label": 1, "correct": True, "rank": 1, "proba": [0.4, 0.6]},
+    {"work_id": "bb/w2", "true_label": 1, "pred_label": 0, "correct": False, "rank": 2, "proba": [0.55, 0.45]},
+]
+
 
 def _run_plan():
     return rp.build_run_plan(
-        run_kind="smoke", git_commit="a" * 40, git_dirty=True,
+        run_kind="confirmatory", git_commit="a" * 40, git_dirty=False,
         execution_source_sha256="1" * 64, env_lock_sha256="2" * 64, config_id="3" * 64,
         runtime_fingerprint={"python": "3.11", "libc": "glibc/2.39", "numpy": "2", "scipy": "1",
-                             "sklearn": "1"},
+                             "sklearn": "1", "spacy": "3.8"},
         blas_thread_fingerprint={"threadpools": [], "thread_env": {}},
         applicability_matrix_digest=ap.applicability_matrix_digest(),
         a0_reference_shas={"lobo_books_txt": "4" * 64, "ruaa_reference_submission": "5" * 64},
-        evaluator_identity={"name": "smoke_dummy", "import_module": "m", "import_qualname": "q",
-                            "source_digest": "a" * 64, "estimator_config_digest": "b" * 64,
-                            "mechanism_passport_digest": "c" * 64},
-        tolerances={}, corpus_chain={"legacy_anchor": LEGACY_ANCHOR, "semantic_parity_digest": "6" * 64},
+        evaluator_identity={"name": "work_balanced_ablation_factory", "import_module": "m",
+                            "import_qualname": "q", "source_digest": "a" * 64,
+                            "estimator_config_digest": "b" * 64, "mechanism_passport_digest": "c" * 64},
+        tolerances=dict(rp.FROZEN_TOLERANCES),
+        corpus_chain={"legacy_anchor": LEGACY_ANCHOR, "semantic_parity_digest": "6" * 64},
         golden_fixture_inventory_sha="7" * 64,
         lobo=dict(dataset_digest="a" * 64, fold_manifest_digest="b" * 64,
-                  probability_class_order=["x", "z"], metric_label_order=["x"], run_contract_digest="c" * 64),
+                  probability_class_order=_PROB, metric_label_order=_PROB, run_contract_digest="c" * 64),
         ruaa=dict(dataset_digest="d" * 64, fold_manifest_digest="e" * 64,
-                  probability_class_order=["x"], metric_label_order=["x"], run_contract_digest="f" * 64,
+                  probability_class_order=_PROB, metric_label_order=_PROB, run_contract_digest="f" * 64,
                   selection_digest="9" * 64))
 
 
@@ -40,69 +61,84 @@ RUN_ID = rp.run_id(_PLAN)
 
 def _universes():
     return {ds: {"dataset_digest": "a" * 64, "fold_manifest_digest": "b" * 64,
-                 "probability_class_order": ["x", "z"], "metric_label_order": ["x"],
-                 "n_train_works": 2, "n_tested_works": 2, "n_train_authors": 2, "n_tested_authors": 1}
+                 "probability_class_order": _PROB, "metric_label_order": _PROB,
+                 "n_train_works": 4, "n_tested_works": 4, "n_train_authors": 2, "n_tested_authors": 2}
             for ds in ("lobo", "ruaa")}
 
 
 def _attestation():
-    return {"git_commit": "a" * 40, "run_kind": "smoke", "audit_version": rp.AUDIT_VERSION,
+    return {"git_commit": "a" * 40, "run_kind": "confirmatory", "audit_version": rp.AUDIT_VERSION,
             "execution_source_sha256": "1" * 64, "env_lock_sha256": "2" * 64, "config_id": "3" * 64,
             "golden_fixture_inventory_sha": "7" * 64}
 
 
 def _evidence(m, c):
-    # exactly the digests the single-source contract requires for this applied cell (axes + passports)
     return {key: "e" * 64 for key in ap.required_evidence_digests(m, c)}
 
 
-def _cell_record(m, c):
-    reg = ap.cell_status(m, c)
-    if reg["status"] == "applied":
-        r = {"status": "applied", "requested_axes": reg["requested_axes"],
-             "effective_axes": reg["effective_axes"],
-             "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
-             "per_work": [{"work_id": "a/w", "true_label": 0, "pred_label": 0, "correct": True,
-                           "rank": 1, "proba": [0.5, 0.5]}],
-             "abs_accuracy_authorclustered_ci": [0.8, 0.95],
-             "evidence": _evidence(m, c), "claim_status": "exploratory_internal"}
-        if c != "A0":
-            r["vs_A0"] = {"dacc": 0.02, "dacc_authorclustered_ci": [-0.01, 0.05], "cluster_p": 0.01,
-                          "holm_p": 0.05, "mcnemar_p_diagnostic": 0.2, "significant": False}
-        return r
-    r = {"status": reg["status"], "requested_axes": reg["requested_axes"],
-         "effective_axes": reg["effective_axes"], "claim_status": "exploratory_internal"}
-    if reg["equivalent_to"] is not None:
-        r["equivalent_to"] = reg["equivalent_to"]
-    return r
-
-
 def _grid():
-    return {f"{m}/{c}": _cell_record(m, c) for m in ap.MODELS for c in ap.CELLS}
+    """A consistent 30-cell grid + the Holm family, computed from _VEC with the real metric functions."""
+    a = ra._arrays(_VEC)
+    point = ra._point(a, _MIDX)
+    abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=_ITERS, seed=_SEED, quantiles=_Q)
+    dacc_ci = hl.paired_accuracy_diff_ci(a["correct"], a["correct"], a["authors"], iters=_ITERS, seed=_SEED, quantiles=_Q)
+    cp = inf.paired_cluster_pvalue(a["correct"], a["correct"], a["authors"], B=_B, seed=_SEED)
+    mc = inf.mcnemar_diagnostic(a["correct"], a["correct"])
+    grid = {}
+    for m in ap.MODELS:
+        for c in ap.CELLS:
+            reg = ap.cell_status(m, c)
+            if reg["status"] != "applied":
+                r = {"status": reg["status"], "requested_axes": reg["requested_axes"],
+                     "effective_axes": reg["effective_axes"], "claim_status": "exploratory_internal"}
+                if reg["equivalent_to"] is not None:
+                    r["equivalent_to"] = reg["equivalent_to"]
+                grid[f"{m}/{c}"] = r
+                continue
+            r = {"status": "applied", "requested_axes": reg["requested_axes"],
+                 "effective_axes": reg["effective_axes"], "point": copy.deepcopy(point),
+                 "per_work": copy.deepcopy(_VEC),
+                 "abs_accuracy_authorclustered_ci": [abs_ci["lo"], abs_ci["hi"]],
+                 "evidence": _evidence(m, c), "claim_status": "exploratory_internal"}
+            if c != "A0":
+                r["vs_A0"] = {"dacc": 0.0, "dacc_authorclustered_ci": [dacc_ci["lo"], dacc_ci["hi"]],
+                              "cluster_p": cp, "holm_p": 1.0, "significant": False,
+                              "mcnemar_p_diagnostic": mc["mcnemar_p_diagnostic"]}
+            grid[f"{m}/{c}"] = r
+    holm = inf.holm_over_registered_family({(m, c): grid[f"{m}/{c}"]["vs_A0"]["cluster_p"]
+                                            for (m, c) in ap.holm_family()})
+    for (m, c), hp in holm.items():
+        grid[f"{m}/{c}"]["vs_A0"]["holm_p"] = hp["holm_p"]
+        grid[f"{m}/{c}"]["vs_A0"]["significant"] = hp["significant"]
+    return grid, {f"{m}/{c}": hp for (m, c), hp in holm.items()}
 
 
-def _holm():
-    # consistent with each cell's vs_A0 verdict (Holm<->cell consistency is checked by the publisher)
-    return {f"{m}/{c}": {"raw_p": 0.001, "holm_p": 0.05, "significant": False}
-            for (m, c) in ap.holm_family()}
+def _base_summary():
+    grid, holm = _grid()
+    a = ra._arrays(_VEC)
+    head = hl.evaluate_headline(a["correct"], a["correct"], a["authors"], margin=_MARGIN, iters=_ITERS,
+                                seed=_SEED, quantiles=_Q)
+    return {"run_id": RUN_ID, "claim_status": "exploratory_internal",
+            "cells": {"lobo": grid, "ruaa": copy.deepcopy(grid)},
+            "holm": {"lobo": holm, "ruaa": copy.deepcopy(holm)},
+            "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
+                         "diff_ci": head["diff_ci"], "margin": _MARGIN},
+            "result_audit": {"passed": True, "auditor": "independent_recompute_v1"},
+            "run_plan": _PLAN, "universes": _universes(),
+            "continuous_tolerances": dict(rp.FROZEN_TOLERANCES), "attestation": _attestation()}
+
+
+_SUMMARY = _base_summary()
 
 
 def _summary(**over):
-    s = {"run_id": RUN_ID, "claim_status": "exploratory_internal",
-         "cells": {"lobo": _grid(), "ruaa": _grid()},
-         "holm": {"lobo": _holm(), "ruaa": _holm()},
-         "headline": {"endpoint": HEADLINE_ENDPOINT, "decision": "relabel",
-                      "diff_ci": {"point": 0.02, "lo": -0.01, "hi": 0.05}, "margin": 0.02},
-         "result_audit": {"passed": True, "auditor": "independent_recompute_v1"},
-         "run_plan": _PLAN, "universes": _universes(),
-         "continuous_tolerances": {"probability": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}},
-         "attestation": _attestation()}
+    s = copy.deepcopy(_SUMMARY)
     s.update(over)
     return s
 
 
 def _vectors():
-    return {f"{ds}/{m}/{c}": [{"work_id": "a/w", "proba": [0.5, 0.5]}]
+    return {f"{ds}/{m}/{c}": copy.deepcopy(_VEC)
             for ds in ("lobo", "ruaa") for (m, c) in ap.registered_cells()}
 
 
@@ -265,6 +301,30 @@ class TestArtifactCompleteness:
         pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
         loaded = pub.load_published_audit(tmp_path)
         assert rp.run_id(loaded["summary"]["run_plan"]) == loaded["summary"]["run_id"] == RUN_ID
+
+    def test_fixture_is_independently_auditor_consistent(self):
+        # the fixture summary/vectors are self-consistent under the independent auditor
+        ra.audit_results(_summary(), _vectors(), _PLAN)
+
+
+class TestPublishGate:
+    def test_publish_run_kind_must_match_the_embedded_run_plan(self, tmp_path):
+        # a confirmatory summary cannot be published under a smoke target (and vice versa) — the guard
+        # is bound to the artifact's OWN run_kind, not just the caller's kwarg
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path, run_kind="smoke")
+
+    def test_publisher_re_derives_and_rejects_a_tampered_metric(self, tmp_path):
+        # the publisher does not trust result_audit.passed — it re-runs the auditor over the vectors
+        s = _summary()
+        s["cells"]["lobo"]["stylo/A0"]["point"]["accuracy"] = 0.999   # contradicts its own vectors
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+        s2 = _summary()
+        s2["result_audit"] = {"passed": True, "auditor": "x"}          # flag says pass, but vectors lie
+        s2["cells"]["ruaa"]["stylo/A4"]["vs_A0"]["cluster_p"] = 0.000001
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s2, _vectors(), docs_root=tmp_path)
 
 
 class TestPublicationSecurity:

@@ -279,16 +279,18 @@ class TestRunPlan:
             rp.build_run_plan(**_bindings(tolerances={"proba": {"atol": 1e-9}}))  # missing rtol/dtype
         assert rp.run_id(rp.build_run_plan(**_bindings(run_kind="smoke", git_dirty=True)))
 
-    def test_confirmatory_requires_all_registered_tolerance_quantities(self):
-        full = {q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
-                for q in rp.REGISTERED_TOLERANCE_QUANTITIES}
-        assert rp.run_id(rp.build_run_plan(**_bindings(tolerances=full)))     # exact set -> ok
+    def test_confirmatory_requires_exactly_the_frozen_tolerances(self):
+        assert rp.run_id(rp.build_run_plan(**_bindings(tolerances=dict(rp.FROZEN_TOLERANCES))))  # ok
+        full = dict(rp.FROZEN_TOLERANCES)
         partial = {q: full[q] for q in list(full)[:-1]}                       # drop one quantity
         with pytest.raises(rp.RunPlanError):
             rp.build_run_plan(**_bindings(tolerances=partial))
         extra = {**full, "bogus": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}}
         with pytest.raises(rp.RunPlanError):                                  # an unregistered quantity
             rp.build_run_plan(**_bindings(tolerances=extra))
+        oversized = {**full, "accuracy": {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}}
+        with pytest.raises(rp.RunPlanError):                                  # would neuter the auditor
+            rp.build_run_plan(**_bindings(tolerances=oversized))
 
     def test_class_order_digest_deterministic_and_order_sensitive(self):
         a = rp.class_order_digest(["x", "y", "z"])
