@@ -202,22 +202,26 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     universes = summary.get("universes")
     if not isinstance(universes, Mapping) or set(universes) != {"lobo", "ruaa"}:
         raise PublisherError("summary.universes must cover lobo and ruaa")
+    # every universes field is bound to the identity-bound run_plan (no forgeable decorative copy):
+    # the class orders drive the auditor's metric_idx, the digests anchor the dataset/manifest.
+    _UNI_KEYS = ("dataset_digest", "fold_manifest_digest", "probability_class_order", "metric_label_order")
     for ds, u in universes.items():
-        if not all(u.get(k) for k in ("dataset_digest", "fold_manifest_digest",
-                                      "probability_class_order", "metric_label_order")):
-            raise PublisherError(f"summary.universes[{ds}] missing a class order / digest")
-        # bind the universes class orders to the identity-bound run_plan (they drive the auditor's
-        # metric_idx, so a swapped-but-valid order must not pass unnoticed)
-        if (u["probability_class_order"] != plan[ds]["probability_class_order"]
-                or u["metric_label_order"] != plan[ds]["metric_label_order"]):
-            raise PublisherError(f"summary.universes[{ds}] class orders != the run_plan class orders")
-    if not isinstance(summary.get("continuous_tolerances"), Mapping) or not summary["continuous_tolerances"]:
-        raise PublisherError("summary.continuous_tolerances must be non-empty")
+        if set(u) != set(_UNI_KEYS):
+            raise PublisherError(f"summary.universes[{ds}] must carry exactly {_UNI_KEYS}")
+        if any(u[k] != plan[ds][k] for k in _UNI_KEYS):
+            raise PublisherError(f"summary.universes[{ds}] != the run_plan dataset binding")
+    if summary.get("continuous_tolerances") != plan["tolerances"]:
+        raise PublisherError("summary.continuous_tolerances != the run_plan tolerances")
+    # the attestation must EQUAL the run_plan-bound values (every field lives in the run_id, so a forged
+    # provenance stamp cannot diverge from the identity)
     att = summary.get("attestation")
-    if not isinstance(att, Mapping) or not all(att.get(k) for k in
-                                               ("git_commit", "execution_source_sha256", "env_lock_sha256",
-                                                "config_id", "golden_fixture_inventory_sha")):
-        raise PublisherError("summary.attestation must carry the full run attestation")
+    expected_att = {"git_commit": plan["git_commit"], "run_kind": plan["run_kind"],
+                    "audit_version": plan["audit_version"],
+                    "execution_source_sha256": plan["execution_source_sha256"],
+                    "env_lock_sha256": plan["env_lock_sha256"], "config_id": plan["config_id"],
+                    "golden_fixture_inventory_sha": plan["golden_fixture_inventory_sha"]}
+    if att != expected_att:
+        raise PublisherError("summary.attestation != the run_plan-bound attestation")
 
     cells = summary.get("cells")
     if not isinstance(cells, Mapping) or set(cells) != {"lobo", "ruaa"}:
@@ -284,6 +288,12 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     for k, vec in per_work_vectors.items():
         if not isinstance(vec, list) or not vec:
             raise PublisherError(f"per_work_vectors[{k}] must be a non-empty list")
+    # the cell record's per_work is a redundant copy of the content-addressed archive vector — reconcile
+    # them so a forged in-cell per_work cannot diverge from the audited archive.
+    for ds in ("lobo", "ruaa"):
+        for (m, c) in registered_cells():
+            if cells[ds][f"{m}/{c}"].get("per_work") != per_work_vectors[f"{ds}/{m}/{c}"]:
+                raise PublisherError(f"cells[{ds}][{m}/{c}].per_work != the archived per-work vector")
 
 
 def _archive_root(droot: pathlib.Path, run_id: str, *, confirmatory: bool) -> pathlib.Path:

@@ -258,6 +258,8 @@ def assert_cell_record(model: str, cell: str, record: dict, *,
         if extra:                                    # whitelist: any non-metadata key is a metric leak
             raise ApplicabilityError(
                 f"non-applied cell ({model},{cell}) must carry no metrics; unexpected keys {extra}")
+        if record.get("reason") is not None and record["reason"] != reg["reason"]:
+            raise ApplicabilityError(f"({model},{cell}) reason must match the registry, not a free string")
         if reg["status"] == "equivalent_to" and record.get("equivalent_to") != reg["equivalent_to"]:
             raise ApplicabilityError(f"({model},{cell}) equivalent_to must be {reg['equivalent_to']!r}")
 

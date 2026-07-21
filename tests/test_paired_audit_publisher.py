@@ -60,10 +60,11 @@ RUN_ID = rp.run_id(_PLAN)
 
 
 def _universes():
-    return {ds: {"dataset_digest": "a" * 64, "fold_manifest_digest": "b" * 64,
-                 "probability_class_order": _PROB, "metric_label_order": _PROB,
-                 "n_train_works": 4, "n_tested_works": 4, "n_train_authors": 2, "n_tested_authors": 2}
-            for ds in ("lobo", "ruaa")}
+    # match the per-dataset digests bound in _PLAN (lobo a/b, ruaa d/e)
+    return {"lobo": {"dataset_digest": "a" * 64, "fold_manifest_digest": "b" * 64,
+                     "probability_class_order": _PROB, "metric_label_order": _PROB},
+            "ruaa": {"dataset_digest": "d" * 64, "fold_manifest_digest": "e" * 64,
+                     "probability_class_order": _PROB, "metric_label_order": _PROB}}
 
 
 def _attestation():
@@ -371,6 +372,36 @@ class TestPublishGate:
         plan = copy.deepcopy(_PLAN)
         plan["a0_reference_shas"] = None
         s = _summary(run_plan=plan, run_id=rp.run_id(plan))
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(s, _vectors())
+
+    def test_decorative_echo_fields_are_bound_to_the_run_plan(self):
+        # every echoed field (attestation / universes digests / tolerances) must equal the bound plan
+        forgeries = [
+            lambda s: s["attestation"].__setitem__("git_commit", "z" * 40),
+            lambda s: s["attestation"].__setitem__("run_kind", "smoke"),
+            lambda s: s["universes"]["lobo"].__setitem__("dataset_digest", "0" * 64),
+            lambda s: s["universes"]["ruaa"].__setitem__("fold_manifest_digest", "0" * 64),
+            lambda s: s.__setitem__("continuous_tolerances",
+                                    {"probability": {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}}),
+        ]
+        for forge in forgeries:
+            s = _summary(); forge(s)
+            with pytest.raises(pub.PublisherError):
+                pub.verify_final_assembly(s, _vectors())
+
+    def test_forged_in_cell_per_work_diverging_from_archive_rejected(self, tmp_path):
+        s = _summary()
+        s["cells"]["lobo"]["stylo/A4"]["per_work"] = [
+            {"work_id": "zz/fake", "true_label": 0, "pred_label": 0, "correct": True, "rank": 1,
+             "proba": [0.6, 0.4]}]
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+
+    def test_forged_nonapplied_reason_rejected(self):
+        s = _summary()
+        # majority/A1 is not_applicable; a free-text reason must not diverge from the registry
+        s["cells"]["lobo"]["majority/A1"]["reason"] = "FORGED REASON"
         with pytest.raises(pub.PublisherError):
             pub.verify_final_assembly(s, _vectors())
 

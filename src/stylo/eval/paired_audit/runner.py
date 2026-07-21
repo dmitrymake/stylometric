@@ -449,9 +449,9 @@ def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dic
     head = hl.evaluate_headline(la[("stylo", "A4")]["correct"], la[("stylo", "A0")]["correct"],
                                 la[("stylo", "A4")]["authors"], margin=margin, iters=iters, seed=seed,
                                 quantiles=quantiles)
-    universes = {ds: {"n_train_works": m["n_train_works"], "n_tested_works": m["n_tested_works"],
-                      "n_train_authors": m["n_train_authors"], "n_tested_authors": m["n_tested_authors"],
-                      "dataset_digest": m["dataset_digest"], "fold_manifest_digest": m["self_hash"],
+    # universes carries ONLY fields bound to the run-id RunPlan (no decorative unbindable counts) —
+    # the publisher reconciles each against plan[ds].
+    universes = {ds: {"dataset_digest": m["dataset_digest"], "fold_manifest_digest": m["self_hash"],
                       "probability_class_order": m["probability_class_order"],
                       "metric_label_order": m["metric_label_order"]}
                  for ds, m in manifests.items()}
