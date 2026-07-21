@@ -134,6 +134,50 @@ def test_evidence_aggregates_real_fold_digests_not_synthetic():
         rn._aggregate_evidence("stylo", "A1", recs)
 
 
+def _built_corpus(tmp_path):
+    frags, ic = _make_corpus(tmp_path)
+    anchor = load_dataset(frags).provenance.rows_digest
+    audit_root = ac.build_audit_corpus(source_frags_root=frags, input_clean_root=ic, cfg=CFG,
+                                       audit_parent=tmp_path / "audit", legacy_anchor=anchor)
+    lobo_ds = ac.load_audit_dataset(audit_root, CFG)
+    ruaa_work_ids = ["aa/w1", "aa/w2", "bb/w1", "bb/w2"]
+    ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
+    lobo_m = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
+                                    algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
+    ruaa_m = mf.build_fold_manifest("ruaa", ruaa_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
+                                    algorithm="whole_work", seed=42, config_hash="c" * 64,
+                                    selection_digest=ruaa_ds.provenance.selection_manifest_digest)
+    return audit_root, lobo_ds, ruaa_work_ids, lobo_m, ruaa_m
+
+
+def test_reattest_detects_disk_mutation(tmp_path):
+    # §4: the disk re-attestation compares FROM DISK to the plan, not an in-memory object to itself
+    audit_root, _lobo_ds, _ruaa_ids, lobo_m, ruaa_m = _built_corpus(tmp_path)
+    cm = ac.verify_published_corpus(audit_root)
+    plan = {"execution_source_sha256": rn.rp.execution_source_sha256(None),
+            "config_id": rn.rp.config_id(CFG),
+            "env_lock_sha256": rn.rp.env_lock_sha256(None),
+            "corpus_chain": {"legacy_anchor": cm["legacy_anchor"],
+                             "semantic_parity_digest": cm["source_semantic_parity_digest"]},
+            "lobo": {"fold_manifest_digest": lobo_m["self_hash"]},
+            "ruaa": {"fold_manifest_digest": ruaa_m["self_hash"]}}
+    ctx = {"plan": plan, "audit_root": audit_root, "cfg": CFG,
+           "committed": {"lobo": lobo_m, "ruaa": ruaa_m}, "repo_root": None, "src_root": None}
+    rn._reattest(ctx, full=True)                                  # matches disk -> ok (full re-hash)
+    rn._reattest(ctx, full=False)                                 # cheap manifest re-attest -> ok
+    for over in ({"config_id": "0" * 64},
+                 {"corpus_chain": {"legacy_anchor": "0" * 64, "semantic_parity_digest": "1" * 64}},
+                 {"lobo": {"fold_manifest_digest": "0" * 64}}):
+        with pytest.raises(rn.RunnerError):
+            rn._reattest({**ctx, "plan": {**plan, **over}}, full=False)
+    # a physical tamper of the on-disk corpus manifest is caught (surfaced as a runner fail-close)
+    mpath = audit_root / ac.CORPUS_MANIFEST_NAME
+    mpath.write_text(mpath.read_text(encoding="utf-8").replace(cm["legacy_anchor"], "0" * 64),
+                     encoding="utf-8")
+    with pytest.raises(rn.RunnerError):
+        rn._reattest(ctx, full=False)
+
+
 @_needs_git
 def test_synthetic_end_to_end_runner(tmp_path):
     frags, ic = _make_corpus(tmp_path)

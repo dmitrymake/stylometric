@@ -220,6 +220,25 @@ def verify_published_corpus(published_root: pathlib.Path | str) -> Dict:
     return load_strict(published_root / CORPUS_MANIFEST_NAME)
 
 
+def verify_corpus_manifest_light(published_root: pathlib.Path | str) -> Dict:
+    """Cheap DISK re-attestation of the immutable root's manifest: a real contained file, a valid
+    self-hash, and ``audit_corpus_digest`` equal to the root name. Does NOT re-hash the whole tree
+    (that is :func:`verify_published_corpus`) — used for per-fold live re-attestation where the full
+    content re-hash runs at the cell boundary. A swapped/edited manifest or a moved pointer is fatal."""
+    published_root = pathlib.Path(published_root)
+    _verify_real_dir_chain(published_root)
+    mp = published_root / CORPUS_MANIFEST_NAME
+    if not _real_within(mp, published_root, must_file=True):
+        raise AuditCorpusError("corpus manifest missing, a symlink, or escapes the root")
+    body = load_strict(mp)
+    recorded = dict(body)
+    if recorded.pop("self_hash", None) != _self_hash(recorded):
+        raise AuditCorpusError("corpus manifest self-hash mismatch (mutated mid-run)")
+    if recorded.get("audit_corpus_digest") != published_root.name:
+        raise AuditCorpusError("corpus manifest digest != root name (root swapped mid-run)")
+    return body
+
+
 def build_audit_corpus(
     *,
     source_frags_root: pathlib.Path | str,
