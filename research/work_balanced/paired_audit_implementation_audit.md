@@ -1,62 +1,69 @@
 # Paired-audit control-plane implementation audit
 
-Status: control plane implemented, per-gate independently reviewed, and committed on branch
-`paired-audit-control-plane`. No real audit corpus, no fold manifest, and no confirmatory cell has
-been prepared or run. Execution stays gated behind an independent code audit and a separate execution
-authorization.
+Status: control plane + confirmatory runner implemented, Gate-10 remediation applied, and committed on
+branch `paired-audit-control-plane` as additions only. No real audit corpus, no fold manifest, and no
+confirmatory cell has been prepared or run on real data. Execution stays gated behind an independent
+code review of the exact final commit and a separate execution authorization (protocol §11–14).
 
 Normative source: [`paired_audit_protocol.md`](paired_audit_protocol.md) (v3.1). On any conflict the
-protocol governs.
+protocol governs. This document is a declarative implementation record, not a sign-off; the sign-off
+lives in [`paired_audit_review_provenance.md`](paired_audit_review_provenance.md).
+
+## Package inventory (13 modules, 10 test files — all committed additions)
+
+`src/stylo/eval/paired_audit/`: `semantic_parity`, `corpus`, `work_subset`, `applicability`,
+`run_plan`, `inference`, `headline`, `checkpoints`, `publisher`, `manifest`, `references`, `runner`,
+`__init__`. `tests/test_paired_audit_{corpus, control_plane, inference, headline, checkpoints,
+publisher, manifest, fail_closed_sweep, references, runner}.py`.
 
 ## Requirement → module → test trace
 
 | Protocol | Requirement | Module | Tests |
 |---|---|---|---|
-| §1.2 | Loader-agnostic semantic-row digest over `(texts,y,groups,authors)` only; frozen legacy anchor `b4886a7c`; exact row equality | `paired_audit/semantic_parity.py` | `test_paired_audit_corpus::TestSemanticParity`, `TestSemanticRowDigest` |
-| §1.3 | Whole immutable audit-corpus root `data/audit_corpus/<digest>/`; atomic publication; reverify-before-pointer; per-chunk byte/filename equality; conflict/partial fatal; live `frags_train` never mutated | `paired_audit/corpus.py` | `test_paired_audit_corpus::TestBuilder`, `TestBuilderFailClosed` |
-| §1.4 | Audit-only dataset verifier (`dataset_contract=work_balanced_manifest` ⊥ estimator axes) with self-consistency recompute | `paired_audit/corpus.verify_audit_dataset` | `test_paired_audit_corpus::test_audit_only_verifier_*` |
-| §1.5 | `derive_work_subset` whole-work exact-set RuAA panel with three-digest binding | `paired_audit/work_subset.py` | `test_paired_audit_corpus::TestWorkSubset` |
-| §1.6/§12 | LOBO/RuAA fold-manifest fields + self-hash; runner rebuilds and requires exact equality (never self-signs); frozen 47/255/43/251 and 137/22 universes; RuAA selection-digest bound at build | `paired_audit/manifest.py` | `test_paired_audit_manifest` |
-| §3.2 | Pinned A0 reference SHA256 before any parse (`lobo_books.txt`, RuAA reference submission + frozen SHA256SUMS) | `paired_audit/references.py` | `test_paired_audit_references` |
-| §2.4/§3.4 | Exactly 21 applied cells / 15 A0 comparisons; per-model decomposition pinned; typed signals carry no metrics; applicability digest | `paired_audit/applicability.py` | `test_paired_audit_control_plane::TestApplicability` |
-| §3.3 | Two-sided null-centered author-cluster bootstrap p, B=10000, seed=42, +1 correction, degenerate order; McNemar diagnostic-only | `paired_audit/inference.py` | `test_paired_audit_inference::TestClusterPValue`, `TestMcNemarDiagnostic` |
-| §3.4 | Holm–Bonferroni on unrounded p over the fixed 15-member family; `m` never reduced; `significant := holm_p < 0.05` | `paired_audit/inference.py` | `test_paired_audit_inference::TestHolm`, `TestHolmRegisteredFamily` |
-| §3.5 | Single headline endpoint stylo A4−A0; author-clustered percentile CI (10000/seed42/[2.5,97.5]); δ=0.02; relabel/keep_legacy/inconclusive on unrounded bounds; boundary equality → inconclusive; macro-F1 CI withdrawn | `paired_audit/headline.py` | `test_paired_audit_headline` |
-| §4.2 | Canonical RunPlan → run_id binding every identity input; runtime/env/BLAS fingerprints omit OS/kernel/platform strings; fail-closed bindings | `paired_audit/run_plan.py` | `test_paired_audit_control_plane::TestRunPlan` |
-| §4.3/§7 | Per-fold immutable checkpoints keyed `(dataset,model,cell,fold)`; atomic no-overwrite; self-hash + binding verify; resume skip/pending/fatal; COMPLETE only when all folds present | `paired_audit/checkpoints.py` | `test_paired_audit_checkpoints` |
-| §4.4/§8 | Path-guarded transient store; content-addressed archive + SHA256SUMS; immutable version dir + atomic current/COMPLETE; summary self-hash; never writes headline paths | `paired_audit/publisher.py` | `test_paired_audit_publisher` |
-| §9 | Full fail-closed catalog | all above + gap-fills | `test_paired_audit_fail_closed_sweep` (coverage manifest) |
+| §1.2 | Loader-agnostic semantic digest; frozen legacy anchor; exact row equality | `semantic_parity` | `corpus::TestSemanticParity`, `TestSemanticRowDigest` |
+| §1.3 | Whole immutable audit-corpus root; atomic publish; reverify-before-pointer; per-chunk byte/filename compare; live corpus never mutated | `corpus` | `corpus::TestBuilder`, `TestBuilderFailClosed` |
+| §1.4 | Audit dataset is work_balanced_manifest for EVERY cell incl. A0 (legacy loader only for anchor/parity) | `corpus` | `corpus::test_audit_dataset_is_work_balanced_for_every_cell`, `test_audit_only_verifier_rejects_legacy_dataset` |
+| §1.5 | `derive_work_subset` whole-work exact-set RuAA panel; three-digest binding | `work_subset` | `corpus::TestWorkSubset` |
+| §1.6/§12 | Fold manifests; counts recomputed from works; runner rebuilds & requires exact equality; frozen 47/255-137/22 universes; 4 named singletons | `manifest` | `manifest` (incl. lying-`n_works` regression) |
+| §2.4/§3.4 | Exactly 21 applied / 15 comparisons; per-model decomposition pinned; requested+effective axes; typed signals carry no metrics | `applicability` | `control_plane::TestApplicability` |
+| §3.2 | Pinned A0 reference SHA before parse; lobo 221/251 + per-work; RuAA parse + full SHA256SUMS inventory; fail-closed preflight | `references` | `references` |
+| §3.3 | Two-sided null-centered author-cluster bootstrap p (B=10000, seed=42, +1, degenerate order); McNemar diagnostic-only; stat input validation | `inference` | `inference::TestClusterPValue`, `TestMcNemarDiagnostic` |
+| §3.4 | Holm on unrounded p over the fixed 15-member family; m never reduced; strict significance | `inference` | `inference::TestHolm`, `TestHolmRegisteredFamily` |
+| §3.5 | Single stylo A4−A0 headline; author-clustered percentile CI; δ=0.02; unrounded/boundary-equality decision; macro-F1 CI withdrawn | `headline` | `headline` |
+| §4.1 | Artifact schema literally §4.1 (status applied/not_applicable/equivalent_to; requested+effective axes; validated evidence) | `applicability` | `control_plane::test_cell_record_validation`, `test_applied_evidence_field_validation` |
+| §4.2 | Canonical RunPlan → run_id; structural runtime allowlist (no kernel); finite tolerances; registered kinds; class-order digest producer | `run_plan` | `control_plane::TestRunPlan` |
+| §4.3/§7 | Per-fold immutable checkpoints; atomic os.link no-overwrite; guards; registry; resume; run-COMPLETE + inventory | `checkpoints` | `checkpoints` |
+| §4.4/§8 | Verified publisher: full-assembly verification, content-addressed archive + SHA256SUMS, atomic pointer/COMPLETE, path guard | `publisher` | `publisher` |
+| §5 (runner) | One chain refs→dataset→manifests→matrix→RunPlan→cells→checkpoints→COMPLETE→metrics→cluster-p→Holm→headline→publisher; synthetic-only | `runner` | `runner` (synthetic end-to-end + resume) |
+| §9 | Full fail-closed catalog | all above | `fail_closed_sweep` (coverage manifest) |
+
+## Gate-10 remediation (independent-review blockers closed, separate commits, no amend)
+
+#1 real runner (synthetic-only); #2 A0 on the WB-manifest dataset; #3 self-contained committed snapshot
+(no rework-only `canonical_hash`; unit suite independent of ignored RuAA data); #4 manifest counts
+recomputed from works + strict validation; #5 complete §3.2 A0 reference parse/verify; #6 §4.1 status
+values + effective_axes; #7 verified publisher (full-assembly verification); #8 checkpoint atomic
+os.link / guards / registry / run-COMPLETE; #9 RunPlan structural runtime allowlist + finite tolerances;
+#10 statistics input validation.
 
 ## Verification results
 
-- Diff vs `release` HEAD: 19 files, additions only (11 modules + 8 test files); no modified or deleted
-  tracked file — the control plane does not import the uncommitted working-tree rework and each gate
-  commits only its own new files.
-- Focused, full working-tree test suite, and the release-integrity + provenance + work-balanced infra
-  battery: all green. A0/A4 golden replay passes via `tests/test_work_balanced_ablation_goldens.py`;
-  the heavy capture-env live replay is opt-in (`WORK_BALANCED_LIVE_GOLDEN_REPLAY=1`) and skips by
-  default; production-default invariants pass via `tests/test_work_balanced_ablation_config.py`.
-- `python -m py_compile` clean on every module and test. `ruff` is absent from the environment and CI
-  (no `[tool.ruff]`); lint relies on compilation and the test suite.
+- Diff vs `release` HEAD `2f6c3dc3`: 24 files, additions only; no modified/deleted tracked file — the
+  control plane depends only on committed HEAD APIs and does not import the uncommitted working-tree
+  rework.
+- Clean committed-snapshot replay via `git archive` (mandatory check C): self-contained; the runner
+  end-to-end tests skip without a git repo (they need a live commit binding), the RuAA-reference test
+  skips without the gitignored private data.
+- Full working-tree suite (check B) and the synthetic end-to-end runner (check D) pass; adversarial
+  path/symlink/race guards (check E) are covered by the checkpoint (os.link, symlinked-ancestor) and
+  publisher (traversal-after-normalization, symlink chain) fail-closed tests.
+- `python -m py_compile` clean on every module and test. `ruff` is absent from the environment and CI.
 
-## Per-gate independent review
+## Provisioning finding for §11
 
-Each gate was reviewed by an independent adversarial agent (fresh context, code + negative probes,
-not a summary read). Findings were addressed with fixes and regression tests: corpus 9.5; applicability
-+ run_plan 7/7 hardened; inference 9.5 (bit-exact reference); headline 9.5; checkpoints 9 hardened;
-publisher 8 hardened (path normalization); manifest 8.5 hardened (class-order contents).
-
-A final four-lens whole-package code audit (integration/security/statistics/completeness) then ran.
-Integration/security/statistics signed off (8/9/9); the completeness lens (7, withheld) surfaced real
-primitive gaps, all now closed: the §3.2 pinned A0-reference verifier (`references.py`), the §4.1
-applied-cell evidence schema in `assert_cell_record`, a single shared `class_order_digest` producer
-wired into the checkpoint bindings, the RuAA selection-digest bound at manifest build, confirmatory
-`continuous_tolerances` + clean-tree (`git_dirty`) enforcement, the extended headline denylist plus an
-`assert_archive_committable` durability guard, 0/1 correctness guards on both bootstraps, and orphan
-audit-root cleanup on a failed re-verify. The `.gitignore` whitelist for the committed per-work archive
-subtree is a repository-config action the runner performs at real publication (it is not edited here
-because `.gitignore` is part of the separate working-tree rework); `assert_archive_committable` fails
-closed until it exists.
+`data/ruaa_bench_v1/protocol.md` has drifted from its frozen `SHA256SUMS` entry (1 of 141 files; the
+corpus texts + submission + manifest are intact). The runner's real preflight (`verify_ruaa_inventory`)
+fail-closes on it until the inventory is re-frozen. The frozen private data is not edited here.
 
 ## Claim boundary
 
@@ -68,7 +75,7 @@ untouched.
 
 ## Remaining gated work
 
-Real audit-corpus preparation, fold-manifest freezing, clean-tree preflight, the confirmatory run, the
-independent result audit, and the separately preregistered headline decision (protocol §11–14) remain.
-None begins before this independent code audit is signed off and a separate execution authorization is
-given.
+Real audit-corpus preparation, fold-manifest freezing, clean-tree preflight, the confirmatory run with
+the real injected estimator, the independent result audit, and the separately preregistered headline
+decision (protocol §11–14) remain. None begins before an independent review of the exact final commit
+signs off and a separate execution authorization is given.
