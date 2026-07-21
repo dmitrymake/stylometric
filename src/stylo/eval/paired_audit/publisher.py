@@ -187,10 +187,18 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     # the embedded canonical RunPlan must RECOMPUTE to the summary run_id (independent identity), and
     # the completeness sections (both class orders / universes / tolerances / full attestation) present
     plan = summary.get("run_plan")
-    if not isinstance(plan, Mapping):
+    if not isinstance(plan, dict):
         raise PublisherError("summary must embed the canonical run_plan")
     if _recompute_run_id(plan) != summary["run_id"]:
         raise PublisherError("summary.run_id does not recompute from the embedded run_plan")
+    # re-apply EVERY build invariant to the embedded plan (frozen stats/tolerances for a confirmatory
+    # plan, clean tree, spaCy, a registered evaluator, hex digests) — recomputing the id is not enough:
+    # a forged confirmatory plan is self-consistent with its own id.
+    from .run_plan import RunPlanError, assert_wellformed_run_plan
+    try:
+        assert_wellformed_run_plan(plan)
+    except RunPlanError as exc:
+        raise PublisherError(f"embedded run_plan is not well-formed: {exc}") from exc
     universes = summary.get("universes")
     if not isinstance(universes, Mapping) or set(universes) != {"lobo", "ruaa"}:
         raise PublisherError("summary.universes must cover lobo and ruaa")
@@ -198,6 +206,11 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
         if not all(u.get(k) for k in ("dataset_digest", "fold_manifest_digest",
                                       "probability_class_order", "metric_label_order")):
             raise PublisherError(f"summary.universes[{ds}] missing a class order / digest")
+        # bind the universes class orders to the identity-bound run_plan (they drive the auditor's
+        # metric_idx, so a swapped-but-valid order must not pass unnoticed)
+        if (u["probability_class_order"] != plan[ds]["probability_class_order"]
+                or u["metric_label_order"] != plan[ds]["metric_label_order"]):
+            raise PublisherError(f"summary.universes[{ds}] class orders != the run_plan class orders")
     if not isinstance(summary.get("continuous_tolerances"), Mapping) or not summary["continuous_tolerances"]:
         raise PublisherError("summary.continuous_tolerances must be non-empty")
     att = summary.get("attestation")
@@ -299,6 +312,8 @@ def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
         audit_results(summary, per_work_vectors, plan)
     except ResultAuditError as exc:
         raise PublisherError(f"publish-time independent result audit failed: {exc}") from exc
+    except (KeyError, ValueError, TypeError, IndexError) as exc:   # malformed vectors -> fail closed
+        raise PublisherError(f"publish-time result audit could not run on the vectors: {exc}") from exc
     confirmatory = run_kind == "confirmatory"
 
     droot = _docs_root(docs_root)
@@ -425,11 +440,17 @@ def load_published_audit(docs_root: pathlib.Path | str, *, run_kind: str = "conf
     recorded = {k: v for k, v in summary.items() if k != "self_hash"}
     if summary.get("self_hash") != _self_hash(recorded):
         raise PublisherError("published summary self-hash mismatch")
-    # the run_id must RECOMPUTE from the embedded canonical run_plan (identity is not merely asserted)
+    # the run_id must RECOMPUTE from the embedded canonical run_plan, and the plan must re-apply every
+    # build invariant (a forged confirmatory plan is self-consistent with its own id)
+    from .run_plan import RunPlanError, assert_wellformed_run_plan
     from .run_plan import run_id as _recompute_run_id
     if not isinstance(summary.get("run_plan"), dict) \
             or _recompute_run_id(summary["run_plan"]) != summary.get("run_id"):
         raise PublisherError("loaded run_id does not recompute from the embedded run_plan")
+    try:
+        assert_wellformed_run_plan(summary["run_plan"])
+    except RunPlanError as exc:
+        raise PublisherError(f"loaded run_plan is not well-formed: {exc}") from exc
     for key, ref in summary.get("per_work_archive", {}).items():
         fpath = versioned / ref["filename"]
         if not _real_within(fpath, versioned, must_file=True) or _sha256_file(fpath) != ref["sha256"]:

@@ -326,6 +326,32 @@ class TestPublishGate:
         with pytest.raises(pub.PublisherError):
             pub.publish_audit(s2, _vectors(), docs_root=tmp_path)
 
+    def test_forged_confirmatory_run_plan_rejected(self, tmp_path):
+        # an embedded confirmatory plan is re-validated against EVERY build invariant, not just its id:
+        # a forged oversized tolerance / weakened bootstrap / inflated margin cannot publish or load
+        for over in ({"tolerances": {q: {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}
+                                     for q in rp.REGISTERED_TOLERANCE_QUANTITIES}},
+                     {"stats": {**rp.FROZEN_STATS, "bootstrap_B": 1, "bootstrap_iters": 1}},
+                     {"stats": {**rp.FROZEN_STATS, "noninferiority_margin": 0.5}}):
+            plan = copy.deepcopy(_PLAN)
+            plan.update(over)
+            s = _summary(run_plan=plan, run_id=rp.run_id(plan))
+            with pytest.raises(pub.PublisherError):                    # id recomputes, but plan is forged
+                pub.verify_final_assembly(s, _vectors())
+            with pytest.raises(pub.PublisherError):
+                pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+
+    def test_universes_class_order_must_match_run_plan(self):
+        s = _summary()
+        s["universes"]["lobo"] = {**s["universes"]["lobo"], "probability_class_order": ["bb", "aa"]}
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(s, _vectors())
+
+    def test_malformed_vectors_surface_as_publisher_error(self, tmp_path):
+        bad = {k: [{"work_id": "aa/w1", "proba": [0.5, 0.5]}] for k in _vectors()}  # no labels/rank
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(_summary(), bad, docs_root=tmp_path)
+
 
 class TestPublicationSecurity:
     def test_swapped_committed_root_summary_is_detected(self, tmp_path):

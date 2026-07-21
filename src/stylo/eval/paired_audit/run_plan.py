@@ -394,3 +394,32 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
 def run_id(run_plan: dict) -> str:
     """The canonical sha256 of the RunPlan — the immutable run identity."""
     return hashlib.sha256(dumps_strict(run_plan, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+# the exact build_run_plan parameters, so an embedded plan can be re-derived from its own fields
+_PLAN_BUILD_KEYS = ("run_kind", "git_commit", "git_dirty", "execution_source_sha256", "env_lock_sha256",
+                    "config_id", "runtime_fingerprint", "blas_thread_fingerprint",
+                    "applicability_matrix_digest", "a0_reference_shas", "evaluator_identity",
+                    "tolerances", "corpus_chain", "golden_fixture_inventory_sha", "stats", "lobo",
+                    "ruaa", "audit_version")
+
+
+def assert_wellformed_run_plan(plan: dict) -> None:
+    """Re-derive the plan from its OWN fields via :func:`build_run_plan` and require bit-equality.
+
+    Recomputing the run_id from an embedded plan only proves the plan hashes to its id — it does NOT
+    re-apply the build invariants (a confirmatory plan's FROZEN stats + tolerances, clean tree, spaCy,
+    a registered evaluator, hex digests). A trust boundary that receives a plan from an untrusted
+    summary (the publisher, the loader) must re-run those invariants, or a forged confirmatory plan
+    (oversized tolerance neutering the auditor, a weakened bootstrap, an inflated noninferiority margin)
+    would still be self-consistent with its own id. Rebuilding via ``build_run_plan`` re-raises every
+    invariant; a plan that does not rebuild to itself is rejected.
+    """
+    if not isinstance(plan, dict):
+        raise RunPlanError("run_plan must be a dict")
+    missing = [k for k in _PLAN_BUILD_KEYS if k not in plan]
+    if missing:
+        raise RunPlanError(f"run_plan missing build fields: {missing}")
+    rebuilt = build_run_plan(**{k: plan[k] for k in _PLAN_BUILD_KEYS})
+    if rebuilt != plan:
+        raise RunPlanError("run_plan does not rebuild to itself (forged or non-canonical)")

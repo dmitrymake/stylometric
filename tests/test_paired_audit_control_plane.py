@@ -376,3 +376,24 @@ class TestEvaluatorIdentity:
         with pytest.raises(rp.RunPlanError):
             rp.build_run_plan(**_bindings(evaluator_identity={
                 **_bindings()["evaluator_identity"], "source_digest": "nothex"}))
+
+
+class TestWellformedRunPlan:
+    def test_a_built_plan_rebuilds_to_itself(self):
+        rp.assert_wellformed_run_plan(rp.build_run_plan(**_bindings()))          # confirmatory
+        rp.assert_wellformed_run_plan(rp.build_run_plan(**_bindings(run_kind="smoke", git_dirty=True)))
+
+    def test_forged_confirmatory_plan_does_not_rebuild(self):
+        plan = rp.build_run_plan(**_bindings())
+        for over in ({"tolerances": {q: {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}
+                                     for q in rp.REGISTERED_TOLERANCE_QUANTITIES}},
+                     {"stats": {**rp.FROZEN_STATS, "seed": 7}},
+                     {"git_dirty": True}):
+            forged = {**plan, **over}
+            with pytest.raises(rp.RunPlanError):        # build invariants re-raise on the forged plan
+                rp.assert_wellformed_run_plan(forged)
+
+    def test_missing_build_field_rejected(self):
+        plan = rp.build_run_plan(**_bindings())
+        with pytest.raises(rp.RunPlanError):
+            rp.assert_wellformed_run_plan({k: v for k, v in plan.items() if k != "config_id"})
