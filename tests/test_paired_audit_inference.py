@@ -49,6 +49,14 @@ class TestClusterPValue:
         with pytest.raises(inf.PairedInferenceError):
             inf.paired_cluster_pvalue([0.5, 1], [0, 1], ["x", "y"], B=10)
 
+    def test_stat_input_validation(self):
+        with pytest.raises(inf.PairedInferenceError):
+            inf.paired_cluster_pvalue([1, 0], [0, 1], ["x", "y"], B=0)          # B must be positive
+        with pytest.raises(inf.PairedInferenceError):
+            inf.paired_cluster_pvalue([1, 0], [0, 1], ["x", "y"], B=10, seed=1.5)  # seed must be int
+        with pytest.raises(inf.PairedInferenceError):
+            inf.paired_cluster_pvalue([1, 0], [0, 1], ["x", ""], B=10)          # empty author id
+
 
 class TestMcNemarDiagnostic:
     def test_diagnostic_only_shape(self):

@@ -47,6 +47,12 @@ def paired_cluster_pvalue(correct_a: Sequence, correct_b: Sequence, authors: Seq
         raise PairedInferenceError("empty comparison")
     if not (np.isin(a, (0.0, 1.0)).all() and np.isin(b, (0.0, 1.0)).all()):
         raise PairedInferenceError("correctness vectors must contain only 0/1")
+    if type(B) is not int or B <= 0:
+        raise PairedInferenceError("B must be a positive int")
+    if type(seed) is not int:
+        raise PairedInferenceError("seed must be an int")
+    if any(x == "" for x in au.tolist()):
+        raise PairedInferenceError("author cluster ids must be non-empty")
 
     diff = a - b
     uniq = sorted(set(au.tolist()))

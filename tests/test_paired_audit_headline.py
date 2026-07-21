@@ -27,6 +27,16 @@ class TestHeadlineGate:
         with pytest.raises(hl.HeadlineError):
             hl.headline_gate(0.1, -0.1, margin=0.02)
 
+    def test_stat_input_validation(self):
+        with pytest.raises(hl.HeadlineError):
+            hl.headline_gate(-0.01, 0.05, margin=0)                             # margin must be > 0
+        with pytest.raises(hl.HeadlineError):
+            hl.author_clustered_accuracy_ci([1, 0], ["x", "y"], iters=0)        # iters positive
+        with pytest.raises(hl.HeadlineError):
+            hl.author_clustered_accuracy_ci([1, 0], ["x", "y"], iters=10, quantiles=(50, 50))
+        with pytest.raises(hl.HeadlineError):
+            hl.author_clustered_accuracy_ci([1, 0], ["x", ""], iters=10)        # empty author id
+
 
 class TestClusterCI:
     def test_accuracy_ci_contains_point_and_is_deterministic(self):

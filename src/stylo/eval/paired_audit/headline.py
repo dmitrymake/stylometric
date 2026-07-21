@@ -16,6 +16,7 @@ particular never touches a headline artifact path (publication is gated separate
 """
 from __future__ import annotations
 
+import math
 from typing import Sequence
 
 import numpy as np
@@ -46,6 +47,15 @@ def _cluster_percentile_ci(values: Sequence, authors: Sequence, *, iters: int, s
         raise HeadlineError("empty headline comparison")
     if not np.isfinite(v).all():
         raise HeadlineError("headline values must be finite")
+    if type(iters) is not int or iters <= 0:
+        raise HeadlineError("iters must be a positive int")
+    if type(seed) is not int:
+        raise HeadlineError("seed must be an int")
+    q = list(quantiles)
+    if len(q) != 2 or not (0 < q[0] < q[1] < 100):
+        raise HeadlineError("quantiles must be two increasing values in (0,100)")
+    if any(x == "" for x in au.tolist()):
+        raise HeadlineError("author cluster ids must be non-empty")
     uniq = sorted(set(au.tolist()))
     point = float(v.sum() / v.size)                      # cluster mean over all books
     if len(uniq) < 2:                                    # cannot cluster-resample a single author
@@ -84,6 +94,9 @@ def paired_accuracy_diff_ci(correct_a: Sequence, correct_b: Sequence, authors: S
 
 def headline_gate(ci_lo: float, ci_hi: float, *, margin: float = DEFAULT_MARGIN) -> str:
     """Symmetric noninferiority decision on the UNROUNDED CI bounds (boundary equality → inconclusive)."""
+    if not (isinstance(margin, (int, float)) and not isinstance(margin, bool)
+            and math.isfinite(margin) and margin > 0):
+        raise HeadlineError("margin must be a positive finite number")
     if ci_hi < ci_lo:
         raise HeadlineError("CI upper bound is below the lower bound")
     if ci_lo > -margin:
