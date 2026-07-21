@@ -21,15 +21,19 @@ import re
 import subprocess
 from typing import Optional
 
-from ...jsonio import canonical_hash, dumps_strict
+from ...jsonio import dumps_strict
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def class_order_digest(order) -> str:
     """The single canonical producer for a class-order digest (shared by the RunPlan, the fold
-    manifest, and the checkpoint bindings, so no module invents its own scheme)."""
-    return canonical_hash(list(order))
+    manifest, and the checkpoint bindings, so no module invents its own scheme).
+
+    Self-contained on the committed ``dumps_strict`` (no dependency on any rework-only helper), so a
+    clean committed-snapshot checkout reproduces it bit-for-bit.
+    """
+    return hashlib.sha256(dumps_strict(list(order), sort_keys=True).encode("utf-8")).hexdigest()
 
 AUDIT_VERSION = "work_balanced_paired_audit_v1"
 _RUN_PLAN_VERSION = "paired_audit.run_plan.v1"
