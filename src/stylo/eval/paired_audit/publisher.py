@@ -166,6 +166,9 @@ def _version_complete(versioned: pathlib.Path, token: str) -> bool:
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _HEADLINE_DECISIONS = frozenset({"relabel", "keep_legacy", "inconclusive"})
+# the exact top-level shape of a candidate summary (no injected/decorative extra field survives)
+_SUMMARY_KEYS = frozenset({"run_id", "claim_status", "run_plan", "universes", "continuous_tolerances",
+                           "attestation", "cells", "holm", "headline", "result_audit", "run_id_source"})
 
 
 def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
@@ -179,10 +182,14 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
 
     from .run_plan import run_id as _recompute_run_id
 
+    if set(summary) != _SUMMARY_KEYS:               # exact top-level shape — no injected/extra field
+        raise PublisherError(f"summary top-level keys must be exactly {sorted(_SUMMARY_KEYS)}")
     if not (isinstance(summary.get("run_id"), str) and _HEX64.match(summary["run_id"])):
         raise PublisherError("summary.run_id must be a sha256 hex string")
     if summary.get("claim_status") != "exploratory_internal":
         raise PublisherError("summary.claim_status must be exploratory_internal")
+    if summary.get("run_id_source") != "canonical_run_plan_sha256":
+        raise PublisherError("summary.run_id_source must be canonical_run_plan_sha256")
 
     # the embedded canonical RunPlan must RECOMPUTE to the summary run_id (independent identity), and
     # the completeness sections (both class orders / universes / tolerances / full attestation) present
@@ -251,10 +258,9 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     if hl.get("decision") not in _HEADLINE_DECISIONS:
         raise PublisherError("summary.headline decision must be relabel/keep_legacy/inconclusive")
 
-    # §8: the candidate must have passed the INDEPENDENT result audit
-    ra = summary.get("result_audit")
-    if not isinstance(ra, Mapping) or ra.get("passed") is not True:
-        raise PublisherError("summary must carry a passing result_audit (§8)")
+    # §8: the candidate must carry the fixed passing result-audit stamp (re-derived below at publish)
+    if summary.get("result_audit") != {"passed": True, "auditor": "independent_recompute_v1"}:
+        raise PublisherError("summary.result_audit must be the fixed passing independent-audit stamp")
     # Holm <-> cell verdict consistency across both datasets
     for ds, fam in holm.items():
         for key, hp in fam.items():

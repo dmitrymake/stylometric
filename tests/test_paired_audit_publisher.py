@@ -126,7 +126,8 @@ def _base_summary():
                          "diff_ci": head["diff_ci"], "margin": _MARGIN},
             "result_audit": {"passed": True, "auditor": "independent_recompute_v1"},
             "run_plan": _PLAN, "universes": _universes(),
-            "continuous_tolerances": dict(rp.FROZEN_TOLERANCES), "attestation": _attestation()}
+            "continuous_tolerances": dict(rp.FROZEN_TOLERANCES), "attestation": _attestation(),
+            "run_id_source": "canonical_run_plan_sha256"}
 
 
 _SUMMARY = _base_summary()
@@ -404,6 +405,20 @@ class TestPublishGate:
         s["cells"]["lobo"]["majority/A1"]["reason"] = "FORGED REASON"
         with pytest.raises(pub.PublisherError):
             pub.verify_final_assembly(s, _vectors())
+
+    def test_top_level_shape_and_labels_are_pinned(self):
+        with pytest.raises(pub.PublisherError):                      # an injected extra top-level key
+            pub.verify_final_assembly(_summary(injected="x"), _vectors())
+        with pytest.raises(pub.PublisherError):                      # forged run_id_source label
+            pub.verify_final_assembly(_summary(run_id_source="forged"), _vectors())
+        with pytest.raises(pub.PublisherError):                      # forged result-audit stamp
+            pub.verify_final_assembly(_summary(result_audit={"passed": True, "auditor": "x"}), _vectors())
+
+    def test_forged_holm_raw_p_is_recomputed(self, tmp_path):
+        s = _summary()
+        s["holm"]["lobo"]["stylo/A4"]["raw_p"] = 0.000001          # diverges from the recomputed cluster_p
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
 
 
 class TestPublicationSecurity:

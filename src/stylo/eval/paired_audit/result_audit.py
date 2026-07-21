@@ -138,6 +138,8 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
             pub_hp = published[f"{model}/{cell}"]
             _require(_close(hp["holm_p"], pub_hp["holm_p"], tol_p),
                      f"{ds} Holm p mismatch for {model}/{cell}")
+            _require(_close(hp["raw_p"], pub_hp.get("raw_p", float("nan")), tol_p),
+                     f"{ds} Holm raw_p mismatch for {model}/{cell}")
             _require(bool(hp["significant"]) == bool(pub_hp["significant"]),
                      f"{ds} Holm significance mismatch for {model}/{cell}")
             # Holm<->cell consistency: the cell's vs_A0 must carry the same Holm verdict
