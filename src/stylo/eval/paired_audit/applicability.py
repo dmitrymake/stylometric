@@ -17,6 +17,8 @@ data plus validation — it constructs no estimators.
 from __future__ import annotations
 
 import hashlib
+import math
+import re
 from typing import Iterable
 
 from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
@@ -25,7 +27,8 @@ from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
 
 MODELS = ("stylo", "stylo_stack", "bow_lr", "delta_cos:500", "char_cos", "majority")
 CELLS = ("A0", "A1", "A2", "A3", "A4")
-STATUSES = frozenset({"applied", "not_applicable", "already_in_legacy", "equivalent"})
+STATUSES = frozenset({"applied", "not_applicable", "equivalent_to"})   # the literal §4.1 status values
+AXIS_STATES = frozenset({"applied", "not_applicable", "already_in_legacy"})   # §4.1 effective_axes values
 _MATRIX_DIGEST_VERSION = "paired_audit.applicability.v1"
 
 # axes per cell bound to the single source-of-truth corner constants (drift-detecting)
@@ -34,8 +37,35 @@ _CELL_ABLATION = {
     "A3": RELATIVE_FW_ONLY_ABLATION, "A4": FULL_WB_ABLATION,
 }
 
+# per-model per-axis behaviour (§2.1-2.5): which models already do the axis in legacy, and for which
+# it is undefined. Used to compute effective_axes per §4.1.
+_AXIS_ALREADY_LEGACY = {"W": {"delta_cos:500", "char_cos"}}   # equal-work centroids already in legacy
+_AXIS_NOT_APPLICABLE = {"W": {"majority"}, "F": {"majority"},
+                        "R": {"bow_lr", "char_cos", "majority"}}
+
+
+def _effective_axis(model: str, axis: str, requested: bool) -> str:
+    """The effective §4.1 state of one work-balanced axis for one (model, cell)."""
+    if not requested:
+        return "not_applicable"                          # the WB change for this axis was not requested
+    if model in _AXIS_ALREADY_LEGACY.get(axis, ()):
+        return "already_in_legacy"
+    if model in _AXIS_NOT_APPLICABLE.get(axis, ()):
+        return "not_applicable"
+    return "applied"
+
+
+def _effective_axes(model: str, cell: str) -> dict:
+    a = _CELL_ABLATION[cell]
+    return {"W": _effective_axis(model, "W", a.weights),
+            "F": _effective_axis(model, "F", a.feature_fit),
+            "R": _effective_axis(model, "R", a.relative_fw)}
+
+
 _APPLIED = ("applied", None, None)
-# per (model, cell): (status, reason, equivalent_to)
+# per (model, cell): (status, reason, equivalent_to). Top-level status is one of the three §4.1 values;
+# a cell that only touches an already-in-legacy or n/a axis is top-level not_applicable (its axis
+# nature is recorded in effective_axes).
 _STATUS: dict[str, dict[str, tuple]] = {
     "stylo": {c: _APPLIED for c in CELLS},
     "stylo_stack": {c: _APPLIED for c in CELLS},
@@ -46,13 +76,13 @@ _STATUS: dict[str, dict[str, tuple]] = {
     },
     "delta_cos:500": {
         "A0": _APPLIED,
-        "A1": ("already_in_legacy", "Delta centroids already aggregate equal-work (W in legacy)", None),
+        "A1": ("not_applicable", "Delta W is already equal-work in legacy (effective_axes.W)", None),
         "A2": _APPLIED, "A3": _APPLIED, "A4": _APPLIED,
     },
     "char_cos": {
         "A0": _APPLIED,
         "A1": ("not_applicable", "char n-gram cosine has no function-word/loss axis (W/R n/a)", None),
-        "A2": ("equivalent", "feature-state is char_cos's only axis; A2 equals A4", "A4"),
+        "A2": ("equivalent_to", "feature-state is char_cos's only axis; A2 equals A4", "A4"),
         "A3": ("not_applicable", "char n-gram cosine has no relative-FW axis (R n/a)", None),
         "A4": _APPLIED,
     },
@@ -105,6 +135,7 @@ def cell_status(model: str, cell: str) -> dict:
         "model": model, "cell": cell, "status": status, "reason": reason,
         "equivalent_to": equivalent_to,
         "requested_axes": {"W": axes.weights, "F": axes.feature_fit, "R": axes.relative_fw},
+        "effective_axes": _effective_axes(model, cell),
     }
 
 
@@ -129,9 +160,10 @@ def applicability_matrix_digest() -> str:
     h = hashlib.sha256()
     h.update(len(_MATRIX_DIGEST_VERSION).to_bytes(8, "big") + _MATRIX_DIGEST_VERSION.encode("utf-8"))
     for row in applicability_matrix():
-        ax = row["requested_axes"]
+        ax, ef = row["requested_axes"], row["effective_axes"]
         parts = [row["model"], row["cell"], row["status"], row["reason"] or "",
-                 row["equivalent_to"] or "", str(ax["W"]), str(ax["F"]), str(ax["R"])]
+                 row["equivalent_to"] or "", str(ax["W"]), str(ax["F"]), str(ax["R"]),
+                 ef["W"], ef["F"], ef["R"]]
         for p in parts:
             b = p.encode("utf-8")
             h.update(len(b).to_bytes(8, "big") + b)
@@ -154,56 +186,119 @@ def assert_matrix_invariants() -> None:
     for row in applicability_matrix():
         if row["status"] not in STATUSES:
             raise ApplicabilityError(f"cell ({row['model']},{row['cell']}) has invalid status")
-        if row["status"] == "equivalent" and row["equivalent_to"] not in CELLS:
-            raise ApplicabilityError("an equivalent cell must name a valid target cell")
-        if row["status"] != "equivalent" and row["equivalent_to"] is not None:
-            raise ApplicabilityError("only an equivalent cell may set equivalent_to")
+        if row["status"] == "equivalent_to" and row["equivalent_to"] not in CELLS:
+            raise ApplicabilityError("an equivalent_to cell must name a valid target cell")
+        if row["status"] != "equivalent_to" and row["equivalent_to"] is not None:
+            raise ApplicabilityError("only an equivalent_to cell may set equivalent_to")
+        # effective_axes are registered §4.1 values, and the top-level status is consistent with them
+        ef = row["effective_axes"]
+        if any(v not in AXIS_STATES for v in ef.values()):
+            raise ApplicabilityError(f"cell ({row['model']},{row['cell']}) has an unregistered axis state")
+        applied_axis = any(v == "applied" for v in ef.values())
+        if row["cell"] == "A0":
+            if row["status"] != "applied":
+                raise ApplicabilityError("every A0 cell must be applied (the legacy baseline)")
+        elif row["status"] == "applied" and not applied_axis:
+            raise ApplicabilityError(f"applied non-A0 cell ({row['model']},{row['cell']}) exercises no applied axis")
+        elif row["status"] == "not_applicable" and applied_axis:
+            raise ApplicabilityError(f"not_applicable cell ({row['model']},{row['cell']}) exercises an applied axis")
 
 
-def assert_cell_record(model: str, cell: str, record: dict) -> None:
-    """Validate a produced cell record against the registry: the status must match, an applied
-    non-A0 cell must carry ``vs_A0``, and a not_applicable/already_in_legacy/equivalent cell must
-    carry NO copied metric (§4.1)."""
+def assert_cell_record(model: str, cell: str, record: dict, *,
+                       probability_class_order=None, work_universe=None) -> None:
+    """Validate a produced cell record against the registry (§4.1): the status, requested_axes and
+    effective_axes must equal the registry; an applied cell must carry the full evidence schema with
+    valid field types; a not_applicable/equivalent_to cell must carry NO copied metric. When
+    ``probability_class_order``/``work_universe`` are given, the per-work probability width and the
+    per-work universe are additionally checked (the runner supplies them)."""
     reg = cell_status(model, cell)
     if record.get("status") != reg["status"]:
         raise ApplicabilityError(
             f"({model},{cell}) record status {record.get('status')!r} != registered {reg['status']!r}")
+    if record.get("requested_axes") != reg["requested_axes"]:
+        raise ApplicabilityError(f"({model},{cell}) requested_axes must equal the registry")
+    if record.get("effective_axes") != reg["effective_axes"]:
+        raise ApplicabilityError(f"({model},{cell}) effective_axes must equal the registry")
     if reg["status"] == "applied":
-        _validate_applied_record(model, cell, record)
+        _validate_applied_record(model, cell, record, probability_class_order, work_universe)
     else:
         extra = sorted(k for k in record if k not in _NONAPPLIED_ALLOWED_KEYS)
         if extra:                                    # whitelist: any non-metadata key is a metric leak
             raise ApplicabilityError(
                 f"non-applied cell ({model},{cell}) must carry no metrics; unexpected keys {extra}")
-        if reg["status"] == "equivalent" and record.get("equivalent_to") != reg["equivalent_to"]:
+        if reg["status"] == "equivalent_to" and record.get("equivalent_to") != reg["equivalent_to"]:
             raise ApplicabilityError(f"({model},{cell}) equivalent_to must be {reg['equivalent_to']!r}")
 
 
 _POINT_KEYS = ("accuracy", "macro_f1", "top2", "per_author_recall")
 _VS_A0_KEYS = ("dacc", "dacc_authorclustered_ci", "cluster_p", "holm_p",
                "mcnemar_p_diagnostic", "significant")
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
-def _validate_applied_record(model: str, cell: str, record: dict) -> None:
-    """Fail-closed unless an applied cell carries the full §4.1 evidence schema (an evidence-free
-    applied cell must not pass)."""
+def _finite(x) -> bool:
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def _finite_ci(ci) -> bool:
+    return (isinstance(ci, (list, tuple)) and len(ci) == 2 and _finite(ci[0]) and _finite(ci[1])
+            and ci[0] <= ci[1])
+
+
+def _validate_applied_record(model, cell, record, probability_class_order, work_universe) -> None:
+    """Fail-closed unless an applied cell carries the full §4.1 evidence schema with valid types."""
     point = record.get("point")
     if not isinstance(point, dict) or any(k not in point for k in _POINT_KEYS):
         raise ApplicabilityError(f"applied cell ({model},{cell}) point must carry {_POINT_KEYS}")
-    if not isinstance(record.get("per_work"), list) or not record["per_work"]:
-        raise ApplicabilityError(f"applied cell ({model},{cell}) must carry a non-empty per_work")
-    ci = record.get("abs_accuracy_authorclustered_ci")
-    if not (isinstance(ci, (list, tuple)) and len(ci) == 2):
-        raise ApplicabilityError(f"applied cell ({model},{cell}) needs abs_accuracy_authorclustered_ci [lo,hi]")
+    for k in ("accuracy", "macro_f1", "top2"):
+        if not _finite(point[k]):
+            raise ApplicabilityError(f"applied cell ({model},{cell}) point.{k} must be a finite number")
+    if not isinstance(point.get("per_author_recall"), dict):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) point.per_author_recall must be a dict")
+    if not _finite_ci(record.get("abs_accuracy_authorclustered_ci")):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) needs a finite abs_accuracy CI [lo,hi]")
     if record.get("claim_status") != "exploratory_internal":
         raise ApplicabilityError(f"applied cell ({model},{cell}) claim_status must be exploratory_internal")
-    if "evidence" not in record:
+
+    pw = record.get("per_work")
+    if not isinstance(pw, list) or not pw:
+        raise ApplicabilityError(f"applied cell ({model},{cell}) must carry a non-empty per_work")
+    work_ids = []
+    for item in pw:
+        if not isinstance(item, dict) or type(item.get("work_id")) is not str:
+            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work item needs a str work_id")
+        if type(item.get("rank")) is not int:
+            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work rank must be an int")
+        proba = item.get("proba")
+        if not isinstance(proba, list) or not all(_finite(v) for v in proba):
+            raise ApplicabilityError(f"applied cell ({model},{cell}) per_work proba must be finite numbers")
+        if probability_class_order is not None and len(proba) != len(probability_class_order):
+            raise ApplicabilityError(f"applied cell ({model},{cell}) proba width != probability_class_order")
+        work_ids.append(item["work_id"])
+    if len(set(work_ids)) != len(work_ids):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) per_work has duplicate work_id")
+    if work_universe is not None and set(work_ids) != set(work_universe):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) per_work universe != expected work set")
+
+    evidence = record.get("evidence")
+    if not isinstance(evidence, dict):
         raise ApplicabilityError(f"applied cell ({model},{cell}) must carry fold-local evidence")
+    for k, v in evidence.items():
+        if k.endswith("_digest") and not (isinstance(v, str) and _HEX64_RE.match(v)):
+            raise ApplicabilityError(f"applied cell ({model},{cell}) evidence.{k} must be a sha256 hex digest")
+
     if cell != "A0":
         vs = record.get("vs_A0")
         if not isinstance(vs, dict) or any(k not in vs for k in _VS_A0_KEYS):
             raise ApplicabilityError(
                 f"applied non-A0 cell ({model},{cell}) vs_A0 must carry {_VS_A0_KEYS}")
+        if not _finite(vs["dacc"]) or not _finite_ci(vs["dacc_authorclustered_ci"]):
+            raise ApplicabilityError(f"applied non-A0 cell ({model},{cell}) vs_A0 dacc/CI must be finite")
+        for k in ("cluster_p", "holm_p"):
+            if not (_finite(vs[k]) and 0.0 <= vs[k] <= 1.0):
+                raise ApplicabilityError(f"applied non-A0 cell ({model},{cell}) vs_A0.{k} must be a p in [0,1]")
+        if type(vs["significant"]) is not bool:
+            raise ApplicabilityError(f"applied non-A0 cell ({model},{cell}) vs_A0.significant must be bool")
 
 
 def assert_holm_family_complete(members: Iterable[tuple[str, str]]) -> None:

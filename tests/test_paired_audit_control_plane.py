@@ -16,8 +16,10 @@ from stylo.eval.paired_audit import run_plan as rp
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
-def _applied_record(with_vs_a0=True):
+def _applied_record(model="stylo", cell="A4", with_vs_a0=True):
+    reg = ap.cell_status(model, cell)
     r = {"status": "applied",
+         "requested_axes": reg["requested_axes"], "effective_axes": reg["effective_axes"],
          "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
          "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
          "abs_accuracy_authorclustered_ci": [0.8, 0.95],
@@ -26,6 +28,15 @@ def _applied_record(with_vs_a0=True):
     if with_vs_a0:
         r["vs_A0"] = {"dacc": 0.02, "cluster_p": 0.01, "holm_p": 0.05, "significant": False,
                       "dacc_authorclustered_ci": [-0.01, 0.05], "mcnemar_p_diagnostic": 0.2}
+    return r
+
+
+def _nonapplied_record(model, cell):
+    reg = ap.cell_status(model, cell)
+    r = {"status": reg["status"], "requested_axes": reg["requested_axes"],
+         "effective_axes": reg["effective_axes"], "claim_status": "exploratory_internal"}
+    if reg["equivalent_to"] is not None:
+        r["equivalent_to"] = reg["equivalent_to"]
     return r
 
 
@@ -38,12 +49,16 @@ class TestApplicability:
         assert len(ap.applicability_matrix()) == 30
 
     def test_registered_statuses_match_protocol(self):
+        # only the three literal §4.1 status values; Delta A1 -> not_applicable with W already-in-legacy
         assert ap.cell_status("bow_lr", "A3")["status"] == "not_applicable"
-        assert ap.cell_status("delta_cos:500", "A1")["status"] == "already_in_legacy"
+        da1 = ap.cell_status("delta_cos:500", "A1")
+        assert da1["status"] == "not_applicable" and da1["effective_axes"]["W"] == "already_in_legacy"
         assert ap.cell_status("char_cos", "A1")["status"] == "not_applicable"
         assert ap.cell_status("char_cos", "A3")["status"] == "not_applicable"
         eq = ap.cell_status("char_cos", "A2")
-        assert eq["status"] == "equivalent" and eq["equivalent_to"] == "A4"
+        assert eq["status"] == "equivalent_to" and eq["equivalent_to"] == "A4"
+        assert ap.cell_status("char_cos", "A4")["effective_axes"] == {"W": "already_in_legacy",
+                                                                      "F": "applied", "R": "not_applicable"}
         for c in ("A1", "A2", "A3", "A4"):
             assert ap.cell_status("majority", c)["status"] == "not_applicable"
         for c in ap.CELLS:
@@ -66,34 +81,53 @@ class TestApplicability:
         # an evidence-free applied cell is rejected (§4.1 schema)
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("stylo", "A4", {"status": "applied"})
-        ap.assert_cell_record("stylo", "A4", _applied_record(with_vs_a0=True))
-        ap.assert_cell_record("stylo", "A0", _applied_record(with_vs_a0=False))   # A0 needs no vs_A0
+        ap.assert_cell_record("stylo", "A4", _applied_record("stylo", "A4", with_vs_a0=True))
+        ap.assert_cell_record("stylo", "A0", _applied_record("stylo", "A0", with_vs_a0=False))
         with pytest.raises(ap.ApplicabilityError):                                # non-A0 missing vs_A0
-            ap.assert_cell_record("stylo", "A4", _applied_record(with_vs_a0=False))
-        # non-applied must carry no metric
+            ap.assert_cell_record("stylo", "A4", _applied_record("stylo", "A4", with_vs_a0=False))
+        # a not_applicable cell carries the registry axes and no metric
+        na = _nonapplied_record("bow_lr", "A3")
+        ap.assert_cell_record("bow_lr", "A3", na)
         with pytest.raises(ap.ApplicabilityError):
-            ap.assert_cell_record("bow_lr", "A3", {"status": "not_applicable", "point": {"accuracy": 1}})
-        ap.assert_cell_record("bow_lr", "A3", {"status": "not_applicable"})
-        # equivalent must name the right target
+            ap.assert_cell_record("bow_lr", "A3", {**na, "point": {"accuracy": 1}})
+        # equivalent_to must name the right target
+        eq = _nonapplied_record("char_cos", "A2")
+        ap.assert_cell_record("char_cos", "A2", eq)
         with pytest.raises(ap.ApplicabilityError):
-            ap.assert_cell_record("char_cos", "A2", {"status": "equivalent", "equivalent_to": "A0"})
-        ap.assert_cell_record("char_cos", "A2", {"status": "equivalent", "equivalent_to": "A4"})
+            ap.assert_cell_record("char_cos", "A2", {**eq, "equivalent_to": "A0"})
+        # requested/effective axes must equal the registry
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo", "A4", {**_applied_record("stylo", "A4"),
+                                                  "effective_axes": {"W": "applied", "F": "applied", "R": "not_applicable"}})
         # vs_A0 must carry the full §4.1 key set (incl. the difference CI + diagnostic McNemar)
-        bad = _applied_record(with_vs_a0=True)
+        bad = _applied_record("stylo", "A4", with_vs_a0=True)
         del bad["vs_A0"]["dacc_authorclustered_ci"]
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("stylo", "A4", bad)
-        # status must match the registry
+        # status must match the registry (delta A1 is not_applicable, not applied)
         with pytest.raises(ap.ApplicabilityError):
-            ap.assert_cell_record("delta_cos:500", "A1", _applied_record())
+            ap.assert_cell_record("delta_cos:500", "A1", _applied_record("delta_cos:500", "A1"))
+
+    def test_applied_evidence_field_validation(self):
+        # proba width vs class order, non-finite metric, and non-hex evidence digest all fail closed
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo", "A4", _applied_record("stylo", "A4"),
+                                  probability_class_order=["a", "b", "c"])   # proba is width 2
+        bad_metric = _applied_record("stylo", "A4")
+        bad_metric["point"]["accuracy"] = float("nan")
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo", "A4", bad_metric)
+        bad_digest = _applied_record("stylo", "A4")
+        bad_digest["evidence"]["proba_digest"] = "nothex"
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo", "A4", bad_digest)
 
     def test_cell_record_whitelist_rejects_any_metric_key(self):
-        # a non-applied cell must carry NO metric under ANY key (whitelist, not a fixed denylist)
+        na = _nonapplied_record("bow_lr", "A3")
         for leak in ({"accuracy": 0.99}, {"cluster_p": 0.001}, {"significant": True}, {"proba": [1]}):
             with pytest.raises(ap.ApplicabilityError):
-                ap.assert_cell_record("bow_lr", "A3", {"status": "not_applicable", **leak})
-        ap.assert_cell_record("bow_lr", "A3",
-                              {"status": "not_applicable", "reason": "x", "requested_axes": {}})
+                ap.assert_cell_record("bow_lr", "A3", {**na, **leak})
+        ap.assert_cell_record("bow_lr", "A3", na)      # clean metadata-only record passes
 
     def test_invariants_catch_count_preserving_swap(self, monkeypatch):
         # flip bow_lr A3 -> applied and char_cos A4 -> not_applicable: counts stay 21/15 but the
