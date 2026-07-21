@@ -58,6 +58,22 @@ class TestBuild:
         assert all(w["tested"] for w in m["works"])
 
 
+class _DSProv(_DS):
+    def __init__(self, groups, sel):
+        super().__init__(groups)
+        self.provenance = type("P", (), {"selection_manifest_digest": sel})()
+
+
+class TestRuaaSelectionBinding:
+    def test_selection_digest_mismatch_rejected_at_build(self):
+        ds = _DSProv(_groups([6] * 21 + [11], "r"), "s" * 64)
+        with pytest.raises(mf.FoldManifestError):
+            mf.build_fold_manifest("ruaa", ds, parent_dataset_digest="p" * 64, algorithm="whole_work",
+                                   seed=42, config_hash="c" * 64, selection_digest="d" * 64)
+        mf.build_fold_manifest("ruaa", ds, parent_dataset_digest="p" * 64, algorithm="whole_work",
+                               seed=42, config_hash="c" * 64, selection_digest="s" * 64)  # matches -> ok
+
+
 class TestVerify:
     def test_rebuild_equality_and_tamper(self):
         ds = _toy_lobo()

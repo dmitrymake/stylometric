@@ -44,6 +44,8 @@ def _cluster_percentile_ci(values: Sequence, authors: Sequence, *, iters: int, s
         raise HeadlineError("values/authors must be equal-length 1-D sequences")
     if v.size == 0:
         raise HeadlineError("empty headline comparison")
+    if not np.isfinite(v).all():
+        raise HeadlineError("headline values must be finite")
     uniq = sorted(set(au.tolist()))
     point = float(v.sum() / v.size)                      # cluster mean over all books
     if len(uniq) < 2:                                    # cannot cluster-resample a single author
@@ -62,6 +64,8 @@ def author_clustered_accuracy_ci(correct: Sequence, authors: Sequence, *,
                                  iters: int = DEFAULT_ITERS, seed: int = DEFAULT_SEED,
                                  quantiles=DEFAULT_QUANTILES) -> dict:
     """Absolute author-clustered accuracy CI (percentile method)."""
+    if not np.isin(np.asarray(correct, dtype=float), (0.0, 1.0)).all():
+        raise HeadlineError("correctness vector must contain only 0/1")
     return _cluster_percentile_ci(correct, authors, iters=iters, seed=seed, quantiles=quantiles)
 
 
@@ -73,6 +77,8 @@ def paired_accuracy_diff_ci(correct_a: Sequence, correct_b: Sequence, authors: S
     b = np.asarray(correct_b, dtype=float)
     if a.shape != b.shape:
         raise HeadlineError("correct_a/correct_b must be equal length")
+    if not (np.isin(a, (0.0, 1.0)).all() and np.isin(b, (0.0, 1.0)).all()):
+        raise HeadlineError("correctness vectors must contain only 0/1")
     return _cluster_percentile_ci(a - b, authors, iters=iters, seed=seed, quantiles=quantiles)
 
 

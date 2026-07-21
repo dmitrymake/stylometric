@@ -39,7 +39,8 @@ _PUBLISH_SCHEMA = "paired_audit.publish.v1"
 # frozen/headline artifacts the publisher must NEVER write (denylist, belt-and-suspenders on top of
 # the allowlist)
 _HEADLINE_BASENAMES = frozenset({
-    "final_comparison.txt", "final_comparison.v2.txt", "lobo_books.txt", "screening_panel_v1.json",
+    "final_comparison.txt", "final_comparison.v2.txt", "final_comparison.csv", "final_comparison.v2.csv",
+    "lobo_books.txt", "screening_panel_v1.json", "p0_baseline_snapshot.json",
     "corpus_manifest.json", "corpus_validation.json", "README.md", "PAPER.md", "index.html",
 })
 
@@ -170,6 +171,7 @@ def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
         raise PublisherError("audit summary must carry a run_id")
 
     droot = _docs_root(docs_root)
+    assert_archive_committable(droot)                    # §4.4 durability: refuse if the archive is gitignored
     archive_root = droot / ARCHIVE_DIRNAME
     versions = archive_root / VERSIONS_DIR
     versions.mkdir(parents=True, exist_ok=True)
@@ -219,6 +221,37 @@ def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
     dump_strict(published["summary"], summary_path, trailing_newline=True)
     published["summary_path"] = summary_path
     return published
+
+
+def _git_toplevel(path: pathlib.Path):
+    import subprocess
+    try:
+        out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=path,
+                             capture_output=True, text=True)
+        return pathlib.Path(out.stdout.strip()) if out.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def assert_archive_committable(docs_root: pathlib.Path | str, *, repo_root=None) -> None:
+    """Fail-closed unless the content-addressed archive subtree is committable (§4.4).
+
+    §4.4 promises the per-work vectors are DURABLY committed, so a confirmatory publish must verify the
+    archive path is NOT git-ignored (a ``!docs/work_balanced_paired_audit_v1/`` whitelist must exist)
+    before claiming durable publication. No-op outside a git repository (e.g. a tmp test root).
+    """
+    import subprocess
+    docs_root = pathlib.Path(docs_root)
+    probe = docs_root / ARCHIVE_DIRNAME / VERSIONS_DIR / "token" / "x.json"
+    root = pathlib.Path(repo_root) if repo_root is not None else _git_toplevel(docs_root)
+    if root is None:
+        return
+    res = subprocess.run(["git", "check-ignore", str(probe)], cwd=root,
+                         capture_output=True, text=True)
+    if res.returncode == 0:                              # git names the ignoring rule => path IS ignored
+        raise PublisherError(
+            f"content-addressed archive subtree is git-ignored ({res.stdout.strip()}); add a "
+            f"!docs/{ARCHIVE_DIRNAME}/ whitelist before claiming durable publication (§4.4)")
 
 
 def load_published_audit(docs_root: pathlib.Path | str) -> dict:

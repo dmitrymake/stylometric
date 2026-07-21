@@ -16,7 +16,8 @@ protocol governs.
 | §1.3 | Whole immutable audit-corpus root `data/audit_corpus/<digest>/`; atomic publication; reverify-before-pointer; per-chunk byte/filename equality; conflict/partial fatal; live `frags_train` never mutated | `paired_audit/corpus.py` | `test_paired_audit_corpus::TestBuilder`, `TestBuilderFailClosed` |
 | §1.4 | Audit-only dataset verifier (`dataset_contract=work_balanced_manifest` ⊥ estimator axes) with self-consistency recompute | `paired_audit/corpus.verify_audit_dataset` | `test_paired_audit_corpus::test_audit_only_verifier_*` |
 | §1.5 | `derive_work_subset` whole-work exact-set RuAA panel with three-digest binding | `paired_audit/work_subset.py` | `test_paired_audit_corpus::TestWorkSubset` |
-| §1.6/§12 | LOBO/RuAA fold-manifest fields + self-hash; runner rebuilds and requires exact equality (never self-signs); frozen 47/255/43/251 and 137/22 universes | `paired_audit/manifest.py` | `test_paired_audit_manifest` |
+| §1.6/§12 | LOBO/RuAA fold-manifest fields + self-hash; runner rebuilds and requires exact equality (never self-signs); frozen 47/255/43/251 and 137/22 universes; RuAA selection-digest bound at build | `paired_audit/manifest.py` | `test_paired_audit_manifest` |
+| §3.2 | Pinned A0 reference SHA256 before any parse (`lobo_books.txt`, RuAA reference submission + frozen SHA256SUMS) | `paired_audit/references.py` | `test_paired_audit_references` |
 | §2.4/§3.4 | Exactly 21 applied cells / 15 A0 comparisons; per-model decomposition pinned; typed signals carry no metrics; applicability digest | `paired_audit/applicability.py` | `test_paired_audit_control_plane::TestApplicability` |
 | §3.3 | Two-sided null-centered author-cluster bootstrap p, B=10000, seed=42, +1 correction, degenerate order; McNemar diagnostic-only | `paired_audit/inference.py` | `test_paired_audit_inference::TestClusterPValue`, `TestMcNemarDiagnostic` |
 | §3.4 | Holm–Bonferroni on unrounded p over the fixed 15-member family; `m` never reduced; `significant := holm_p < 0.05` | `paired_audit/inference.py` | `test_paired_audit_inference::TestHolm`, `TestHolmRegisteredFamily` |
@@ -44,6 +45,18 @@ Each gate was reviewed by an independent adversarial agent (fresh context, code 
 not a summary read). Findings were addressed with fixes and regression tests: corpus 9.5; applicability
 + run_plan 7/7 hardened; inference 9.5 (bit-exact reference); headline 9.5; checkpoints 9 hardened;
 publisher 8 hardened (path normalization); manifest 8.5 hardened (class-order contents).
+
+A final four-lens whole-package code audit (integration/security/statistics/completeness) then ran.
+Integration/security/statistics signed off (8/9/9); the completeness lens (7, withheld) surfaced real
+primitive gaps, all now closed: the §3.2 pinned A0-reference verifier (`references.py`), the §4.1
+applied-cell evidence schema in `assert_cell_record`, a single shared `class_order_digest` producer
+wired into the checkpoint bindings, the RuAA selection-digest bound at manifest build, confirmatory
+`continuous_tolerances` + clean-tree (`git_dirty`) enforcement, the extended headline denylist plus an
+`assert_archive_committable` durability guard, 0/1 correctness guards on both bootstraps, and orphan
+audit-root cleanup on a failed re-verify. The `.gitignore` whitelist for the committed per-work archive
+subtree is a repository-config action the runner performs at real publication (it is not edited here
+because `.gitignore` is part of the separate working-tree rework); `assert_archive_committable` fails
+closed until it exists.
 
 ## Claim boundary
 

@@ -45,6 +45,10 @@ class TestClusterPValue:
         with pytest.raises(inf.PairedInferenceError):
             inf.paired_cluster_pvalue([], [], [], B=10)
 
+    def test_non_binary_correctness_rejected(self):
+        with pytest.raises(inf.PairedInferenceError):
+            inf.paired_cluster_pvalue([0.5, 1], [0, 1], ["x", "y"], B=10)
+
 
 class TestMcNemarDiagnostic:
     def test_diagnostic_only_shape(self):

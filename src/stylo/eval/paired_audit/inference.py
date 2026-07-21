@@ -45,6 +45,8 @@ def paired_cluster_pvalue(correct_a: Sequence, correct_b: Sequence, authors: Seq
         raise PairedInferenceError("correct_a/correct_b/authors must be equal-length 1-D sequences")
     if a.size == 0:
         raise PairedInferenceError("empty comparison")
+    if not (np.isin(a, (0.0, 1.0)).all() and np.isin(b, (0.0, 1.0)).all()):
+        raise PairedInferenceError("correctness vectors must contain only 0/1")
 
     diff = a - b
     uniq = sorted(set(au.tolist()))

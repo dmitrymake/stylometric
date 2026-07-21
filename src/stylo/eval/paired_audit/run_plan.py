@@ -21,9 +21,15 @@ import re
 import subprocess
 from typing import Optional
 
-from ...jsonio import dumps_strict
+from ...jsonio import canonical_hash, dumps_strict
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def class_order_digest(order) -> str:
+    """The single canonical producer for a class-order digest (shared by the RunPlan, the fold
+    manifest, and the checkpoint bindings, so no module invents its own scheme)."""
+    return canonical_hash(list(order))
 
 AUDIT_VERSION = "work_balanced_paired_audit_v1"
 _RUN_PLAN_VERSION = "paired_audit.run_plan.v1"
@@ -203,6 +209,17 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
         raise RunPlanError("stats must carry exactly the frozen stat keys (§3.3/§3.5)")
     if run_kind == "confirmatory" and stats != FROZEN_STATS:
         raise RunPlanError("a confirmatory run requires the frozen stat values (seed/B/δ/α/quantiles)")
+    if run_kind == "confirmatory" and git_dirty:
+        raise RunPlanError("a confirmatory run requires a clean tree (git_dirty must be False)")
+    if run_kind == "confirmatory":
+        if not isinstance(tolerances, dict) or not tolerances:
+            raise RunPlanError("a confirmatory run requires non-empty continuous_tolerances")
+        for quantity, tol in tolerances.items():
+            if not (isinstance(tol, dict) and isinstance(tol.get("atol"), (int, float))
+                    and not isinstance(tol.get("atol"), bool)
+                    and isinstance(tol.get("rtol"), (int, float)) and not isinstance(tol.get("rtol"), bool)
+                    and isinstance(tol.get("dtype"), str) and tol["dtype"]):
+                raise RunPlanError(f"tolerances[{quantity!r}] must carry numeric atol/rtol and a dtype string")
 
     # top-level §4.2 scalar identity inputs must be present and non-empty (fail-closed)
     _require({"run_kind": run_kind, "audit_version": audit_version, "git_commit": git_commit,

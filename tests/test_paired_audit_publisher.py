@@ -36,6 +36,11 @@ class TestPathGuard:
             pub.assert_writable_audit_path(tmp_path / "README.md",
                                            docs_root=tmp_path, allow_published=True)
 
+    def test_rejects_more_frozen_basenames(self, tmp_path):
+        for name in ("final_comparison.csv", "final_comparison.v2.csv", "p0_baseline_snapshot.json"):
+            with pytest.raises(pub.PublisherError):
+                pub.assert_writable_audit_path(tmp_path / name, docs_root=tmp_path, allow_published=True)
+
     def test_rejects_escape_and_unallowed(self, tmp_path):
         with pytest.raises(pub.PublisherError):                       # escapes docs root
             pub.assert_writable_audit_path(tmp_path.parent / "escape.json",
@@ -100,6 +105,24 @@ class TestPublish:
         del s["run_id"]
         with pytest.raises(pub.PublisherError):
             pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+
+
+class TestArchiveCommittable:
+    def test_guard_flags_gitignored_archive_and_passes_whitelisted(self, tmp_path):
+        import subprocess
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / ".gitignore").write_text("docs/*\n", encoding="utf-8")
+        with pytest.raises(pub.PublisherError):
+            pub.assert_archive_committable(docs, repo_root=tmp_path)
+        (tmp_path / ".gitignore").write_text(
+            "docs/*\n!docs/work_balanced_paired_audit_v1/\n!docs/work_balanced_paired_audit_v1/**\n",
+            encoding="utf-8")
+        pub.assert_archive_committable(docs, repo_root=tmp_path)      # whitelisted -> ok
+
+    def test_guard_is_noop_outside_git(self, tmp_path):
+        pub.assert_archive_committable(tmp_path / "docs")             # not a git repo -> no-op
 
 
 class TestPublishFailClosed:

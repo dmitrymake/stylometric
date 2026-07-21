@@ -270,6 +270,7 @@ def build_audit_corpus(
 
     staging = pathlib.Path(tempfile.mkdtemp(dir=audit_parent, prefix=".staging_"))
     published_root: Optional[pathlib.Path] = None
+    newly_published = False
     try:
         (staging / FRAGS_SUBDIR).mkdir()
         (staging / INPUT_CLEAN_SUBDIR).mkdir()
@@ -303,6 +304,7 @@ def build_audit_corpus(
             shutil.rmtree(staging)          # identical complete root already published — reuse
         else:
             os.replace(staging, versioned)  # whole immutable root, single atomic rename
+            newly_published = True
         staging = None
         published_root = versioned
     finally:
@@ -311,10 +313,16 @@ def build_audit_corpus(
 
     # re-load from the published root and re-prove parity + per-chunk byte/filename equality BEFORE
     # the pointer is made resolvable (§1.3: the root is published whole only AFTER the equality
-    # proof passes; a build that fails the proof must never leave a resolvable pointer).
-    _reverify_published_root(published_root, cfg, legacy_anchor if is_full else None,
-                             semantic_digest if is_full else None,
-                             source_frags_root, input_clean_root, selected)
+    # proof passes; a build that fails the proof must never leave a resolvable pointer). If the proof
+    # fails on a root we just created, remove it so the audit_parent keeps no uncertified root.
+    try:
+        _reverify_published_root(published_root, cfg, legacy_anchor if is_full else None,
+                                 semantic_digest if is_full else None,
+                                 source_frags_root, input_clean_root, selected)
+    except Exception:
+        if newly_published and _real_within(published_root, audit_parent, must_dir=True):
+            shutil.rmtree(published_root, ignore_errors=True)
+        raise
 
     # only now flip the pointer atomically
     tmp_ptr = pathlib.Path(tempfile.mktemp(dir=audit_parent, prefix=".current_"))

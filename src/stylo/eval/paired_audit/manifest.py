@@ -55,6 +55,12 @@ def build_fold_manifest(dataset_kind: str, dataset, *, parent_dataset_digest: st
         raise FoldManifestError("parent_dataset_digest is required")
     if dataset_kind == "ruaa" and not selection_digest:
         raise FoldManifestError("RuAA manifest requires a selection_digest (three-digest binding)")
+    if dataset_kind == "ruaa":
+        # close the three-digest binding at build: the supplied selection_digest must equal the
+        # derived subset's own provenance selection digest when the parent carries one.
+        prov_sel = getattr(getattr(dataset, "provenance", None), "selection_manifest_digest", None)
+        if prov_sel is not None and prov_sel != selection_digest:
+            raise FoldManifestError("RuAA selection_digest != the derived subset's provenance digest")
 
     works, work_author, awc = _works_and_authors(dataset)
     authors = sorted(set(work_author.values()))

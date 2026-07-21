@@ -31,6 +31,16 @@ def _save(store, fold_index=0, work_id="stylo_book", model="stylo", cell="A0", d
                       fold_local_evidence={"proba_digest": "e" * 64})
 
 
+def test_dataset_bindings_derive_class_order_digests(tmp_path):
+    from stylo.eval.paired_audit.checkpoints import dataset_bindings
+    from stylo.eval.paired_audit.run_plan import class_order_digest
+    b = dataset_bindings("a" * 64, "b" * 64, ["p", "q"], ["p"])
+    assert b["probability_class_order_digest"] == class_order_digest(["p", "q"])
+    assert b["metric_label_order_digest"] == class_order_digest(["p"])
+    store = CheckpointStore(tmp_path / "ck", RUN_ID, {"lobo": b, "ruaa": b})   # valid 4-key bindings
+    assert store.dataset_bindings["lobo"]["probability_class_order_digest"]
+
+
 class TestSaveResume:
     def test_save_scan_and_idempotent(self, tmp_path):
         store = _store(tmp_path)

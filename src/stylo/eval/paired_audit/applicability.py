@@ -169,8 +169,7 @@ def assert_cell_record(model: str, cell: str, record: dict) -> None:
         raise ApplicabilityError(
             f"({model},{cell}) record status {record.get('status')!r} != registered {reg['status']!r}")
     if reg["status"] == "applied":
-        if cell != "A0" and "vs_A0" not in record:
-            raise ApplicabilityError(f"applied non-A0 cell ({model},{cell}) must carry vs_A0")
+        _validate_applied_record(model, cell, record)
     else:
         extra = sorted(k for k in record if k not in _NONAPPLIED_ALLOWED_KEYS)
         if extra:                                    # whitelist: any non-metadata key is a metric leak
@@ -178,6 +177,33 @@ def assert_cell_record(model: str, cell: str, record: dict) -> None:
                 f"non-applied cell ({model},{cell}) must carry no metrics; unexpected keys {extra}")
         if reg["status"] == "equivalent" and record.get("equivalent_to") != reg["equivalent_to"]:
             raise ApplicabilityError(f"({model},{cell}) equivalent_to must be {reg['equivalent_to']!r}")
+
+
+_POINT_KEYS = ("accuracy", "macro_f1", "top2", "per_author_recall")
+_VS_A0_KEYS = ("dacc", "dacc_authorclustered_ci", "cluster_p", "holm_p",
+               "mcnemar_p_diagnostic", "significant")
+
+
+def _validate_applied_record(model: str, cell: str, record: dict) -> None:
+    """Fail-closed unless an applied cell carries the full §4.1 evidence schema (an evidence-free
+    applied cell must not pass)."""
+    point = record.get("point")
+    if not isinstance(point, dict) or any(k not in point for k in _POINT_KEYS):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) point must carry {_POINT_KEYS}")
+    if not isinstance(record.get("per_work"), list) or not record["per_work"]:
+        raise ApplicabilityError(f"applied cell ({model},{cell}) must carry a non-empty per_work")
+    ci = record.get("abs_accuracy_authorclustered_ci")
+    if not (isinstance(ci, (list, tuple)) and len(ci) == 2):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) needs abs_accuracy_authorclustered_ci [lo,hi]")
+    if record.get("claim_status") != "exploratory_internal":
+        raise ApplicabilityError(f"applied cell ({model},{cell}) claim_status must be exploratory_internal")
+    if "evidence" not in record:
+        raise ApplicabilityError(f"applied cell ({model},{cell}) must carry fold-local evidence")
+    if cell != "A0":
+        vs = record.get("vs_A0")
+        if not isinstance(vs, dict) or any(k not in vs for k in _VS_A0_KEYS):
+            raise ApplicabilityError(
+                f"applied non-A0 cell ({model},{cell}) vs_A0 must carry {_VS_A0_KEYS}")
 
 
 def assert_holm_family_complete(members: Iterable[tuple[str, str]]) -> None:

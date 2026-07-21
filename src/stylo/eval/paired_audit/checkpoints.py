@@ -49,6 +49,20 @@ def _self_hash(record: Mapping) -> str:
     return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+def dataset_bindings(dataset_digest: str, fold_manifest_digest: str,
+                     probability_class_order, metric_label_order) -> dict:
+    """Derive the per-dataset checkpoint bindings from the RunPlan/manifest class-order LISTS via the
+    single shared ``class_order_digest`` producer — so the checkpoint's class-order digests provably
+    equal the run-id-bound / fold-manifest class orders (no invented scheme, no silent divergence)."""
+    from .run_plan import class_order_digest
+    return {
+        "dataset_digest": dataset_digest,
+        "fold_manifest_digest": fold_manifest_digest,
+        "probability_class_order_digest": class_order_digest(probability_class_order),
+        "metric_label_order_digest": class_order_digest(metric_label_order),
+    }
+
+
 class CheckpointStore:
     """An immutable per-fold checkpoint store bound to exactly one ``run_id`` and its per-dataset
     binding digests."""

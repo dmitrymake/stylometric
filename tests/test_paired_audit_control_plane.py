@@ -16,6 +16,19 @@ from stylo.eval.paired_audit import run_plan as rp
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
+def _applied_record(with_vs_a0=True):
+    r = {"status": "applied",
+         "point": {"accuracy": 0.9, "macro_f1": 0.8, "top2": 0.95, "per_author_recall": {}},
+         "per_work": [{"work_id": "a/w", "pred_label": 0, "rank": 1, "proba": [0.5, 0.5]}],
+         "abs_accuracy_authorclustered_ci": [0.8, 0.95],
+         "evidence": {"proba_digest": "e" * 64},
+         "claim_status": "exploratory_internal"}
+    if with_vs_a0:
+        r["vs_A0"] = {"dacc": 0.02, "cluster_p": 0.01, "holm_p": 0.05, "significant": False,
+                      "dacc_authorclustered_ci": [-0.01, 0.05], "mcnemar_p_diagnostic": 0.2}
+    return r
+
+
 # ── applicability matrix ─────────────────────────────────────────────────────
 class TestApplicability:
     def test_invariants_21_applied_15_comparisons(self):
@@ -50,11 +63,13 @@ class TestApplicability:
         assert d1 == d2 and _HEX64.match(d1)
 
     def test_cell_record_validation(self):
-        # applied non-A0 must carry vs_A0
+        # an evidence-free applied cell is rejected (§4.1 schema)
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("stylo", "A4", {"status": "applied"})
-        ap.assert_cell_record("stylo", "A4", {"status": "applied", "vs_A0": {}})
-        ap.assert_cell_record("stylo", "A0", {"status": "applied"})   # A0 needs no vs_A0
+        ap.assert_cell_record("stylo", "A4", _applied_record(with_vs_a0=True))
+        ap.assert_cell_record("stylo", "A0", _applied_record(with_vs_a0=False))   # A0 needs no vs_A0
+        with pytest.raises(ap.ApplicabilityError):                                # non-A0 missing vs_A0
+            ap.assert_cell_record("stylo", "A4", _applied_record(with_vs_a0=False))
         # non-applied must carry no metric
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("bow_lr", "A3", {"status": "not_applicable", "point": {"accuracy": 1}})
@@ -63,9 +78,14 @@ class TestApplicability:
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("char_cos", "A2", {"status": "equivalent", "equivalent_to": "A0"})
         ap.assert_cell_record("char_cos", "A2", {"status": "equivalent", "equivalent_to": "A4"})
+        # vs_A0 must carry the full §4.1 key set (incl. the difference CI + diagnostic McNemar)
+        bad = _applied_record(with_vs_a0=True)
+        del bad["vs_A0"]["dacc_authorclustered_ci"]
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo", "A4", bad)
         # status must match the registry
         with pytest.raises(ap.ApplicabilityError):
-            ap.assert_cell_record("delta_cos:500", "A1", {"status": "applied", "vs_A0": {}})
+            ap.assert_cell_record("delta_cos:500", "A1", _applied_record())
 
     def test_cell_record_whitelist_rejects_any_metric_key(self):
         # a non-applied cell must carry NO metric under ANY key (whitelist, not a fixed denylist)
@@ -200,23 +220,38 @@ class TestRunPlan:
         with pytest.raises(rp.RunPlanError):
             rp.build_run_plan(**_bindings(blas_thread_fingerprint={"threadpools": []}))  # no thread_env
 
+    def test_confirmatory_requires_clean_tree_and_tolerances(self):
+        with pytest.raises(rp.RunPlanError):
+            rp.build_run_plan(**_bindings(git_dirty=True))                 # confirmatory + dirty tree
+        with pytest.raises(rp.RunPlanError):
+            rp.build_run_plan(**_bindings(tolerances={}))                  # empty tolerances
+        with pytest.raises(rp.RunPlanError):
+            rp.build_run_plan(**_bindings(tolerances={"proba": {"atol": 1e-9}}))  # missing rtol/dtype
+        assert rp.run_id(rp.build_run_plan(**_bindings(run_kind="smoke", git_dirty=True)))
+
+    def test_class_order_digest_deterministic_and_order_sensitive(self):
+        a = rp.class_order_digest(["x", "y", "z"])
+        assert a == rp.class_order_digest(["x", "y", "z"]) and _HEX64.match(a)
+        assert a != rp.class_order_digest(["y", "x", "z"])
+
     def test_kernel_string_injection_rejected(self):
+        # run_kind='smoke' so the confirmatory tolerances validation does not pre-empt the kernel walk
         release = platform.release()
         if not release:
             pytest.skip("no kernel release string on this platform")
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(tolerances={"proba": {"dtype": release}}))
+            rp.build_run_plan(**_bindings(run_kind="smoke", tolerances={"proba": {"dtype": release}}))
 
     def test_machine_string_injection_rejected(self):
         machine = platform.machine()
         if not machine:
             pytest.skip("no machine string on this platform")
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(tolerances={"proba": {"dtype": machine}}))
+            rp.build_run_plan(**_bindings(run_kind="smoke", tolerances={"proba": {"dtype": machine}}))
 
     def test_bare_os_name_not_falsely_rejected(self):
         system = platform.system()
         if not system or system == platform.machine():
             pytest.skip("no distinct OS-name string")
-        plan = rp.build_run_plan(**_bindings(tolerances={"proba": {"dtype": system}}))
+        plan = rp.build_run_plan(**_bindings(run_kind="smoke", tolerances={"proba": {"dtype": system}}))
         assert rp.run_id(plan)

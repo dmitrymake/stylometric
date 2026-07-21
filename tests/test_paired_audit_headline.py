@@ -45,6 +45,12 @@ class TestClusterCI:
         with pytest.raises(hl.HeadlineError):
             hl.author_clustered_accuracy_ci([], [], iters=10)
 
+    def test_non_binary_correctness_rejected(self):
+        with pytest.raises(hl.HeadlineError):
+            hl.author_clustered_accuracy_ci([0.5, 1], ["x", "y"], iters=10)
+        with pytest.raises(hl.HeadlineError):
+            hl.paired_accuracy_diff_ci([0.5, 1], [0, 1], ["x", "y"], iters=10)
+
 
 class TestEvaluateHeadline:
     def test_strong_gain_relabels_and_reports_both_cis(self):
