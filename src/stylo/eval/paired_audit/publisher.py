@@ -231,6 +231,31 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     if hl.get("decision") not in _HEADLINE_DECISIONS:
         raise PublisherError("summary.headline decision must be relabel/keep_legacy/inconclusive")
 
+    # §8: the candidate must have passed the INDEPENDENT result audit
+    ra = summary.get("result_audit")
+    if not isinstance(ra, Mapping) or ra.get("passed") is not True:
+        raise PublisherError("summary must carry a passing result_audit (§8)")
+    # Holm <-> cell verdict consistency across both datasets
+    for ds, fam in holm.items():
+        for key, hp in fam.items():
+            vs = cells.get(ds, {}).get(key, {}).get("vs_A0")
+            if not isinstance(vs, Mapping) or vs.get("holm_p") != hp.get("holm_p") \
+                    or bool(vs.get("significant")) != bool(hp.get("significant")):
+                raise PublisherError(f"Holm<->cell verdict inconsistency at {ds}/{key}")
+    # headline <-> CI consistency: the decision is the gate on the stored difference CI, and that CI
+    # equals the stylo A4-A0 cell difference CI in the lobo grid
+    from .headline import headline_gate
+    dci = hl.get("diff_ci") or {}
+    try:
+        gate = headline_gate(dci["lo"], dci["hi"], margin=hl.get("margin"))
+    except (KeyError, TypeError) as exc:
+        raise PublisherError(f"headline diff CI is malformed: {exc}") from exc
+    if gate != hl.get("decision"):
+        raise PublisherError("headline decision != the gate applied to its own difference CI")
+    a4_vs = cells.get("lobo", {}).get("stylo/A4", {}).get("vs_A0", {})
+    if [dci.get("lo"), dci.get("hi")] != list(a4_vs.get("dacc_authorclustered_ci", [])):
+        raise PublisherError("headline diff CI != the stylo A4-A0 cell difference CI")
+
     if not isinstance(per_work_vectors, Mapping) or not per_work_vectors:
         raise PublisherError("per_work_vectors must be a non-empty mapping")
     applied_keys = {f"{ds}/{m}/{c}" for ds in ("lobo", "ruaa") for (m, c) in registered_cells()}
@@ -241,19 +266,30 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
             raise PublisherError(f"per_work_vectors[{k}] must be a non-empty list")
 
 
+def _archive_root(droot: pathlib.Path, run_id: str, *, confirmatory: bool) -> pathlib.Path:
+    """The confirmatory publish targets the committed content-addressed archive; a smoke/dry run
+    targets the gitignored TRANSIENT run namespace so it can never write the production artifact."""
+    return droot / ARCHIVE_DIRNAME if confirmatory else droot / RUNS_SUBPATH / run_id / ARCHIVE_DIRNAME
+
+
 def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
-                  docs_root: pathlib.Path | str) -> dict:
-    """Verified publication: validate the COMPLETE assembly, stage the content-addressed per-work
-    archive, bind it into the summary self-hash, publish the immutable version dir + atomic
-    ``current.json``/``COMPLETE`` pointer, and write the committed summary JSON — all path-guarded,
-    never a headline path."""
+                  docs_root: pathlib.Path | str, run_kind: str = "confirmatory") -> dict:
+    """Verified publication: validate the COMPLETE audited assembly, stage the content-addressed
+    per-work archive, bind it into the summary self-hash, publish the immutable version dir + atomic
+    ``current.json``/``COMPLETE`` pointer — all path-guarded, never a headline path. A CONFIRMATORY run
+    additionally writes the committed ``docs/*.json`` production artifact; a smoke/dry run publishes
+    ONLY under the gitignored transient run namespace and never touches the committed artifact."""
     verify_final_assembly(summary, per_work_vectors)     # reject an arbitrary/partial assembly first
+    confirmatory = run_kind == "confirmatory"
 
     droot = _docs_root(docs_root)
-    assert_archive_committable(droot)                    # §4.4 durability: refuse if the archive is gitignored
-    archive_root = droot / ARCHIVE_DIRNAME
+    run_id = summary["run_id"]
+    guard = {"allow_published": True} if confirmatory else {"run_id": run_id}
+    if confirmatory:
+        assert_archive_committable(droot)                # §4.4 durability: refuse if the archive is gitignored
+    archive_root = _archive_root(droot, run_id, confirmatory=confirmatory)
     versions = archive_root / VERSIONS_DIR
-    assert_writable_audit_path(versions, docs_root=docs_root, allow_published=True)  # guard BEFORE mkdir
+    assert_writable_audit_path(versions, docs_root=docs_root, **guard)  # guard BEFORE mkdir
     versions.mkdir(parents=True, exist_ok=True)
     _verify_real_dir_chain(versions)
 
@@ -289,14 +325,16 @@ def publish_audit(summary: Mapping, per_work_vectors: Mapping[str, object], *,
                        (COMPLETE_NAME, {"schema": _PUBLISH_SCHEMA, "version": published["version"],
                                         "run_id": summary["run_id"]})):
         target = archive_root / name
-        assert_writable_audit_path(target, docs_root=docs_root, allow_published=True)
+        assert_writable_audit_path(target, docs_root=docs_root, **guard)
         dump_strict(body, target, trailing_newline=True)
 
-    # committed summary JSON (matched by !docs/*.json)
-    summary_path = droot / SUMMARY_NAME
-    assert_writable_audit_path(summary_path, docs_root=docs_root, allow_published=True)
-    dump_strict(published["summary"], summary_path, trailing_newline=True)
-    published["summary_path"] = summary_path
+    # the committed production artifact (matched by !docs/*.json) is written ONLY for a confirmatory run
+    if confirmatory:
+        summary_path = droot / SUMMARY_NAME
+        assert_writable_audit_path(summary_path, docs_root=docs_root, allow_published=True)
+        dump_strict(published["summary"], summary_path, trailing_newline=True)
+        published["summary_path"] = summary_path
+    published["run_kind"] = run_kind
     return published
 
 
@@ -331,11 +369,20 @@ def assert_archive_committable(docs_root: pathlib.Path | str, *, repo_root=None)
             f"!docs/{ARCHIVE_DIRNAME}/ whitelist before claiming durable publication (§4.4)")
 
 
-def load_published_audit(docs_root: pathlib.Path | str) -> dict:
+def load_published_audit(docs_root: pathlib.Path | str, *, run_kind: str = "confirmatory",
+                         run_id: str | None = None) -> dict:
     """Load and verify the published audit: pointer → immutable version dir → token integrity →
-    summary self-hash → archive files match the summary inventory by content hash."""
+    summary self-hash → run_id recompute → archive files match the summary inventory by content hash.
+    A confirmatory load additionally asserts the committed root summary equals the version-dir summary;
+    a smoke/dry load reads the transient run namespace (a safe ``run_id`` is required)."""
     droot = _docs_root(docs_root)
-    archive_root = droot / ARCHIVE_DIRNAME
+    confirmatory = run_kind == "confirmatory"
+    if confirmatory:
+        archive_root = droot / ARCHIVE_DIRNAME
+    else:
+        if not (isinstance(run_id, str) and _safe_name(run_id)):
+            raise PublisherError("a transient (smoke/dry) load requires a safe run_id")
+        archive_root = droot / RUNS_SUBPATH / run_id / ARCHIVE_DIRNAME
     _verify_real_dir_chain(archive_root)
     ptr = archive_root / CURRENT_NAME
     if not _real_within(ptr, archive_root, must_file=True):
@@ -391,4 +438,9 @@ def load_published_audit(docs_root: pathlib.Path | str) -> dict:
         raise PublisherError(
             f"version dir inventory mismatch (extra {sorted(on_disk - expected)[:3]}, "
             f"missing {sorted(expected - on_disk)[:3]})")
+    # §8: the committed root summary must equal the immutable version-dir summary (a confirmatory run)
+    if confirmatory:
+        root_summary = load_strict(droot / SUMMARY_NAME)
+        if root_summary != summary:
+            raise PublisherError("committed root summary != the version-dir summary")
     return {"version": token, "versioned_dir": versioned, "summary": summary}

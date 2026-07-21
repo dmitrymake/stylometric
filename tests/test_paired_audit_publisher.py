@@ -82,7 +82,8 @@ def _grid():
 
 
 def _holm():
-    return {f"{m}/{c}": {"raw_p": 0.001, "holm_p": 0.015, "significant": True}
+    # consistent with each cell's vs_A0 verdict (Holm<->cell consistency is checked by the publisher)
+    return {f"{m}/{c}": {"raw_p": 0.001, "holm_p": 0.05, "significant": False}
             for (m, c) in ap.holm_family()}
 
 
@@ -90,7 +91,9 @@ def _summary(**over):
     s = {"run_id": RUN_ID, "claim_status": "exploratory_internal",
          "cells": {"lobo": _grid(), "ruaa": _grid()},
          "holm": {"lobo": _holm(), "ruaa": _holm()},
-         "headline": {"endpoint": HEADLINE_ENDPOINT, "decision": "inconclusive"},
+         "headline": {"endpoint": HEADLINE_ENDPOINT, "decision": "relabel",
+                      "diff_ci": {"point": 0.02, "lo": -0.01, "hi": 0.05}, "margin": 0.02},
+         "result_audit": {"passed": True, "auditor": "independent_recompute_v1"},
          "run_plan": _PLAN, "universes": _universes(),
          "continuous_tolerances": {"probability": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}},
          "attestation": _attestation()}

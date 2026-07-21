@@ -28,6 +28,7 @@ from . import inference as inf
 from . import manifest as mf
 from . import publisher as pub
 from . import references as refmod
+from . import result_audit
 from . import run_plan as rp
 from . import semantic_parity
 from .checkpoints import CheckpointStore, dataset_bindings
@@ -182,12 +183,27 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
         a0_confirm = {
             "lobo": refmod.build_lobo_reference_index(preflight["lobo"], dict(lobo_author_display_map)),
             "ruaa": refmod.build_ruaa_reference_index(preflight["ruaa"])}
+    # 13a. assemble the COMPLETE candidate (headline decision deferred to a separate later stage)
     summary, per_work_vectors = _assemble(present, manifests, run_id, plan, a0_confirm=a0_confirm)
 
-    # 14. validated publisher
-    published = pub.publish_audit(summary, per_work_vectors, docs_root=docs_root)
+    # 13b. INDEPENDENT result audit: recompute every metric/CI/p/Holm/headline from the vectors
+    audit = result_audit.audit_results(summary, per_work_vectors, plan)
+
+    # 13c. the headline DECISION is a distinct stage, stamped from the audited numbers only
+    _decide_headline(summary, audit)
+
+    # 14. validated publisher (accepts only an audited candidate; smoke/dry never write the committed
+    # production artifact — they publish to the gitignored transient run namespace)
+    published = pub.publish_audit(summary, per_work_vectors, docs_root=docs_root, run_kind=run_kind)
     return {"run_id": run_id, "summary": summary, "per_work_vectors": per_work_vectors,
-            "published": published}
+            "result_audit": audit, "published": published}
+
+
+def _decide_headline(summary: dict, audit: Mapping) -> None:
+    """Separate, post-audit stage: stamp the headline decision and the result-audit verdict onto the
+    candidate. Only the audited difference CI drives the gate; nothing is recomputed here."""
+    summary["headline"]["decision"] = audit["headline"]["decision"]
+    summary["result_audit"] = {"passed": bool(audit["passed"]), "auditor": audit["auditor"]}
 
 
 def _build_run_plan(datasets, manifests, corpus_manifest, *, run_kind, a0_references, tolerances,
@@ -440,8 +456,11 @@ def _assemble(present, manifests, run_id, plan, *, a0_confirm=None) -> tuple[dic
                       "metric_label_order": m["metric_label_order"]}
                  for ds, m in manifests.items()}
     summary = {"run_id": run_id, "claim_status": "exploratory_internal", "cells": cells_out,
-               "holm": holm_out, "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
-                                              "diff_ci": head["diff_ci"], "margin": head["margin"]},
+               "holm": holm_out,
+               # the headline DECISION is deferred to the post-audit stage; the candidate carries only
+               # the endpoint + the (to-be-audited) difference CI + the margin.
+               "headline": {"endpoint": head["endpoint"], "decision": None,
+                            "diff_ci": head["diff_ci"], "margin": head["margin"]},
                # the canonical RunPlan is embedded so the publisher/loader can RECOMPUTE the run_id;
                # both class orders, work universes/digests, tolerances and the full attestation travel
                # with the artifact.

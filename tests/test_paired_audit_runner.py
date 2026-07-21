@@ -195,36 +195,56 @@ def test_forged_manifest_caught_by_nontautological_rebuild(tmp_path):
         mf.verify_manifest_matches_rebuilt(forged_parent, rebuilt2, universe=False)
 
 
-@_needs_git
-def test_synthetic_end_to_end_runner(tmp_path):
+def _run_smoke(tmp_path):
     frags, ic = _make_corpus(tmp_path)
     anchor = load_dataset(frags).provenance.rows_digest
     audit_root = ac.build_audit_corpus(source_frags_root=frags, input_clean_root=ic, cfg=CFG,
                                        audit_parent=tmp_path / "audit", legacy_anchor=anchor)
-
     lobo_ds = ac.load_audit_dataset(audit_root, CFG)
     ruaa_work_ids = ["aa/w1", "aa/w2", "bb/w1", "bb/w2"]      # a whole-work RuAA subset (2 authors)
     ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
-
     lobo_m = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
                                     algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
     ruaa_m = mf.build_fold_manifest("ruaa", ruaa_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
                                     algorithm="whole_work", seed=42, config_hash="c" * 64,
                                     selection_digest=ruaa_ds.provenance.selection_manifest_digest)
-
     out = rn.run_paired_audit(
         audit_root=audit_root, cfg=CFG,
-        committed_lobo_manifest=lobo_m, committed_ruaa_manifest=ruaa_m,
-        ruaa_work_ids=ruaa_work_ids,
-        checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs",
-        evaluator=_dummy_evaluator,
+        committed_lobo_manifest=lobo_m, committed_ruaa_manifest=ruaa_m, ruaa_work_ids=ruaa_work_ids,
+        checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs", evaluator=_dummy_evaluator,
         a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
         tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
                     for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES}, run_kind="smoke")
+    return out, lobo_m, ruaa_m
+
+
+@_needs_git
+def test_result_audit_catches_tampered_metric(tmp_path):
+    # §8: the independent auditor re-passes the audited candidate but rejects a tampered metric
+    import copy
+    from stylo.eval.paired_audit import result_audit as ra
+    out, _lm, _rm = _run_smoke(tmp_path)
+    summary, vectors, plan = out["summary"], out["per_work_vectors"], out["summary"]["run_plan"]
+    assert out["result_audit"]["passed"] is True
+    ra.audit_results(summary, vectors, plan)                     # the audited candidate re-passes
+    bad = copy.deepcopy(summary)
+    bad["cells"]["lobo"]["stylo/A0"]["point"]["accuracy"] += 0.3
+    with pytest.raises(ra.ResultAuditError):
+        ra.audit_results(bad, vectors, plan)
+    worse = copy.deepcopy(summary)                               # a tampered cluster p is also caught
+    worse["cells"]["lobo"]["stylo/A4"]["vs_A0"]["cluster_p"] = 0.999999
+    with pytest.raises(ra.ResultAuditError):
+        ra.audit_results(worse, vectors, plan)
+
+
+@_needs_git
+def test_synthetic_end_to_end_runner(tmp_path):
+    out, lobo_m, ruaa_m = _run_smoke(tmp_path)
 
     assert len(out["run_id"]) == 64
-    # published + round-trips through the verified loader
-    loaded = pub.load_published_audit(tmp_path / "docs")
+    # a smoke run publishes ONLY to the transient run namespace (no committed production artifact)
+    assert not (tmp_path / "docs" / pub.SUMMARY_NAME).exists()
+    loaded = pub.load_published_audit(tmp_path / "docs", run_kind="smoke", run_id=out["run_id"])
     assert loaded["version"] == out["published"]["version"]
     assert loaded["summary"]["run_id"] == out["run_id"]
     assert loaded["summary"]["headline"]["endpoint"] == "stylo_lobo_a4_minus_a0_accuracy"
