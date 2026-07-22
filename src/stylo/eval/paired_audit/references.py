@@ -192,6 +192,50 @@ def assert_a0_matches_index(a0_index: dict, reference_index: dict, *, fields, la
 
 _GOLDEN_INVENTORY_VERSION = "paired_audit.golden_inventory.v1"
 
+# the external A0/A4 golden fixture (captured from commit f1b8e165) whose inventory SHA the RunPlan
+# binds (§2.6/§4.2). The full model-output replay via make_factory_for_ablation is the §11
+# B4_LIVE_GOLDEN_REPLAY gate; the STRUCTURAL panel replay below binds the goldens without the estimator.
+B4_GOLDEN_FIXTURE_SHA256 = "c66e63e7e8af36b03b6aaa28f3d8cb23b71ef8e7a433ddd0c85322463b993a25"
+_B4_GOLDEN_INVENTORY_VERSION = "paired_audit.b4_golden_inventory.v1"
+
+
+def _b4_panel_sha256(panel: dict) -> str:
+    """The panel self-contained digest, matching the capture tool exactly:
+    ``sha256("␟".join(texts) + "␞" + ",".join(y) + "␞" + ",".join(groups))``."""
+    body = ("␟".join(panel["texts"]) + "␞" + ",".join(map(str, panel["y"]))
+            + "␞" + ",".join(map(str, panel["groups"])))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def verify_b4_goldens(fixture_path: pathlib.Path | str) -> dict:
+    """Verify the external A0/A4 golden fixture by its PINNED SHA256 and STRUCTURALLY live-replay every
+    panel (recompute ``panel_sha256`` from texts/y/groups and require equality) — a live replay that
+    binds the goldens deterministically without the estimator. Returns the golden-fixture inventory
+    digest the RunPlan binds. Fails closed on a missing/symlinked/tampered fixture or a panel replay
+    mismatch."""
+    import json
+    path = pathlib.Path(fixture_path)
+    fixture_sha = _sha256(path)                          # fails closed on missing/symlink
+    if fixture_sha != B4_GOLDEN_FIXTURE_SHA256:
+        raise ReferenceError(f"b4 golden fixture SHA256 {fixture_sha} != pinned {B4_GOLDEN_FIXTURE_SHA256}")
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    panels = fixture.get("panels", {})
+    if not isinstance(panels, dict) or not panels:
+        raise ReferenceError("b4 golden fixture carries no panels")
+    panel_shas = {}
+    for name in sorted(panels):
+        got = _b4_panel_sha256(panels[name])
+        if got != panels[name].get("panel_sha256"):
+            raise ReferenceError(f"b4 golden panel {name} replay {got} != recorded {panels[name].get('panel_sha256')}")
+        panel_shas[name] = got
+    h = hashlib.sha256()
+    h.update(len(_B4_GOLDEN_INVENTORY_VERSION).to_bytes(8, "big") + _B4_GOLDEN_INVENTORY_VERSION.encode("utf-8"))
+    h.update(bytes.fromhex(fixture_sha))
+    for name in sorted(panel_shas):
+        h.update(len(name).to_bytes(8, "big") + name.encode("utf-8"))
+        h.update(bytes.fromhex(panel_shas[name]))
+    return {"fixture_sha256": fixture_sha, "panels": panel_shas, "inventory_sha": h.hexdigest()}
+
 
 def golden_fixture_inventory(named_paths: dict) -> str:
     """Content digest over the golden fixture files, computed FROM DISK — each path must be a real,

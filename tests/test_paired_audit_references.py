@@ -197,3 +197,21 @@ def test_golden_fixture_inventory_from_disk(tmp_path):
         ref.golden_fixture_inventory({})
     with pytest.raises(ref.ReferenceError):                             # a missing golden file
         ref.golden_fixture_inventory({"missing": tmp_path / "nope.txt"})
+
+
+def test_b4_golden_fixture_pinned_and_replayed(tmp_path):
+    # the external A0/A4 golden fixture is committed on HEAD (the working-tree rework deletes it);
+    # verify_b4_goldens binds it by pinned SHA and structurally replays every panel's self-digest
+    import subprocess
+    fix = tmp_path / "b4.json"
+    fix.write_bytes(subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"],
+                                            cwd=_ROOT))
+    out = ref.verify_b4_goldens(fix)
+    assert out["fixture_sha256"] == ref.B4_GOLDEN_FIXTURE_SHA256
+    assert out["panels"] and len(out["inventory_sha"]) == 64
+    # a tampered fixture is rejected (its SHA no longer matches the pin)
+    fix.write_bytes(fix.read_bytes() + b" ")
+    with pytest.raises(ref.ReferenceError):
+        ref.verify_b4_goldens(fix)
+    with pytest.raises(ref.ReferenceError):                             # missing fixture
+        ref.verify_b4_goldens(tmp_path / "nope.json")

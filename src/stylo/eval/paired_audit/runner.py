@@ -90,7 +90,7 @@ def _rebuild_manifest(dataset_kind: str, dataset, parent_digest: str, cfg, commi
 def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
                      committed_ruaa_manifest: Mapping, ruaa_work_ids, checkpoint_root, docs_root,
                      evaluator: Callable, a0_references: Mapping, tolerances: Mapping,
-                     run_kind: str = "smoke",
+                     golden_fixture, run_kind: str = "smoke",
                      lobo_author_display_map: Mapping | None = None,
                      repo_root=None, src_root=None) -> dict:
     """Run the whole confirmatory chain on the published immutable ``audit_root`` and publish the
@@ -144,11 +144,12 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     eval_identity = rp.evaluator_identity(eval_spec, confirmatory=confirmatory)
     eval_fn = eval_spec.fn
 
-    # 4c. golden-fixture inventory computed FROM DISK over the SHA-pinned reference files (never a
-    # caller-supplied SHA); deterministic, so the loader can replay it.
-    golden_files = {k: a0_references[k] for k in ("lobo_books", "ruaa_reference_submission",
-                                                  "ruaa_sha256sums") if k in a0_references}
-    golden_sha = refmod.golden_fixture_inventory(golden_files)
+    # 4c. golden-fixture inventory: verify the EXTERNAL A0/A4 golden fixture by its pinned SHA and
+    # structurally live-replay its panels; the inventory SHA (never a caller-supplied string) is bound
+    # into the run_id. A confirmatory run REQUIRES the fixture (the §11 model-output replay uses it).
+    if confirmatory and golden_fixture is None:
+        raise RunnerError("a confirmatory run requires the external B4 golden fixture path")
+    golden_sha = refmod.verify_b4_goldens(golden_fixture)["inventory_sha"]
 
     # 5. live RunPlan
     plan = _build_run_plan(datasets, manifests, corpus_manifest, run_kind=run_kind,

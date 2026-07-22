@@ -33,6 +33,16 @@ _HAS_GIT = rn.rp.git_commit_info().get("git_commit") is not None
 _needs_git = pytest.mark.skipif(not _HAS_GIT, reason="runner e2e needs a git repo for the live commit binding")
 
 
+def _golden_fixture(tmp: pathlib.Path):
+    # the owner's working-tree rework deletes tests/fixtures/b4_goldens_v1.json, but it is committed on
+    # HEAD — extract the committed version so the runner can bind + structurally replay it.
+    import subprocess
+    out = tmp / "b4_goldens_v1.json"
+    out.write_bytes(subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"],
+                                            cwd=pathlib.Path.cwd()))
+    return out
+
+
 def _make_corpus(tmp: pathlib.Path):
     frags, ic = tmp / "frags", tmp / "clean"
     # 4 multi-work authors (2 works each) + 2 single-work authors (train-only for LOBO)
@@ -222,6 +232,7 @@ def _run_smoke(tmp_path):
         committed_lobo_manifest=lobo_m, committed_ruaa_manifest=ruaa_m, ruaa_work_ids=ruaa_work_ids,
         checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs", evaluator=_dummy_evaluator,
         a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
+        golden_fixture=_golden_fixture(tmp_path),
         tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
                     for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES}, run_kind="smoke")
     return out, lobo_m, ruaa_m
@@ -291,6 +302,7 @@ def test_runner_resumes_from_checkpoints(tmp_path):
               committed_ruaa_manifest=ruaa_m, ruaa_work_ids=ruaa_work_ids,
               checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs",
               evaluator=_dummy_evaluator, a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
+              golden_fixture=_golden_fixture(tmp_path),
               tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
                     for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES}, run_kind="smoke")
     a = rn.run_paired_audit(**kw)
