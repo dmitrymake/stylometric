@@ -36,11 +36,16 @@ def _result(correct=True, **over):
     return r
 
 
+def _evi(result):
+    # the canonical, authoritative proba_digest for this result's probability vector
+    from stylo.eval.paired_audit.checkpoints import proba_digest
+    return {"proba_digest": proba_digest(result["probabilities"])}
+
+
 def _save(store, fold_index=0, work_id="stylo_book", model="stylo", cell="A0", dataset="lobo",
           result=None):
-    return store.save(dataset, model, cell, fold_index, work_id,
-                      result=result or _result(),
-                      fold_local_evidence={"proba_digest": "e" * 64})
+    r = result or _result()
+    return store.save(dataset, model, cell, fold_index, work_id, result=r, fold_local_evidence=_evi(r))
 
 
 def test_dataset_bindings_derive_class_order_digests(tmp_path):
@@ -74,7 +79,7 @@ class TestSaveResume:
     def test_delta_model_slug_path_is_safe(self, tmp_path):
         store = _store(tmp_path)
         store.save("lobo", "delta_cos:500", "A2", 3, "wq",
-                   result=_result(correct=False), fold_local_evidence={"proba_digest": "e" * 64})
+                   result=_result(correct=False), fold_local_evidence=_evi(_result(correct=False)))
         assert store.scan_cell("lobo", "delta_cos:500", "A2")[3]["model"] == "delta_cos:500"
 
 
@@ -193,6 +198,23 @@ class TestFailClosed:
         with pytest.raises(CheckpointError):
             store.save("lobo", "stylo", "A0", 0, "w",
                        result=_result(probabilities=[]), fold_local_evidence={"proba_digest": "e" * 64})
+
+    def test_resume_rejects_reself_hashed_invalid_checkpoint(self, tmp_path):
+        # owner repro: a checkpoint with pred=-9,true=99,rank=-5,proba=[-7,8] + empty evidence, RE-
+        # self-hashed, was accepted by scan_cell. _validate_result now runs on LOAD, not only at save.
+        from stylo.eval.paired_audit.checkpoints import _CHECKPOINT_SCHEMA, _self_hash
+        store = _store(tmp_path)
+        record = {"schema": _CHECKPOINT_SCHEMA, "run_id": RUN_ID, "dataset": "lobo", "model": "stylo",
+                  "cell": "A0", "fold_index": 0, "work_id": "x/w", "bindings": _bindings()["lobo"],
+                  "result": {"pred_label": -9, "true_label": 99, "correct": True, "rank": -5,
+                             "probabilities": [-7, 8]},
+                  "fold_local_evidence": {}}
+        record["self_hash"] = _self_hash(record)                 # a VALID self-hash over invalid content
+        path = store.checkpoint_path("lobo", "stylo", "A0", 0, "x/w")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        dump_strict(record, path, trailing_newline=True)
+        with pytest.raises(CheckpointError):                     # rejected on load/resume, not accepted
+            store.scan_cell("lobo", "stylo", "A0")
 
     def test_strict_result_schema_rejects_incoherent_folds(self, tmp_path):
         store = _store(tmp_path)

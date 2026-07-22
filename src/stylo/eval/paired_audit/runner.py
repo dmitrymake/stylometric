@@ -31,7 +31,7 @@ from . import references as refmod
 from . import result_audit
 from . import run_plan as rp
 from . import semantic_parity
-from .checkpoints import CheckpointStore, dataset_bindings
+from .checkpoints import CheckpointStore, dataset_bindings, proba_digest as _proba_digest
 from .work_subset import derive_work_subset
 
 _DATASETS = ("lobo", "ruaa")
@@ -256,17 +256,20 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator, ctx) 
                 if not isinstance(evidence, Mapping):
                     raise RunnerError(f"{ds}/{model}/{cell} fold {work_id}: estimator supplied no "
                                       f"fold-local evidence (synthesis is forbidden)")
-                _assert_fold_evidence(model, cell, evidence)       # real axis/state digests, no fallback
                 author = _author_of(work_id)
                 if author not in prob_order:
                     raise RunnerError(f"{ds}/{model}/{cell} fold {work_id}: author not in class order")
-                # the AUTHORITATIVE true label comes from the manifest class order, not the estimator
+                proba = [float(p) for p in res["probabilities"]]
+                # the AUTHORITATIVE proba_digest is computed by the runner from the fold's OWN proba
+                # (the estimator's claimed digest is never trusted), and true_label from the class order.
+                evidence = {**dict(evidence), "proba_digest": _proba_digest(proba)}
+                _assert_fold_evidence(model, cell, evidence)       # real axis/state digests, no fallback
                 store.save(ds, model, cell, fold_index, work_id,
                            result={"pred_label": int(res["pred_label"]),
                                    "true_label": prob_order.index(author),
                                    "correct": bool(res["correct"]), "rank": int(res["rank"]),
-                                   "probabilities": [float(p) for p in res["probabilities"]]},
-                           fold_local_evidence=dict(evidence))
+                                   "probabilities": proba},
+                           fold_local_evidence=evidence)
                 _reattest(ctx, full=False)                         # after the fold
             _reverify_bindings(store, ds, manifest)
             _reattest(ctx, full=True)                              # after the cell: FULL disk re-attest

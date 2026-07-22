@@ -10,18 +10,25 @@ and the headline DECISION is stamped as a distinct later stage from the audited 
 """
 from __future__ import annotations
 
+import hashlib
 import math
 
 import numpy as np
 
 from ...eval.metrics import macro_f1
+from ...jsonio import dumps_strict
 from . import headline as hl
 from . import inference as inf
 from .applicability import holm_family, registered_cells
+from .checkpoints import proba_digest as _proba_digest
 
 _DATASETS = ("lobo", "ruaa")
 # which registered tolerance each recomputed quantity is compared under
 _ACCURACY, _DELTA, _PVALUE, _CI = "accuracy", "delta_accuracy", "cluster_pvalue", "ci_endpoint"
+_PROBA_SUM_TOL = 1e-9
+# the frozen confirmatory universe (§1.1/§12): a 2-author toy fixture must NEVER pass as production
+_FROZEN_UNIVERSE = {"lobo": {"n_prob": 47, "n_metric": 43, "n_tested_works": 251},
+                    "ruaa": {"n_prob": 22, "n_metric": 22, "n_tested_works": 137}}
 
 
 class ResultAuditError(RuntimeError):
@@ -54,7 +61,60 @@ def _arrays(vec):
         "ranks": [int(v["rank"]) for v in rows],
         "trues": [int(v["true_label"]) for v in rows],
         "preds": [int(v["pred_label"]) for v in rows],
+        "probas": [v["proba"] for v in rows],
     }
+
+
+def _validate_fold_coherence(a, prob_order, label):
+    """Re-validate EVERY per-work row from scratch at the publish boundary (the auditor never trusts
+    the vectors): the probability vector must be finite, in [0,1], sum to 1, of the class-order width;
+    pred==argmax; rank consistent with the true label's position; correct==(pred==true); a correct fold
+    has rank 1; and — decisively — the true_label MUST equal ``prob_order.index(work_id author)`` (a
+    permuted true_label that contradicts the author in the work_id is fatal)."""
+    width = len(prob_order)
+    n = len(a["works"])
+    for i in range(n):
+        w, proba = a["works"][i], a["probas"][i]
+        pred, true, rank, correct = a["preds"][i], a["trues"][i], a["ranks"][i], a["correct"][i]
+        if not isinstance(proba, list) or len(proba) != width:
+            raise ResultAuditError(f"{label} {w}: proba width {len(proba) if isinstance(proba, list) else '?'} != {width}")
+        for p in proba:
+            if isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p) or not (0.0 <= p <= 1.0):
+                raise ResultAuditError(f"{label} {w}: proba must be finite numbers in [0,1] (got {proba})")
+        if abs(sum(proba) - 1.0) > _PROBA_SUM_TOL:
+            raise ResultAuditError(f"{label} {w}: proba must sum to 1 (got {sum(proba)})")
+        if not (0 <= pred < width) or proba[pred] != max(proba):
+            raise ResultAuditError(f"{label} {w}: pred_label is not the argmax of the proba vector")
+        if not (0 <= true < width):
+            raise ResultAuditError(f"{label} {w}: true_label {true} out of range")
+        author = str(w).split("/", 1)[0]
+        if author not in prob_order or true != prob_order.index(author):
+            raise ResultAuditError(f"{label} {w}: true_label {true} != the class-order index of author {author!r}")
+        if bool(correct) != (pred == true):
+            raise ResultAuditError(f"{label} {w}: correct != (pred==true)")
+        expected_rank = 1 + sum(1 for p in proba if p > proba[true])
+        if rank != expected_rank:
+            raise ResultAuditError(f"{label} {w}: rank {rank} != the true label's rank {expected_rank}")
+        if correct and rank != 1:
+            raise ResultAuditError(f"{label} {w}: a correct fold must have rank 1")
+
+
+def _cell_proba_digest(a) -> str:
+    """Independently recompute the cell-level proba_digest aggregate from the per-work probability
+    vectors (each hashed by the canonical :func:`proba_digest`), matching the runner's aggregation — so
+    a published proba_digest that does not correspond to the actual probability vectors is fatal."""
+    parts = sorted([str(w), _proba_digest(proba)] for w, proba in zip(a["works"], a["probas"]))
+    body = ["evidence", "proba_digest", parts]
+    return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _assert_frozen_universe(ds, prob_order, metric_order, works):
+    fu = _FROZEN_UNIVERSE[ds]
+    n_tested = len(set(works))
+    if (len(prob_order), len(metric_order), n_tested) != (fu["n_prob"], fu["n_metric"], fu["n_tested_works"]):
+        raise ResultAuditError(
+            f"{ds} universe {len(prob_order)}/{len(metric_order)}/{n_tested} authors/tested-authors/"
+            f"tested-works != the frozen {fu['n_prob']}/{fu['n_metric']}/{fu['n_tested_works']}")
 
 
 def _point(a, metric_idx):
@@ -79,6 +139,7 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
     quantiles, margin, B = stats["quantiles"], stats["noninferiority_margin"], stats["bootstrap_B"]
     tol_acc, tol_delta = _tol(plan, _ACCURACY), _tol(plan, _DELTA)
     tol_p, tol_ci = _tol(plan, _PVALUE), _tol(plan, _CI)
+    confirmatory = plan.get("run_kind") == "confirmatory"
 
     for ds in _DATASETS:
         uni = summary["universes"][ds]
@@ -90,11 +151,18 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
             key = f"{ds}/{model}/{cell}"
             _require(key in per_work_vectors, f"missing per-work vector {key}")
             arrays[(model, cell)] = _arrays(per_work_vectors[key])
+        # a confirmatory run must be the FROZEN universe (a 2-author toy fixture is not production-ready)
+        if confirmatory:
+            _assert_frozen_universe(ds, prob_order, metric_order, arrays[("stylo", "A0")]["works"])
 
         raw_ps = {}
         for (model, cell) in registered_cells():
             a = arrays[(model, cell)]
             rec = cells[f"{model}/{cell}"]
+            # re-validate every per-work row (invalid proba, permuted true_label, bad rank -> fatal)
+            _validate_fold_coherence(a, prob_order, f"{ds}/{model}/{cell}")
+            _require(rec.get("evidence", {}).get("proba_digest") == _cell_proba_digest(a),
+                     f"{ds}/{model}/{cell} evidence.proba_digest != the recomputed proba-vector aggregate")
             point = _point(a, metric_idx)
             for k in ("accuracy", "macro_f1", "top2"):
                 _require(_close(point[k], rec["point"][k], tol_acc),

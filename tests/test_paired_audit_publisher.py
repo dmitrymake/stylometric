@@ -17,20 +17,36 @@ from stylo.eval.paired_audit import run_plan as rp
 from stylo.eval.paired_audit.headline import HEADLINE_ENDPOINT
 from stylo.eval.paired_audit.semantic_parity import LEGACY_ANCHOR
 
-# A confirmatory-shaped fixture built with the REAL metric functions so the publisher's publish-time
-# independent auditor passes it (the publisher no longer trusts a bare result_audit.passed flag).
+# A confirmatory-shaped fixture built with the REAL metric functions over the FROZEN universe (lobo
+# 47/43/251, ruaa 22/22/137) so the publisher's publish-time independent auditor + frozen-universe
+# check pass it (the publisher no longer trusts a bare result_audit.passed flag).
 _STATS = rp.FROZEN_STATS
 _ITERS, _SEED, _Q = _STATS["bootstrap_iters"], _STATS["seed"], _STATS["quantiles"]
 _MARGIN, _B = _STATS["noninferiority_margin"], _STATS["bootstrap_B"]
-_PROB = ["aa", "bb"]
-_MIDX = [0, 1]
-# 4 works / 2 authors, one wrong; every cell shares these vectors (so A4 == A0 -> dacc 0, cluster_p 1)
-_VEC = [
-    {"work_id": "aa/w1", "true_label": 0, "pred_label": 0, "correct": True, "rank": 1, "proba": [0.6, 0.4]},
-    {"work_id": "aa/w2", "true_label": 0, "pred_label": 0, "correct": True, "rank": 1, "proba": [0.7, 0.3]},
-    {"work_id": "bb/w1", "true_label": 1, "pred_label": 1, "correct": True, "rank": 1, "proba": [0.4, 0.6]},
-    {"work_id": "bb/w2", "true_label": 1, "pred_label": 0, "correct": False, "rank": 2, "proba": [0.55, 0.45]},
-]
+
+
+def _make_ds(prefix, n_authors, n_tested, n_works):
+    """Generate a coherent (prob_order, metric_order, per_work vectors) for one dataset universe: every
+    work's true_label == the class-order index of its work_id author; proba is a normalized width-n
+    vector with pred==argmax; ~1/4 of the works are deliberately wrong."""
+    prob = [f"{prefix}{i:03d}" for i in range(n_authors)]
+    metric = prob[:n_tested]
+    vec = []
+    for k in range(n_works):
+        author = metric[k % n_tested]
+        t = prob.index(author)
+        correct = (k % 4) != 0
+        pred = t if correct else (t + 1) % n_authors
+        proba = [0.001] * n_authors
+        proba[pred] = 1.0 - 0.001 * (n_authors - 1)
+        vec.append({"work_id": f"{author}/w{k:04d}", "true_label": t, "pred_label": pred,
+                    "correct": correct, "rank": 1 if correct else 2, "proba": proba})
+    return prob, metric, vec
+
+
+_LOBO_PROB, _LOBO_METRIC, _LOBO_VEC = _make_ds("la", 47, 43, 251)
+_RUAA_PROB, _RUAA_METRIC, _RUAA_VEC = _make_ds("ra", 22, 22, 137)
+_DS = {"lobo": (_LOBO_PROB, _LOBO_METRIC, _LOBO_VEC), "ruaa": (_RUAA_PROB, _RUAA_METRIC, _RUAA_VEC)}
 
 
 def _run_plan():
@@ -49,22 +65,22 @@ def _run_plan():
         corpus_chain={"legacy_anchor": LEGACY_ANCHOR, "semantic_parity_digest": "6" * 64},
         golden_fixture_inventory_sha="7" * 64,
         lobo=dict(dataset_digest="a" * 64, fold_manifest_digest="b" * 64,
-                  probability_class_order=_PROB, metric_label_order=_PROB, run_contract_digest="c" * 64),
+                  probability_class_order=_LOBO_PROB, metric_label_order=_LOBO_METRIC,
+                  run_contract_digest="c" * 64),
         ruaa=dict(dataset_digest="d" * 64, fold_manifest_digest="e" * 64,
-                  probability_class_order=_PROB, metric_label_order=_PROB, run_contract_digest="f" * 64,
-                  selection_digest="9" * 64))
+                  probability_class_order=_RUAA_PROB, metric_label_order=_RUAA_METRIC,
+                  run_contract_digest="f" * 64, selection_digest="9" * 64))
 
 
 _PLAN = _run_plan()
 RUN_ID = rp.run_id(_PLAN)
+_DIGESTS = {"lobo": ("a" * 64, "b" * 64), "ruaa": ("d" * 64, "e" * 64)}
 
 
 def _universes():
-    # match the per-dataset digests bound in _PLAN (lobo a/b, ruaa d/e)
-    return {"lobo": {"dataset_digest": "a" * 64, "fold_manifest_digest": "b" * 64,
-                     "probability_class_order": _PROB, "metric_label_order": _PROB},
-            "ruaa": {"dataset_digest": "d" * 64, "fold_manifest_digest": "e" * 64,
-                     "probability_class_order": _PROB, "metric_label_order": _PROB}}
+    return {ds: {"dataset_digest": _DIGESTS[ds][0], "fold_manifest_digest": _DIGESTS[ds][1],
+                 "probability_class_order": _DS[ds][0], "metric_label_order": _DS[ds][1]}
+            for ds in ("lobo", "ruaa")}
 
 
 def _attestation():
@@ -73,14 +89,14 @@ def _attestation():
             "golden_fixture_inventory_sha": "7" * 64}
 
 
-def _evidence(m, c):
-    return {key: "e" * 64 for key in ap.required_evidence_digests(m, c)}
-
-
-def _grid():
-    """A consistent 30-cell grid + the Holm family, computed from _VEC with the real metric functions."""
-    a = ra._arrays(_VEC)
-    point = ra._point(a, _MIDX)
+def _grid(ds):
+    """A consistent 30-cell grid + Holm family for one dataset, computed with the real metric functions;
+    every cell shares the dataset vectors (A4==A0 -> dacc 0, cluster_p 1)."""
+    prob, metric, vec = _DS[ds]
+    midx = [prob.index(x) for x in metric]
+    a = ra._arrays(vec)
+    point = ra._point(a, midx)
+    pd = ra._cell_proba_digest(a)      # the real proba-vector aggregate the auditor recomputes
     abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=_ITERS, seed=_SEED, quantiles=_Q)
     dacc_ci = hl.paired_accuracy_diff_ci(a["correct"], a["correct"], a["authors"], iters=_ITERS, seed=_SEED, quantiles=_Q)
     cp = inf.paired_cluster_pvalue(a["correct"], a["correct"], a["authors"], B=_B, seed=_SEED)
@@ -96,11 +112,13 @@ def _grid():
                     r["equivalent_to"] = reg["equivalent_to"]
                 grid[f"{m}/{c}"] = r
                 continue
+            evidence = {key: ("e" * 64) for key in ap.required_evidence_digests(m, c)}
+            evidence["proba_digest"] = pd
             r = {"status": "applied", "requested_axes": reg["requested_axes"],
                  "effective_axes": reg["effective_axes"], "point": copy.deepcopy(point),
-                 "per_work": copy.deepcopy(_VEC),
+                 "per_work": copy.deepcopy(vec),
                  "abs_accuracy_authorclustered_ci": [abs_ci["lo"], abs_ci["hi"]],
-                 "evidence": _evidence(m, c), "claim_status": "exploratory_internal"}
+                 "evidence": evidence, "claim_status": "exploratory_internal"}
             if c != "A0":
                 r["vs_A0"] = {"dacc": 0.0, "dacc_authorclustered_ci": [dacc_ci["lo"], dacc_ci["hi"]],
                               "cluster_p": cp, "holm_p": 1.0, "significant": False,
@@ -115,13 +133,14 @@ def _grid():
 
 
 def _base_summary():
-    grid, holm = _grid()
-    a = ra._arrays(_VEC)
+    lobo_grid, lobo_holm = _grid("lobo")
+    ruaa_grid, ruaa_holm = _grid("ruaa")
+    a = ra._arrays(_LOBO_VEC)
     head = hl.evaluate_headline(a["correct"], a["correct"], a["authors"], margin=_MARGIN, iters=_ITERS,
                                 seed=_SEED, quantiles=_Q)
     return {"run_id": RUN_ID, "claim_status": "exploratory_internal",
-            "cells": {"lobo": grid, "ruaa": copy.deepcopy(grid)},
-            "holm": {"lobo": holm, "ruaa": copy.deepcopy(holm)},
+            "cells": {"lobo": lobo_grid, "ruaa": ruaa_grid},
+            "holm": {"lobo": lobo_holm, "ruaa": ruaa_holm},
             "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
                          "diff_ci": head["diff_ci"], "margin": _MARGIN},
             "result_audit": {"passed": True, "auditor": "independent_recompute_v1"},
@@ -140,8 +159,68 @@ def _summary(**over):
 
 
 def _vectors():
-    return {f"{ds}/{m}/{c}": copy.deepcopy(_VEC)
+    return {f"{ds}/{m}/{c}": copy.deepcopy(_DS[ds][2])
             for ds in ("lobo", "ruaa") for (m, c) in ap.registered_cells()}
+
+
+def _corrupt_all_proba(s, vectors, new_proba_fn):
+    for ds in ("lobo", "ruaa"):
+        for key, rec in s["cells"][ds].items():
+            if rec.get("status") == "applied":
+                for v in rec["per_work"]:
+                    v["proba"] = new_proba_fn(v["proba"])
+    for k in vectors:
+        for v in vectors[k]:
+            v["proba"] = new_proba_fn(v["proba"])
+    return s, vectors
+
+
+class TestReproducedBypasses:
+    """The exact bypasses the owner's independent audit reproduced against 1a56e57d."""
+
+    def test_out_of_range_probabilities_rejected(self, tmp_path):
+        # owner repro: proba=[-5, 6] passed verify + audit. The auditor now revalidates every proba.
+        s, v = _corrupt_all_proba(_summary(), _vectors(),
+                                  lambda p: [-5.0, 6.0] + [0.0] * (len(p) - 2))
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, v, docs_root=tmp_path)
+
+    def test_non_normalized_probabilities_rejected(self, tmp_path):
+        s, v = _corrupt_all_proba(_summary(), _vectors(), lambda p: [0.9] + [0.9] * (len(p) - 1))
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, v, docs_root=tmp_path)
+
+    def test_permuted_true_label_contradicting_author_rejected(self, tmp_path):
+        # owner repro: a full true_label permutation contradicting the work_id author passed
+        s = _summary()
+        v = _vectors()
+        for key, rec in s["cells"]["lobo"].items():
+            if rec.get("status") == "applied":
+                for row in rec["per_work"]:
+                    row["true_label"] = (row["true_label"] + 1) % len(_LOBO_PROB)
+        for k in v:
+            if k.startswith("lobo/"):
+                for row in v[k]:
+                    row["true_label"] = (row["true_label"] + 1) % len(_LOBO_PROB)
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, v, docs_root=tmp_path)
+
+    def test_toy_universe_rejected_for_confirmatory(self, tmp_path):
+        # owner repro: a 2-author/4-work fixture accepted as production. audit_results now rejects it.
+        prob, metric, vec = _make_ds("tt", 2, 2, 4)
+        s = _summary()
+        s["universes"]["lobo"] = {**s["universes"]["lobo"], "probability_class_order": prob,
+                                  "metric_label_order": metric}
+        with pytest.raises((pub.PublisherError, ra.ResultAuditError)):
+            ra.audit_results(s, {**_vectors(), **{f"lobo/{m}/{c}": copy.deepcopy(vec)
+                                                  for (m, c) in ap.registered_cells()}}, _PLAN)
+
+    def test_fake_proba_digest_rejected(self, tmp_path):
+        # owner repro: any hex64 accepted as proba_digest. It now must equal the proba-vector aggregate.
+        s = _summary()
+        s["cells"]["lobo"]["stylo/A0"]["evidence"]["proba_digest"] = "f" * 64
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
 
 
 class TestPathGuard:

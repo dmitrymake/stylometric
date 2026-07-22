@@ -61,6 +61,21 @@ def _self_hash(record: Mapping) -> str:
     return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+_PROBA_DIGEST_VERSION = "paired_audit.proba_digest.v1"
+
+
+def proba_digest(proba) -> str:
+    """The canonical sha256 that ties a probability vector to its digest (round_decimals=12, matching the
+    external golden numeric contract). The runner computes this authoritatively from the fold's own
+    proba (never trusting the estimator's claimed digest), and the auditor recomputes it — so a
+    proba_digest that does not correspond to the probability vector is fatal."""
+    body = [_PROBA_DIGEST_VERSION, [round(float(p), 12) for p in proba]]
+    return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+_proba_digest = proba_digest      # module-internal alias
+
+
 def _is_int(v) -> bool:
     return type(v) is int
 
@@ -179,6 +194,8 @@ class CheckpointStore:
         _validate_result(result)                         # strict schema: labels/rank/proba coherence
         if not isinstance(fold_local_evidence, Mapping) or not fold_local_evidence:
             raise CheckpointError("fold_local_evidence must be a non-empty mapping")
+        if fold_local_evidence.get("proba_digest") != _proba_digest(result["probabilities"]):
+            raise CheckpointError("fold_local_evidence.proba_digest must equal the canonical proba digest")
         record = {
             "schema": _CHECKPOINT_SCHEMA,
             "run_id": self.run_id,
@@ -250,6 +267,18 @@ class CheckpointStore:
         if record.get("self_hash") != _self_hash(record):
             raise CheckpointError(f"corrupt checkpoint (self-hash mismatch): {path}")
         self.verify_bindings(record)                     # conflicting identity/bindings -> fatal
+        # a valid self-hash does NOT make a scientifically-invalid checkpoint acceptable: re-run the
+        # full result schema + the fold-local evidence contract on LOAD/resume, not only at save.
+        try:
+            _validate_result(record.get("result", {}))
+        except CheckpointError as exc:
+            raise CheckpointError(f"corrupt checkpoint (invalid result on load): {path}: {exc}") from exc
+        ev = record.get("fold_local_evidence")
+        if not isinstance(ev, dict) or not ev:
+            raise CheckpointError(f"corrupt checkpoint (empty fold_local_evidence on load): {path}")
+        proba = record["result"]["probabilities"]
+        if ev.get("proba_digest") != _proba_digest(proba):
+            raise CheckpointError(f"corrupt checkpoint (proba_digest != the stored proba): {path}")
         return record
 
     # ── scan / resume / complete ──────────────────────────────────────────────
