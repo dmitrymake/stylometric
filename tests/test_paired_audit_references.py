@@ -199,13 +199,20 @@ def test_golden_fixture_inventory_from_disk(tmp_path):
         ref.golden_fixture_inventory({"missing": tmp_path / "nope.txt"})
 
 
-def test_b4_golden_fixture_pinned_and_replayed(tmp_path):
-    # the external A0/A4 golden fixture is committed on HEAD (the working-tree rework deletes it);
-    # verify_b4_goldens binds it by pinned SHA and structurally replays every panel's self-digest
+def _b4_fixture_bytes():
+    # committed on HEAD; present on disk in a clean checkout/snapshot, deleted only in the dirty rework
     import subprocess
+    disk = _ROOT / "tests" / "fixtures" / "b4_goldens_v1.json"
+    if disk.is_file():
+        return disk.read_bytes()
+    return subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"], cwd=_ROOT)
+
+
+def test_b4_golden_fixture_pinned_and_replayed(tmp_path):
+    # the external A0/A4 golden fixture: verify_b4_goldens binds it by pinned SHA and structurally
+    # replays every panel's self-digest
     fix = tmp_path / "b4.json"
-    fix.write_bytes(subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"],
-                                            cwd=_ROOT))
+    fix.write_bytes(_b4_fixture_bytes())
     out = ref.verify_b4_goldens(fix)
     assert out["fixture_sha256"] == ref.B4_GOLDEN_FIXTURE_SHA256
     assert out["panels"] and len(out["inventory_sha"]) == 64

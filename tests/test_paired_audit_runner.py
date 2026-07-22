@@ -34,12 +34,16 @@ _needs_git = pytest.mark.skipif(not _HAS_GIT, reason="runner e2e needs a git rep
 
 
 def _golden_fixture(tmp: pathlib.Path):
-    # the owner's working-tree rework deletes tests/fixtures/b4_goldens_v1.json, but it is committed on
-    # HEAD — extract the committed version so the runner can bind + structurally replay it.
+    # committed on HEAD; the owner's working-tree rework deletes it, so fall back to the committed
+    # version via git when the on-disk file is absent.
     import subprocess
     out = tmp / "b4_goldens_v1.json"
-    out.write_bytes(subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"],
-                                            cwd=pathlib.Path.cwd()))
+    disk = pathlib.Path.cwd() / "tests" / "fixtures" / "b4_goldens_v1.json"
+    if disk.is_file():
+        out.write_bytes(disk.read_bytes())
+    else:
+        out.write_bytes(subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"],
+                                                cwd=pathlib.Path.cwd()))
     return out
 
 
