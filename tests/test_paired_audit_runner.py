@@ -240,7 +240,7 @@ def test_forged_manifest_caught_by_nontautological_rebuild(tmp_path):
         mf.verify_manifest_matches_rebuilt(forged_parent, rebuilt2, universe=False)
 
 
-def _run_smoke(tmp_path):
+def _smoke_kwargs(tmp_path):
     frags, ic = _make_corpus(tmp_path)
     anchor = load_dataset(frags).provenance.rows_digest
     audit_root = ac.build_audit_corpus(source_frags_root=frags, input_clean_root=ic, cfg=CFG,
@@ -253,15 +253,43 @@ def _run_smoke(tmp_path):
     ruaa_m = mf.build_fold_manifest("ruaa", ruaa_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
                                     algorithm="whole_work", seed=42, config_hash="c" * 64,
                                     selection_digest=ruaa_ds.provenance.selection_manifest_digest)
-    out = rn.run_paired_audit(
-        audit_root=audit_root, cfg=CFG,
-        committed_lobo_manifest=lobo_m, committed_ruaa_manifest=ruaa_m, ruaa_work_ids=ruaa_work_ids,
-        checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs", evaluator=_dummy_evaluator,
-        a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
-        golden_fixture=_golden_fixture(tmp_path),
-        tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
-                    for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES}, run_kind="smoke")
-    return out, lobo_m, ruaa_m
+    kw = dict(audit_root=audit_root, cfg=CFG,
+              committed_lobo_manifest=lobo_m, committed_ruaa_manifest=ruaa_m, ruaa_work_ids=ruaa_work_ids,
+              checkpoint_root=tmp_path / "ck", docs_root=tmp_path / "docs", evaluator=_dummy_evaluator,
+              a0_references={"lobo_books": pathlib.Path.cwd() / "docs/lobo_books.txt"},
+              golden_fixture=_golden_fixture(tmp_path),
+              tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
+                          for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES})
+    return kw, lobo_m, ruaa_m
+
+
+def _run_smoke(tmp_path):
+    kw, lobo_m, ruaa_m = _smoke_kwargs(tmp_path)
+    return rn.run_paired_audit(**kw, run_kind="smoke"), lobo_m, ruaa_m
+
+
+@_needs_git
+def test_durable_staged_flow(tmp_path):
+    # §7: execution completes + HARD-STOPS with a durable candidate (decision deferred); the result
+    # audit, the (separately-authorized) headline decision and the publication are separate stages
+    kw, _lm, _rm = _smoke_kwargs(tmp_path)
+    execution = rn.run_execution(**kw, run_kind="smoke")
+    assert execution["stage"] == "execution_complete"
+    assert execution["candidate"]["headline"]["decision"] is None           # deferred, not auto-decided
+    assert "result_audit" not in execution["candidate"]                     # not auto-audited
+    assert pathlib.Path(execution["candidate_path"]).exists()               # DURABLE candidate written
+    audit = rn.run_result_audit(execution)                                  # separate audit stage
+    assert audit["passed"] is True
+    with pytest.raises(rn.RunnerError):                                     # headline needs its own authz
+        rn.decide_headline_stage(execution, audit, authorization="nope")
+    decided = rn.decide_headline_stage(execution, audit,
+                                       authorization=rn.HEADLINE_DECISION_AUTHORIZATION)
+    assert decided["headline"]["decision"] in ("relabel", "keep_legacy", "inconclusive")
+    published = rn.publish_stage(execution, decided, docs_root=kw["docs_root"], run_kind="smoke")
+    assert published["version"]
+    # a confirmatory run may NOT use the all-in-one driver — the stages must be invoked separately
+    with pytest.raises(rn.RunnerError):
+        rn.run_paired_audit(**kw, run_kind="confirmatory")
 
 
 @_needs_git

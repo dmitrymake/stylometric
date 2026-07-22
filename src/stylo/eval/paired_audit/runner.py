@@ -86,15 +86,21 @@ def _rebuild_manifest(dataset_kind: str, dataset, parent_digest: str, cfg, commi
         config_hash=config_hash, selection_digest=selection_digest)
 
 
-# ── the chain ────────────────────────────────────────────────────────────────
-def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
-                     committed_ruaa_manifest: Mapping, ruaa_work_ids, checkpoint_root, docs_root,
-                     evaluator: Callable, a0_references: Mapping, tolerances: Mapping,
-                     golden_fixture, run_kind: str = "smoke",
-                     lobo_author_display_map: Mapping | None = None,
-                     repo_root=None, src_root=None) -> dict:
-    """Run the whole confirmatory chain on the published immutable ``audit_root`` and publish the
-    verified summary. Returns ``{run_id, summary, per_work_vectors, published}``."""
+# ── the durable stages (execution -> result audit -> headline decision -> publication) ───────────
+# §7: the four stages are DURABLE and separately authorized — one call never auto-flows all of them.
+HEADLINE_DECISION_AUTHORIZATION = "authorize_headline_decision"
+
+
+def run_execution(*, audit_root, cfg, committed_lobo_manifest: Mapping,
+                  committed_ruaa_manifest: Mapping, ruaa_work_ids, checkpoint_root, docs_root,
+                  evaluator: Callable, a0_references: Mapping, tolerances: Mapping,
+                  golden_fixture, run_kind: str = "smoke",
+                  lobo_author_display_map: Mapping | None = None,
+                  repo_root=None, src_root=None) -> dict:
+    """STAGE 1 — execution only: run every cell to COMPLETE, assemble the candidate (headline decision
+    DEFERRED, NOT audited here), write a DURABLE candidate artifact, and HARD-STOP. The result audit,
+    the headline decision and the publication are separate, separately-authorized stages. Returns
+    ``{run_id, stage, candidate, per_work_vectors, plan, candidate_path}``."""
     if run_kind not in rp.REGISTERED_RUN_KINDS:
         raise RunnerError(f"unknown run_kind {run_kind!r}")
     confirmatory = run_kind == "confirmatory"
@@ -185,25 +191,66 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
         a0_confirm = {
             "lobo": refmod.build_lobo_reference_index(preflight["lobo"], dict(lobo_author_display_map)),
             "ruaa": refmod.build_ruaa_reference_index(preflight["ruaa"])}
-    # 13a. assemble the COMPLETE candidate (headline decision deferred to a separate later stage)
-    summary, per_work_vectors = _assemble(present, manifests, run_id, plan, a0_confirm=a0_confirm)
+    # 13a. assemble the COMPLETE candidate (headline decision DEFERRED to a separate later stage) and
+    # write it as a DURABLE artifact under the transient run namespace, then HARD-STOP: execution does
+    # NOT auto-flow into the result audit, the headline decision, or publication (§7). Each of those is
+    # a separate, separately-authorized stage that re-loads this durable candidate.
+    candidate, per_work_vectors = _assemble(present, manifests, run_id, plan, a0_confirm=a0_confirm)
+    candidate_path = pub.write_transient(
+        run_id, "candidate.json",
+        {"stage": "execution_complete", "summary": candidate, "per_work_vectors": per_work_vectors},
+        docs_root=docs_root)
+    return {"run_id": run_id, "stage": "execution_complete", "candidate": candidate,
+            "per_work_vectors": per_work_vectors, "plan": plan, "candidate_path": candidate_path}
 
-    # 13b. INDEPENDENT result audit: recompute every metric/CI/p/Holm/headline from the vectors
-    audit = result_audit.audit_results(summary, per_work_vectors, plan)
 
-    # 13c. the headline DECISION is a distinct stage, stamped from the audited numbers only
-    _decide_headline(summary, audit)
+def run_result_audit(execution_out: Mapping) -> dict:
+    """STAGE 2 — the INDEPENDENT result audit, a separate call over the durable execution candidate.
+    Recomputes every metric/CI/p/Holm/headline from the per-work vectors (no shared implementation) and
+    returns the audit verdict + audited headline. Hard-stop before the headline decision."""
+    candidate = execution_out["candidate"]
+    return result_audit.audit_results(candidate, execution_out["per_work_vectors"],
+                                      candidate["run_plan"])
 
-    # 14. validated publisher (accepts only an audited candidate; smoke/dry never write the committed
-    # production artifact — they publish to the gitignored transient run namespace)
-    published = pub.publish_audit(summary, per_work_vectors, docs_root=docs_root, run_kind=run_kind)
-    return {"run_id": run_id, "summary": summary, "per_work_vectors": per_work_vectors,
-            "result_audit": audit, "published": published}
+
+def decide_headline_stage(execution_out: Mapping, audit: Mapping, *, authorization: str) -> dict:
+    """STAGE 3 — the headline DECISION, a distinct stage requiring its OWN explicit authorization (a
+    confirmatory headline is never stamped automatically). Stamps the audited decision + audit verdict
+    onto the candidate and returns it. Hard-stop before publication."""
+    if authorization != HEADLINE_DECISION_AUTHORIZATION:
+        raise RunnerError("the headline decision is a separately-authorized stage — pass the explicit "
+                          "authorization token")
+    candidate = execution_out["candidate"]
+    _decide_headline(candidate, audit)
+    return candidate
+
+
+def publish_stage(execution_out: Mapping, decided_candidate: Mapping, *, docs_root, run_kind) -> dict:
+    """STAGE 4 — validated publication of the audited + headline-decided candidate."""
+    return pub.publish_audit(dict(decided_candidate), execution_out["per_work_vectors"],
+                             docs_root=docs_root, run_kind=run_kind)
+
+
+def run_paired_audit(*, run_kind: str = "smoke", docs_root, **kw) -> dict:
+    """Convenience driver for a NON-confirmatory (smoke/dry) run: it chains all four durable stages in
+    one process. A CONFIRMATORY run is refused here — its stages (execution / result audit / headline
+    decision / publication) must be invoked SEPARATELY, each separately authorized (§7)."""
+    if run_kind == "confirmatory":
+        raise RunnerError("a confirmatory run must invoke the four durable stages separately "
+                          "(run_execution -> run_result_audit -> decide_headline_stage -> publish_stage); "
+                          "the all-in-one driver is smoke/dry only")
+    execution = run_execution(run_kind=run_kind, docs_root=docs_root, **kw)
+    audit = run_result_audit(execution)
+    decided = decide_headline_stage(execution, audit, authorization=HEADLINE_DECISION_AUTHORIZATION)
+    published = publish_stage(execution, decided, docs_root=docs_root, run_kind=run_kind)
+    return {"run_id": execution["run_id"], "summary": decided,
+            "per_work_vectors": execution["per_work_vectors"], "result_audit": audit,
+            "published": published}
 
 
 def _decide_headline(summary: dict, audit: Mapping) -> None:
-    """Separate, post-audit stage: stamp the headline decision and the result-audit verdict onto the
-    candidate. Only the audited difference CI drives the gate; nothing is recomputed here."""
+    """Stamp the headline decision + the result-audit verdict onto the candidate (post-audit). Only the
+    audited difference CI drives the gate; nothing is recomputed here."""
     summary["headline"]["decision"] = audit["headline"]["decision"]
     summary["result_audit"] = {"passed": bool(audit["passed"]), "auditor": audit["auditor"]}
 
