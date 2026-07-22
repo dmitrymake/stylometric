@@ -151,31 +151,38 @@ def _built_corpus(tmp_path):
 
 
 def test_reattest_detects_disk_mutation(tmp_path):
-    # §4: the disk re-attestation compares FROM DISK to the plan, not an in-memory object to itself
-    audit_root, _lobo_ds, _ruaa_ids, lobo_m, ruaa_m = _built_corpus(tmp_path)
+    # §4/R3.5: the re-attestation re-hashes the WHOLE corpus tree, re-verifies the dataset arrays and
+    # re-derives the manifest FROM DISK every fold — never an in-memory object against itself
+    audit_root, lobo_ds, ruaa_ids, lobo_m, ruaa_m = _built_corpus(tmp_path)
+    ruaa_ds = derive_work_subset(lobo_ds, ruaa_ids)
     cm = ac.verify_published_corpus(audit_root)
     plan = {"execution_source_sha256": rn.rp.execution_source_sha256(None),
             "config_id": rn.rp.config_id(CFG),
             "env_lock_sha256": rn.rp.env_lock_sha256(None),
             "corpus_chain": {"legacy_anchor": cm["legacy_anchor"],
                              "semantic_parity_digest": cm["source_semantic_parity_digest"]},
-            "lobo": {"fold_manifest_digest": lobo_m["self_hash"]},
-            "ruaa": {"fold_manifest_digest": ruaa_m["self_hash"]}}
+            "lobo": {"dataset_digest": lobo_ds.provenance.rows_digest,
+                     "fold_manifest_digest": lobo_m["self_hash"]},
+            "ruaa": {"dataset_digest": ruaa_ds.provenance.rows_digest,
+                     "fold_manifest_digest": ruaa_m["self_hash"]}}
     ctx = {"plan": plan, "audit_root": audit_root, "cfg": CFG,
-           "committed": {"lobo": lobo_m, "ruaa": ruaa_m}, "repo_root": None, "src_root": None}
-    rn._reattest(ctx, full=True)                                  # matches disk -> ok (full re-hash)
-    rn._reattest(ctx, full=False)                                 # cheap manifest re-attest -> ok
+           "committed": {"lobo": lobo_m, "ruaa": ruaa_m},
+           "datasets": {"lobo": lobo_ds, "ruaa": ruaa_ds}, "confirmatory": False,
+           "repo_root": None, "src_root": None}
+    rn._reattest(ctx)                                             # matches disk + data + manifest -> ok
+    lm = plan["lobo"]
     for over in ({"config_id": "0" * 64},
                  {"corpus_chain": {"legacy_anchor": "0" * 64, "semantic_parity_digest": "1" * 64}},
-                 {"lobo": {"fold_manifest_digest": "0" * 64}}):
+                 {"lobo": {**lm, "dataset_digest": "0" * 64}},        # dataset digest drift
+                 {"lobo": {**lm, "fold_manifest_digest": "0" * 64}}):  # manifest digest drift
         with pytest.raises(rn.RunnerError):
-            rn._reattest({**ctx, "plan": {**plan, **over}}, full=False)
+            rn._reattest({**ctx, "plan": {**plan, **over}})
     # a physical tamper of the on-disk corpus manifest is caught (surfaced as a runner fail-close)
     mpath = audit_root / ac.CORPUS_MANIFEST_NAME
     mpath.write_text(mpath.read_text(encoding="utf-8").replace(cm["legacy_anchor"], "0" * 64),
                      encoding="utf-8")
     with pytest.raises(rn.RunnerError):
-        rn._reattest(ctx, full=False)
+        rn._reattest(ctx)
 
 
 def test_forged_manifest_caught_by_nontautological_rebuild(tmp_path):

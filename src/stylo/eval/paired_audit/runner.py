@@ -164,6 +164,7 @@ def run_paired_audit(*, audit_root, cfg, committed_lobo_manifest: Mapping,
 
     # 7. per-fold estimator execution with before/after DISK re-attestation + checkpoint resume
     reattest_ctx = {"plan": plan, "audit_root": audit_root, "cfg": cfg, "committed": manifests,
+                    "datasets": datasets, "confirmatory": confirmatory,
                     "repo_root": repo_root, "src_root": src_root}
     _run_all_cells(store, datasets, manifests, eval_fn, reattest_ctx)
 
@@ -246,11 +247,11 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator, ctx) 
             manifest = manifests[ds]
             prob_order = manifest["probability_class_order"]
             expected = _expected_folds(manifest)
-            _reattest(ctx, full=True)                              # before the cell: FULL disk re-attest
+            _reattest(ctx)                                         # before the cell: full disk re-attest
             _reverify_bindings(store, ds, manifest)
             state = store.resume_cell(ds, model, cell, expected)
             for fold_index, work_id in state["pending"]:
-                _reattest(ctx, full=False)                         # before the fold: light disk re-attest
+                _reattest(ctx)                                     # before the fold: full disk re-attest
                 res = evaluator(ds, datasets[ds], model, cell, fold_index, work_id, ablation)
                 evidence = res.get("evidence")
                 if not isinstance(evidence, Mapping):
@@ -270,9 +271,9 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator, ctx) 
                                    "correct": bool(res["correct"]), "rank": int(res["rank"]),
                                    "probabilities": proba},
                            fold_local_evidence=evidence)
-                _reattest(ctx, full=False)                         # after the fold
+                _reattest(ctx)                                     # after the fold
             _reverify_bindings(store, ds, manifest)
-            _reattest(ctx, full=True)                              # after the cell: FULL disk re-attest
+            _reattest(ctx)                                         # after the cell: full disk re-attest
 
 
 def _reverify_bindings(store: CheckpointStore, dataset: str, manifest) -> None:
@@ -280,28 +281,40 @@ def _reverify_bindings(store: CheckpointStore, dataset: str, manifest) -> None:
         raise RunnerError(f"{dataset} checkpoint bindings drifted from the manifest mid-run")
 
 
-def _reattest(ctx: Mapping, *, full: bool) -> None:
-    """Re-derive the actual code/config/env/corpus/manifest digests FROM DISK and compare them to the
-    frozen RunPlan (never an in-memory object against itself). Runs before and after every fold and
-    cell; any mid-run mutation fails the run closed. ``full`` re-hashes the whole immutable corpus
-    tree (cell boundary); otherwise the corpus manifest is re-attested cheaply (fold boundary)."""
-    plan = ctx["plan"]
+def _reattest(ctx: Mapping) -> None:
+    """Re-derive the actual code/config/env/corpus/DATA/dataset/manifest digests FROM DISK and compare
+    them to the frozen RunPlan (never an in-memory object against itself). Runs before AND after every
+    fold and cell — the WHOLE immutable corpus tree is re-hashed, the loaded dataset arrays are
+    re-verified against their own provenance and bound to the plan, and each fold manifest is re-derived
+    from the re-verified dataset (not compared to an in-memory copy). Any mid-run mutation fails closed."""
+    plan, cfg = ctx["plan"], ctx["cfg"]
     if rp.execution_source_sha256(ctx["src_root"]) != plan["execution_source_sha256"]:
         raise RunnerError("code source tree changed mid-run (execution_source drift)")
-    if rp.config_id(ctx["cfg"]) != plan["config_id"]:
+    if rp.config_id(cfg) != plan["config_id"]:
         raise RunnerError("config changed mid-run (config_id drift)")
     if rp.env_lock_sha256(ctx["repo_root"]) != plan["env_lock_sha256"]:
         raise RunnerError("environment lock changed mid-run (env_lock drift)")
     try:
-        cm = (ac.verify_published_corpus if full else ac.verify_corpus_manifest_light)(ctx["audit_root"])
+        cm = ac.verify_published_corpus(ctx["audit_root"])     # FULL data-tree re-hash, every fold+cell
     except ac.AuditCorpusError as exc:                          # surface a disk tamper as a fail-close
         raise RunnerError(f"corpus re-attestation failed mid-run: {exc}") from exc
     if {"legacy_anchor": cm.get("legacy_anchor"),
         "semantic_parity_digest": cm.get("source_semantic_parity_digest")} != plan["corpus_chain"]:
         raise RunnerError("corpus chain (anchor/parity) changed mid-run")
+    datasets, committed = ctx["datasets"], ctx["committed"]
+    parent_digest = datasets["lobo"].provenance.rows_digest
     for ds in _DATASETS:
-        if ctx["committed"][ds]["self_hash"] != plan[ds]["fold_manifest_digest"]:
-            raise RunnerError(f"{ds} fold-manifest digest drifted from the plan mid-run")
+        try:                                                   # re-verify the in-memory arrays vs their own provenance
+            ac.verify_audit_dataset(datasets[ds])
+        except ac.AuditCorpusError as exc:
+            raise RunnerError(f"{ds} dataset arrays failed re-attestation mid-run: {exc}") from exc
+        if datasets[ds].provenance.rows_digest != plan[ds]["dataset_digest"]:
+            raise RunnerError(f"{ds} dataset digest drifted from the plan mid-run")
+        rebuilt = _rebuild_manifest(ds, datasets[ds], parent_digest, cfg, committed[ds],
+                                    confirmatory=ctx["confirmatory"])
+        if rebuilt["self_hash"] != committed[ds]["self_hash"] \
+                or committed[ds]["self_hash"] != plan[ds]["fold_manifest_digest"]:
+            raise RunnerError(f"{ds} fold manifest failed disk re-derivation mid-run")
 
 
 def _digest(res) -> str:
