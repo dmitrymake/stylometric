@@ -253,7 +253,9 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
         raise PublisherError(f"invalid applicability/Holm content in the assembly: {exc}") from exc
 
     hl = summary.get("headline")
-    if not isinstance(hl, Mapping) or hl.get("endpoint") != HEADLINE_ENDPOINT:
+    if not isinstance(hl, Mapping) or set(hl) != {"endpoint", "decision", "diff_ci", "margin"}:
+        raise PublisherError("summary.headline must carry EXACTLY endpoint/decision/diff_ci/margin")
+    if hl.get("endpoint") != HEADLINE_ENDPOINT:
         raise PublisherError("summary.headline must use the registered stylo A4-A0 endpoint")
     if hl.get("decision") not in _HEADLINE_DECISIONS:
         raise PublisherError("summary.headline decision must be relabel/keep_legacy/inconclusive")

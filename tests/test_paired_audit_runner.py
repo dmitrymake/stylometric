@@ -282,14 +282,14 @@ def test_durable_staged_flow(tmp_path):
     assert execution["candidate"]["headline"]["decision"] is None           # deferred, not auto-decided
     assert "result_audit" not in execution["candidate"]                     # not auto-audited
     assert pathlib.Path(execution["candidate_path"]).exists()               # DURABLE candidate written
-    audit = rn.run_result_audit(execution)                                  # separate audit stage
-    assert audit["passed"] is True
+    audit_out = rn.run_result_audit(execution)                              # separate stage: re-loads durable
+    assert audit_out["audit"]["passed"] is True
+    assert audit_out["candidate"]["run_id"] == execution["run_id"]          # bound to the execution run_id
     with pytest.raises(rn.RunnerError):                                     # headline needs its own authz
-        rn.decide_headline_stage(execution, audit, authorization="nope")
-    decided = rn.decide_headline_stage(execution, audit,
-                                       authorization=rn.HEADLINE_DECISION_AUTHORIZATION)
+        rn.decide_headline_stage(audit_out, authorization="nope")
+    decided = rn.decide_headline_stage(audit_out, authorization=rn.HEADLINE_DECISION_AUTHORIZATION)
     assert decided["headline"]["decision"] in ("relabel", "keep_legacy", "inconclusive")
-    published = rn.publish_stage(execution, decided, docs_root=kw["docs_root"], run_kind="smoke")
+    published = rn.publish_stage(audit_out, decided, docs_root=kw["docs_root"], run_kind="smoke")
     assert published["version"]
     # a confirmatory run may NOT use the all-in-one driver — the stages must be invoked separately
     with pytest.raises(rn.RunnerError):

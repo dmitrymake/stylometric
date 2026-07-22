@@ -17,7 +17,7 @@ import hashlib
 import re
 from typing import Callable, Mapping
 
-from ...jsonio import dumps_strict
+from ...jsonio import dumps_strict, load_strict
 from ...eval.metrics import macro_f1
 from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION, LEGACY_ABLATION,
                               RELATIVE_FW_ONLY_ABLATION, WEIGHTS_ONLY_ABLATION)
@@ -204,30 +204,44 @@ def run_execution(*, audit_root, cfg, committed_lobo_manifest: Mapping,
             "per_work_vectors": per_work_vectors, "plan": plan, "candidate_path": candidate_path}
 
 
+def _load_durable_candidate(execution_out: Mapping) -> tuple[dict, dict]:
+    """Re-load the DURABLE candidate from disk (not the in-memory dict) and bind it to the execution
+    run_id — so the later stages are genuinely decoupled and a candidate swapped between stages is
+    caught here rather than trusted."""
+    durable = load_strict(execution_out["candidate_path"])
+    candidate, vectors = durable.get("summary"), durable.get("per_work_vectors")
+    if not isinstance(candidate, dict) or not isinstance(vectors, dict):
+        raise RunnerError("durable candidate is malformed")
+    if candidate.get("run_id") != execution_out["run_id"]:
+        raise RunnerError("durable candidate run_id != the execution run_id")
+    return candidate, vectors
+
+
 def run_result_audit(execution_out: Mapping) -> dict:
-    """STAGE 2 — the INDEPENDENT result audit, a separate call over the durable execution candidate.
-    Recomputes every metric/CI/p/Holm/headline from the per-work vectors (no shared implementation) and
-    returns the audit verdict + audited headline. Hard-stop before the headline decision."""
-    candidate = execution_out["candidate"]
-    return result_audit.audit_results(candidate, execution_out["per_work_vectors"],
-                                      candidate["run_plan"])
+    """STAGE 2 — the INDEPENDENT result audit, a separate call that RE-LOADS the durable execution
+    candidate from disk and recomputes every metric/CI/p/Holm/headline from its per-work vectors (no
+    shared implementation). Returns ``{audit, candidate, per_work_vectors}`` (the durable pair the later
+    stages operate on). Hard-stop before the headline decision."""
+    candidate, vectors = _load_durable_candidate(execution_out)
+    audit = result_audit.audit_results(candidate, vectors, candidate["run_plan"])
+    return {"audit": audit, "candidate": candidate, "per_work_vectors": vectors}
 
 
-def decide_headline_stage(execution_out: Mapping, audit: Mapping, *, authorization: str) -> dict:
+def decide_headline_stage(audit_out: Mapping, *, authorization: str) -> dict:
     """STAGE 3 — the headline DECISION, a distinct stage requiring its OWN explicit authorization (a
     confirmatory headline is never stamped automatically). Stamps the audited decision + audit verdict
-    onto the candidate and returns it. Hard-stop before publication."""
+    onto the durable-loaded, audited candidate and returns it. Hard-stop before publication."""
     if authorization != HEADLINE_DECISION_AUTHORIZATION:
         raise RunnerError("the headline decision is a separately-authorized stage — pass the explicit "
                           "authorization token")
-    candidate = execution_out["candidate"]
-    _decide_headline(candidate, audit)
+    candidate = audit_out["candidate"]
+    _decide_headline(candidate, audit_out["audit"])
     return candidate
 
 
-def publish_stage(execution_out: Mapping, decided_candidate: Mapping, *, docs_root, run_kind) -> dict:
-    """STAGE 4 — validated publication of the audited + headline-decided candidate."""
-    return pub.publish_audit(dict(decided_candidate), execution_out["per_work_vectors"],
+def publish_stage(audit_out: Mapping, decided_candidate: Mapping, *, docs_root, run_kind) -> dict:
+    """STAGE 4 — validated publication of the audited + headline-decided durable candidate."""
+    return pub.publish_audit(dict(decided_candidate), audit_out["per_work_vectors"],
                              docs_root=docs_root, run_kind=run_kind)
 
 
@@ -240,11 +254,11 @@ def run_paired_audit(*, run_kind: str = "smoke", docs_root, **kw) -> dict:
                           "(run_execution -> run_result_audit -> decide_headline_stage -> publish_stage); "
                           "the all-in-one driver is smoke/dry only")
     execution = run_execution(run_kind=run_kind, docs_root=docs_root, **kw)
-    audit = run_result_audit(execution)
-    decided = decide_headline_stage(execution, audit, authorization=HEADLINE_DECISION_AUTHORIZATION)
-    published = publish_stage(execution, decided, docs_root=docs_root, run_kind=run_kind)
+    audit_out = run_result_audit(execution)
+    decided = decide_headline_stage(audit_out, authorization=HEADLINE_DECISION_AUTHORIZATION)
+    published = publish_stage(audit_out, decided, docs_root=docs_root, run_kind=run_kind)
     return {"run_id": execution["run_id"], "summary": decided,
-            "per_work_vectors": execution["per_work_vectors"], "result_audit": audit,
+            "per_work_vectors": audit_out["per_work_vectors"], "result_audit": audit_out["audit"],
             "published": published}
 
 

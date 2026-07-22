@@ -258,8 +258,15 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
             _require(key in per_work_vectors, f"missing per-work vector {key}")
             arrays[(model, cell)] = _arrays(per_work_vectors[key])
         # a confirmatory run must be the FROZEN universe (a 2-author toy fixture is not production-ready)
+        # AND every applied cell's arm must be the SAME frozen work set — not just the stylo/A0 arm, so
+        # no non-stylo model family can be published on a shrunk/arbitrary work subset.
         if confirmatory:
-            _assert_frozen_universe(ds, prob_order, metric_order, arrays[("stylo", "A0")]["works"])
+            ref_works = arrays[("stylo", "A0")]["works"]        # already sorted by work_id
+            _assert_frozen_universe(ds, prob_order, metric_order, ref_works)
+            for (model, cell) in registered_cells():
+                if arrays[(model, cell)]["works"] != ref_works:
+                    raise ResultAuditError(
+                        f"{ds}/{model}/{cell} work set != the frozen universe work set (a shrunk arm)")
 
         raw_ps = {}
         for (model, cell) in registered_cells():

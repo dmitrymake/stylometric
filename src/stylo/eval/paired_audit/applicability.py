@@ -287,6 +287,10 @@ def assert_cell_record(model: str, cell: str, record: dict, *,
 _POINT_KEYS = ("accuracy", "macro_f1", "top2", "per_author_recall")
 _VS_A0_KEYS = ("dacc", "dacc_authorclustered_ci", "cluster_p", "holm_p",
                "mcnemar_p_diagnostic", "significant")
+# the exact top-level key set an applied cell record may carry (A0 has no vs_A0) — no decorative extras
+_APPLIED_A0_KEYS = frozenset({"status", "requested_axes", "effective_axes", "point", "per_work",
+                              "abs_accuracy_authorclustered_ci", "evidence", "claim_status"})
+_APPLIED_NONA0_KEYS = _APPLIED_A0_KEYS | {"vs_A0"}
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -301,9 +305,13 @@ def _finite_ci(ci) -> bool:
 
 def _validate_applied_record(model, cell, record, probability_class_order, work_universe) -> None:
     """Fail-closed unless an applied cell carries the full §4.1 evidence schema with valid types."""
+    allowed = _APPLIED_A0_KEYS if cell == "A0" else _APPLIED_NONA0_KEYS
+    extra = sorted(k for k in record if k not in allowed)
+    if extra:                                        # no decorative/unaudited extra key in a sealed cell
+        raise ApplicabilityError(f"applied cell ({model},{cell}) has unexpected keys {extra}")
     point = record.get("point")
-    if not isinstance(point, dict) or any(k not in point for k in _POINT_KEYS):
-        raise ApplicabilityError(f"applied cell ({model},{cell}) point must carry {_POINT_KEYS}")
+    if not isinstance(point, dict) or set(point) != set(_POINT_KEYS):
+        raise ApplicabilityError(f"applied cell ({model},{cell}) point must carry EXACTLY {_POINT_KEYS}")
     for k in ("accuracy", "macro_f1", "top2"):
         if not _finite(point[k]):
             raise ApplicabilityError(f"applied cell ({model},{cell}) point.{k} must be a finite number")
@@ -362,9 +370,9 @@ def _validate_applied_record(model, cell, record, probability_class_order, work_
 
     if cell != "A0":
         vs = record.get("vs_A0")
-        if not isinstance(vs, dict) or any(k not in vs for k in _VS_A0_KEYS):
+        if not isinstance(vs, dict) or set(vs) != set(_VS_A0_KEYS):
             raise ApplicabilityError(
-                f"applied non-A0 cell ({model},{cell}) vs_A0 must carry {_VS_A0_KEYS}")
+                f"applied non-A0 cell ({model},{cell}) vs_A0 must carry EXACTLY {_VS_A0_KEYS}")
         if not _finite(vs["dacc"]) or not _finite_ci(vs["dacc_authorclustered_ci"]):
             raise ApplicabilityError(f"applied non-A0 cell ({model},{cell}) vs_A0 dacc/CI must be finite")
         for k in ("cluster_p", "holm_p"):

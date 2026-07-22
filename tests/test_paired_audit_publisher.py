@@ -224,6 +224,37 @@ class TestReproducedBypasses:
         with pytest.raises(pub.PublisherError):
             pub.publish_audit(s, _vectors(), docs_root=tmp_path)
 
+    def test_shrunk_non_stylo_arm_rejected(self):
+        # review probe: the frozen-universe check inspected only stylo/A0, so bow_lr could be published
+        # on a 40-work subset. Every applied arm must now be the same frozen work set.
+        s, v = _summary(), _vectors()
+        vec40 = _DS["lobo"][2][:40]                                   # a coherent 40-work subset
+        prob, metric = _DS["lobo"][0], _DS["lobo"][1]
+        a = ra._arrays(vec40)
+        midx = [prob.index(x) for x in metric]
+        point = ra._point(a, midx)
+        pd = ra._cell_proba_digest(a)
+        abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=_ITERS, seed=_SEED, quantiles=_Q)
+        dacc_ci = hl.paired_accuracy_diff_ci(a["correct"], a["correct"], a["authors"], iters=_ITERS, seed=_SEED, quantiles=_Q)
+        cp = inf.paired_cluster_pvalue(a["correct"], a["correct"], a["authors"], B=_B, seed=_SEED)
+        mc = inf.mcnemar_diagnostic(a["correct"], a["correct"])
+        for (m, c) in ap.registered_cells():                          # rebuild the whole bow_lr lobo arm at 40
+            if m != "bow_lr":
+                continue
+            v[f"lobo/{m}/{c}"] = copy.deepcopy(vec40)
+            rec = s["cells"]["lobo"][f"{m}/{c}"]
+            rec["point"] = copy.deepcopy(point)
+            rec["per_work"] = copy.deepcopy(vec40)
+            rec["abs_accuracy_authorclustered_ci"] = [abs_ci["lo"], abs_ci["hi"]]
+            rec["evidence"]["proba_digest"] = pd
+            if c != "A0":
+                rec["vs_A0"] = {"dacc": 0.0, "dacc_authorclustered_ci": [dacc_ci["lo"], dacc_ci["hi"]],
+                                "cluster_p": cp, "holm_p": rec["vs_A0"]["holm_p"],
+                                "significant": rec["vs_A0"]["significant"],
+                                "mcnemar_p_diagnostic": mc["mcnemar_p_diagnostic"]}
+        with pytest.raises(ra.ResultAuditError):                      # a shrunk non-stylo arm is rejected
+            ra.audit_results(s, v, _PLAN)
+
 
 class TestPathGuard:
     def test_rejects_headline_basename(self, tmp_path):
