@@ -76,10 +76,22 @@ out of scope; §11 stays hard-stopped).
 - **Diff vs `release` HEAD `2f6c3dc3`:** additions only (paired_audit modules + tests + this audit pair);
   zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and never
   imports the uncommitted working-tree rework. The owner's uncommitted rework is untouched.
-- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 214 passed.
-- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 209 passed, 5 skipped (4 runner-e2e
+- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 215 passed.
+- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 210 passed, 5 skipped (4 runner-e2e
   need a live `.git` for the commit binding; 1 RuAA-reference needs the gitignored private data) —
   self-contained, no rework dependency.
+- **Full clean `git clone`** (`pytest tests/`): 4 failed / ~816 passed / 6 skipped — the 4 are the
+  pre-existing packaging debt (`test_ci_sign_erratum`, `test_macro_f1_ci_withdrawal`; missing
+  `scripts/gen-paper.mjs`, both present on `release`), **zero** paired-audit.
+- **Independent review of the round-3 SHA:** four fresh adversarial auditors, each reproducing the
+  owner's bypass classes with running probes. Verdict: three sign-offs; one found a **HIGH** — the
+  frozen-universe check inspected only the `stylo/A0` arm, so a non-stylo model family could be
+  published on a shrunk work subset (probe: `bow_lr` on 40 works published clean). Closed: `audit_results`
+  now requires every applied arm to equal the frozen reference work set. Three residual LOW (decorative
+  extra keys in a sealed cell/headline; the durable-stage re-load claim; the public authorization token)
+  were closed by exact-shape pinning + a genuine durable re-load. The known §11-live-replay gap
+  (mechanism digests shape-checked, not recomputed) remains, deferred to the `B4_LIVE_GOLDEN_REPLAY`
+  gate; it is not a verdict hole (the verdict is a pure function of the fully-validated per-work vectors).
 - **Full clean `git clone` suite** (`pytest tests/`): 4 failed, 786 passed, 6 skipped. All 4 failures
   are pre-existing packaging debt (`test_ci_sign_erratum.py`, `test_macro_f1_ci_withdrawal.py` — both
   present on `release`) caused by `scripts/gen-paper.mjs` not being tracked in git; **zero** are
