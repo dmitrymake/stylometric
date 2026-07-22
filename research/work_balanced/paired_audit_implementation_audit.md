@@ -56,13 +56,28 @@ out of scope and is not bound anywhere.
 | R2.8 | Independent result-auditor recomputes accuracy/F1/top2/recall/Δ/CI/cluster-p/Holm/headline from vectors; publisher accepts only PASS; headline decision a separate stage; smoke/dry never write the committed artifact | `result_audit.audit_results`, `runner` (candidate→audit→decide→publish), `publisher.{verify_final_assembly,publish_audit,load_published_audit}` | auditor rejects a tampered accuracy / cluster p; Holm↔cell + headline↔CI consistency; smoke writes no committed artifact + transient round-trip; root↔version equality |
 | R2.9 | Path guard BEFORE any mkdir/write + re-check; loader detects a swapped committed root summary | `publisher.write_transient` (guard→mkdir→re-check), `publisher.load_published_audit` root↔version | swapped committed root summary detected; write_transient rejects a symlinked run namespace before mkdir |
 
+## Gate-10 remediation round 3 (owner-reproduced bypasses → code → adversarial test)
+
+A second owner-authored independent audit against the round-2 sign-off SHA `1a56e57d` REPRODUCED
+several critical bypasses that the round-2 reviewers missed. Round 3 closes each (the OS kernel stays
+out of scope; §11 stays hard-stopped).
+
+| # | Reproduced bypass | Code | Adversarial test |
+|---|---|---|---|
+| R3.1 | Publisher accepted `proba=[-5,6]` (the auditor dropped probabilities); resume trusted a re-self-hashed invalid checkpoint (`pred=-9,true=99,rank=-5,proba=[-7,8]`, empty evidence) | `result_audit._validate_fold_coherence` (revalidates every per-work proba/rank/label from scratch), `checkpoints._load_path` (runs `_validate_result` + evidence + proba_digest on LOAD) | out-of-range / non-normalized proba rejected at publish; a re-self-hashed invalid checkpoint rejected on resume |
+| R3.2 | A 2-author/4-work fixture accepted as production; a full `true_label` permutation contradicting the work_id author passed | `result_audit._assert_frozen_universe` (47/43/251, 22/22/137) + `_validate_fold_coherence` asserts `true_label == prob_order.index(author)` | a toy universe rejected for confirmatory; a permuted true_label rejected |
+| R3.3 | Any hex64 accepted as `proba_digest`; the Delta/stack passports did not match the literal §4.1 schema | `checkpoints.proba_digest` (authoritative, runner-computed + enforced at save/load), `result_audit._cell_proba_digest` (recomputes from the real vectors); `applicability` `delta_mean_std_centroid_digest` + `calibration_passport` full structure | a fake proba_digest rejected; the calibration_passport must be a full structure not a digest |
+| R3.4 | `golden_fixture_inventory_sha` hashed lobo_books/RuAA submission, not the external A0/A4 goldens; no live replay | `references.verify_b4_goldens` (pinned SHA of `b4_goldens_v1.json` + structural panel replay), `runner` binds it | the b4 fixture is pinned + panels replayed; a tampered/missing fixture fatal |
+| R3.5 | Fold re-attestation checked only `corpus_manifest.json`, not the data tree; manifests compared in-memory; dataset arrays never re-checked | `runner._reattest` (FULL `verify_published_corpus` tree re-hash + `verify_audit_dataset` array re-verify + manifest re-derived from the disk dataset, every fold and cell) | fails closed on a dataset-digest drift + a manifest-digest drift + a physical tamper |
+| R3.6 | Assembler + auditor used the SAME headline/inference/metrics; one call auto-ran execution→audit→headline→publish | `result_audit` re-implements every verdict quantity independently (no shared import); `runner.{run_execution,run_result_audit,decide_headline_stage,publish_stage}` durable stages, confirmatory refuses the all-in-one driver | the independent impl agrees with the shared one; execution hard-stops with a durable candidate; the headline needs its own authorization token |
+
 ## Verification results (mandatory checks)
 
-- **Diff vs `release` HEAD `2f6c3dc3`:** 26 files, additions only (14 modules + 10 tests + this audit
-  pair); zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and
-  never imports the uncommitted working-tree rework. The owner's 66 M/D rework entries are untouched.
-- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 204 passed.
-- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 200 passed, 4 skipped (3 runner-e2e
+- **Diff vs `release` HEAD `2f6c3dc3`:** additions only (paired_audit modules + tests + this audit pair);
+  zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and never
+  imports the uncommitted working-tree rework. The owner's uncommitted rework is untouched.
+- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 214 passed.
+- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 209 passed, 5 skipped (4 runner-e2e
   need a live `.git` for the commit binding; 1 RuAA-reference needs the gitignored private data) —
   self-contained, no rework dependency.
 - **Full clean `git clone` suite** (`pytest tests/`): 4 failed, 786 passed, 6 skipped. All 4 failures

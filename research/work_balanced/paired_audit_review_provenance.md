@@ -7,6 +7,21 @@ behind a separate authorization). After a positive independent review of the rev
 commit must **not** be amended or followed by any code change — the reviewed SHA must equal the final
 SHA.
 
+## Round-2 sign-off withdrawn (round-3 remediation in progress)
+
+The round-2 record below signed off on `1a56e57d` after six internal adversarial review rounds. A
+SECOND owner-authored independent audit then REPRODUCED several critical bypasses that the round-2
+reviewers missed: the publisher accepted scientifically-invalid probabilities (`proba=[-5,6]`); resume
+trusted a re-self-hashed invalid checkpoint; the frozen 47/251 · 22/137 universe was never checked (a
+2-author toy fixture passed as production) and a permuted `true_label` contradicting the work_id author
+passed; `proba_digest` accepted any hex64; the golden inventory bound the wrong fixtures with no live
+replay; fold re-attestation was incomplete; execution auto-flowed into the headline decision; and the
+assembler + auditor shared one implementation. **The round-2 sign-off is withdrawn.** Round 3 closes
+these as separate commits (R3.1…R3.7); the requirement → reproduced-bypass → code → adversarial-test
+trace is in [`paired_audit_implementation_audit.md`](paired_audit_implementation_audit.md). §11 stays
+hard-stopped; the OS kernel is out of scope. A fresh independent review of the exact round-3 final SHA
+is required before any §11 reconsideration.
+
 ## Round-1 sign-off withdrawn
 
 A round-1 review had signed off on `3c34bbe5` (with a follow-up `34481cb8`). An owner-authored
