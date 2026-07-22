@@ -15,6 +15,7 @@ from stylo.eval.paired_audit import publisher as pub
 from stylo.eval.paired_audit import result_audit as ra
 from stylo.eval.paired_audit import run_plan as rp
 from stylo.eval.paired_audit.headline import HEADLINE_ENDPOINT
+from stylo.eval.paired_audit.references import LOBO_BOOKS_SHA256, RUAA_REFERENCE_SUBMISSION_SHA256
 from stylo.eval.paired_audit.semantic_parity import LEGACY_ANCHOR
 
 # A confirmatory-shaped fixture built with the REAL metric functions over the FROZEN universe (lobo
@@ -57,7 +58,8 @@ def _run_plan():
                              "sklearn": "1", "spacy": "3.8"},
         blas_thread_fingerprint={"threadpools": [], "thread_env": {}},
         applicability_matrix_digest=ap.applicability_matrix_digest(),
-        a0_reference_shas={"lobo_books_txt": "4" * 64, "ruaa_reference_submission": "5" * 64},
+        a0_reference_shas={"lobo_books_txt": LOBO_BOOKS_SHA256,
+                           "ruaa_reference_submission": RUAA_REFERENCE_SUBMISSION_SHA256},
         evaluator_identity={"name": "work_balanced_ablation_factory", "import_module": "m",
                             "import_qualname": "q", "source_digest": "a" * 64,
                             "estimator_config_digest": "b" * 64, "mechanism_passport_digest": "c" * 64},
@@ -465,6 +467,30 @@ class TestPublishGate:
         bad = {k: [{"work_id": "aa/w1", "proba": [0.5, 0.5]}] for k in _vectors()}  # no labels/rank
         with pytest.raises(pub.PublisherError):
             pub.publish_audit(_summary(), bad, docs_root=tmp_path)
+
+    def test_forged_headline_diff_ci_point_rejected(self, tmp_path):
+        # review probe: diff_ci.point was published but never recomputed. It is now audited + shape-pinned.
+        s = _summary()
+        s["headline"]["diff_ci"] = {**s["headline"]["diff_ci"],
+                                    "point": s["headline"]["diff_ci"]["point"] + 0.3}
+        with pytest.raises(pub.PublisherError):
+            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+        s2 = _summary()                                             # an extra inner diff_ci key rejected
+        s2["headline"]["diff_ci"] = {**s2["headline"]["diff_ci"], "extra": 1}
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(s2, _vectors())
+
+    def test_forged_confirmatory_provenance_rejected(self):
+        # review probe: a self-consistent confirmatory plan with forged A0-reference SHAs / legacy
+        # anchor published. The plan is now value-pinned to the module constants at the publish boundary.
+        plan = copy.deepcopy(_PLAN)
+        plan["a0_reference_shas"] = {"lobo_books_txt": "0" * 64, "ruaa_reference_submission": "0" * 64}
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(_summary(run_plan=plan, run_id=rp.run_id(plan)), _vectors())
+        plan2 = copy.deepcopy(_PLAN)
+        plan2["corpus_chain"] = {"legacy_anchor": "0" * 64, "semantic_parity_digest": "6" * 64}
+        with pytest.raises(pub.PublisherError):
+            pub.verify_final_assembly(_summary(run_plan=plan2, run_id=rp.run_id(plan2)), _vectors())
 
     def test_forged_diagnostic_mcnemar_is_recomputed(self, tmp_path):
         # the diagnostic-only mcnemar p is published, so the auditor recomputes it too

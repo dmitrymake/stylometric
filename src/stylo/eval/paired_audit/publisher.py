@@ -278,6 +278,8 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
     if hl.get("margin") != frozen_margin:
         raise PublisherError("headline margin != the run_plan frozen noninferiority margin")
     dci = hl.get("diff_ci") or {}
+    if not isinstance(dci, Mapping) or set(dci) != {"point", "lo", "hi"}:
+        raise PublisherError("summary.headline.diff_ci must carry EXACTLY point/lo/hi")
     try:
         gate = headline_gate(dci["lo"], dci["hi"], margin=frozen_margin)
     except (KeyError, TypeError, HeadlineError) as exc:

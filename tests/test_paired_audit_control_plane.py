@@ -184,7 +184,7 @@ def _bindings(**over):
                              "scipy": "1.13", "sklearn": "1.5", "spacy": "3.8"},
         blas_thread_fingerprint={"threadpools": [], "thread_env": {}},
         applicability_matrix_digest=ap.applicability_matrix_digest(),
-        a0_reference_shas={"lobo_books_txt": "4" * 64, "ruaa_reference_submission": "5" * 64},
+        a0_reference_shas={"lobo_books_txt": rp_lobo_sha(), "ruaa_reference_submission": rp_ruaa_sha()},
         tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
                     for q in rp.REGISTERED_TOLERANCE_QUANTITIES},
         corpus_chain={"legacy_anchor": rp_anchor(), "semantic_parity_digest": "6" * 64},
@@ -208,6 +208,16 @@ def _bindings(**over):
 def rp_anchor():
     from stylo.eval.paired_audit.semantic_parity import LEGACY_ANCHOR
     return LEGACY_ANCHOR
+
+
+def rp_lobo_sha():
+    from stylo.eval.paired_audit.references import LOBO_BOOKS_SHA256
+    return LOBO_BOOKS_SHA256
+
+
+def rp_ruaa_sha():
+    from stylo.eval.paired_audit.references import RUAA_REFERENCE_SUBMISSION_SHA256
+    return RUAA_REFERENCE_SUBMISSION_SHA256
 
 
 class TestRunPlan:
@@ -244,7 +254,8 @@ class TestRunPlan:
             {"env_lock_sha256": "f" * 64},
             {"execution_source_sha256": "e" * 64},
             {"git_commit": "b" * 40},
-            {"corpus_chain": {"legacy_anchor": "0" * 64, "semantic_parity_digest": "6" * 64}},
+            # legacy_anchor is value-pinned for confirmatory; perturb the parity digest instead
+            {"corpus_chain": {"legacy_anchor": rp_anchor(), "semantic_parity_digest": "7" * 64}},
             {"lobo": _bindings()["lobo"] | {"dataset_digest": "0" * 64}},
         ]
         for over in perturbations:
@@ -412,3 +423,15 @@ class TestWellformedRunPlan:
         plan = rp.build_run_plan(**_bindings())
         with pytest.raises(rp.RunPlanError):
             rp.assert_wellformed_run_plan({k: v for k, v in plan.items() if k != "config_id"})
+
+    def test_confirmatory_value_pins_reference_constants(self):
+        with pytest.raises(rp.RunPlanError):                        # forged lobo_books SHA
+            rp.build_run_plan(**_bindings(a0_reference_shas={"lobo_books_txt": "0" * 64,
+                                                             "ruaa_reference_submission": rp_ruaa_sha()}))
+        with pytest.raises(rp.RunPlanError):                        # forged legacy anchor
+            rp.build_run_plan(**_bindings(corpus_chain={"legacy_anchor": "0" * 64,
+                                                        "semantic_parity_digest": "6" * 64}))
+        # a smoke plan is NOT value-pinned (the constants are provisioned only for a confirmatory run)
+        assert rp.run_id(rp.build_run_plan(**_bindings(
+            run_kind="smoke", a0_reference_shas={"lobo_books_txt": "0" * 64,
+                                                 "ruaa_reference_submission": "1" * 64})))

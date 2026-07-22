@@ -332,7 +332,9 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
     hdiff = [la4["correct"][i] - la0["correct"][i] for i in range(len(la4["correct"]))]
     hpoint, hlo, hhi = _ind_cluster_ci(hdiff, la4["authors"], iters, seed, quantiles)
     head = summary["headline"]
-    for got, exp in zip((hlo, hhi), (head["diff_ci"]["lo"], head["diff_ci"]["hi"])):
+    for got, exp in zip((hpoint, hlo, hhi),
+                        (head["diff_ci"].get("point", float("nan")),
+                         head["diff_ci"]["lo"], head["diff_ci"]["hi"])):
         _require(_close(got, exp, tol_ci), "headline diff CI recompute mismatch")
     decision = _ind_gate(hlo, hhi, margin)
     return {"passed": True, "auditor": "independent_recompute_v1",

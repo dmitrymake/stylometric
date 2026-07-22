@@ -365,6 +365,18 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
     _require(ruaa, _REQUIRED_DATASET_KEYS + ("selection_digest",), "ruaa")
     _require(a0_reference_shas, ("lobo_books_txt", "ruaa_reference_submission"), "a0_reference_shas")
     _require(corpus_chain, ("legacy_anchor", "semantic_parity_digest"), "corpus_chain")
+    # a confirmatory plan must VALUE-pin the frozen A0-reference SHAs + the legacy anchor to the module
+    # constants (not merely carry hex64) — so a self-consistent forged confirmatory provenance is
+    # rejected at the publish/load boundary too (assert_wellformed_run_plan rebuilds through here).
+    if confirmatory:
+        from .references import LOBO_BOOKS_SHA256, RUAA_REFERENCE_SUBMISSION_SHA256
+        from .semantic_parity import LEGACY_ANCHOR
+        if a0_reference_shas.get("lobo_books_txt") != LOBO_BOOKS_SHA256:
+            raise RunPlanError("confirmatory a0_reference_shas.lobo_books_txt != the pinned constant")
+        if a0_reference_shas.get("ruaa_reference_submission") != RUAA_REFERENCE_SUBMISSION_SHA256:
+            raise RunPlanError("confirmatory a0_reference_shas.ruaa_reference_submission != the pinned constant")
+        if corpus_chain.get("legacy_anchor") != LEGACY_ANCHOR:
+            raise RunPlanError("confirmatory corpus_chain.legacy_anchor != the pinned LEGACY_ANCHOR")
     _require(evaluator_identity, _EVALUATOR_IDENTITY_KEYS, "evaluator_identity")
     if confirmatory and evaluator_identity["name"] not in REGISTERED_CONFIRMATORY_EVALUATORS:
         raise RunPlanError(f"confirmatory evaluator {evaluator_identity['name']!r} is not registered")
