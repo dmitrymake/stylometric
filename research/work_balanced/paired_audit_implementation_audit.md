@@ -76,8 +76,8 @@ out of scope; §11 stays hard-stopped).
 - **Diff vs `release` HEAD `2f6c3dc3`:** additions only (paired_audit modules + tests + this audit pair);
   zero modified/deleted tracked file — the control plane depends only on committed HEAD APIs and never
   imports the uncommitted working-tree rework. The owner's uncommitted rework is untouched.
-- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 215 passed.
-- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 210 passed, 5 skipped (4 runner-e2e
+- **A — focused, dirty working tree** (`pytest tests/test_paired_audit_*.py`): 218 passed.
+- **C — clean committed-snapshot** (`git archive HEAD | pytest`): 213 passed, 5 skipped (4 runner-e2e
   need a live `.git` for the commit binding; 1 RuAA-reference needs the gitignored private data) —
   self-contained, no rework dependency.
 - **Full clean `git clone`** (`pytest tests/`): 4 failed / ~816 passed / 6 skipped — the 4 are the
@@ -89,26 +89,42 @@ out of scope; §11 stays hard-stopped).
   published on a shrunk work subset (probe: `bow_lr` on 40 works published clean). Closed: `audit_results`
   now requires every applied arm to equal the frozen reference work set. Three residual LOW (decorative
   extra keys in a sealed cell/headline; the durable-stage re-load claim; the public authorization token)
-  were closed by exact-shape pinning + a genuine durable re-load. The known §11-live-replay gap
-  (mechanism digests shape-checked, not recomputed) remains, deferred to the `B4_LIVE_GOLDEN_REPLAY`
-  gate; it is not a verdict hole (the verdict is a pure function of the fully-validated per-work vectors).
+  were closed by exact-shape pinning + a genuine durable re-load. A re-review then found two MEDIUM
+  reporting-integrity gaps (the `headline.diff_ci.point` was not recomputed; the frozen A0-reference
+  SHAs + legacy anchor were key-checked but not value-pinned) — both closed (the auditor recomputes
+  diff_ci.point + pins the diff_ci shape; a confirmatory plan value-pins the reference constants). The
+  two accepted, non-verdict-affecting publish-boundary residuals are documented above.
 - **Full clean `git clone` suite** (`pytest tests/`): 4 failed, 786 passed, 6 skipped. All 4 failures
   are pre-existing packaging debt (`test_ci_sign_erratum.py`, `test_macro_f1_ci_withdrawal.py` — both
   present on `release`) caused by `scripts/gen-paper.mjs` not being tracked in git; **zero** are
   paired-audit tests. No paired-audit regression.
 - `python -m py_compile` clean on every module and test. `ruff` is absent from the environment and CI.
 
-## Publish-boundary evidence note (accepted, mitigated)
+## Accepted, mitigated publish-boundary residuals (not verdict-affecting)
 
-The per-cell `evidence.*_digest` values are the runner's deterministic aggregate of the immutable
-per-fold checkpoints (`_aggregate_evidence`). The publisher validates them as hex64 with the exact
-required axis/passport keys but cannot RECOMPUTE them at the publish boundary (the per-fold checkpoints
-are not present there). They are mitigated by being atomically-immutable, create-without-overwrite
-per-fold checkpoints that are re-verified at COMPLETE, aggregated deterministically, and bound into the
-published summary `self_hash`. This is the one published field that is checkpoint-derived rather than
-recomputed/run_id-bound; it is diagnostic evidence, not a metric/p-value/Holm/headline number, so it
-cannot alter any verdict. A publish-time recompute would require carrying the immutable checkpoints
-into the publisher, which is a §11-execution wiring decision, not a control-plane one.
+Two published aspects are bound in the HONEST runner but not fully re-derivable at the STANDALONE
+publisher boundary (a caller who hand-crafts an assembly bypassing the runner). Neither can alter an
+audited metric / p-value / Holm verdict / headline decision — the verdict is a pure function of the
+fully-validated per-work vectors.
+
+1. **Mechanism digests** (`vocab_digest`, `idf_digest`, `ordered_weight_digest`,
+   `r_denominator_trace_digest`, `delta_mean_std_centroid_digest`): the runner's deterministic aggregate
+   of the immutable per-fold checkpoints. The publisher validates them as hex64 with the exact required
+   axis/passport keys but cannot RECOMPUTE them without the per-fold fit artifacts. Their LIVE parity
+   against the real fit is the external B4 golden replay (`test_b4_live_goldens`, gated on
+   `B4_LIVE_GOLDEN_REPLAY=1` with the pinned deterministic thread env — a §11-execution step).
+   `proba_digest` is fully tied to the real probability vectors (R3.1/R3.3).
+2. **The exact frozen work identities**: the auditor pins the frozen universe by count (47/43/251,
+   22/22/137) and requires every applied arm to be the SAME work set (R3.7). The exact per-work identity
+   set is bound to the run_id via `fold_manifest_digest`, which the honest runner re-derives from the
+   disk manifest and checks against the plan on EVERY fold; the standalone auditor cannot expand that
+   digest into the work list (the run_plan carries no work-id list), so a hand-crafted assembly on a
+   *different* consistent 251/137 set is not caught at the standalone boundary — but it is unreachable
+   through the runner (works derive from the reattested manifest).
+
+Both are mitigated by the immutable, create-without-overwrite per-fold checkpoints (re-verified at
+COMPLETE), the summary `self_hash`, and the run_id binding, and both are diagnostic/provenance rather
+than verdict quantities.
 
 ## Provisioning finding for §11
 
