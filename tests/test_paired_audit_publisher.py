@@ -114,6 +114,8 @@ def _grid(ds):
                 continue
             evidence = {key: ("e" * 64) for key in ap.required_evidence_digests(m, c)}
             evidence["proba_digest"] = pd
+            for pk in ap.required_evidence_passports(m, c):
+                evidence[pk] = {"calibration_disabled": False, "mode": "sigmoid", "meta": {}}
             r = {"status": "applied", "requested_axes": reg["requested_axes"],
                  "effective_axes": reg["effective_axes"], "point": copy.deepcopy(point),
                  "per_work": copy.deepcopy(vec),

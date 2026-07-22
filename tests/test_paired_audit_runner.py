@@ -70,6 +70,8 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
     # supply the REAL fold-local evidence this applied cell requires (the runner never synthesizes it)
     evidence = {key: hashlib.sha256(f"{key}:{model}:{cell}:{work_id}".encode()).hexdigest()
                 for key in ap.required_evidence_digests(model, cell)}
+    for pk in ap.required_evidence_passports(model, cell):
+        evidence[pk] = {"calibration_disabled": False, "mode": "sigmoid", "meta": {}}
     return {"pred_label": pred_label, "correct": correct, "rank": 1 if correct else 2,
             "probabilities": proba, "evidence": evidence}
 

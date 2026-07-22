@@ -113,6 +113,21 @@ class TestApplicability:
         with pytest.raises(ap.ApplicabilityError):
             ap.assert_cell_record("delta_cos:500", "A1", _applied_record("delta_cos:500", "A1"))
 
+    def test_calibration_passport_is_a_full_structure_not_a_digest(self):
+        # §4.1: the stack calibration_passport is a literal structure {disabled,mode,meta}, not a digest;
+        # and Delta carries delta_mean_std_centroid_digest (the literal name)
+        assert "delta_mean_std_centroid_digest" in ap.required_evidence_digests("delta_cos:500", "A4")
+        assert ap.required_evidence_passports("stylo_stack", "A4") == ("calibration_passport",)
+        rec = _applied_record("stylo_stack", "A4")
+        with pytest.raises(ap.ApplicabilityError):                 # missing passport
+            ap.assert_cell_record("stylo_stack", "A4", rec)
+        rec["evidence"]["calibration_passport"] = "e" * 64         # a digest is NOT a full passport
+        with pytest.raises(ap.ApplicabilityError):
+            ap.assert_cell_record("stylo_stack", "A4", rec)
+        rec["evidence"]["calibration_passport"] = {"calibration_disabled": False, "mode": "sigmoid",
+                                                   "meta": {}}
+        ap.assert_cell_record("stylo_stack", "A4", rec)            # a full structure -> ok
+
     def test_applied_evidence_field_validation(self):
         # proba width vs class order, non-finite metric, and non-hex evidence digest all fail closed
         with pytest.raises(ap.ApplicabilityError):

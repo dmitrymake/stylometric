@@ -95,11 +95,12 @@ _STATUS: dict[str, dict[str, tuple]] = {
     },
 }
 
-# model-specific fold-local state passports (§2.6): Delta carries an equal-work centroid/scaling state,
-# the stacked classifier carries a calibration passport. These are real estimator artifacts the runner
-# NEVER synthesizes — the injected estimator must supply them per fold.
-_MODEL_EVIDENCE = {"stylo_stack": ("stack_calibration_digest",),
-                   "delta_cos:500": ("delta_state_digest",)}
+# model-specific fold-local state, named by the literal §4.1 schema: Delta carries an equal-work
+# mean/std/centroid z-state digest; the stacked classifier carries a FULL calibration passport
+# structure (not a digest). These are real estimator artifacts the runner NEVER synthesizes.
+_MODEL_EVIDENCE_DIGESTS = {"delta_cos:500": ("delta_mean_std_centroid_digest",)}
+_MODEL_EVIDENCE_PASSPORTS = {"stylo_stack": ("calibration_passport",)}
+_CALIBRATION_PASSPORT_KEYS = frozenset({"calibration_disabled", "mode", "meta"})
 
 # a non-applied produced record may carry ONLY these keys (whitelist) — anything else (accuracy,
 # cluster_p, proba, significant, ...) is a forbidden silent metric copy (§4.1)
@@ -153,8 +154,27 @@ def required_evidence_digests(model: str, cell: str) -> tuple:
         req += ["vocab_digest", "idf_digest"]
     if eff["R"] == "applied":
         req.append("r_denominator_trace_digest")
-    req += list(_MODEL_EVIDENCE.get(model, ()))
+    req += list(_MODEL_EVIDENCE_DIGESTS.get(model, ()))
     return tuple(req)
+
+
+def required_evidence_passports(model: str, cell: str) -> tuple:
+    """The fold-local evidence PASSPORT structures (not digests) an applied cell must carry per the
+    literal §4.1 schema — the stacked classifier's full ``calibration_passport``."""
+    if cell_status(model, cell)["status"] != "applied":
+        return ()
+    return tuple(_MODEL_EVIDENCE_PASSPORTS.get(model, ()))
+
+
+def assert_calibration_passport(passport) -> None:
+    """The stack ``calibration_passport`` must be the FULL literal structure (§4.1), not a digest."""
+    if not isinstance(passport, dict) or set(passport) != _CALIBRATION_PASSPORT_KEYS:
+        raise ApplicabilityError(
+            f"calibration_passport must carry exactly {sorted(_CALIBRATION_PASSPORT_KEYS)} (a full "
+            f"structure, not a digest)")
+    if not isinstance(passport["calibration_disabled"], bool) or not isinstance(passport["mode"], str) \
+            or not isinstance(passport["meta"], dict):
+        raise ApplicabilityError("calibration_passport fields must be {disabled:bool, mode:str, meta:dict}")
 
 
 def cell_status(model: str, cell: str) -> dict:
@@ -328,11 +348,17 @@ def _validate_applied_record(model, cell, record, probability_class_order, work_
     for k, v in evidence.items():
         if k.endswith("_digest") and not (isinstance(v, str) and _HEX64_RE.match(v)):
             raise ApplicabilityError(f"applied cell ({model},{cell}) evidence.{k} must be a sha256 hex digest")
-    # §2.6/§4.1: an applied axis (and the model state passport) must carry its proving digest — the
-    # SAME contract the runner enforces at checkpoint-ingress (single source of truth)
+    # §2.6/§4.1: an applied axis (and the model state digest) must carry its proving digest — the SAME
+    # contract the runner enforces at checkpoint-ingress (single source of truth)
     missing = [k for k in required_evidence_digests(model, cell) if k not in evidence]
     if missing:
         raise ApplicabilityError(f"applied cell ({model},{cell}) evidence missing required digests {missing}")
+    # the literal passport STRUCTURES (stack calibration_passport) must be present + well-formed
+    for pk in required_evidence_passports(model, cell):
+        if pk not in evidence:
+            raise ApplicabilityError(f"applied cell ({model},{cell}) evidence missing passport {pk!r}")
+        if pk == "calibration_passport":
+            assert_calibration_passport(evidence[pk])
 
     if cell != "A0":
         vs = record.get("vs_A0")

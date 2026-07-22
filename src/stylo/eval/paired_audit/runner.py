@@ -322,13 +322,22 @@ def _digest(res) -> str:
 
 
 def _assert_fold_evidence(model: str, cell: str, evidence: Mapping) -> None:
-    """The estimator MUST supply the real fold-local evidence digests this applied cell requires
-    (§2.6); the runner never synthesizes them. Each required digest must be a sha256 hex string."""
+    """The estimator MUST supply the real fold-local evidence this applied cell requires (§2.6/§4.1);
+    the runner never synthesizes it. Each required digest must be a sha256 hex string, and each required
+    passport (the stack calibration_passport) must be its full literal structure."""
     for key in ap.required_evidence_digests(model, cell):
         v = evidence.get(key)
         if not (isinstance(v, str) and _HEX64_RE.match(v)):
             raise RunnerError(f"{model}/{cell} fold-local evidence.{key} must be a sha256 hex digest "
                               f"(got {v!r})")
+    for pk in ap.required_evidence_passports(model, cell):
+        if pk not in evidence:
+            raise RunnerError(f"{model}/{cell} fold-local evidence missing passport {pk!r}")
+        if pk == "calibration_passport":
+            try:
+                ap.assert_calibration_passport(evidence[pk])
+            except ap.ApplicabilityError as exc:
+                raise RunnerError(str(exc)) from exc
 
 
 def _aggregate_evidence(model: str, cell: str, recs: Mapping) -> dict:
@@ -348,6 +357,18 @@ def _aggregate_evidence(model: str, cell: str, recs: Mapping) -> dict:
                                   f"evidence.{key}")
             parts.append([recs[f]["work_id"], v])
         out[key] = _digest(["evidence", key, sorted(parts)])
+    # passport structures (stack calibration_passport) are the model config — identical across folds;
+    # verify they agree and carry the one literal structure.
+    for pk in ap.required_evidence_passports(model, cell):
+        passports = [recs[f]["fold_local_evidence"].get(pk) for f in sorted(recs)]
+        if any(p != passports[0] for p in passports):
+            raise RunnerError(f"{model}/{cell} {pk} differs across folds")
+        if pk == "calibration_passport":
+            try:
+                ap.assert_calibration_passport(passports[0])
+            except ap.ApplicabilityError as exc:
+                raise RunnerError(str(exc)) from exc
+        out[pk] = passports[0]
     return out
 
 
