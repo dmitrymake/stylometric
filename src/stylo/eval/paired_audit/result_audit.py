@@ -15,12 +15,15 @@ import math
 
 import numpy as np
 
-from ...eval.metrics import macro_f1
 from ...jsonio import dumps_strict
-from . import headline as hl
-from . import inference as inf
 from .applicability import holm_family, registered_cells
 from .checkpoints import proba_digest as _proba_digest
+
+# The auditor is a SEPARATE code path: it does NOT import the assembler's headline/inference/metrics
+# modules. Every verdict-affecting quantity below is re-implemented independently, so a bug in the
+# runner's shared implementation is not masked (a divergence is caught rather than agreed with).
+_HEADLINE_ENDPOINT = "stylo_lobo_a4_minus_a0_accuracy"
+_FAMILY_ALPHA = 0.05
 
 _DATASETS = ("lobo", "ruaa")
 # which registered tolerance each recomputed quantity is compared under
@@ -117,11 +120,114 @@ def _assert_frozen_universe(ds, prob_order, metric_order, works):
             f"tested-works != the frozen {fu['n_prob']}/{fu['n_metric']}/{fu['n_tested_works']}")
 
 
+# ── independent re-implementations (no import of headline/inference/eval.metrics) ─────────────
+def _ind_macro_f1(trues, preds, metric_idx):
+    """Independent macro-F1 over the frozen metric label subset (manual per-class P/R/F1, zero-division
+    -> 0), matching the assembler's sklearn macro-F1 without importing it."""
+    if not trues:
+        return 0.0
+    f1s = []
+    for c in metric_idx:
+        tp = sum(1 for t, p in zip(trues, preds) if t == c and p == c)
+        fp = sum(1 for t, p in zip(trues, preds) if t != c and p == c)
+        fn = sum(1 for t, p in zip(trues, preds) if t == c and p != c)
+        prec = tp / (tp + fp) if (tp + fp) else 0.0
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        f1s.append(2 * prec * rec / (prec + rec) if (prec + rec) else 0.0)
+    return sum(f1s) / len(f1s) if f1s else 0.0
+
+
+def _ind_cluster_ci(values, authors, iters, seed, quantiles):
+    """Independent author-clustered percentile bootstrap CI of the cluster mean of ``values``."""
+    v = np.asarray(values, dtype=float)
+    au = np.asarray([str(x) for x in authors])
+    if v.size == 0:
+        raise ResultAuditError("empty CI comparison")
+    uniq = sorted(set(au.tolist()))
+    point = float(v.sum() / v.size)
+    if len(uniq) < 2:
+        return point, point, point
+    a_sum = np.array([v[au == a].sum() for a in uniq], dtype=float)
+    a_cnt = np.array([int((au == a).sum()) for a in uniq], dtype=float)
+    n = len(uniq)
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(0, n, size=(int(iters), n))
+    boot = a_sum[draws].sum(axis=1) / a_cnt[draws].sum(axis=1)
+    lo, hi = np.percentile(boot, list(quantiles))
+    return point, float(lo), float(hi)
+
+
+def _ind_cluster_pvalue(correct_a, correct_b, authors, B, seed):
+    """Independent two-sided null-centered author-cluster bootstrap p for Δaccuracy (a-b), with the
+    exact degenerate-rule order (<2 authors -> 1; all-zero diff -> 1) and the +1 correction."""
+    a = np.asarray(correct_a, dtype=float)
+    b = np.asarray(correct_b, dtype=float)
+    au = np.asarray([str(x) for x in authors])
+    diff = a - b
+    uniq = sorted(set(au.tolist()))
+    if len(uniq) < 2:
+        return 1.0
+    if np.all(diff == 0.0):
+        return 1.0
+    a_sum = np.array([diff[au == x].sum() for x in uniq], dtype=float)
+    a_cnt = np.array([int((au == x).sum()) for x in uniq], dtype=float)
+    obs = a_sum.sum() / a_cnt.sum()
+    n = len(uniq)
+    rng = np.random.default_rng(seed)
+    draws = rng.integers(0, n, size=(int(B), n))
+    boot = a_sum[draws].sum(axis=1) / a_cnt[draws].sum(axis=1)
+    centered = boot - boot.mean()
+    extreme = int(np.sum(np.abs(centered) >= abs(obs)))
+    return (1 + extreme) / (1 + int(B))
+
+
+def _ind_mcnemar_p(correct_a, correct_b):
+    """Independent exact two-sided McNemar p over the discordant pairs (diagnostic-only)."""
+    from scipy.stats import binomtest
+    a = np.asarray(correct_a, dtype=bool)
+    b = np.asarray(correct_b, dtype=bool)
+    disc_b = int(np.sum(a & ~b))
+    disc_c = int(np.sum(~a & b))
+    n = disc_b + disc_c
+    if n == 0:
+        return 1.0
+    return float(binomtest(disc_b, n, 0.5, alternative="two-sided").pvalue)
+
+
+def _ind_holm(raw_ps):
+    """Independent Holm-Bonferroni over the FROZEN 15-member family (m never reduced)."""
+    items = list(raw_ps.items())
+    if len(items) != 15 or set(raw_ps) != set(holm_family()):
+        raise ResultAuditError("Holm family is not exactly the frozen 15 members")
+    order = sorted(range(len(items)), key=lambda i: float(items[i][1]))
+    out, running = {}, 0.0
+    for rank, i in enumerate(order):
+        key, p = items[i]
+        adj = min(1.0, (15 - rank) * float(p))
+        running = max(running, adj)
+        out[key] = {"raw_p": float(p), "holm_p": running, "significant": running < _FAMILY_ALPHA}
+    return out
+
+
+def _ind_gate(lo, hi, margin):
+    """Independent symmetric noninferiority gate on the UNROUNDED CI bounds."""
+    if not (isinstance(margin, (int, float)) and not isinstance(margin, bool)
+            and math.isfinite(margin) and margin > 0):
+        raise ResultAuditError("margin must be a positive finite number")
+    if hi < lo:
+        raise ResultAuditError("CI upper bound below the lower bound")
+    if lo > -margin:
+        return "relabel"
+    if hi < -margin:
+        return "keep_legacy"
+    return "inconclusive"
+
+
 def _point(a, metric_idx):
     n = len(a["correct"]) or 1
     acc = sum(a["correct"]) / n
     top2 = sum(1 for r in a["ranks"] if r <= 2) / n
-    f1 = float(macro_f1(np.array(a["trues"]), np.array(a["preds"]), metric_idx)) if a["trues"] else 0.0
+    f1 = _ind_macro_f1(a["trues"], a["preds"], metric_idx)
     recall = {}
     for au in sorted(set(a["authors"])):
         idx = [i for i, x in enumerate(a["authors"]) if x == au]
@@ -173,9 +279,8 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
             for au, r in point["per_author_recall"].items():
                 _require(_close(r, pub_recall.get(au, float("nan")), tol_acc),
                          f"{ds}/{model}/{cell} recall[{au}] mismatch")
-            abs_ci = hl.author_clustered_accuracy_ci(a["correct"], a["authors"], iters=iters, seed=seed,
-                                                     quantiles=quantiles)
-            for got, exp in zip((abs_ci["lo"], abs_ci["hi"]), rec["abs_accuracy_authorclustered_ci"]):
+            _, abs_lo, abs_hi = _ind_cluster_ci(a["correct"], a["authors"], iters, seed, quantiles)
+            for got, exp in zip((abs_lo, abs_hi), rec["abs_accuracy_authorclustered_ci"]):
                 _require(_close(got, exp, tol_ci), f"{ds}/{model}/{cell} abs CI recompute mismatch")
 
             if cell != "A0":
@@ -184,21 +289,20 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
                 dacc = point["accuracy"] - _point(base, metric_idx)["accuracy"]
                 _require(_close(dacc, rec["vs_A0"]["dacc"], tol_delta),
                          f"{ds}/{model}/{cell} dacc recompute {dacc} != {rec['vs_A0']['dacc']}")
-                dacc_ci = hl.paired_accuracy_diff_ci(a["correct"], base["correct"], a["authors"],
-                                                     iters=iters, seed=seed, quantiles=quantiles)
-                for got, exp in zip((dacc_ci["lo"], dacc_ci["hi"]), rec["vs_A0"]["dacc_authorclustered_ci"]):
+                diff = [a["correct"][i] - base["correct"][i] for i in range(len(a["correct"]))]
+                _, dacc_lo, dacc_hi = _ind_cluster_ci(diff, a["authors"], iters, seed, quantiles)
+                for got, exp in zip((dacc_lo, dacc_hi), rec["vs_A0"]["dacc_authorclustered_ci"]):
                     _require(_close(got, exp, tol_ci), f"{ds}/{model}/{cell} dacc CI recompute mismatch")
-                cp = inf.paired_cluster_pvalue(a["correct"], base["correct"], a["authors"], B=B, seed=seed)
+                cp = _ind_cluster_pvalue(a["correct"], base["correct"], a["authors"], B, seed)
                 _require(_close(cp, rec["vs_A0"]["cluster_p"], tol_p),
                          f"{ds}/{model}/{cell} cluster_p recompute {cp} != {rec['vs_A0']['cluster_p']}")
-                mc = inf.mcnemar_diagnostic(a["correct"], base["correct"])   # diagnostic-only, but published
-                _require(_close(mc["mcnemar_p_diagnostic"], rec["vs_A0"].get("mcnemar_p_diagnostic",
-                                                                            float("nan")), tol_p),
+                mcp = _ind_mcnemar_p(a["correct"], base["correct"])          # diagnostic-only, but published
+                _require(_close(mcp, rec["vs_A0"].get("mcnemar_p_diagnostic", float("nan")), tol_p),
                          f"{ds}/{model}/{cell} mcnemar_p_diagnostic recompute mismatch")
                 raw_ps[(model, cell)] = cp
 
         # Holm over the independently recomputed cluster p-values must match the published Holm family
-        holm = inf.holm_over_registered_family(raw_ps)
+        holm = _ind_holm(raw_ps)
         published = summary["holm"][ds]
         _require(set(f"{m}/{c}" for (m, c) in holm) == set(published),
                  f"{ds} Holm family keys differ from the published set")
@@ -215,17 +319,18 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
             _require(_close(vs["holm_p"], hp["holm_p"], tol_p) and bool(vs["significant"]) == bool(hp["significant"]),
                      f"{ds} cell vs_A0 Holm verdict != the Holm family for {model}/{cell}")
 
-    # headline: recompute the stylo LOBO A4-A0 difference CI and gate decision from the vectors
+    # headline: independently recompute the stylo LOBO A4-A0 difference CI and gate decision
     la4 = arrays_for(summary, per_work_vectors, "lobo", "stylo", "A4")
     la0 = arrays_for(summary, per_work_vectors, "lobo", "stylo", "A0")
-    diff_ci = hl.paired_accuracy_diff_ci(la4["correct"], la0["correct"], la4["authors"],
-                                         iters=iters, seed=seed, quantiles=quantiles)
+    hdiff = [la4["correct"][i] - la0["correct"][i] for i in range(len(la4["correct"]))]
+    hpoint, hlo, hhi = _ind_cluster_ci(hdiff, la4["authors"], iters, seed, quantiles)
     head = summary["headline"]
-    for got, exp in zip((diff_ci["lo"], diff_ci["hi"]), (head["diff_ci"]["lo"], head["diff_ci"]["hi"])):
+    for got, exp in zip((hlo, hhi), (head["diff_ci"]["lo"], head["diff_ci"]["hi"])):
         _require(_close(got, exp, tol_ci), "headline diff CI recompute mismatch")
-    decision = hl.headline_gate(diff_ci["lo"], diff_ci["hi"], margin=margin)
+    decision = _ind_gate(hlo, hhi, margin)
     return {"passed": True, "auditor": "independent_recompute_v1",
-            "headline": {"endpoint": hl.HEADLINE_ENDPOINT, "diff_ci": diff_ci, "decision": decision,
+            "headline": {"endpoint": _HEADLINE_ENDPOINT,
+                         "diff_ci": {"point": hpoint, "lo": hlo, "hi": hhi}, "decision": decision,
                          "margin": margin}}
 
 

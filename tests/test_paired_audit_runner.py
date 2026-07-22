@@ -112,6 +112,32 @@ def test_a0_reference_mismatch_is_fatal():
         rn._assert_a0_matches_reference("lobo", short, prob_order, ref_index)
 
 
+def test_independent_auditor_matches_shared_implementation():
+    # R3.6: the auditor's re-implementations are a SEPARATE code path but must agree with the shared
+    # headline/inference/metrics for correct inputs (a future divergence in either side is caught)
+    import numpy as np
+    from stylo.eval.metrics import macro_f1
+    from stylo.eval.paired_audit import headline as hl, inference as inf, result_audit as auditor
+    # the auditor must not IMPORT the assembler's algorithm modules (only its import lines are checked)
+    import inspect
+    imports = "\n".join(l for l in inspect.getsource(auditor).splitlines()
+                        if l.strip().startswith(("import ", "from ")))
+    assert "headline" not in imports and "inference" not in imports and "eval.metrics" not in imports
+    correct = [1, 0, 1, 1, 0, 1]
+    base = [1, 1, 0, 1, 0, 0]
+    authors = ["a", "a", "b", "b", "c", "c"]
+    ci = hl.author_clustered_accuracy_ci(correct, authors, iters=500, seed=42, quantiles=[2.5, 97.5])
+    _, lo, hi = auditor._ind_cluster_ci(correct, authors, 500, 42, [2.5, 97.5])
+    assert (lo, hi) == (ci["lo"], ci["hi"])
+    assert auditor._ind_cluster_pvalue(correct, base, authors, 500, 42) == \
+        inf.paired_cluster_pvalue(correct, base, authors, B=500, seed=42)
+    assert auditor._ind_gate(-0.01, 0.05, 0.02) == hl.headline_gate(-0.01, 0.05, margin=0.02)
+    assert auditor._ind_mcnemar_p(correct, base) == inf.mcnemar_diagnostic(correct, base)["mcnemar_p_diagnostic"]
+    trues, preds, midx = [0, 0, 1, 1], [0, 1, 1, 0], [0, 1]
+    assert abs(auditor._ind_macro_f1(trues, preds, midx)
+               - float(macro_f1(np.array(trues), np.array(preds), midx))) < 1e-12
+
+
 def test_fold_evidence_required_and_hex():
     # stylo A1 exercises W -> requires proba_digest + ordered_weight_digest, each sha256-hex
     ok = {"proba_digest": "1" * 64, "ordered_weight_digest": "2" * 64}
