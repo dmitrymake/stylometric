@@ -12,9 +12,12 @@
 """
 from __future__ import annotations
 
+import base64
+import csv
 import dataclasses
 import hashlib
 import importlib.metadata
+import io
 import logging
 import os
 import pathlib
@@ -110,28 +113,129 @@ def _mem_doc_put(key: str, doc: Doc) -> None:
             _MEM_DOCS[key] = doc
 
 
-def _installed_package_identity(name: str, nlp) -> tuple[str, str]:
-    """Return installed version and a digest of the package RECORD/metadata.
+def verified_installed_package_record(name: str) -> tuple[str, str]:
+    """Verify every hashed wheel ``RECORD`` member and return its identity.
 
-    Wheel ``RECORD`` binds the installed model files by their recorded hashes.
-    Editable/fake packages may not expose it; in that case the exact spaCy
-    metadata is hashed and explicitly remains part of the runtime identity.
+    Hashing the ``RECORD`` text alone only identifies what an installer claimed
+    to install.  Scientific attestations need the stronger statement that the
+    files currently on disk still match those recorded hashes and sizes.
+    """
+
+    distribution = importlib.metadata.distribution(name)
+    record = distribution.read_text("RECORD")
+    if not record:
+        raise RuntimeError(
+            f"installed spaCy model {name!r} has no wheel RECORD"
+        )
+
+    root = pathlib.Path(distribution.locate_file("")).resolve()
+    seen: set[str] = set()
+    verified = 0
+    try:
+        rows = csv.reader(io.StringIO(record), strict=True)
+        for row_number, row in enumerate(rows, start=1):
+            if len(row) != 3:
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} has malformed RECORD "
+                    f"row {row_number}"
+                )
+            member, digest_spec, size_text = row
+            member_path = pathlib.PurePosixPath(member)
+            if (
+                not member
+                or member in seen
+                or member_path.is_absolute()
+                or any(part in {"", ".", ".."} for part in member_path.parts)
+            ):
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} has unsafe/duplicate "
+                    f"RECORD member {member!r}"
+                )
+            seen.add(member)
+
+            # Wheel installers may add unhashed RECORD/bytecode rows.  Model
+            # source, configuration and weight payloads are required to carry
+            # hashes and are verified below.
+            if not digest_spec:
+                continue
+            algorithm, separator, expected_digest = digest_spec.partition("=")
+            if (
+                separator != "="
+                or algorithm != "sha256"
+                or not expected_digest
+                or not size_text.isascii()
+                or not size_text.isdecimal()
+            ):
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} has unsupported RECORD "
+                    f"identity for {member!r}"
+                )
+
+            path = pathlib.Path(distribution.locate_file(member))
+            if path.is_symlink() or not path.is_file():
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} RECORD member is "
+                    f"missing/unsafe: {member}"
+                )
+            resolved = path.resolve(strict=True)
+            if not resolved.is_relative_to(root):
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} RECORD member escapes "
+                    f"the environment: {member}"
+                )
+
+            digest = hashlib.sha256()
+            observed_size = 0
+            with resolved.open("rb") as handle:
+                while block := handle.read(1024 * 1024):
+                    digest.update(block)
+                    observed_size += len(block)
+            observed_digest = (
+                base64.urlsafe_b64encode(digest.digest())
+                .rstrip(b"=")
+                .decode("ascii")
+            )
+            if (
+                observed_size != int(size_text)
+                or observed_digest != expected_digest
+            ):
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} RECORD mismatch: {member}"
+                )
+            verified += 1
+    except csv.Error as exc:
+        raise RuntimeError(
+            f"installed spaCy model {name!r} has invalid wheel RECORD"
+        ) from exc
+
+    if verified == 0:
+        raise RuntimeError(
+            f"installed spaCy model {name!r} RECORD has no verified members"
+        )
+    return (
+        str(distribution.version),
+        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    )
+
+
+def _installed_package_identity(name: str, nlp) -> tuple[str, str]:
+    """Return installed version and a verified package RECORD/metadata digest.
+
+    Real wheel installations are verified against every recorded file hash.
+    Test-only/fake packages may not exist as distributions; only that absent
+    distribution case falls back to hashing the exact live spaCy metadata.
     """
 
     try:
-        distribution = importlib.metadata.distribution(name)
-        version = distribution.version
-        record = distribution.read_text("RECORD")
+        return verified_installed_package_record(name)
     except importlib.metadata.PackageNotFoundError:
-        distribution = None
         version = str(nlp.meta.get("version", "unknown"))
-        record = None
-    material = (
-        record
-        if record is not None
-        else dumps_strict(nlp.meta, sort_keys=True, separators=(",", ":"))
-    )
-    return version, hashlib.sha256(material.encode("utf-8")).hexdigest()
+        material = dumps_strict(
+            nlp.meta,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return version, hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _build_nlp_identity(

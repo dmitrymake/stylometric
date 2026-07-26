@@ -107,6 +107,7 @@ Initial state:
 | POST-REVIEW-PACKAGE-001 | MEDIUM | fixed | Active package metadata and the README opening promised an “honest leakage-free evaluation” despite the immediately documented withdrawal. The wheel summary now describes a reproducible framework with fail-closed scientific gates, and the generated README opening explicitly declines to call the current registered snapshot leakage-free pending content-safe migration and full rerun. Historical arithmetic and frozen evidence are unchanged. |
 | POST-REVIEW-PROVENANCE-001 | LOW | fixed | Provenance `entries` previously accepted any array and even contained a duplicate `models` record plus human pseudo-globs. Schema v2 gives every unique dotted site-data key a nonempty note and a sorted nonempty array of canonical exact sources. The generator and checker both require every key to resolve, every top-level output to be covered, every entry source to belong to the digest-verified registry, and every consumed source to be cited; unsafe, unverified, duplicate and nonexistent field mappings fail adversarial tests. |
 | POST-REVIEW-P0-001 | LOW | external owner decision gated | The in-repository P0 hash table detects accidental one-sided mutation but cannot independently prevent a coordinated change to both expected and actual bytes. No local file can truthfully manufacture that external authority, so frozen validation inputs and gates remain byte-identical and `ODM-010` records protected signed tag/attestation or separately controlled registry options with disposition `UNSET`. |
+| SCI-FINAL-001 | MEDIUM | fixed | Final exact-commit review showed that the benchmark reconstructed its snapshot with `resolved=requested`, so a real `ru_core_news_md` fallback could be published as a no-fallback `ru_core_news_lg` run. The snapshot now consumes only the identity registered by `load_nlp`, rejects any fallback/request mismatch, verifies every hashed wheel-`RECORD` member against its current bytes and size, and binds an exact serialization digest of the live pipeline into a self-hashed benchmark identity used by the DSP cache. Before/after snapshots detect live component-state drift; regressions distinguish same-pipe-name pipelines with different segmentation and reproduce fallback rejection. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -374,3 +375,10 @@ not change the normative ledger or frozen evidence.
   ordering regression. This changes no exported evidence and is rechecked from
   a newly materialized archive rather than deleting or mutating the failed
   rehearsal.
+- 2026-07-26: Final independent science review of exact commit `8cefa51e`
+  reproduced a fallback-model attestation bypass. The benchmark now rejects the
+  actual resolved fallback, verifies installed model payloads against wheel
+  RECORD, and binds stable live tokenizer/config/component state without
+  treating normal vocabulary growth as drift. Focused adversarial regressions
+  pass; frozen evidence, owner dispositions and confirmatory gates are
+  unchanged.

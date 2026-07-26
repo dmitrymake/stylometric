@@ -1006,6 +1006,140 @@ def test_benchmark_candidate_writer_preserves_historical_site_inputs(
     assert provenance["supersedes"] is None
 
 
+def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
+    tmp_path,
+    monkeypatch,
+):
+    import base64
+
+    from stylo import nlp as nlp_module
+
+    payload = b"registered model bytes"
+    member = "example_model/data.bin"
+    target = tmp_path / member
+    target.parent.mkdir()
+    target.write_bytes(payload)
+    encoded = (
+        base64.urlsafe_b64encode(hashlib.sha256(payload).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    record = f"{member},sha256={encoded},{len(payload)}\n"
+
+    class Distribution:
+        version = "3.8.0"
+
+        @staticmethod
+        def read_text(name):
+            assert name == "RECORD"
+            return record
+
+        @staticmethod
+        def locate_file(path):
+            return tmp_path / path
+
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: Distribution(),
+    )
+    assert nlp_module.verified_installed_package_record("example_model") == (
+        "3.8.0",
+        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    )
+
+    target.write_bytes(b"tampered model bytes")
+    with pytest.raises(RuntimeError, match="RECORD mismatch"):
+        nlp_module.verified_installed_package_record("example_model")
+
+
+def test_benchmark_snapshot_rejects_actual_fallback_and_binds_live_state(
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    namespace = runpy.run_path(
+        str(
+            pathlib.Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "run_benchmark.py"
+        ),
+        run_name="stylo_benchmark_live_nlp_identity_test",
+    )
+    snapshot = namespace["snapshot_benchmark_nlp_identity"]
+    model = "benchmark-model"
+    cfg = with_overrides(
+        load_config(),
+        {
+            "language.spacy_model": model,
+            "language.spacy_model_version": "0.0.0",
+        },
+    )
+
+    first = spacy.blank("ru")
+    first.add_pipe("sentencizer", config={"punct_chars": ["."]})
+    second = spacy.blank("ru")
+    second.add_pipe("sentencizer", config={"punct_chars": ["!"]})
+    fallback = spacy.blank("ru")
+    for pipeline in (first, second, fallback):
+        pipeline.max_length = 1_234
+
+    first_identity = nlp_module._build_nlp_identity(
+        requested=model,
+        resolved=model,
+        nlp=first,
+        max_length=first.max_length,
+    )
+    second_identity = nlp_module._build_nlp_identity(
+        requested=model,
+        resolved=model,
+        nlp=second,
+        max_length=second.max_length,
+    )
+    fallback_identity = nlp_module._build_nlp_identity(
+        requested=model,
+        resolved="fallback-model",
+        nlp=fallback,
+        max_length=fallback.max_length,
+    )
+    # The package/pipe-name identity alone cannot distinguish component state.
+    assert first_identity.identity_sha256 == second_identity.identity_sha256
+
+    for pipeline, identity in (
+        (first, first_identity),
+        (second, second_identity),
+        (fallback, fallback_identity),
+    ):
+        monkeypatch.setitem(nlp_module._NLP_IDENTITIES, id(pipeline), identity)
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        lambda _name: (
+            first_identity.package_version,
+            first_identity.package_record_sha256,
+        ),
+    )
+
+    first_snapshot = snapshot(cfg, first)
+    second_snapshot = snapshot(cfg, second)
+    assert (
+        first_snapshot["identity_sha256"]
+        == second_snapshot["identity_sha256"]
+    )
+    assert (
+        first_snapshot["live_pipeline_sha256"]
+        != second_snapshot["live_pipeline_sha256"]
+    )
+    assert (
+        first_snapshot["benchmark_identity_sha256"]
+        != second_snapshot["benchmark_identity_sha256"]
+    )
+    first("Совершенно новые слова. Ещё предложение!")
+    assert snapshot(cfg, first) == first_snapshot
+    with pytest.raises(RuntimeError, match="refuses a fallback"):
+        snapshot(cfg, fallback)
+
+
 def test_benchmark_attestation_binds_runner_lock_runtime_and_rejects_dirty(
     tmp_path,
     monkeypatch,
@@ -1052,11 +1186,25 @@ def test_benchmark_attestation_binds_runner_lock_runtime_and_rejects_dirty(
         "active_pipes": ["tok2vec", "morphologizer", "parser", "lemmatizer"],
         "max_length": 5_000_000,
     }
-    nlp_identity = {
+    core_identity = {
         **identity_body,
         "identity_sha256": hashlib.sha256(
             dumps_strict(
                 identity_body,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
+    }
+    benchmark_identity_body = {
+        **core_identity,
+        "live_pipeline_sha256": "1" * 64,
+    }
+    nlp_identity = {
+        **benchmark_identity_body,
+        "benchmark_identity_sha256": hashlib.sha256(
+            dumps_strict(
+                benchmark_identity_body,
                 sort_keys=True,
                 separators=(",", ":"),
             ).encode("utf-8")

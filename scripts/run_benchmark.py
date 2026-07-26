@@ -87,6 +87,8 @@ def _validated_nlp_identity(cfg, raw_identity):
         "active_pipes",
         "max_length",
         "identity_sha256",
+        "live_pipeline_sha256",
+        "benchmark_identity_sha256",
     }
     if type(raw_identity) is not dict or set(raw_identity) != required:
         raise RuntimeError("benchmark spaCy identity has an unexpected schema")
@@ -97,6 +99,8 @@ def _validated_nlp_identity(cfg, raw_identity):
         "package_record_sha256",
         "spacy_version",
         "identity_sha256",
+        "live_pipeline_sha256",
+        "benchmark_identity_sha256",
     ):
         if type(raw_identity[field]) is not str or not raw_identity[field]:
             raise RuntimeError(f"benchmark spaCy identity {field} is invalid")
@@ -162,21 +166,87 @@ def _validated_nlp_identity(cfg, raw_identity):
     ).hexdigest()
     if normalised["identity_sha256"] != expected:
         raise RuntimeError("benchmark spaCy identity digest does not match its fields")
+    benchmark_body = {
+        key: normalised[key]
+        for key in required - {"benchmark_identity_sha256"}
+    }
+    benchmark_expected = hashlib.sha256(
+        dumps_strict(
+            benchmark_body,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    if normalised["benchmark_identity_sha256"] != benchmark_expected:
+        raise RuntimeError(
+            "benchmark live spaCy identity digest does not match its fields"
+        )
     return normalised
 
 
 def snapshot_benchmark_nlp_identity(cfg, nlp):
-    """Recompute the installed model/pipeline identity from the live object."""
+    """Bind the registered resolved model and exact live pipeline state."""
 
-    from stylo.nlp import _build_nlp_identity
+    from stylo.nlp import (
+        resolved_nlp_identity,
+        verified_installed_package_record,
+    )
 
     requested = cfg.get_path("language.spacy_model")
-    return _build_nlp_identity(
-        requested=requested,
-        resolved=requested,
-        nlp=nlp,
-        max_length=nlp.max_length,
-    ).to_dict()
+    observed = resolved_nlp_identity(nlp)
+    if observed.requested_model != requested:
+        raise RuntimeError(
+            "live spaCy pipeline was loaded for a different requested model"
+        )
+    if observed.fallback_used or observed.resolved_model != requested:
+        raise RuntimeError("benchmark refuses a fallback spaCy model")
+    if (
+        tuple(nlp.pipe_names) != observed.active_pipes
+        or nlp.max_length != observed.max_length
+    ):
+        raise RuntimeError(
+            "live spaCy pipeline structure drifted after registered loading"
+        )
+
+    package_version, package_record_sha256 = (
+        verified_installed_package_record(observed.resolved_model)
+    )
+    if (
+        package_version != observed.package_version
+        or package_record_sha256 != observed.package_record_sha256
+    ):
+        raise RuntimeError(
+            "live spaCy model files drifted after registered loading"
+        )
+    try:
+        # Token/lexeme strings are populated as documents are processed and are
+        # intentionally excluded from the before/after drift check.  The wheel
+        # RECORD above verifies the installed vocab/vectors; this serialization
+        # binds the live tokenizer, config and component state that controls
+        # inference without treating normal vocabulary growth as code drift.
+        live_pipeline = nlp.to_bytes(exclude=["vocab"])
+    except Exception as exc:
+        raise RuntimeError(
+            "cannot serialize the live spaCy pipeline for exact attestation"
+        ) from exc
+    if not isinstance(live_pipeline, bytes):
+        raise RuntimeError("live spaCy pipeline serialization is not bytes")
+
+    body = {
+        **observed.to_dict(),
+        "live_pipeline_sha256": hashlib.sha256(live_pipeline).hexdigest(),
+    }
+    raw_identity = {
+        **body,
+        "benchmark_identity_sha256": hashlib.sha256(
+            dumps_strict(
+                body,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
+    }
+    return _validated_nlp_identity(cfg, raw_identity)
 
 
 def _validated_environment_contract(root):
@@ -581,7 +651,7 @@ def main():
     dsp_cache = {}
     dsp_nlp = benchmark_nlp
     dsp_nlp_identity_sha256 = attestation_before["nlp_model_identity"][
-        "identity_sha256"
+        "benchmark_identity_sha256"
     ]
 
     def ch_dsp(tr, te):
