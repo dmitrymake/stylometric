@@ -1052,6 +1052,13 @@ def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
     with pytest.raises(RuntimeError, match="RECORD mismatch"):
         nlp_module.verified_installed_package_record("example_model")
 
+    target.write_bytes(payload)
+    unhashed = tmp_path / "example_model" / "vectors.bin"
+    unhashed.write_bytes(b"unhashed vectors")
+    record += "example_model/vectors.bin,,\n"
+    with pytest.raises(RuntimeError, match="unhashed model payload"):
+        nlp_module.verified_installed_package_record("example_model")
+
 
 def test_benchmark_snapshot_rejects_actual_fallback_and_binds_live_state(
     monkeypatch,

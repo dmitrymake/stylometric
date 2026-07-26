@@ -109,6 +109,7 @@ Initial state:
 | POST-REVIEW-P0-001 | LOW | external owner decision gated | The in-repository P0 hash table detects accidental one-sided mutation but cannot independently prevent a coordinated change to both expected and actual bytes. No local file can truthfully manufacture that external authority, so frozen validation inputs and gates remain byte-identical and `ODM-010` records protected signed tag/attestation or separately controlled registry options with disposition `UNSET`. |
 | SCI-FINAL-001 | MEDIUM | fixed | Final exact-commit review showed that the benchmark reconstructed its snapshot with `resolved=requested`, so a real `ru_core_news_md` fallback could be published as a no-fallback `ru_core_news_lg` run. The snapshot now consumes only the identity registered by `load_nlp`, rejects any fallback/request mismatch, verifies every hashed wheel-`RECORD` member against its current bytes and size, and binds an exact serialization digest of the live pipeline into a self-hashed benchmark identity used by the DSP cache. Before/after snapshots detect live component-state drift; regressions distinguish same-pipe-name pipelines with different segmentation and reproduce fallback rejection. |
 | SITE-FINAL-001 | MEDIUM | fixed | Final public-surface review found a stale hard-coded Sholokhov paragraph in the generated README and therefore in wheel/sdist metadata: it said 4/4 and mixed a 0.455 open-set control with the registered noncircular LOBO gradient. The generator now fails closed on and renders directly from `docs/sholokhov_lobo.json`: 3/4 and 0.595→0.035. The separate 0.455 block-permutation control is explicitly labeled as a distinct test; active site fields no longer consume the older frozen `sholokhov_rigor12.json` verdict; and a source-bound regression prevents README/package prose from drifting from the registered JSON. No evidence bytes or scientific approval state changed. |
+| SCI-FINAL-002 | MEDIUM | fixed | Rereview of the wheel boundary showed that an arbitrary `RECORD` row with an empty digest was skipped, so an unhashed vector/vocab/config payload could change without changing the package identity. Empty digests are now accepted only for the wheel's own `*.dist-info/RECORD` row and installer-generated `__pycache__/*.pyc`; every other member must carry a verified SHA-256 and exact size. A forged `vectors.bin,,` regression fails closed, while the real `ru_core_news_lg` wheel's two legitimate unhashed installer rows still verify. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -390,3 +391,8 @@ not change the normative ledger or frozen evidence.
   and keeps the contradictory older P0-bound `sholokhov_rigor12.json` bytes
   frozen rather than silently rewriting evidence. The site and README active
   fields share the newer registered source, protected by a source-bound test.
+- 2026-07-26: Science rereview of `5aa48f18` confirmed the fallback/live-state
+  fix, then adversarially placed an unhashed `vectors.bin` beside one benign
+  hashed member. Restricted the wheel-RECORD empty-digest exception to its
+  exact installer-generated rows; unhashed model payloads now fail before an
+  identity is issued. The canonical model's RECORD remains valid.

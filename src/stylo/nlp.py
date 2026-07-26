@@ -153,10 +153,26 @@ def verified_installed_package_record(name: str) -> tuple[str, str]:
                 )
             seen.add(member)
 
-            # Wheel installers may add unhashed RECORD/bytecode rows.  Model
-            # source, configuration and weight payloads are required to carry
-            # hashes and are verified below.
+            # Wheel installers leave only the RECORD itself and generated
+            # bytecode unhashed.  Do not generalise that exception: accepting
+            # an unhashed vocab/vector/config row would let model bytes change
+            # while preserving the attested RECORD identity.
             if not digest_spec:
+                installer_generated = (
+                    (
+                        member_path.name == "RECORD"
+                        and member_path.parent.name.endswith(".dist-info")
+                    )
+                    or (
+                        member_path.suffix == ".pyc"
+                        and "__pycache__" in member_path.parts
+                    )
+                )
+                if size_text or not installer_generated:
+                    raise RuntimeError(
+                        f"installed spaCy model {name!r} has an unhashed "
+                        f"model payload in RECORD: {member!r}"
+                    )
                 continue
             algorithm, separator, expected_digest = digest_spec.partition("=")
             if (
