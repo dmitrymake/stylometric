@@ -70,6 +70,12 @@ def test_site_lock_contains_every_declared_optional_platform_package():
         dependency for dependency in optional if f"node_modules/{dependency}" not in packages
     )
     assert missing == []
+    incomplete_registry_records = sorted(
+        path
+        for path, record in packages.items()
+        if path and ("resolved" not in record or "integrity" not in record)
+    )
+    assert incomplete_registry_records == []
 
 
 def test_historical_headline_status_is_visible_and_fail_closed():

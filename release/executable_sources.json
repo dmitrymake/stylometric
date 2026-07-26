@@ -96,7 +96,7 @@
     "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
     "scripts/gen-readme.mjs": "a4e7bf01970158583cbcaba5d3983fea015bc6fcd50e01eb1538ab66459223c0",
     "scripts/gen-site-data.mjs": "c075aa092d1ac63b6df17eaf13e5b04d8bebd096be1da1a2e8b10fa233d5e33a",
-    "site/package-lock.json": "7ea3e95296dc4a2c8f8044d7cb1884f128d64d3ab4b3ba08e71b0ac07df33c08",
+    "site/package-lock.json": "003680d94f5234227dd63657a44404c41dfc3ee1f3d98731e6e5d9eef6baad17",
     "site/package.json": "881ae5666566ac1ae4859038e2ffb3317bb4ad47c4984dbe791e93b9de06e34c",
     "site/scripts/check-render.mjs": "46ac6079d2fbe4993d3179b1af877bdf18147f3c95d0ec5c573c3497e114742e",
     "site/src/components/HistoricalHeadlineNotice.jsx": "6ef7718c5fc2f6c8e659b39db003c3b14a443661820f38ff0d7be8fb8baad677",
