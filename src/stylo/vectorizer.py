@@ -53,6 +53,7 @@ class StyloVectorizer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X) -> csr_matrix:
+        X = list(X)
         reps = self._reps(X)
         parts = []
         self._block_slices = []
@@ -67,6 +68,7 @@ class StyloVectorizer(BaseEstimator, TransformerMixin):
         return hstack(parts, format="csr")
 
     def fit_transform(self, X, y=None, groups=None) -> csr_matrix:
+        X = list(X)
         if groups is None:
             return self.fit(X, y).transform(X)
         return self.fit(X, y, groups=groups).transform(X)

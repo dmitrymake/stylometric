@@ -87,6 +87,7 @@ Initial state:
 | AUD-060 | MEDIUM | fixed / v1 character-segmentation gated | Schema-v1 character-offset artifacts remain representable, but segmentation scoring fails closed instead of publishing character positions under token metric names. Token scoring records the offset unit and explicit bootstrap contract. |
 | AUD-061 | MEDIUM | fixed / v1 work-identity migration gated | Added a central task→allowed/required endpoint matrix, exact declared-task coverage, nonzero blind endpoint checks, and endpoint counts in the score envelope. Segmentation requires an explicit bootstrap unit; scientific scoring requires registered work IDs, while document bootstrap is synthetic-integration-only pending the already-required blind v2 identity migration. |
 | AUD-050 | LOW | fixed | Replaced the FunctionWord mode and Delta metric configuration asserts with explicit exact-string `ValueError` contracts. A subprocess regression proves both invalid configurations still fail under `python -O`. |
+| AUD-051 | LOW | fixed | `StyloVectorizer.transform` and `fit_transform` now materialize each public input iterable before representation and block passes. Real-block regressions prove list/generator parity for both direct transform and combined fit-transform. |
 
 ## Chronology
 
@@ -215,3 +216,6 @@ Initial state:
   configuration asserts in FunctionWord and Delta constructors with typed
   fail-closed validation; the focused suite and an actual optimized-interpreter
   subprocess regression pass.
+- 2026-07-26: Completed LOW finding AUD-051 by normalizing single-use text
+  iterables at both vectorizer entrypoints. List/generator parity now holds for
+  direct transform and fit-transform in the focused block/vectorizer suite.

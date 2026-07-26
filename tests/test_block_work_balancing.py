@@ -342,3 +342,34 @@ class TestGroupsFailClosed:
         sv = StyloVectorizer(blocks=[], rep_cache=_NoRepCache())
         with pytest.raises(ValueError, match="empty groups"):
             sv.fit([], groups=[])
+
+
+class TestVectorizerIterableContract:
+    @staticmethod
+    def _vectorizer():
+        from stylo.vectorizer import StyloVectorizer
+
+        class _NoopRepCache:
+            def get_reps(self, texts):
+                return [None] * len(texts)
+
+        return StyloVectorizer(
+            blocks=[FunctionWordBlock(mode="mfw", mfw_count=4)],
+            rep_cache=_NoopRepCache(),
+        )
+
+    def test_list_and_generator_have_identical_fit_transform_and_transform(self):
+        texts = ["alpha beta alpha", "beta gamma", "gamma delta"]
+
+        expected_fit_transform = self._vectorizer().fit_transform(texts).toarray()
+        generated_fit_transform = self._vectorizer().fit_transform(
+            (text for text in texts)
+        ).toarray()
+        np.testing.assert_array_equal(
+            generated_fit_transform, expected_fit_transform
+        )
+
+        fitted = self._vectorizer().fit(texts)
+        expected_transform = fitted.transform(texts).toarray()
+        generated_transform = fitted.transform((text for text in texts)).toarray()
+        np.testing.assert_array_equal(generated_transform, expected_transform)
