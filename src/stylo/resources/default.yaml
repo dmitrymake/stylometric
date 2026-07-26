@@ -95,8 +95,8 @@ model:
     enabled: false                 # ЧЕСТНО: НЕ подключена в боевой make_full_pipeline.
     method: isotonic               # Атрибуция кейсов — на сырых LR-вероятностях; доли = argmax (инвариантны
     #                                к монотонной калибровке). Пороги детектора — на сырых сигмоидах,
-    #                                проверены на чувствительность к conf∈[0.5,0.7]. Старый
-    #                                make_classifier fail-closed при запросе негрупповой калибровки.
+    #                                проверены на чувствительность к conf∈[0.5,0.7]. make_classifier(calibrate=True)
+    #                                доступен для reliability-diagram, но в docs/*.json НЕ применялся.
   scaler: maxabs                   # sparse-friendly
 
 # ── Настоящая Burrows's Delta (baseline). Считается ТОЛЬКО по MFW, не по всему вектору.

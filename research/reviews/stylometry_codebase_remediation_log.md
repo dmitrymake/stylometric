@@ -89,7 +89,7 @@ Initial state:
 | AUD-050 | LOW | fixed | Replaced the FunctionWord mode and Delta metric configuration asserts with explicit exact-string `ValueError` contracts. A subprocess regression proves both invalid configurations still fail under `python -O`. |
 | AUD-051 | LOW | fixed | `StyloVectorizer.transform` and `fit_transform` now materialize each public input iterable before representation and block passes. Real-block regressions prove list/generator parity for both direct transform and combined fit-transform. |
 | AUD-052 | LOW | fixed | The headline gate now validates both CI bounds as non-bool finite real scalars before ordering or decision comparisons and raises the existing typed `HeadlineError`. NaN and both infinities reject in either bound; equal finite bounds retain registered semantics. |
-| AUD-053 | LOW | fixed / deletion owner-gated | Release-wide search found no internal caller, but direct-module wheel imports and two live config references prevent proof of no external use. The compatibility factory still returns the exact uncalibrated scaler+LR pipeline, while every explicit or config-driven calibration request now raises typed `UngroupedCalibrationError`; the ordinary `cv=3` wrapper and misleading live comments are removed. Physical API deletion remains an owner decision. |
+| AUD-053 | LOW | fixed / deletion owner-gated | Release-wide search found no internal caller, but direct-module wheel imports and two SHA-bound config references prevent proof of no external use. The compatibility factory still returns the exact uncalibrated scaler+LR pipeline, while every explicit or config-driven calibration request now raises typed `UngroupedCalibrationError`; the ordinary `cv=3` wrapper is removed. The frozen-config comment and physical API cleanup require a future versioned owner decision rather than evidence refreezing. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -239,3 +239,8 @@ not change the normative ledger or frozen evidence.
   in a non-authorizing draft memo. Every disposition remains `UNSET`; the
   normative status ledger, frozen protocol/matrix, corpus/evidence bytes,
   freeze-root pin and evaluator registry are unchanged.
+- 2026-07-26: The first post-LOW full-suite pass exposed one provenance
+  regression: editing the dormant calibration comment changed the authoritative
+  default-config digest bound by the frozen ablation golden. Restored both
+  config copies byte-for-byte instead of refreezing evidence; the runtime
+  calibration hard stop and its tests remain in force.
