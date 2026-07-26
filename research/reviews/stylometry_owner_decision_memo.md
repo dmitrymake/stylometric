@@ -219,4 +219,3 @@ This memo must not be used to:
 - emit a headline, publish evidence, tag, push, or create a release.
 
 Memo disposition: `UNSET`.
-
