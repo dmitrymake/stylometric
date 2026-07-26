@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import pathlib
 import subprocess
+import tomllib
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -193,6 +194,22 @@ def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
         assert phrase not in site_source
         assert phrase not in readme
         assert phrase not in generator
+
+
+def test_package_summary_and_readme_opening_do_not_claim_leakage_free_results():
+    project = tomllib.loads(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]
+    summary = project["description"].lower()
+    assert "fail-closed" in summary
+    assert "honest" not in summary
+    assert "leakage-free" not in summary
+
+    opening = "\n".join(
+        (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:8]
+    )
+    assert "не объявляет текущий зарегистрированный corpus snapshot leakage-free" in opening
+    assert "честно оценивает" not in opening
 
 
 def test_static_site_metadata_withdraws_headline_and_uses_production_domain():

@@ -361,6 +361,42 @@ class TestReleaseHygiene:
         assert hygiene.is_private_path("data/frags_train/x/y.txt")
         assert not hygiene.is_private_path("docs/report.json")
 
+    def test_archive_content_gate_rejects_private_host_layout(self, tmp_path):
+        archive = tmp_path / "archive"
+        docs = archive / "docs"
+        docs.mkdir(parents=True)
+        private_home = "/" + "home" + "/example/private/project"
+        (docs / "report.json").write_text(
+            json.dumps({"source": f"{private_home}/input_clean/author/work.txt"}),
+            encoding="utf-8",
+        )
+        (docs / "escape").symlink_to(f"{private_home}/input_cases")
+
+        issues = hygiene.check_archive_content(archive)
+        assert any("report.json" in issue for issue in issues)
+        assert any("escape" in issue and "absolute symlink" in issue for issue in issues)
+
+        (docs / "report.json").write_text(
+            json.dumps({"source": "docs/public/input.json"}),
+            encoding="utf-8",
+        )
+        (docs / "escape").unlink()
+        assert hygiene.check_archive_content(archive) == []
+
+    def test_release_archive_export_excludes_internal_path_bearing_evidence(self):
+        attributes = {
+            line.strip()
+            for line in (REPO_ROOT / ".gitattributes").read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        assert {
+            "/docs/cases/work_balanced_audit/passports/ export-ignore",
+            "/log/experiments/requote_recompute.sh export-ignore",
+            "/research/reviews/stylometry_codebase_inventory.json export-ignore",
+        }.issubset(attributes)
+
     def test_publish_gate_flags_private_paths_in_tree(self, tmp_path):
         repo = tmp_path / "r"
         _init_repo(repo)

@@ -135,6 +135,7 @@ jobs:
       - name: Validate archive inventory without Git metadata
         working-directory: /tmp/stylo-archive
         run: |
+          python scripts/check_release_hygiene.py --archive
           python scripts/check_executable_source_inventory.py --archive
           node scripts/check-provenance.mjs --archive
       - name: Run full suite from archive

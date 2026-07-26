@@ -12,6 +12,7 @@ Two independent checks:
 Usage:
     python scripts/check_release_hygiene.py                     # publish gate on HEAD + index
     python scripts/check_release_hygiene.py --publish-ref origin/main
+    python scripts/check_release_hygiene.py --archive           # scan a Git-free exported tree
     python scripts/check_release_hygiene.py --audit-local-refs  # + warn on other refs/stash
     python scripts/check_release_hygiene.py --history           # deprecated alias of --audit-local-refs
 """
@@ -21,11 +22,13 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
 
 from stylo.release.hygiene import (  # noqa: E402
     HygieneError,
     audit_local_refs,
+    check_archive_content,
     check_index,
     check_publish_ref,
 )
@@ -43,6 +46,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--publish-ref", default="HEAD",
                         help="ref whose tree is the publish gate (default: HEAD)")
+    parser.add_argument(
+        "--archive",
+        action="store_true",
+        help="scan this Git-free exported tree for private paths/content",
+    )
     parser.add_argument("--audit-local-refs", action="store_true",
                         help="also warn about private objects in other local refs/stash")
     parser.add_argument("--history", action="store_true", dest="audit_local_refs",
@@ -52,6 +60,24 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        if args.archive:
+            if args.audit_local_refs or args.ref_only:
+                parser.error("--archive cannot be combined with Git ref/audit modes")
+            git_metadata = ROOT / ".git"
+            if git_metadata.exists() or git_metadata.is_symlink():
+                raise HygieneError(
+                    "--archive requires a Git-free root and cannot bypass publish-ref checks"
+                )
+            archive_private = check_archive_content(ROOT)
+            if archive_private:
+                _fail(
+                    "public source archive exposes private paths or host layout",
+                    archive_private,
+                )
+                return 1
+            print("✓ public source archive contains no private paths or host layout")
+            return 0
+
         failed = False
 
         if not args.ref_only:

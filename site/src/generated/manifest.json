@@ -1,8 +1,8 @@
 {
-  "schema": "stylo.site_generation_provenance.v1",
+  "schema": "stylo.site_generation_provenance.v2",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "85e22bf5538a5a0c33a56fef55611acb5f8a28e32eed3f4027499390b88c9921"
+    "sha256": "c9416ec771ef8706efd54647cff6a5d38d173142a939ea55d25ca9913ff217ad"
   },
   "sources": [
     {
@@ -387,167 +387,299 @@
   "entries": [
     {
       "key": "corpus.research",
-      "source": "docs/corpus_validation.json",
+      "sources": [
+        "docs/corpus_validation.json"
+      ],
       "note": "summary"
     },
     {
       "key": "corpus.benchmark",
-      "source": "docs/validation.json",
+      "sources": [
+        "docs/p0_baseline_snapshot.json",
+        "docs/validation.json"
+      ],
       "note": "n_authors/n_books/n_chunks"
     },
     {
       "key": "corpus.pd",
-      "source": "docs/validation_pd.json",
+      "sources": [
+        "docs/p0_baseline_snapshot.json",
+        "docs/validation_pd.json"
+      ],
       "note": "channels['АНСАМБЛЬ (равновес.)'].top1/macro_f1 + macro_f1_authorclustered_CI"
     },
     {
       "key": "models",
-      "source": "docs/final_comparison.csv",
+      "sources": [
+        "docs/final_comparison.csv"
+      ],
       "note": "stylo/bow_lr/char_cos/delta/majority 1:1"
     },
     {
       "key": "headline",
-      "source": "docs/final_comparison.csv + docs/stylo_lobo_authorci.json + research/evidence/ineligible_corpus_registrations_v1.json",
+      "sources": [
+        "docs/final_comparison.csv",
+        "docs/p0_baseline_snapshot.json",
+        "docs/stylo_lobo_authorci.json",
+        "docs/validation.json",
+        "research/evidence/ineligible_corpus_registrations_v1.json"
+      ],
       "note": "историческая арифметика; corpus snapshot непригоден для новых scientific claims"
     },
     {
-      "key": "models",
-      "source": "docs/final_comparison.csv",
-      "note": "stylo/bow_lr/char_cos/delta/majority 1:1"
-    },
-    {
       "key": "channels",
-      "source": "docs/validation.json",
+      "sources": [
+        "docs/p0_baseline_snapshot.json",
+        "docs/validation.json"
+      ],
       "note": "channels{} без ансамбля"
     },
     {
       "key": "authorRecall",
-      "source": "docs/model_recall.json",
+      "sources": [
+        "docs/model_recall.json"
+      ],
       "note": "per_author_recall"
     },
     {
       "key": "confusions",
-      "source": "docs/model_recall.json",
+      "sources": [
+        "docs/model_recall.json"
+      ],
       "note": "top_confusions"
     },
     {
       "key": "segment",
-      "source": "docs/segment_recall.json",
+      "sources": [
+        "docs/segment_recall.json"
+      ],
       "note": "recall_dissimilar/similar_ceiling/fpr/admixture + minDetectedAdmixPct + доля шва в парах"
     },
     {
       "key": "loboStrict",
-      "source": "docs/lobo_fast.json + final_comparison.csv + model_recall.json",
+      "sources": [
+        "docs/final_comparison.csv",
+        "docs/lobo_fast.json",
+        "docs/model_recall.json"
+      ],
       "note": "char-Delta LOBO-пол + полный stylo LOBO + GKF-прокси"
     },
     {
       "key": "ccat50",
-      "source": "docs/ccat50.json",
+      "sources": [
+        "docs/ccat50.json"
+      ],
       "note": "ensemble_top1 + channels"
     },
     {
       "key": "prozaBench",
-      "source": "docs/proza_compare.json",
+      "sources": [
+        "docs/proza_compare.json"
+      ],
       "note": "char-SVM / word / равновесный / нейро / reliability^6-ансамбль"
     },
     {
       "key": "disputed.podnyataya",
-      "source": "docs/sholokhov_attrib.json",
+      "sources": [
+        "docs/sholokhov_attrib.json"
+      ],
       "note": "share_full/share_topic; margin=Шолохов−Крюков формулой"
     },
     {
       "key": "tomsk",
-      "source": "docs/tomsk_final.json + tomsk_full.json",
+      "sources": [
+        "docs/tomsk_final.json",
+        "docs/tomsk_full.json"
+      ],
       "note": "ref_literary + char_S10000 + by_K leak premium"
     },
     {
       "key": "benchPd",
-      "source": "docs/validation_pd.json",
+      "sources": [
+        "docs/p0_baseline_snapshot.json",
+        "docs/validation_pd.json"
+      ],
       "note": "PD ансамбль + каналы + худший по узнаваемости автор (id/recall/книги, динамически)"
     },
     {
       "key": "dynastyPanel",
-      "source": "docs/royal_register.json",
+      "sources": [
+        "docs/royal_register.json"
+      ],
       "note": "per_author кластеризация монарх/писатель + perm_p"
     },
     {
       "key": "scribe",
-      "source": "docs/nikolai_scribe.json",
+      "sources": [
+        "docs/nikolai_scribe.json"
+      ],
       "note": "внутри-авторская vs Николай-Александр vs между писателями"
     },
     {
       "key": "nikolaiCrossreg",
-      "source": "docs/nikolai_crossreg.json",
+      "sources": [
+        "docs/nikolai_crossreg.json"
+      ],
       "note": "size-matched дневник-письма Николая, русский оригинал"
     },
     {
       "key": "accession",
-      "source": "docs/nikolai_accession.json",
+      "sources": [
+        "docs/nikolai_accession.json"
+      ],
       "note": "d(до воцарения, после) vs внутри-блоковая baseline"
     },
     {
       "key": "ilfHeterogeneity",
-      "source": "docs/ilfpetrov_heterogeneity.json",
+      "sources": [
+        "docs/ilfpetrov_heterogeneity.json"
+      ],
       "note": "силуэт k=2 цели + контроли + z"
     },
     {
       "key": "sholokhovThematic",
-      "source": "docs/sholokhov_thematic.json",
+      "sources": [
+        "docs/sholokhov_thematic.json"
+      ],
       "note": "ТД/ПЦ/Донские рассказы"
     },
     {
       "key": "sholokhovManuscript",
-      "source": "docs/sholokhov_manuscript.json",
+      "sources": [
+        "docs/sholokhov_manuscript.json"
+      ],
       "note": "глубина правки Шолохов vs Толстой/Достоевский/Пушкин"
     },
     {
       "key": "consistency",
-      "source": "docs/consistency.json",
+      "sources": [
+        "docs/consistency.json"
+      ],
       "note": "within-author силуэт + per_author панель"
     },
     {
       "key": "multihands",
-      "source": "docs/multiple_hands.json + hidden_positive.json + sholokhov_multihand.json",
+      "sources": [
+        "docs/hidden_positive.json",
+        "docs/multiple_hands.json",
+        "docs/sholokhov_multihand.json"
+      ],
       "note": "отделимость книг + спайк-кривая скрытого позитива + runNoise + pairwise-AV z=−5.26"
     },
     {
       "key": "ilfPetrov",
-      "source": "docs/ilf_vs_petrov.json + ilfpetrov_timeline.json + disputed_ilfpetrov.json",
+      "sources": [
+        "docs/disputed_ilfpetrov.json",
+        "docs/ilf_vs_petrov.json",
+        "docs/ilfpetrov_timeline.json"
+      ],
       "note": "соло-AUC + проекция + open-set таймлайн обеих книг дилогии + закрытое сравнение 4 подозреваемых"
     },
     {
       "key": "cases",
-      "source": "docs/cases_attribution.json + more_cases.json + grin_control.json + hyp_tests.json",
+      "sources": [
+        "docs/cases_attribution.json",
+        "docs/grin_control.json",
+        "docs/hyp_tests.json",
+        "docs/more_cases.json"
+      ],
       "note": "казусы на dependency: Булгаков/АНТолстой/Чапаев/Прутков/Серафимович/Платонов/донская школа"
     },
     {
       "key": "rigor",
-      "source": "docs/sholokhov_rigor3/5/6/7/8/9/10/11/12 + homogeneity/downsample/clean_attribution/td_candidates/dsp/feature_audit2/genre_matched_lr/hyp_tests2/embedding_robustness/audit_genre_crossauthor + sholokhov_lobo/openset/verify/attrib.json",
+      "sources": [
+        "docs/attrib_downsample.json",
+        "docs/audit_genre_crossauthor.json",
+        "docs/clean_attribution.json",
+        "docs/dsp_attribution.json",
+        "docs/embedding_robustness.json",
+        "docs/feature_audit2.json",
+        "docs/genre_matched_lr.json",
+        "docs/hyp_tests2.json",
+        "docs/sholokhov_homogeneity.json",
+        "docs/sholokhov_lobo.json",
+        "docs/sholokhov_openset.json",
+        "docs/sholokhov_rigor10.json",
+        "docs/sholokhov_rigor11.json",
+        "docs/sholokhov_rigor12.json",
+        "docs/sholokhov_rigor3.json",
+        "docs/sholokhov_rigor5.json",
+        "docs/sholokhov_rigor6.json",
+        "docs/sholokhov_rigor7.json",
+        "docs/sholokhov_rigor8.json",
+        "docs/sholokhov_rigor9.json",
+        "docs/sholokhov_verify.json",
+        "docs/td_candidates.json"
+      ],
       "note": "агрегат ригор-прогонов Шолохова + нециркулярный disputed-TD LOBO + открытый режим/верификация/таблица атрибуции"
     },
     {
       "key": "nikolaiCase",
-      "source": "docs/nikolas2_authorship.json + crossgenre_recall.json",
+      "sources": [
+        "docs/crossgenre_recall.json",
+        "docs/nikolas2_authorship.json"
+      ],
       "note": "вспомог. тесты Николая (часть значений якорным regex) + crossGenre-перенос"
     },
     {
       "key": "nikolaiCats",
-      "source": "docs/nikolai_cats.json",
+      "sources": [
+        "docs/nikolai_cats.json"
+      ],
       "note": "доля окон одиозных записей + p близости к письмам"
     },
     {
       "key": "limits",
-      "source": "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference,work_balanced_audit/{summary.json,custom/{kolokol_herzen_ogaryov,sovremennik,nekrasov_panaeva}.work_balanced.json}}",
+      "sources": [
+        "docs/cases/calibration_reference.json",
+        "docs/cases/chekhonte_15_micro.json",
+        "docs/cases/dostoevsky_petersburg_chronicle.json",
+        "docs/cases/kolokol_herzen_ogaryov.json",
+        "docs/cases/nekrasov_panaeva.json",
+        "docs/cases/nekrasov_panaeva_chapters.json",
+        "docs/cases/sovremennik.json",
+        "docs/cases/work_balanced_audit/custom/kolokol_herzen_ogaryov.work_balanced.json",
+        "docs/cases/work_balanced_audit/custom/nekrasov_panaeva.work_balanced.json",
+        "docs/cases/work_balanced_audit/custom/sovremennik.work_balanced.json",
+        "docs/cases/work_balanced_audit/summary.json"
+      ],
       "note": "post-audit метрический урок + карта режимов честного протокола"
     },
     {
       "key": "tarasCase",
-      "source": "docs/cases/{taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json},work_balanced_audit/{summary.json,custom/taras_delta_full_refit_work_balanced.json}}",
+      "sources": [
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_extended_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_sameperiod_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_suspects_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_annenkov_binary_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_extended_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_sameperiod_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_somov_binary_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_suspects_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_topic_cossack_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_topic_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_shinel_holdout_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/reports/delta_replication.json",
+        "docs/cases/taras_hardened/reports/extraction_audit.json",
+        "docs/cases/taras_hardened/target_manifest.json",
+        "docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json",
+        "docs/cases/work_balanced_audit/summary.json"
+      ],
       "note": "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits"
     },
     {
       "key": "repro",
-      "source": "docs/repro_gates.json",
+      "sources": [
+        "docs/repro_gates.json"
+      ],
       "note": "перепрогон gate-кейсов бит-в-бит + самый долгий gate"
     }
   ]

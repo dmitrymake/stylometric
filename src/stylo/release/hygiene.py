@@ -24,8 +24,10 @@ Robustness choices that matter for a security gate:
 """
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 
 #: Path prefixes whose contents must never reach a public ref.
 PRIVATE_PREFIXES: tuple[str, ...] = (
@@ -50,6 +52,15 @@ _CASEFOLDED_ROOTS = tuple(root.casefold() for root in _ROOTS)
 # Case-insensitive index pathspecs: a private file committed with non-canonical
 # case (Input_Clean/…) on a case-insensitive filesystem must not slip past.
 _INDEX_PATHSPECS = [f":(icase){root}" for root in _ROOTS]
+
+# Build these byte markers without embedding a literal developer-home path in
+# the scanner's own source.  The release archive contains tests and gate code,
+# so a self-matching marker would make every valid archive fail.
+_ABSOLUTE_HOME_MARKERS: tuple[bytes, ...] = (
+    b"/" + b"home" + b"/",
+    b"/" + b"Users" + b"/",
+    b"\\" + b"Users" + b"\\",
+)
 
 
 class HygieneError(RuntimeError):
@@ -85,6 +96,75 @@ def is_private_path(path: str) -> bool:
     """True if ``path`` is, or is under, a protected root (case-insensitive)."""
     folded = path.casefold()
     return any(folded == root or folded.startswith(root + "/") for root in _CASEFOLDED_ROOTS)
+
+
+def _private_content_marker(path: Path) -> bytes | None:
+    """Return the first private absolute-home marker in a regular file."""
+    overlap = max(map(len, _ABSOLUTE_HOME_MARKERS)) - 1
+    tail = b""
+    try:
+        with path.open("rb") as handle:
+            while block := handle.read(1024 * 1024):
+                window = tail + block
+                for marker in _ABSOLUTE_HOME_MARKERS:
+                    if marker in window:
+                        return marker
+                tail = window[-overlap:]
+    except OSError as exc:
+        raise HygieneError(f"cannot read release archive member {path}: {exc}") from exc
+    return None
+
+
+def check_archive_content(root: str | Path) -> list[str]:
+    """Inspect a materialized public archive for private paths or host layout.
+
+    This deliberately operates on the exported tree rather than the checkout:
+    immutable historical artifacts may remain tracked but be excluded with
+    ``export-ignore``.  Symlinks are inspected without following them, so an
+    archive member cannot escape ``root`` while the gate is reading it.
+    """
+    archive_root = Path(root).resolve()
+    if not archive_root.is_dir():
+        raise HygieneError(f"release archive root is not a directory: {archive_root}")
+
+    issues: list[str] = []
+    try:
+        walker = os.walk(archive_root, topdown=True, followlinks=False)
+        for directory, dirnames, filenames in walker:
+            dirnames.sort()
+            filenames.sort()
+            for name in [*dirnames, *filenames]:
+                path = Path(directory, name)
+                relative = path.relative_to(archive_root).as_posix()
+                if is_private_path(relative):
+                    issues.append(f"{relative}: protected private path")
+
+                if path.is_symlink():
+                    try:
+                        target = os.readlink(path)
+                    except OSError as exc:
+                        raise HygieneError(
+                            f"cannot read release archive symlink {relative}: {exc}"
+                        ) from exc
+                    target_bytes = os.fsencode(target)
+                    if os.path.isabs(target):
+                        issues.append(f"{relative}: absolute symlink target")
+                    for marker in _ABSOLUTE_HOME_MARKERS:
+                        if marker in target_bytes:
+                            issues.append(
+                                f"{relative}: private absolute-home marker in symlink"
+                            )
+                            break
+                elif path.is_file():
+                    if _private_content_marker(path) is not None:
+                        issues.append(
+                            f"{relative}: private absolute-home marker in file content"
+                        )
+                elif not path.is_dir():
+                    issues.append(f"{relative}: unsupported archive member type")
+    except OSError as exc:
+        raise HygieneError(f"cannot walk release archive {archive_root}: {exc}") from exc
+    return sorted(set(issues))
 
 
 def _is_shallow(*, cwd: str | None = None) -> bool:

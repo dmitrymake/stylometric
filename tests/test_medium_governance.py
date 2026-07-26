@@ -125,7 +125,7 @@ def test_normative_protocol_matches_the_single_canonical_environment_lock():
 def _provenance_registry(generator: bytes, source: bytes, output: bytes) -> dict:
     digest = lambda value: hashlib.sha256(value).hexdigest()
     return {
-        "schema": "stylo.site_generation_provenance.v1",
+        "schema": "stylo.site_generation_provenance.v2",
         "generator": {
             "path": "scripts/gen-site-data.mjs",
             "sha256": digest(generator),
@@ -135,7 +135,11 @@ def _provenance_registry(generator: bytes, source: bytes, output: bytes) -> dict
             "path": "site/src/generated/site-data.json",
             "sha256": digest(output),
         }],
-        "entries": [],
+        "entries": [{
+            "key": "rendered",
+            "sources": ["docs/source.json"],
+            "note": "synthetic field binding",
+        }],
     }
 
 
@@ -197,6 +201,51 @@ def test_typed_site_provenance_detects_source_and_output_mutation(tmp_path):
     assert "digest mismatch" in output_failure.stderr
 
 
+def test_typed_site_provenance_rejects_forged_field_map(tmp_path):
+    generator = b"// synthetic generator\n"
+    source = b'{"value": 1}\n'
+    output = b'{"rendered": 1}\n'
+    paths = {
+        "generator": tmp_path / "scripts" / "gen-site-data.mjs",
+        "source": tmp_path / "docs" / "source.json",
+        "output": tmp_path / "site" / "src" / "generated" / "site-data.json",
+        "manifest": tmp_path / "site" / "src" / "generated" / "manifest.json",
+    }
+    for path in paths.values():
+        path.parent.mkdir(parents=True, exist_ok=True)
+    paths["generator"].write_bytes(generator)
+    paths["source"].write_bytes(source)
+    paths["output"].write_bytes(output)
+
+    registry = _provenance_registry(generator, source, output)
+    registry["entries"][0]["sources"] = ["../source.json"]
+    paths["manifest"].write_text(json.dumps(registry) + "\n", encoding="utf-8")
+    unsafe = _run_checker(tmp_path)
+    assert unsafe.returncode == 1
+    assert "repository-relative path" in unsafe.stderr
+
+    registry = _provenance_registry(generator, source, output)
+    registry["entries"][0]["sources"] = ["docs/unregistered.json"]
+    paths["manifest"].write_text(json.dumps(registry) + "\n", encoding="utf-8")
+    unverified = _run_checker(tmp_path)
+    assert unverified.returncode == 1
+    assert "not digest-verified" in unverified.stderr
+
+    registry = _provenance_registry(generator, source, output)
+    registry["entries"].append(dict(registry["entries"][0]))
+    paths["manifest"].write_text(json.dumps(registry) + "\n", encoding="utf-8")
+    duplicate = _run_checker(tmp_path)
+    assert duplicate.returncode == 1
+    assert "duplicated" in duplicate.stderr
+
+    registry = _provenance_registry(generator, source, output)
+    registry["entries"][0]["key"] = "missing"
+    paths["manifest"].write_text(json.dumps(registry) + "\n", encoding="utf-8")
+    missing = _run_checker(tmp_path)
+    assert missing.returncode == 1
+    assert "does not resolve" in missing.stderr
+
+
 def test_git_free_provenance_mode_is_explicit_and_cannot_bypass_checkout(
     tmp_path,
 ):
@@ -256,13 +305,16 @@ def test_real_site_registry_and_pages_workflow_are_reproducible():
     workflow = (ROOT / ".github" / "workflows" / "deploy-pages.yml").read_text(
         encoding="utf-8"
     )
-    for trigger in (
-        '"docs/**"',
-        '"scripts/gen-site-data.mjs"',
-        '"scripts/check-provenance.mjs"',
-        '"site/**"',
-    ):
-        assert trigger in workflow
+    assert "workflow_run:" in workflow
+    assert 'workflows: ["CI (release integrity)"]' in workflow
+    assert "types: [completed]" in workflow
+    assert "github.event.workflow_run.conclusion == 'success'" in workflow
+    assert "github.event.workflow_run.event == 'push'" in workflow
+    assert "github.event.workflow_run.head_branch == 'main'" in workflow
+    assert "github.event.workflow_run.head_sha == github.sha" in workflow
+    assert "ref: ${{ github.event.workflow_run.head_sha }}" in workflow
+    assert "\n  push:" not in workflow
+    assert "workflow_dispatch:" not in workflow
     assert "npm ci --no-audit --no-fund" in workflow
     assert "npm run gen" in workflow
     assert "node ../scripts/check-provenance.mjs" in workflow

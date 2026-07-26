@@ -10,8 +10,9 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = "site/src/generated/manifest.json";
-const SCHEMA = "stylo.site_generation_provenance.v1";
+const SCHEMA = "stylo.site_generation_provenance.v2";
 const HEX64 = /^[0-9a-f]{64}$/;
+const ENTRY_KEY = /^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)*$/;
 
 function fail(message) {
   console.error(`PROVENANCE GATE: ${message}`);
@@ -127,7 +128,9 @@ if (!Array.isArray(registry.sources) || registry.sources.length === 0) {
 if (!Array.isArray(registry.outputs) || registry.outputs.length === 0) {
   fail("outputs must be a non-empty array");
 }
-if (!Array.isArray(registry.entries)) fail("entries must be an array");
+if (!Array.isArray(registry.entries) || registry.entries.length === 0) {
+  fail("entries must be a non-empty array");
+}
 
 const paths = [];
 paths.push(verifyBinding(root, registry.generator, "generator"));
@@ -151,6 +154,76 @@ if (
   registry.outputs[0].path !== "site/src/generated/site-data.json"
 ) {
   fail("outputs must bind exactly site/src/generated/site-data.json");
+}
+
+let siteData;
+try {
+  siteData = JSON.parse(
+    readFileSync(resolve(root, "site/src/generated/site-data.json"), "utf-8"),
+  );
+} catch (error) {
+  fail(`cannot parse site/src/generated/site-data.json: ${error.message}`);
+}
+if (siteData === null || typeof siteData !== "object" || Array.isArray(siteData)) {
+  fail("site/src/generated/site-data.json must contain an object");
+}
+
+const sourcePathSet = new Set(sourcePaths);
+const citedSources = new Set();
+const entryKeys = new Set();
+const coveredRoots = new Set();
+for (const [index, entry] of registry.entries.entries()) {
+  const where = `entries[${index}]`;
+  exactKeys(entry, ["key", "sources", "note"], where);
+  if (typeof entry.key !== "string" || !ENTRY_KEY.test(entry.key)) {
+    fail(`${where}.key must be a canonical dotted site-data path`);
+  }
+  if (entryKeys.has(entry.key)) fail(`${where}.key is duplicated: ${entry.key}`);
+  entryKeys.add(entry.key);
+  if (typeof entry.note !== "string" || entry.note.trim().length === 0) {
+    fail(`${where}.note must be a non-empty string`);
+  }
+  if (!Array.isArray(entry.sources) || entry.sources.length === 0) {
+    fail(`${where}.sources must be a non-empty array`);
+  }
+  const entrySources = entry.sources.map((source, sourceIndex) => {
+    const path = safeRelativePath(source, `${where}.sources[${sourceIndex}]`);
+    if (!sourcePathSet.has(path)) {
+      fail(`${where}.sources[${sourceIndex}] is not digest-verified: ${path}`);
+    }
+    citedSources.add(path);
+    return path;
+  });
+  if (
+    new Set(entrySources).size !== entrySources.length ||
+    JSON.stringify(entrySources) !== JSON.stringify([...entrySources].sort())
+  ) {
+    fail(`${where}.sources must be unique and sorted`);
+  }
+
+  let value = siteData;
+  for (const segment of entry.key.split(".")) {
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      !Object.prototype.hasOwnProperty.call(value, segment)
+    ) {
+      fail(`${where}.key does not resolve in site-data: ${entry.key}`);
+    }
+    value = value[segment];
+  }
+  coveredRoots.add(entry.key.split(".", 1)[0]);
+}
+if (
+  JSON.stringify([...citedSources].sort()) !== JSON.stringify(sourcePaths)
+) {
+  fail("entries must cite every digest-verified source exactly by registered path");
+}
+if (
+  JSON.stringify([...coveredRoots].sort()) !==
+  JSON.stringify(Object.keys(siteData).sort())
+) {
+  fail("entries must cover every top-level site-data key");
 }
 
 if (trackingMode === "checkout") {

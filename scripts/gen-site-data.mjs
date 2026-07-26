@@ -18,10 +18,29 @@ import { dirname, join } from "node:path";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(ROOT, "docs");
 const OUT = join(ROOT, "site", "src", "generated");
+const PROVENANCE_SCHEMA = "stylo.site_generation_provenance.v2";
 
 const manifest = []; // провенанс: какой ключ из какого файла/поля
+const manifestKeys = new Set();
 const consumedSources = new Set();
-function track(key, file, note) { manifest.push({ key, source: file, note: note || "" }); }
+function track(key, sources, note) {
+  if (typeof key !== "string" || key.length === 0 || manifestKeys.has(key)) {
+    throw new Error(`invalid or duplicate provenance key: ${JSON.stringify(key)}`);
+  }
+  if (
+    !Array.isArray(sources) ||
+    sources.length === 0 ||
+    sources.some((source) => typeof source !== "string" || source.length === 0) ||
+    new Set(sources).size !== sources.length
+  ) {
+    throw new Error(`provenance ${key} requires unique exact source paths`);
+  }
+  if (typeof note !== "string" || note.length === 0) {
+    throw new Error(`provenance ${key} requires a non-empty note`);
+  }
+  manifestKeys.add(key);
+  manifest.push({ key, sources: [...sources].sort(), note });
+}
 function sha256(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
 
 function parseStrictJson(raw, label) {
@@ -117,7 +136,7 @@ function loadModelsCsv() {
       p: finiteCsvNumber(p_mc, `${prefix}.p`, { required: false }),
     });
   }
-  track("models", "docs/final_comparison.csv", "stylo/bow_lr/char_cos/delta/majority 1:1");
+  track("models", ["docs/final_comparison.csv"], "stylo/bow_lr/char_cos/delta/majority 1:1");
   return rows;
 }
 
@@ -171,16 +190,25 @@ const corpus = {
     ensembleTop1: valPd.channels["АНСАМБЛЬ (равновес.)"].top1, ensembleMacroF1: valPd.channels["АНСАМБЛЬ (равновес.)"].macro_f1, ci: valPd.macro_f1_authorclustered_CI,
   },
 };
-track("corpus.research", "docs/corpus_validation.json", "summary");
-track("corpus.benchmark", "docs/validation.json", "n_authors/n_books/n_chunks");
-track("corpus.pd", "docs/validation_pd.json", "channels['АНСАМБЛЬ (равновес.)'].top1/macro_f1 + macro_f1_authorclustered_CI");
+track("corpus.research", ["docs/corpus_validation.json"], "summary");
+track(
+  "corpus.benchmark",
+  ["docs/p0_baseline_snapshot.json", "docs/validation.json"],
+  "n_authors/n_books/n_chunks"
+);
+track(
+  "corpus.pd",
+  ["docs/p0_baseline_snapshot.json", "docs/validation_pd.json"],
+  "channels['АНСАМБЛЬ (равновес.)'].top1/macro_f1 + macro_f1_authorclustered_CI"
+);
 
 // ── Исторические stylo-LR LOBO артефакты из ineligible corpus snapshot ──
 // acc/macroF1/top2/ece — сохранённая арифметика final_comparison.csv (251 книга);
 // macroF1CI — отозванный author-clustered интервал (docs/stylo_lobo_authorci.json).
 // Равновесный ансамбль каналов (LinearSVC + StratifiedGroupKFold(5)) — ДРУГОЙ классификатор/протокол,
 // отдельная историческая диагностика (ensemble* ниже), не действующий headline.
-const stylo = loadModelsCsv().find(m => m.id === "stylo");
+const models = loadModelsCsv();
+const stylo = models.find(m => m.id === "stylo");
 const headline = {
   // macroF1CI ОТОЗВАН (null): author-clustered bootstrap ресэмпла авторов меняет набор классов
   // macro-усреднения → это не CI фиксированной 43-классовой функции. Статус/прежнее значение/ссылка ниже.
@@ -202,12 +230,17 @@ const headline = {
 };
 track(
   "headline",
-  "docs/final_comparison.csv + docs/stylo_lobo_authorci.json + research/evidence/ineligible_corpus_registrations_v1.json",
+  [
+    "docs/final_comparison.csv",
+    "docs/p0_baseline_snapshot.json",
+    "docs/stylo_lobo_authorci.json",
+    "docs/validation.json",
+    "research/evidence/ineligible_corpus_registrations_v1.json",
+  ],
   "историческая арифметика; corpus snapshot непригоден для новых scientific claims"
 );
 
 // ── историческая таблица моделей на ineligible corpus snapshot ──
-const models = loadModelsCsv();
 
 // ── каналы (одиночные SVM) из validation.json ──
 const channels = {
@@ -216,13 +249,17 @@ const channels = {
     .filter(([k]) => !k.startsWith("АНСАМБЛЬ"))
     .map(([id, v]) => ({ id, top1: v.top1, f1: v.macro_f1 })),
 };
-track("channels", "docs/validation.json", "channels{} без ансамбля");
+track(
+  "channels",
+  ["docs/p0_baseline_snapshot.json", "docs/validation.json"],
+  "channels{} без ансамбля"
+);
 
 // ── per-author recall + путаницы (числа; имена/заметки — в data.js) ──
 const authorRecall = rec.per_author_recall.map(r => ({ id: r.id, recall: r.recall, books: r.books }));
 const confusions = rec.top_confusions.map(c => ({ trueId: c.true, predId: c.pred, n: c.n }));
-track("authorRecall", "docs/model_recall.json", "per_author_recall");
-track("confusions", "docs/model_recall.json", "top_confusions");
+track("authorRecall", ["docs/model_recall.json"], "per_author_recall");
+track("confusions", ["docs/model_recall.json"], "top_confusions");
 
 // ── сегментный детектор «чужой руки» ──
 const spliceShare = (p) => ({ host: p.host, intruder: p.intruder, foreignShare: +(1 - p.splice_at / p.n_chunks).toFixed(3), detected: p.detected });
@@ -242,7 +279,7 @@ const segment = {
     similar: seg.recall_similar_ceiling.pairs.map(spliceShare),
   },
 };
-track("segment", "docs/segment_recall.json", "recall_dissimilar/similar_ceiling/fpr/admixture + minDetectedAdmixPct + доля шва в парах");
+track("segment", ["docs/segment_recall.json"], "recall_dissimilar/similar_ceiling/fpr/admixture + minDetectedAdmixPct + доля шва в парах");
 
 // ── истинный LOBO (строгий пол на голом признаке) ──
 const loboStrict = {
@@ -251,7 +288,15 @@ const loboStrict = {
   styloFullLobo: stylo.acc,          // исторический полный stylo per-book LOBO; не текущая оценка
   proxyTop1: rec.headline.accuracy,  // исторический 5-fold GKF stylo; не текущая оценка
 };
-track("loboStrict", "docs/lobo_fast.json + final_comparison.csv + model_recall.json", "char-Delta LOBO-пол + полный stylo LOBO + GKF-прокси");
+track(
+  "loboStrict",
+  [
+    "docs/final_comparison.csv",
+    "docs/lobo_fast.json",
+    "docs/model_recall.json",
+  ],
+  "char-Delta LOBO-пол + полный stylo LOBO + GKF-прокси"
+);
 
 // ── внешний CCAT50 ──
 const ccat50 = {
@@ -260,7 +305,7 @@ const ccat50 = {
     .filter(([k]) => !k.startsWith("АНСАМБЛЬ") && !k.startsWith("headline"))
     .map(([id, v]) => ({ id, top1: v.top1, f1: v.macro_f1 })),
 };
-track("ccat50", "docs/ccat50.json", "ensemble_top1 + channels");
+track("ccat50", ["docs/ccat50.json"], "ensemble_top1 + channels");
 
 // ── внешний proza.ru: сравнение методов (наш прогон) — docs/proza_compare.json ──
 const prozaC = load("proza_compare.json").comparison_top1_macroF1;
@@ -269,7 +314,7 @@ const prozaBench = {
   leader: pk("char-SVM"), word: pk("word-SVM"), equalEnsemble: pk("равновесный"), neuro: pk("ruBERT"),
   ensemble: pk("reliability"), // reliability^6 (test-favoured: степень 6 — лучшая из свипа [2,4,6] НА ТЕСТЕ; веса train-OOF leak-free, степень — нет). leader=char-SVM.
 };
-track("prozaBench", "docs/proza_compare.json", "char-SVM / word / равновесный / нейро / reliability^6-ансамбль");
+track("prozaBench", ["docs/proza_compare.json"], "char-SVM / word / равновесный / нейро / reliability^6-ансамбль");
 
 // ── атрибуция «Поднятой целины» (негативный контроль) ──
 const pod = attrib.podnyataya;
@@ -287,7 +332,7 @@ const disputed = {
     ],
   },
 };
-track("disputed.podnyataya", "docs/sholokhov_attrib.json", "share_full/share_topic; margin=Шолохов−Крюков формулой");
+track("disputed.podnyataya", ["docs/sholokhov_attrib.json"], "share_full/share_topic; margin=Шолохов−Крюков формулой");
 
 // ── ТУСУР head-to-head (leak premium) ──
 const byK = tomskFull.by_K;
@@ -303,7 +348,11 @@ const tomsk = {
     .map(([k, v]) => ({ k: Number(k), rand: v.fixed_random, grouped: v.fixed_grouped, prem: v.leak_premium_pp }))
     .filter(t => t.grouped !== null && t.prem !== null), // K=273: grouped не посчитался (NaN) → не показываем
 };
-track("tomsk", "docs/tomsk_final.json + tomsk_full.json", "ref_literary + char_S10000 + by_K leak premium");
+track(
+  "tomsk",
+  ["docs/tomsk_final.json", "docs/tomsk_full.json"],
+  "ref_literary + char_S10000 + by_K leak premium"
+);
 
 // ── исторический PD-only срез из ineligible snapshot — docs/validation_pd.json ──
 // Веса равновесного ансамбля не зависят от test, но upstream content leakage
@@ -324,7 +373,11 @@ const benchPd = {
   channels: Object.entries(valPd.channels).map(([id, v]) => ({ id, top1: v.top1 })),
   worstRecall: { id: worstPdId, recall: worstPdRecall, books: worstPdBooks },
 };
-track("benchPd", "docs/validation_pd.json", "PD ансамбль + каналы + худший по узнаваемости автор (id/recall/книги, динамически)");
+track(
+  "benchPd",
+  ["docs/p0_baseline_snapshot.json", "docs/validation_pd.json"],
+  "PD ансамбль + каналы + худший по узнаваемости автор (id/recall/книги, динамически)"
+);
 
 // ── панель «жанрового регистра»: кто кластеризуется как монарх по служебным словам — docs/royal_register.json ──
 const royalReg = load("royal_register.json");
@@ -351,7 +404,7 @@ const dynastyPanel = {
     axis: +(r.d_royal / (r.d_royal + r.d_writer)).toFixed(3),   // 0 = как монарх, 1 = как писатель
   })),
 };
-track("dynastyPanel", "docs/royal_register.json", "per_author кластеризация монарх/писатель + perm_p");
+track("dynastyPanel", ["docs/royal_register.json"], "per_author кластеризация монарх/писатель + perm_p");
 
 // ── тест «одна канцелярия»: одна ли рука писала дневники обоих императоров — docs/nikolai_scribe.json ──
 const scr = load("nikolai_scribe.json");
@@ -360,7 +413,7 @@ const scribe = {
   dMonarchs: scr.d_monarchs, betweenWritersMedian: scr.between_writers_median,
   ratioToSelf: scr.ratio_to_self_median, oneHandRejected: scr.one_hand_rejected,
 };
-track("scribe", "docs/nikolai_scribe.json", "внутри-авторская vs Николай-Александр vs между писателями");
+track("scribe", ["docs/nikolai_scribe.json"], "внутри-авторская vs Николай-Александр vs между писателями");
 
 // ── кросс-регистр Николая дневник↔письма (SIZE-MATCHED, русский оригинал) — docs/nikolai_crossreg.json ──
 const nikCr = load("nikolai_crossreg.json");
@@ -368,7 +421,7 @@ const nikolaiCrossreg = {
   controls: nikCr.controls, nikolas: nikCr.nikolas, z: nikCr.z, zAll: nikCr.zAll,
   alexander3: nikCr.alexander3, controlsMedian: nikCr.controlsMedian, nTokens: nikCr.N_tokens,
 };
-track("nikolaiCrossreg", "docs/nikolai_crossreg.json", "size-matched дневник-письма Николая, русский оригинал");
+track("nikolaiCrossreg", ["docs/nikolai_crossreg.json"], "size-matched дневник-письма Николая, русский оригинал");
 
 // ── тест «менялся ли почерк при восшествии»: дневник Николая до/после воцарения — docs/nikolai_accession.json ──
 const acc = load("nikolai_accession.json");
@@ -378,7 +431,7 @@ const accession = {
   dPostLate: acc.d_post_to_late_diary, dPreLate: acc.d_pre_to_late_diary,
   classification: acc.classification, tokensPre: acc.tokens.pre, tokensPost: acc.tokens.post,
 };
-track("accession", "docs/nikolai_accession.json", "d(до воцарения, после) vs внутри-блоковая baseline");
+track("accession", ["docs/nikolai_accession.json"], "d(до воцарения, после) vs внутри-блоковая baseline");
 
 // ── гетерогенность «Ильф-Петров» (след двух рук?) — docs/ilfpetrov_heterogeneity.json ──
 const ilfHet = load("ilfpetrov_heterogeneity.json");
@@ -386,14 +439,14 @@ const ilfHeterogeneity = {
   targetSil: ilfHet.targetSil, controlMean: ilfHet.controlMean, controlStd: ilfHet.controlStd,
   z: ilfHet.z, controls: ilfHet.controls,
 };
-track("ilfHeterogeneity", "docs/ilfpetrov_heterogeneity.json", "силуэт k=2 цели + контроли + z");
+track("ilfHeterogeneity", ["docs/ilfpetrov_heterogeneity.json"], "силуэт k=2 цели + контроли + z");
 
 // ── тематическая атрибуция Шолохова (топик-инвариантный стиль) — docs/sholokhov_thematic.json ──
 const themat = load("sholokhov_thematic.json");
 const sholokhovThematic = {
   tihiyDon: themat["«Тихий Дон»"], podnyataya: themat["«Поднятая целина»"], donskie: themat["Донские рассказы Шолохова"],
 };
-track("sholokhovThematic", "docs/sholokhov_thematic.json", "ТД/ПЦ/Донские рассказы");
+track("sholokhovThematic", ["docs/sholokhov_thematic.json"], "ТД/ПЦ/Донские рассказы");
 
 // ── рукопись ТД: глубина авторской правки vs классики (оценка через VertexAI) — docs/sholokhov_manuscript.json ──
 const ms = load("sholokhov_manuscript.json");
@@ -412,7 +465,7 @@ const sholokhovManuscript = {
     p: ms.sholokhov_vs_controls.p_value, significant: ms.sholokhov_vs_controls.significant_05,
   },
 };
-track("sholokhovManuscript", "docs/sholokhov_manuscript.json", "глубина правки Шолохов vs Толстой/Достоевский/Пушкин");
+track("sholokhovManuscript", ["docs/sholokhov_manuscript.json"], "глубина правки Шолохов vs Толстой/Достоевский/Пушкин");
 
 // ── консистентность Шолохова (within-author силуэт) — docs/consistency.json ──
 const cons = load("consistency.json");
@@ -429,7 +482,7 @@ const consistency = {
     hi: p.author === "sholohov", coll: p.author === "prutkov",
   })),
 };
-track("consistency", "docs/consistency.json", "within-author силуэт + per_author панель");
+track("consistency", ["docs/consistency.json"], "within-author силуэт + per_author панель");
 
 // якорный экстрактор числа из прозы прогона; null при несовпадении → coverage-гейт упадёт (защита от тихого дрейфа)
 const grab = (str, re) => { const m = String(str).match(re); return m ? Number(m[1].replace(",", ".")) : null; };
@@ -487,7 +540,15 @@ const multihands = {
     negMean: smh.calibration.neg_mean, posMean: smh.calibration.pos_mean,  // 0.399 / 0.698
   },
 };
-track("multihands", "docs/multiple_hands.json + hidden_positive.json + sholokhov_multihand.json", "отделимость книг + спайк-кривая скрытого позитива + runNoise + pairwise-AV z=−5.26");
+track(
+  "multihands",
+  [
+    "docs/hidden_positive.json",
+    "docs/multiple_hands.json",
+    "docs/sholokhov_multihand.json",
+  ],
+  "отделимость книг + спайк-кривая скрытого позитива + runNoise + pairwise-AV z=−5.26"
+);
 
 // ── Ильф и Петров: соло-различимость + open-set таймлайн «12 стульев» — ilf_vs_petrov.json + ilfpetrov_timeline.json ──
 const ivp = load("ilf_vs_petrov.json");
@@ -523,7 +584,15 @@ const ilfPetrov = {
     closed: closedShare("золотой_телёнок"),
   },
 };
-track("ilfPetrov", "docs/ilf_vs_petrov.json + ilfpetrov_timeline.json + disputed_ilfpetrov.json", "соло-AUC + проекция + open-set таймлайн обеих книг дилогии + закрытое сравнение 4 подозреваемых");
+track(
+  "ilfPetrov",
+  [
+    "docs/disputed_ilfpetrov.json",
+    "docs/ilf_vs_petrov.json",
+    "docs/ilfpetrov_timeline.json",
+  ],
+  "соло-AUC + проекция + open-set таймлайн обеих книг дилогии + закрытое сравнение 4 подозреваемых"
+);
 
 // ── казусы авторства на чистом dependency — cases_attribution + more_cases + grin_control + hyp_tests ──
 const ca = load("cases_attribution.json");
@@ -555,7 +624,16 @@ const cases = {
     pChevengur: pl.chevengur.P_platonov, pKotlovan: pl.kotlovan.P_platonov },
   donSchool: { sevskyKrukovAuc: ht.don_school.sevsky_vs_krukov },
 };
-track("cases", "docs/cases_attribution.json + more_cases.json + grin_control.json + hyp_tests.json", "казусы на dependency: Булгаков/АНТолстой/Чапаев/Прутков/Серафимович/Платонов/донская школа");
+track(
+  "cases",
+  [
+    "docs/cases_attribution.json",
+    "docs/grin_control.json",
+    "docs/hyp_tests.json",
+    "docs/more_cases.json",
+  ],
+  "казусы на dependency: Булгаков/АНТолстой/Чапаев/Прутков/Серафимович/Платонов/донская школа"
+);
 
 // ── РИГОР Шолохова: агрегат прогонов rigor3/5/6/7/8/9/10/11/12 + homogeneity/downsample/
 //    clean_attribution/td_candidates/dsp/feature_audit2/genre_matched_lr/hyp_tests2/embedding_robustness/audit ──
@@ -681,7 +759,34 @@ const rigor = {
   // таблица долей ТД/ПЦ к Шолохову (Тест №1): full/topic/agree из docs/sholokhov_attrib.json (не литералы в segdata)
   attribTable: ATTRIB_LABELS.map(([k, book]) => ({ book, full: attrib[k].share_full[SHOL], topic: attrib[k].share_topic[SHOL], agree: attrib[k].agreement_lr_delta })),
 };
-track("rigor", "docs/sholokhov_rigor3/5/6/7/8/9/10/11/12 + homogeneity/downsample/clean_attribution/td_candidates/dsp/feature_audit2/genre_matched_lr/hyp_tests2/embedding_robustness/audit_genre_crossauthor + sholokhov_lobo/openset/verify/attrib.json", "агрегат ригор-прогонов Шолохова + нециркулярный disputed-TD LOBO + открытый режим/верификация/таблица атрибуции");
+track(
+  "rigor",
+  [
+    "docs/attrib_downsample.json",
+    "docs/audit_genre_crossauthor.json",
+    "docs/clean_attribution.json",
+    "docs/dsp_attribution.json",
+    "docs/embedding_robustness.json",
+    "docs/feature_audit2.json",
+    "docs/genre_matched_lr.json",
+    "docs/hyp_tests2.json",
+    "docs/sholokhov_homogeneity.json",
+    "docs/sholokhov_lobo.json",
+    "docs/sholokhov_openset.json",
+    "docs/sholokhov_rigor10.json",
+    "docs/sholokhov_rigor11.json",
+    "docs/sholokhov_rigor12.json",
+    "docs/sholokhov_rigor3.json",
+    "docs/sholokhov_rigor5.json",
+    "docs/sholokhov_rigor6.json",
+    "docs/sholokhov_rigor7.json",
+    "docs/sholokhov_rigor8.json",
+    "docs/sholokhov_rigor9.json",
+    "docs/sholokhov_verify.json",
+    "docs/td_candidates.json",
+  ],
+  "агрегат ригор-прогонов Шолохова + нециркулярный disputed-TD LOBO + открытый режим/верификация/таблица атрибуции"
+);
 
 // ── кейс Николая II: вспомог. тесты — nikolas2_authorship.json. Часть значений живёт ТОЛЬКО в прозе
 //    прогона (removal_curve, kamerfurier и т.п.) → тянем якорным regex; null при несовпадении → coverage-гейт упадёт. ──
@@ -719,7 +824,11 @@ const nikolaiCase = {
   crAucInvariant: nik.cross_register_auc.topic_invariant_LOAO,          // ...тематически инвариантные (leave-one-author-out)
   crossGenre: nikCrossGenre,                                             // перенос атрибуции проза→дневники/письма (crossgenre_recall.json)
 };
-track("nikolaiCase", "docs/nikolas2_authorship.json + crossgenre_recall.json", "вспомог. тесты Николая (часть значений якорным regex) + crossGenre-перенос");
+track(
+  "nikolaiCase",
+  ["docs/crossgenre_recall.json", "docs/nikolas2_authorship.json"],
+  "вспомог. тесты Николая (часть значений якорным regex) + crossGenre-перенос"
+);
 
 // ── прямая проверка «одиозных» записей дневника (охота/стрельба) — docs/nikolai_cats.json ──
 const ncats = load("nikolai_cats.json");
@@ -727,7 +836,7 @@ const nikolaiCats = {
   share: +(ncats.cat_windows / ncats.n_windows * 100).toFixed(1), // % окон «одиозных» записей (12.8)
   p: +ncats.dist_to_letters.p.toFixed(2),                         // к письмам не ближе остального дневника (0.41)
 };
-track("nikolaiCats", "docs/nikolai_cats.json", "доля окон одиозных записей + p близости к письмам");
+track("nikolaiCats", ["docs/nikolai_cats.json"], "доля окон одиозных записей + p близости к письмам");
 
 // ── чистота: ни одно обязательное число не должно быть null ──
 // ── Честный протокол: метрический урок + карта режимов (где метод делит руки, где честно отказывает) ──
@@ -809,7 +918,23 @@ const limits = {
       status: chekhonteWorkAudit.status },
   ],
 };
-track("limits", "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference,work_balanced_audit/{summary.json,custom/{kolokol_herzen_ogaryov,sovremennik,nekrasov_panaeva}.work_balanced.json}}", "post-audit метрический урок + карта режимов честного протокола");
+track(
+  "limits",
+  [
+    "docs/cases/calibration_reference.json",
+    "docs/cases/chekhonte_15_micro.json",
+    "docs/cases/dostoevsky_petersburg_chronicle.json",
+    "docs/cases/kolokol_herzen_ogaryov.json",
+    "docs/cases/nekrasov_panaeva.json",
+    "docs/cases/nekrasov_panaeva_chapters.json",
+    "docs/cases/sovremennik.json",
+    "docs/cases/work_balanced_audit/custom/kolokol_herzen_ogaryov.work_balanced.json",
+    "docs/cases/work_balanced_audit/custom/nekrasov_panaeva.work_balanced.json",
+    "docs/cases/work_balanced_audit/custom/sovremennik.work_balanced.json",
+    "docs/cases/work_balanced_audit/summary.json",
+  ],
+  "post-audit метрический урок + карта режимов честного протокола"
+);
 
 // ── Taras Bulba hardened case: паспорта gate-first слоя ──
 const tarasStrict = load("cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json");
@@ -919,7 +1044,36 @@ const tarasCase = {
     rawPolicy: tarasManifest.raw_policy,
   },
 };
-track("tarasCase", "docs/cases/{taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json},work_balanced_audit/{summary.json,custom/taras_delta_full_refit_work_balanced.json}}", "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits");
+track(
+  "tarasCase",
+  [
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_extended_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_sameperiod_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_suspects_v2_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_annenkov_binary_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_extended_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_sameperiod_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_somov_binary_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_suspects_v2_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_topic_cossack_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_topic_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_v2_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_control_shinel_holdout_v2_fw_2000.passport.json",
+    "docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json",
+    "docs/cases/taras_hardened/reports/delta_replication.json",
+    "docs/cases/taras_hardened/reports/extraction_audit.json",
+    "docs/cases/taras_hardened/target_manifest.json",
+    "docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json",
+    "docs/cases/work_balanced_audit/summary.json",
+  ],
+  "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits"
+);
 
 // ── воспроизводимость gate-кейсов: перепрогон бит-в-бит — docs/repro_gates.json ──
 const rg = load("repro_gates.json");
@@ -929,7 +1083,7 @@ const repro = {
   gatesBitExact: rg.gates.filter((g) => g.bit_exact).length,
   longestGateName: rgLongest.label_ru, longestGateSeconds: rgLongest.seconds,
 };
-track("repro", "docs/repro_gates.json", "перепрогон gate-кейсов бит-в-бит + самый долгий gate");
+track("repro", ["docs/repro_gates.json"], "перепрогон gate-кейсов бит-в-бит + самый долгий gate");
 
 const data = { corpus, headline, models, channels, authorRecall, confusions, segment, loboStrict, ccat50, disputed, tomsk, benchPd, sholokhovThematic, ilfHeterogeneity, dynastyPanel, scribe, accession, sholokhovManuscript, nikolaiCrossreg, consistency, prozaBench, multihands, ilfPetrov, cases, rigor, nikolaiCase, nikolaiCats, limits, tarasCase, repro };
 const holes = [];
@@ -954,12 +1108,45 @@ models.forEach((model, index) => {
 const realHoles = holes.filter(h => !NULLABLE_PATHS.has(h));
 if (realHoles.length) { console.error("COVERAGE-ГЕЙТ: пустые числа без источника:\n  " + realHoles.join("\n  ")); process.exit(1); }
 
+const linkedSources = new Set();
+const entryRoots = new Set();
+for (const entry of manifest) {
+  let value = data;
+  for (const segment of entry.key.split(".")) {
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      !Object.prototype.hasOwnProperty.call(value, segment)
+    ) {
+      throw new Error(`provenance key does not resolve in site data: ${entry.key}`);
+    }
+    value = value[segment];
+  }
+  entryRoots.add(entry.key.split(".", 1)[0]);
+  for (const source of entry.sources) {
+    if (!consumedSources.has(source)) {
+      throw new Error(`provenance ${entry.key} cites an unconsumed source: ${source}`);
+    }
+    linkedSources.add(source);
+  }
+}
+const dataRoots = Object.keys(data).sort();
+const registeredRoots = [...entryRoots].sort();
+if (JSON.stringify(dataRoots) !== JSON.stringify(registeredRoots)) {
+  throw new Error("provenance entries must cover every top-level site-data key");
+}
+const consumedSourcePaths = [...consumedSources].sort();
+const linkedSourcePaths = [...linkedSources].sort();
+if (JSON.stringify(consumedSourcePaths) !== JSON.stringify(linkedSourcePaths)) {
+  throw new Error("provenance entries must cite every digest-verified consumed source");
+}
+
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 const siteDataBytes = Buffer.from(JSON.stringify(data, null, 2) + "\n", "utf-8");
 writeFileSync(join(OUT, "site-data.json"), siteDataBytes);
 const generatorPath = "scripts/gen-site-data.mjs";
 const provenance = {
-  schema: "stylo.site_generation_provenance.v1",
+  schema: PROVENANCE_SCHEMA,
   generator: {
     path: generatorPath,
     sha256: sha256(readFileSync(join(ROOT, generatorPath))),

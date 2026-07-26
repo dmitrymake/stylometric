@@ -5,7 +5,7 @@ Status: **DRAFT_FOR_OWNER_REVIEW**
 Prepared: 2026-07-26 (Europe/Moscow)
 
 Inspected parent baseline:
-`68eef2517fd2e3440b31c5a97383cdcf6c97a038`
+`c2cb2c1f0b088faf30190ab12b4ef4f13aea72d6`
 
 Authority: **NONE**. This memo does not approve a corpus migration, protocol
 amendment, freeze candidate, evaluator, confirmatory execution, headline,
@@ -150,7 +150,8 @@ the confirmatory chain.
   closed. Legacy builders and loose-artifact entrypoints are hard-disabled or
   exact compatibility shims. `segment.py` is a canonical diagnostic;
   `invariant.py` and `sequence_segmenter.py` have active consumers and are not
-  proven orphans.
+  proven orphans. `eval/ensemble.py` likewise has active benchmark/proza
+  callers and is not a retirement candidate.
 - **Question for the API owner:** which direct-module imports require a
   compatibility window, and which may be removed in a future major version?
 - **Evidence required before deletion:** documented public support policy,
@@ -168,6 +169,45 @@ the confirmatory chain.
 - **Evidence required for reinstatement:** frozen label universe, resampling
   unit, missing/singleton-author behavior, interval method, simulation or
   coverage justification, and independent review before results are inspected.
+- **Owner disposition:** `UNSET`.
+
+### ODM-009 — Published-history path disclosure and sanitization
+
+- **Current containment state:** the Git-free public source archive excludes 32
+  frozen work-balanced passports and two internal audit/recompute records whose
+  bytes disclose an absolute developer workspace and private corpus layout. A
+  content gate scans the materialized archive without editing those historical
+  bytes. This does not erase copies already reachable from published Git
+  history.
+- **Question for the repository owner:** retain the historical path disclosure,
+  publish versioned sanitized replacements while retaining history, or authorize
+  a coordinated history rewrite of the exact affected paths?
+- **Evidence required before a rewrite:** exact object/path inventory, proof that
+  no corpus text or credential is present, backup and rollback refs kept outside
+  the public remote, signed old→new commit mapping, collaborator/fork impact,
+  branch-protection and Pages cutover plan, and a post-rewrite independent
+  object/content scan.
+- **Non-option:** silently rewriting frozen passports or force-updating the
+  public branch as part of ordinary remediation.
+- **Owner disposition:** `UNSET`.
+
+### ODM-010 — External anchor for frozen historical inputs
+
+- **Current containment state:** the P0 digest table and generator/tests reject
+  accidental one-sided drift of `docs/validation.json` and
+  `docs/validation_pd.json`. The historical bytes remain unchanged. Because the
+  expected hashes live in the same mutable repository, this is not represented
+  as independent immutability against a coordinated replacement.
+- **Question for the release/evidence owner:** which external authority should
+  anchor the frozen-input digests for a public release?
+- **Admissible dispositions:** a protected signed tag/release attestation, a
+  separately controlled transparency record, another reviewed external digest
+  registry, or an explicit decision to retain the present accidental-drift gate
+  without claiming independent immutability.
+- **Evidence required before disposition:** named key/ref custodian, immutable
+  object identity and exact digests, verification procedure independent of the
+  mutable checkout, protection policy, rotation/revocation procedure, and
+  independent verification.
 - **Owner disposition:** `UNSET`.
 
 ## 3. Confirmatory gates

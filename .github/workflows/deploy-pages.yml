@@ -4,16 +4,9 @@ name: Deploy article to GitHub Pages
 # вендорится в site/vendor/rk-ui.tgz (самодостаточно для CI).
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/**"
-      - "scripts/gen-site-data.mjs"
-      - "scripts/check-provenance.mjs"
-      - "research/evidence/ineligible_corpus_registrations_v1.json"
-      - "site/**"
-      - ".github/workflows/deploy-pages.yml"
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["CI (release integrity)"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -26,12 +19,23 @@ concurrency:
 
 jobs:
   build:
+    # workflow_run has a privileged token. Only build a successful push to the
+    # current main tip, never a PR checkout or a stale certified revision.
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_sha == github.sha
+      }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: site
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
