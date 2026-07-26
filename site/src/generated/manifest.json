@@ -2,7 +2,7 @@
   "schema": "stylo.site_generation_provenance.v1",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "c075aa092d1ac63b6df17eaf13e5b04d8bebd096be1da1a2e8b10fa233d5e33a"
+    "sha256": "8d37f311d56274afea9520703ac9f0bce9520ec0ddb23ebd84e4aec1b2959cb7"
   },
   "sources": [
     {

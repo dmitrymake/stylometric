@@ -8,7 +8,8 @@
     "predev": "node ../scripts/gen-site-data.mjs",
     "dev": "vite",
     "prebuild": "node ../scripts/gen-site-data.mjs",
-    "build": "vite build && npm run test:render",
+    "build": "npm run check:undef && vite build && npm run test:render",
+    "check:undef": "node ./scripts/check-no-undef.mjs",
     "test:render": "node ./scripts/check-render.mjs",
     "preview": "vite preview"
   },
@@ -18,6 +19,8 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.7",
+    "@babel/traverse": "7.29.7",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.0.7"
   },

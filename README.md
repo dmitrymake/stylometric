@@ -167,7 +167,8 @@ src/stylo/
   features/      ← FeatureBlock + registry (каталог признаков, см. ниже)
   vectorizer.py  ← сборка вектора из включённых блоков
   models/        lr.py (+калибровка)   delta.py (legacy selected-mass Delta)   baselines.py
-  eval/          lobo.py (leakage-free)   groupkfold.py (быстрый прокси)
+  eval/          lobo.py (historical book-id LOBO; content-safe после component migration)
+                 groupkfold.py (быстрый исторический прокси)
                  metrics.py (macro-F1, bootstrap-CI)   significance.py (McNemar)
                  sweep.py (ablation)   final.py (итоговое сравнение)
   corpus_tools/  validate_corpus.py   fetch_classics.py (классики †70+, локальная валидация)

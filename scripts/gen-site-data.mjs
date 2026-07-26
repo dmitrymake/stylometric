@@ -152,7 +152,7 @@ const corpus = {
     words: corpusVal.summary.total_words, imbalanceRatio: Math.round(corpusVal.summary.imbalance_ratio),
   },
   benchmark: { authors: val.n_authors, books: val.n_books, chunks: val.n_chunks },
-  // Канонический headline-срез: полный per-book LOBO (final.py → final_comparison.csv).
+  // Исторический ineligible headline-срез: полный per-book LOBO (final.py → final_comparison.csv).
   // пул/тестированные/книги — из stylo_lobo_authorci.json (4 автора с одной книгой в LOBO не тестируются — нет train-примера).
   lobo: { pool_authors: styloCI.n_authors_dataset, tested_authors: styloCI.n_authors_tested, books: styloCI.n_books },
   pd: {
@@ -164,11 +164,11 @@ track("corpus.research", "docs/corpus_validation.json", "summary");
 track("corpus.benchmark", "docs/validation.json", "n_authors/n_books/n_chunks");
 track("corpus.pd", "docs/validation_pd.json", "channels['АНСАМБЛЬ (равновес.)'].top1/macro_f1 + macro_f1_authorclustered_CI");
 
-// ── HEADLINE = продакшен stylo-LR LOBO (ЕДИНЫЙ канонический результат) ──
-// acc/macroF1/top2/ece — из final_comparison.csv (stylo-LR LOBO, 251 книга);
-// macroF1CI — author-clustered 95% CI macro-F1 stylo-LR LOBO (docs/stylo_lobo_authorci.json).
+// ── Исторические stylo-LR LOBO артефакты из ineligible corpus snapshot ──
+// acc/macroF1/top2/ece — сохранённая арифметика final_comparison.csv (251 книга);
+// macroF1CI — отозванный author-clustered интервал (docs/stylo_lobo_authorci.json).
 // Равновесный ансамбль каналов (LinearSVC + StratifiedGroupKFold(5)) — ДРУГОЙ классификатор/протокол,
-// отдельная диагностика (ensemble* ниже); НЕ headline.
+// отдельная историческая диагностика (ensemble* ниже), не действующий headline.
 const stylo = loadModelsCsv().find(m => m.id === "stylo");
 const headline = {
   // macroF1CI ОТОЗВАН (null): author-clustered bootstrap ресэмпла авторов меняет набор классов
@@ -180,7 +180,7 @@ const headline = {
   macroF1BootstrapMedian: styloCI.macro_f1_bootstrap_median,
   accCIAuthor: styloCI.accuracy_authorclustered_CI,               // author-clustered 95% CI accuracy
   accBootstrapMedian: styloCI.accuracy_bootstrap_median,
-  styloMacroF1: stylo.f1,   // = headline.macroF1 (каноническая stylo-LR LOBO)
+  styloMacroF1: stylo.f1,   // = headline.macroF1 (историческая stylo-LR LOBO)
   top2: stylo.top2, ece: stylo.ece, ci: stylo.ci,
   ensembleTop1: val.ensemble_top1, ensembleMacroF1: val.headline_macro_f1, ensembleTop3: val.ensemble_top3,
   // train-side взвешивание — по чанкам; work-balanced пересчёт ещё не проведён (§1.2 плана)
@@ -195,7 +195,7 @@ track(
   "историческая арифметика; corpus snapshot непригоден для новых scientific claims"
 );
 
-// ── таблица моделей (leak-free сравнение) ──
+// ── историческая таблица моделей на ineligible corpus snapshot ──
 const models = loadModelsCsv();
 
 // ── каналы (одиночные SVM) из validation.json ──
@@ -237,8 +237,8 @@ track("segment", "docs/segment_recall.json", "recall_dissimilar/similar_ceiling/
 const loboStrict = {
   trueLoboTop1: lobo.top1, trueLoboTop2: lobo.top2, trueLoboTop3: lobo.top3, // char-Delta (голый признак) под истинным LOBO — отдельный строгий ПОЛ
   trueLoboAuthors: lobo.corpus.authors, trueLoboBooks: lobo.corpus.books_lobo,
-  styloFullLobo: stylo.acc,          // ПОЛНЫЙ stylo под per-book LOBO (final_comparison.csv) = stylo.acc — канонический headline
-  proxyTop1: rec.headline.accuracy,  // 5-fold GKF stylo (model_recall.json) — прокси/диагностика, не headline
+  styloFullLobo: stylo.acc,          // исторический полный stylo per-book LOBO; не текущая оценка
+  proxyTop1: rec.headline.accuracy,  // исторический 5-fold GKF stylo; не текущая оценка
 };
 track("loboStrict", "docs/lobo_fast.json + final_comparison.csv + model_recall.json", "char-Delta LOBO-пол + полный stylo LOBO + GKF-прокси");
 
@@ -294,8 +294,9 @@ const tomsk = {
 };
 track("tomsk", "docs/tomsk_final.json + tomsk_full.json", "ref_literary + char_S10000 + by_K leak premium");
 
-// ── PD-срез (публикуемый бенчмарк) — docs/validation_pd.json ──
-// PD-headline = РАВНОВЕСНЫЙ ансамбль (веса не зависят от теста -> leak-free), не reliability^6.
+// ── исторический PD-only срез из ineligible snapshot — docs/validation_pd.json ──
+// Веса равновесного ансамбля не зависят от test, но upstream content leakage
+// делает весь сохранённый PD-результат непригодным для текущего claim.
 const pdEqual = valPd.channels["АНСАМБЛЬ (равновес.)"];
 // худший по узнаваемости автор PD-среза — динамически из per_author_recall (имя резолвится по id в data.js/segdata)
 const [worstPdId, worstPdRecall] = Object.entries(valPd.per_author_recall).sort((a, b) => a[1] - b[1])[0];

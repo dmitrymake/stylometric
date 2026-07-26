@@ -9,6 +9,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "gen-site-data.mjs"
 README_GENERATOR = ROOT / "scripts" / "gen-readme.mjs"
 RENDER_SMOKE = ROOT / "site" / "scripts" / "check-render.mjs"
+NO_UNDEF_GATE = ROOT / "site" / "scripts" / "check-no-undef.mjs"
+SITE_INDEX = ROOT / "site" / "index.html"
 HISTORICAL_NOTICE = (
     ROOT / "site" / "src" / "components" / "HistoricalHeadlineNotice.jsx"
 )
@@ -17,10 +19,12 @@ PUBLIC_HEADLINE_SECTIONS = (
     "Method.jsx",
     "Results.jsx",
     "Corpus.jsx",
+    "Problem.jsx",
     "Repro.jsx",
     "Conclusion.jsx",
 )
 PUBLIC_HEADLINE_SUPPORT_FILES = (
+    GENERATOR,
     ROOT / "site" / "src" / "data.js",
     ROOT / "site" / "src" / "corpus.js",
     ROOT / "site" / "src" / "segdata.js",
@@ -51,11 +55,26 @@ def test_site_build_executes_a_real_server_render_smoke():
     package = json.loads((ROOT / "site" / "package.json").read_text(encoding="utf-8"))
     assert package["scripts"]["test:render"] == "node ./scripts/check-render.mjs"
     assert "npm run test:render" in package["scripts"]["build"]
+    assert package["scripts"]["check:undef"] == "node ./scripts/check-no-undef.mjs"
+    assert "npm run check:undef" in package["scripts"]["build"]
+    assert package["devDependencies"]["@babel/parser"] == "7.29.7"
+    assert package["devDependencies"]["@babel/traverse"] == "7.29.7"
 
     source = RENDER_SMOKE.read_text(encoding="utf-8")
+    no_undef_source = NO_UNDEF_GATE.read_text(encoding="utf-8")
+    app_source = (ROOT / "site" / "src" / "App.jsx").read_text(encoding="utf-8")
     assert 'ssrLoadModule("/src/App.jsx")' in source
     assert "renderToStaticMarkup" in source
     assert "Исторический LOBO headline отозван" in source
+    assert "NONDEFAULT_FREE_IDENTIFIER" in source
+    assert "initialChapter: chapter" in source
+    for chapter in ("framework", "sholokhov", "ilfpetrov", "nikolai", "hohol"):
+        assert f"{chapter}: [" in source
+    assert "export const CHAPTER_IDS" in app_source
+    assert "CHAPTER_IDS.includes(initialChapter)" in app_source
+    assert "ReferencedIdentifier" in no_undef_source
+    assert "scope.hasBinding" in no_undef_source
+    assert "NONDEFAULT_FREE_IDENTIFIER" in no_undef_source
 
 
 def test_site_lock_contains_every_declared_optional_platform_package():
@@ -142,11 +161,34 @@ def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
         "публикуемом срезе",
         "точность по авторам (главная метрика)",
         "ансамбль (равновесный, leak-free)",
+        "Протокол · без подсматривания",
+        "Модель не видит проверяемую книгу",
+        "Отложенная книга появляется ровно один раз",
+        "Канонический headline-срез",
+        "HEADLINE = продакшен",
+        "таблица моделей (leak-free сравнение)",
+        "PD-срез (публикуемый бенчмарк)",
+        "честная верхняя граница для утверждения",
+        "Единственная честная единица оценки — книга",
+        "Решение — проверка по целым книгам",
+        "Отложенная книга ничем не помогает угадать саму себя",
+        "Каждая наша цифра отвечает на все три",
+        "lobo.py (leakage-free)",
+        "Главный тест держит ровно одно правило",
+        "не видела проверяемую книгу",
     )
     for phrase in banned:
         assert phrase not in site_source
         assert phrase not in readme
         assert phrase not in generator
+
+
+def test_static_site_metadata_withdraws_headline_and_uses_production_domain():
+    index = SITE_INDEX.read_text(encoding="utf-8")
+    assert "leakage-free LOBO" not in index
+    assert "russkykod.com" not in index
+    assert index.count("https://stylometry.russkiykod.com/") == 2
+    assert index.count("Исторический LOBO headline отозван") == 3
 
 
 def test_readme_is_byte_identical_to_its_fail_closed_generator():
@@ -166,3 +208,5 @@ def test_method_does_not_render_the_withdrawn_macro_f1_interval():
     assert "MF1_CI" not in source
     assert "точность по авторам в диапазоне" not in source
     assert "интервал macro-F1 дополнительно отозван" in source
+    assert "Следующий протокол · content-safe" in source
+    assert "Весь content-компонент отложенной книги" in source

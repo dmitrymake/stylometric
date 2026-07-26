@@ -63,8 +63,9 @@ export const MODELS = D.models
   .map((m) => ({ ...m, ...MODEL_META[m.id] }))
   .sort((a, b) => b.acc - a.acc);
 
-// Худший (наименее значимый, самый большой) McNemar-p среди классических опорных методов
-// (Burrows Delta + Cosine Delta): честная верхняя граница для утверждения «stylo обходит классику».
+// Самый большой исторический McNemar-p среди классических опорных методов
+// (Burrows Delta + Cosine Delta). Сохраняется только для старой арифметики и
+// не подтверждает текущий superiority claim на ineligible corpus snapshot.
 export const WORST_CLASSIC_P = Math.max(
   ...MODELS.filter((m) => m.kind === "classic").map((m) => m.p).filter((p) => p != null),
 );

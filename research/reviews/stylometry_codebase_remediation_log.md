@@ -92,6 +92,10 @@ Initial state:
 | AUD-053 | LOW | fixed / deletion owner-gated | Release-wide search found no internal caller, but direct-module wheel imports and two SHA-bound config references prevent proof of no external use. The compatibility factory still returns the exact uncalibrated scaler+LR pipeline, while every explicit or config-driven calibration request now raises typed `UngroupedCalibrationError`; the ordinary `cv=3` wrapper is removed. The frozen-config comment and physical API cleanup require a future versioned owner decision rather than evidence refreezing. |
 | POST-REVIEW-PUB-001 | HIGH | fixed / historical claims withdrawn | The registered corpus snapshot was already ineligible because of cross-work content leakage, but the site and README still rendered its accuracy, macro-F1 intervals and McNemar result as active claims. Every public headline surface now displays a local withdrawal notice and treats the full and PD-only numbers as historical arithmetic only. Both generators consume the ineligibility registry fail-closed; CI checks byte-identical generated surfaces and provenance, Pages rebuilds when the registry changes, and an SSR/banned-phrase regression protects the rendered contract. No corpus, frozen evidence, governance status, approval or confirmatory gate was changed. |
 | POST-REVIEW-LOCK-001 | LOW | fixed | The npm 12-compatible lock already contained the complete optional-platform path closure, but 66 ordinary/platform package records omitted registry `resolved`/`integrity` metadata. Added the exact registry metadata without changing any of the 117 package paths or resolved versions, and strengthened the lock regression to require both fields on every installed package record. |
+| POST-REVIEW-PROTOCOL-001 | LOW | fixed | The withdrawn Method/Problem/README surfaces still described exact work-id or book-id exclusion as “no peeking” or leakage-free, although the same content remained in train under another work-id. Recast them as requirements for the next content-safe protocol: the entire content component must be absent from fit and appear only at prediction. Static regressions ban the contradictory legacy wording. |
+| POST-REVIEW-COMMENT-001 | LOW | fixed | Normalized stale generator/data comments that called the ineligible full/PD snapshot canonical, production, publishable or leakage-free. They now describe historical arithmetic only; no generated metric value or frozen evidence changed. |
+| POST-REVIEW-META-001 | HIGH | fixed | Static SEO/Open Graph/Twitter metadata bypassed the React withdrawal notice and still advertised “leakage-free LOBO” and confidence intervals as active claims. Replaced all three descriptions with an explicit withdrawal, added a static metadata regression, and corrected the canonical/Open Graph domain typo from `russkykod.com` to the deployed `russkiykod.com`. |
+| POST-REVIEW-RENDER-001 | MEDIUM | fixed | The SSR smoke rendered only the default framework tab, so an undefined identifier in any of the four click-only chapters could pass CI and fail in production. `App` now accepts a validated test-only initial chapter while production defaults remain unchanged; the smoke renders all five registered chapters with chapter-specific markers and exact registry coverage. A Babel scope gate scans every JS/JSX source, including callbacks/effects that SSR cannot execute, and proves sensitivity with an undefined-identifier negative fixture. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -277,3 +281,25 @@ not change the normative ledger or frozen evidence.
   `resolved`/`integrity` pairs. The regression now rejects any incomplete
   installed package record. A clean `npm ci` followed by the production
   build/full-app SSR passes with the enriched lock.
+- 2026-07-26: Final independent science/site review found two LOW wording
+  contradictions after the public withdrawal: Method still described work-id
+  exclusion as “no peeking”, and internal generator/data comments still called
+  the ineligible full/PD snapshot canonical, production or leakage-free.
+  Reframed the visible block as a requirement for the next content-component
+  protocol, normalized the comments to historical-only status, and extended the
+  static public-contract regression. No metric, corpus or frozen evidence value
+  was changed.
+- 2026-07-26: The same end-stage public-surface audit found a release-blocking
+  metadata gap outside React rendering: search/social descriptions still
+  advertised the withdrawn LOBO as leakage-free and the canonical/OG URL
+  misspelled the production domain. Replaced every static description with the
+  withdrawal status, corrected the URL to `stylometry.russkiykod.com`, and
+  added an exact metadata gate so SSR-only checks cannot miss this class again.
+- 2026-07-26: Strengthened the runtime gate after an adversarial check proved
+  that the original full-app SSR exercised only the default framework tab: an
+  undefined identifier inserted into a click-only chapter escaped detection.
+  Added validated explicit chapter selection for tests, exact five-chapter
+  registry coverage and chapter-specific render markers. Added a direct,
+  version-pinned Babel scope scan over every JS/JSX source so event/effect-only
+  undefined identifiers fail too; its negative fixture proves the gate detects
+  the original failure class. Production `<App />` initialization is unchanged.

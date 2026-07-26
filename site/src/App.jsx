@@ -23,12 +23,18 @@ const CHAPTERS = [
   ["hohol", "Гоголь"],
 ];
 
-const CH_IDS = CHAPTERS.map(([id]) => id);
+export const CHAPTER_IDS = Object.freeze(CHAPTERS.map(([id]) => id));
 
-export default function App() {
+export default function App({ initialChapter } = {}) {
   const [chapter, setChapter] = useState(() => {
+    if (initialChapter !== undefined) {
+      if (!CHAPTER_IDS.includes(initialChapter)) {
+        throw new Error(`unknown initial chapter: ${initialChapter}`);
+      }
+      return initialChapter;
+    }
     const h = typeof window !== "undefined" ? window.location.hash.replace("#", "") : "";
-    return CH_IDS.includes(h) ? h : "framework";
+    return CHAPTER_IDS.includes(h) ? h : "framework";
   });
   const ref = useReveal();
   const tabRef = useRef(null);
