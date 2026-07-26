@@ -19,8 +19,9 @@
 Требует: опубликованный `stylo split` fragment snapshot (см. README: fetch → clean → split).
 """
 from __future__ import annotations
-import sys, time, math, argparse, hashlib, pathlib
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+import sys, time, math, argparse, hashlib, pathlib, platform, tempfile
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.domain.prediction_contract import (  # noqa: E402
     validate_class_indices,
@@ -40,9 +41,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import f1_score
 import warnings; warnings.filterwarnings("ignore")
-from stylo.config import load_config
+from stylo.config import load_config, with_overrides
 from stylo.dataset import resolve_dataset, resolve_fragment_roots
 from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
+from stylo.eval.paired_audit.run_plan import verify_installed_environment
 from stylo.features.reps import make_rep_cache
 from stylo.pipeline.train import _attestation
 from stylo.corpus_tools.fetch_classics import PUBLIC_DOMAIN_CLEAR  # единый источник истины по юр-чистому PD (минус реабилитационные продления)
@@ -54,7 +56,228 @@ MIN_BOOKS = 2      # мин. книг у автора (иначе LOBO/GroupKFol
 # ilf-petrov — соавторский дуэт; nikolas2 — дневники Николая II (не проза, не PD);
 # sholohov разбирается отдельным disputed-authorship кейсом.
 EXCLUDE = {"ilf-petrov", "nikolas2", "sholohov"}
-DOCS = pathlib.Path(__file__).resolve().parents[1] / "docs"
+DOCS = ROOT / "docs"
+
+_BENCHMARK_CACHE_AUTHORITY = {
+    "schema_version": "stylo.channel-benchmark-cache-authority.v1",
+    "mode": "fresh_ephemeral_recompute",
+    "persistent_cache_reads_allowed": False,
+    "representation_cache": "unique_empty_temporary_root",
+    "doc_cache": "unique_empty_temporary_root",
+    "dsp_cache": "run_local_empty_mapping",
+    "process_memory_precondition": (
+        "representation_doc_and_nlp_caches_empty"
+    ),
+}
+
+
+def _validated_nlp_identity(cfg, raw_identity):
+    """Validate and normalise the exact pipeline that produced all NLP features."""
+
+    from importlib.metadata import version
+
+    required = {
+        "requested_model",
+        "resolved_model",
+        "fallback_used",
+        "package_version",
+        "package_record_sha256",
+        "spacy_version",
+        "disabled_pipes",
+        "active_pipes",
+        "max_length",
+        "identity_sha256",
+    }
+    if type(raw_identity) is not dict or set(raw_identity) != required:
+        raise RuntimeError("benchmark spaCy identity has an unexpected schema")
+    for field in (
+        "requested_model",
+        "resolved_model",
+        "package_version",
+        "package_record_sha256",
+        "spacy_version",
+        "identity_sha256",
+    ):
+        if type(raw_identity[field]) is not str or not raw_identity[field]:
+            raise RuntimeError(f"benchmark spaCy identity {field} is invalid")
+    if type(raw_identity["fallback_used"]) is not bool:
+        raise RuntimeError("benchmark spaCy fallback flag is invalid")
+    if raw_identity["fallback_used"]:
+        raise RuntimeError("benchmark refuses a fallback spaCy model")
+    configured_model = cfg.get_path("language.spacy_model")
+    configured_version = str(cfg.get_path("language.spacy_model_version"))
+    if (
+        raw_identity["requested_model"] != configured_model
+        or raw_identity["resolved_model"] != configured_model
+        or raw_identity["package_version"] != configured_version
+    ):
+        raise RuntimeError(
+            "resolved spaCy model/version does not match the benchmark config"
+        )
+    if raw_identity["spacy_version"] != version("spacy"):
+        raise RuntimeError("resolved spaCy runtime version drifted")
+    for field in ("package_record_sha256", "identity_sha256"):
+        value = raw_identity[field]
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise RuntimeError(f"benchmark spaCy identity {field} is not SHA-256")
+    if (
+        type(raw_identity["max_length"]) is not int
+        or raw_identity["max_length"] <= 0
+    ):
+        raise RuntimeError("benchmark spaCy max_length is invalid")
+    for field in ("disabled_pipes", "active_pipes"):
+        value = raw_identity[field]
+        if not isinstance(value, (list, tuple)) or any(
+            type(item) is not str or not item for item in value
+        ):
+            raise RuntimeError(f"benchmark spaCy identity {field} is invalid")
+        if len(set(value)) != len(value):
+            raise RuntimeError(f"benchmark spaCy identity {field} has duplicates")
+
+    normalised = {
+        **raw_identity,
+        "disabled_pipes": list(raw_identity["disabled_pipes"]),
+        "active_pipes": list(raw_identity["active_pipes"]),
+    }
+    identity_body = {
+        key: normalised[key]
+        for key in (
+            "requested_model",
+            "resolved_model",
+            "fallback_used",
+            "package_version",
+            "package_record_sha256",
+            "spacy_version",
+            "disabled_pipes",
+            "active_pipes",
+            "max_length",
+        )
+    }
+    expected = hashlib.sha256(
+        dumps_strict(
+            identity_body,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    if normalised["identity_sha256"] != expected:
+        raise RuntimeError("benchmark spaCy identity digest does not match its fields")
+    return normalised
+
+
+def snapshot_benchmark_nlp_identity(cfg, nlp):
+    """Recompute the installed model/pipeline identity from the live object."""
+
+    from stylo.nlp import _build_nlp_identity
+
+    requested = cfg.get_path("language.spacy_model")
+    return _build_nlp_identity(
+        requested=requested,
+        resolved=requested,
+        nlp=nlp,
+        max_length=nlp.max_length,
+    ).to_dict()
+
+
+def _validated_environment_contract(root):
+    contract = verify_installed_environment(root)
+    required = {
+        "schema_version",
+        "python_implementation",
+        "python_major_minor",
+        "distributions",
+        "environment_lock_identity_sha256",
+        "contract_sha256",
+    }
+    if type(contract) is not dict or set(contract) != required:
+        raise RuntimeError("benchmark installed-environment contract is incomplete")
+    body = {key: contract[key] for key in required - {"contract_sha256"}}
+    expected = hashlib.sha256(
+        dumps_strict(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    if contract["contract_sha256"] != expected:
+        raise RuntimeError("benchmark installed-environment contract digest is invalid")
+    return contract
+
+
+def benchmark_attestation(cfg, *, nlp_identity, root=ROOT):
+    """Bind a candidate to clean source, exact environment, NLP and cache policy."""
+
+    from importlib.metadata import version
+
+    root = pathlib.Path(root).resolve()
+    attestation = _attestation(cfg)
+    required = {
+        "git_commit",
+        "git_dirty",
+        "code_tree_sha256",
+        "config_id",
+    }
+    if set(attestation) != required or any(
+        attestation[field] is None
+        for field in ("git_commit", "code_tree_sha256", "config_id")
+    ):
+        raise RuntimeError("benchmark source attestation is incomplete")
+    if attestation["git_dirty"] is not False:
+        raise RuntimeError(
+            "benchmark candidate publication requires a clean Git worktree"
+        )
+
+    bound_files = {
+        "runner_sha256": root / "scripts" / "run_benchmark.py",
+        "requirements_lock_sha256": root / "requirements.lock",
+        "pyproject_sha256": root / "pyproject.toml",
+    }
+    for field, path in bound_files.items():
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError(f"benchmark attestation input is missing/unsafe: {path}")
+        attestation[field] = hashlib.sha256(path.read_bytes()).hexdigest()
+    attestation["runtime"] = {
+        "python": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "numpy": version("numpy"),
+        "scipy": version("scipy"),
+        "scikit_learn": version("scikit-learn"),
+        "spacy": version("spacy"),
+    }
+    attestation["installed_environment"] = _validated_environment_contract(root)
+    attestation["nlp_model_identity"] = _validated_nlp_identity(
+        cfg,
+        nlp_identity,
+    )
+    attestation["cache_authority"] = dict(_BENCHMARK_CACHE_AUTHORITY)
+    return attestation
+
+
+def isolated_benchmark_config(cfg, workspace):
+    """Route all disk-backed feature caches to one verified empty temp root."""
+
+    from stylo import nlp as nlp_module
+    from stylo.features import reps as reps_module
+
+    workspace = pathlib.Path(workspace)
+    if workspace.is_symlink() or not workspace.is_dir():
+        raise RuntimeError("benchmark cache workspace is missing or unsafe")
+    workspace = workspace.resolve(strict=True)
+    if any(workspace.iterdir()):
+        raise RuntimeError("benchmark cache workspace must start empty")
+    if (
+        reps_module._MEM_REPS
+        or nlp_module._MEM_DOCS
+        or nlp_module._NLP_CACHE
+        or nlp_module._NLP_IDENTITIES
+    ):
+        raise RuntimeError(
+            "benchmark requires empty process-local representation/Doc/NLP caches"
+        )
+    return with_overrides(
+        cfg,
+        {
+            "paths.data": str(workspace / "representation"),
+            "paths.doc_cache": str(workspace / "doc"),
+        },
+    )
+
 
 def log(*a): print(*a, flush=True)
 
@@ -201,19 +424,24 @@ SUF = sorted(["ость","ение","ание","ние","тель","ник","н�
               "арь","ач","ёж","льник","очк","ушк","ишк","ёнок","онок","знь","оват","еват","еньк","оньк","аст",
               "ив","лив","чив","еск","чат","альн","ова","ыва","ива","ничать","ировать","ствова","ани","ени"],
              key=len, reverse=True)
-_DSP_NLP = [None]
-def dsp_matrix(texts):
-    import spacy, hashlib
-    from stylo.jsonio import dump_strict, load_strict
-    cf = pathlib.Path(__file__).resolve().parents[1] / "data" / "dsp_bench_cache.json"
-    cache = load_strict(cf) if cf.exists() else {}
+
+
+def dsp_matrix(texts, *, nlp, nlp_identity_sha256, cache):
+    """Build DSP features through an explicitly run-local, identity-scoped cache."""
+
     if type(cache) is not dict:
-        raise ValueError("DSP cache must be a strict JSON object")
+        raise ValueError("DSP cache must be an exact run-local dict")
+    if (
+        type(nlp_identity_sha256) is not str
+        or len(nlp_identity_sha256) != 64
+        or any(ch not in "0123456789abcdef" for ch in nlp_identity_sha256)
+    ):
+        raise ValueError("DSP spaCy identity must be an exact SHA-256")
     expected_width = len(SUF) + 2
     for key, values in cache.items():
         if (
             type(key) is not str
-            or len(key) != 40
+            or len(key) != 64
             or any(ch not in "0123456789abcdef" for ch in key)
             or type(values) is not list
             or len(values) != expected_width
@@ -225,12 +453,27 @@ def dsp_matrix(texts):
             )
         ):
             raise ValueError("DSP cache contains a malformed entry")
-    h = lambda s: hashlib.sha1(s.encode()).hexdigest()
-    todo = [t for t in texts if h(t) not in cache]
+    def cache_key(text):
+        return hashlib.sha256(
+            nlp_identity_sha256.encode("ascii")
+            + b"\0"
+            + text.encode("utf-8")
+        ).hexdigest()
+
+    todo = [
+        (cache_key(text), text)
+        for text in texts
+        if cache_key(text) not in cache
+    ]
     if todo:
-        if _DSP_NLP[0] is None:
-            _DSP_NLP[0] = spacy.load("ru_core_news_lg", disable=["parser", "ner"])
-        for doc, txt in zip(_DSP_NLP[0].pipe(todo, batch_size=64), todo):
+        todo_texts = [text for _key, text in todo]
+        for doc, (key, txt) in zip(
+            nlp.pipe(todo_texts, batch_size=64),
+            todo,
+            strict=True,
+        ):
+            if doc.text != txt:
+                raise RuntimeError("DSP spaCy pipeline changed input text")
             types = set(tk.lemma_.lower() for tk in doc if tk.pos_ in {"NOUN","VERB","ADJ"} and tk.lemma_.isalpha() and len(tk.lemma_) > 3)
             prof = {s: 0 for s in SUF}; m = 0
             for l in types:
@@ -239,9 +482,14 @@ def dsp_matrix(texts):
                         prof[s] += 1; m += 1; break
             N = len(types) + 1; c = np.array([prof[s] for s in SUF], float)
             pp = c / (c.sum() + 1); ent = -sum(x*math.log2(x) for x in pp if x > 0) / math.log2(len(SUF))
-            cache[h(txt)] = np.concatenate([c / N, [m / N, ent]]).tolist()
-        dump_strict(cache, cf, sort_keys=True)
-    return np.asarray([cache[h(t)] for t in texts], dtype=np.float64)
+            cache[key] = np.concatenate([c / N, [m / N, ent]]).tolist()
+    matrix = np.asarray(
+        [cache[cache_key(text)] for text in texts],
+        dtype=np.float64,
+    )
+    if matrix.shape != (len(texts), expected_width) or not np.isfinite(matrix).all():
+        raise RuntimeError("DSP matrix is incomplete or non-finite")
+    return matrix
 
 def main():
     ap = argparse.ArgumentParser()
@@ -285,7 +533,18 @@ def main():
         parent,
         pd_only=pd_only,
     )
-    attestation_before = _attestation(cfg)
+    cache_workspace = tempfile.TemporaryDirectory(
+        prefix="stylo-benchmark-cache-",
+    )
+    cache_root = pathlib.Path(cache_workspace.name)
+    runtime_cfg = isolated_benchmark_config(cfg, cache_root)
+    rep_cache = make_rep_cache(runtime_cfg)
+    benchmark_nlp = rep_cache.doc_cache.nlp
+    nlp_identity = snapshot_benchmark_nlp_identity(cfg, benchmark_nlp)
+    attestation_before = benchmark_attestation(
+        cfg,
+        nlp_identity=nlp_identity,
+    )
     A = list(context.authors)
     aidx = {author: index for index, author in enumerate(A)}
     items = _benchmark_items(context)
@@ -311,19 +570,36 @@ def main():
         book_chunks.append(list(range(off, off + len(ch)))); off += len(ch)
     log(f"корпус: авторов={len(A)} книг={len(items)} чанков={len(texts)}")
 
-    t = time.time(); make_rep_cache(cfg).warm(texts, n_process=cfg.get_path("language.parse_n_process", 4))
+    t = time.time(); rep_cache.warm(texts, n_process=cfg.get_path("language.parse_n_process", 4))
     log(f"rep-кэш прогрет {time.time()-t:.0f}s")
 
     splits = list(StratifiedGroupKFold(5, shuffle=True, random_state=SEED).split(np.zeros(len(ychunk)), ychunk, gchunk))
 
     # ── каналы: единый источник — stylo.models.channels (fit ТОЛЬКО на train);
-    #    DSP остаётся локальным (тяжёлый spaCy-lg кэш) ──
+    #    DSP остаётся локальным и использует только run-local memory ──
     from stylo.models.channels import make_channels
+    dsp_cache = {}
+    dsp_nlp = benchmark_nlp
+    dsp_nlp_identity_sha256 = attestation_before["nlp_model_identity"][
+        "identity_sha256"
+    ]
+
     def ch_dsp(tr, te):
-        Etr = dsp_matrix(tr); Ete = dsp_matrix(te)
+        Etr = dsp_matrix(
+            tr,
+            nlp=dsp_nlp,
+            nlp_identity_sha256=dsp_nlp_identity_sha256,
+            cache=dsp_cache,
+        )
+        Ete = dsp_matrix(
+            te,
+            nlp=dsp_nlp,
+            nlp_identity_sha256=dsp_nlp_identity_sha256,
+            cache=dsp_cache,
+        )
         sc = StandardScaler().fit(Etr); return sc.transform(Etr), sc.transform(Ete)
 
-    CHANNELS = make_channels(cfg)
+    CHANNELS = make_channels(runtime_cfg)
     if not args.fast:
         CHANNELS["DSP (suffixes)"] = ch_dsp
 
@@ -429,7 +705,13 @@ def main():
     log(f"топ-путаниц: {[f'{a}->{b}x{c}' for (a,b),c in conf.most_common(8)]}")
 
     hb = res[reference_key]
-    attestation_after = _attestation(cfg)
+    cache_workspace.cleanup()
+    if cache_root.exists():
+        raise RuntimeError("ephemeral benchmark cache cleanup failed")
+    attestation_after = benchmark_attestation(
+        cfg,
+        nlp_identity=snapshot_benchmark_nlp_identity(cfg, benchmark_nlp),
+    )
     if attestation_after != attestation_before:
         raise RuntimeError(
             "code/config/git attestation drifted during benchmark; "

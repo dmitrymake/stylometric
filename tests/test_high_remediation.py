@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import concurrent.futures
+import dataclasses
 import hashlib
 import json
 import pathlib
@@ -352,21 +353,27 @@ def _cross_work_duplicate_dataset():
 
 
 def test_all_public_cv_entrypoints_reject_content_overlap_before_workers(
+    tmp_path,
     monkeypatch,
 ):
     from stylo.eval import dispatch, final, groupkfold, lobo, provenance, sweep
     from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
 
-    dataset = _cross_work_duplicate_dataset()
+    duplicate = "один и тот же зарегистрированный фрагмент " * 20
+    root = tmp_path / "frags"
+    for author in ("alpha", "beta"):
+        work = root / author / "work"
+        work.mkdir(parents=True)
+        for index in range(5):
+            (work / f"{index}.txt").write_text(
+                duplicate,
+                encoding="utf-8",
+            )
+    dataset = load_dataset(root)
     monkeypatch.setattr(
         dispatch,
         "frozen_run_contract",
-        lambda _cfg: object(),
-    )
-    monkeypatch.setattr(
-        provenance,
-        "verify_dataset_against_disk",
-        lambda _cfg, _dataset, weighting, _contract: weighting,
+        lambda _cfg: provenance.RunContract.build(root, (), "unknown"),
     )
     reached = []
 
@@ -469,6 +476,61 @@ def test_raw_cv_kernels_reject_bare_dataset_before_factory_or_cache():
             call()
 
 
+def test_production_scientific_kernels_reject_synthetic_authority(tmp_path):
+    from stylo.eval import (
+        groupkfold,
+        lobo,
+        stylo_lobo_validation,
+        sweep,
+        work_balanced_ablation_screen,
+    )
+    from stylo.eval.provenance import (
+        ProvenanceError,
+        prepare_synthetic_scientific_evaluation,
+    )
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    dataset = Dataset(
+        texts=np.array(["alpha unique", "beta unique"], dtype=object),
+        y=np.array([0, 1], dtype=int),
+        groups=np.array(["alpha/work", "beta/work"], dtype=object),
+        authors=["alpha", "beta"],
+    )
+    context = prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    calls = (
+        lambda: lobo._lobo_run(
+            object(), context, "stylo", None, 0, 1
+        ),
+        lambda: groupkfold._gkf_run(
+            object(), context, "stylo", None, 2
+        ),
+        lambda: groupkfold._gkf_run_panel(
+            object(), context, "stylo", None, {}
+        ),
+        lambda: groupkfold.evaluate_frozen_panel_factory(
+            object(), context, lambda: object(), {}
+        ),
+        lambda: sweep._evaluate_case(
+            object(),
+            context,
+            sweep.EvalCase("synthetic"),
+            weighting=CHUNK_WEIGHTED_LEGACY,
+        ),
+        lambda: work_balanced_ablation_screen.run_ablation_screen(
+            object(), context, {}, tmp_path / "ablation.json"
+        ),
+        lambda: stylo_lobo_validation.run_true_lobo(
+            object(), context, {}, {}, output_path=tmp_path / "lobo.json"
+        ),
+    )
+    for call in calls:
+        with pytest.raises(ProvenanceError, match="disk-verified"):
+            call()
+
+
 def test_scientific_context_remains_sealed_across_process_serialization():
     import pickle
 
@@ -497,6 +559,250 @@ def test_scientific_context_remains_sealed_across_process_serialization():
     assert restored.isolation_receipt_sha256 == (
         context.isolation_receipt_sha256
     )
+
+
+def test_scientific_context_cannot_be_cloned_or_changed_after_authorization():
+    from stylo.eval.provenance import (
+        ProvenanceError,
+        prepare_synthetic_scientific_evaluation,
+        require_scientific_evaluation_context,
+    )
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    dataset = Dataset(
+        texts=np.array(["alpha unique", "beta unique"], dtype=object),
+        y=np.array([0, 1], dtype=int),
+        groups=np.array(["alpha/work", "beta/work"], dtype=object),
+        authors=["alpha", "beta"],
+    )
+    context = prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    duplicate = np.array(
+        ["cross work duplicate", "cross work duplicate"],
+        dtype=object,
+    )
+    duplicate.setflags(write=False)
+    with pytest.raises(TypeError):
+        dataclasses.replace(context, texts=duplicate)
+
+    object.__setattr__(context, "texts", duplicate)
+    with pytest.raises(ProvenanceError, match="receipt|changed"):
+        require_scientific_evaluation_context(context)
+
+
+def test_disk_authority_cannot_be_minted_by_freeze_or_pickle(
+    tmp_path,
+):
+    import pickle
+
+    from stylo.eval import provenance
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    root = tmp_path / "frags"
+    _legacy_corpus(root)
+    dataset = load_dataset(root)
+    with pytest.raises(
+        provenance.ProvenanceError,
+        match="registered.*verify_dataset_against_disk",
+    ):
+        provenance._freeze_scientific_context(
+            dataset,
+            CHUNK_WEIGHTED_LEGACY,
+            disk_verified=True,
+        )
+
+    transport = provenance.prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    restored = pickle.loads(pickle.dumps(transport))
+    assert restored.disk_verified is False
+    with pytest.raises(provenance.ProvenanceError, match="disk-verified"):
+        provenance.require_disk_verified_scientific_context(restored)
+
+
+def test_context_registry_value_binds_every_provenance_field(tmp_path):
+    from stylo.eval import provenance
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    root = tmp_path / "frags"
+    _legacy_corpus(root)
+    dataset = load_dataset(root)
+    context = provenance.prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    object.__setattr__(
+        context.provenance,
+        "frags_root",
+        "/mutated-after-authorization",
+    )
+    with pytest.raises(provenance.ProvenanceError, match="changed"):
+        provenance.require_scientific_evaluation_context(context)
+
+
+def test_context_restore_rechecks_content_instead_of_trusting_serialized_seal():
+    from stylo.eval import provenance
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    duplicate = "одинаковый межкнижный фрагмент " * 20
+    texts = np.array([duplicate, duplicate], dtype=object)
+    y = np.array([0, 1], dtype=int)
+    groups = np.array(["alpha/work", "beta/work"], dtype=object)
+    authors = ("alpha", "beta")
+    receipt = provenance._scientific_rows_receipt(
+        texts,
+        y,
+        groups,
+        authors,
+    )
+    with pytest.raises(
+        ContentIsolationError,
+        match="exact_cross_work_chunk",
+    ):
+        provenance._restore_scientific_evaluation_context(
+            texts,
+            y,
+            groups,
+            authors,
+            None,
+            CHUNK_WEIGHTED_LEGACY,
+            receipt,
+            receipt,
+            provenance.SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
+        )
+
+
+def test_derived_scientific_context_requires_true_parent_subsequence(tmp_path):
+    from stylo.domain.corpus_identity import RowIdentity
+    from stylo.eval import provenance
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    root = tmp_path / "frags"
+    _legacy_corpus(root)
+    parent = load_dataset(root)
+    parent_context = provenance.prepare_synthetic_scientific_evaluation(
+        parent,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    legitimate = provenance.derive_dataset(parent, [0, 1, 5, 6])
+    accepted = provenance.prepare_synthetic_derived_scientific_evaluation(
+        parent_context,
+        legitimate,
+    )
+    assert accepted.rows_digest == legitimate.provenance.rows_digest
+
+    text = "fabricated but internally consistent child row"
+    group = "gamma/fabricated"
+    row_ids = (
+        RowIdentity(
+            group=group,
+            ordinal=0,
+            text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        ),
+    )
+    parent_prov = parent.provenance
+    fake_prov = provenance.build_provenance(
+        loader_kind=parent_prov.loader_kind,
+        texts=[text],
+        y=[0],
+        groups=[group],
+        authors=["gamma"],
+        row_ids=row_ids,
+        frags_root=parent_prov.frags_root,
+        corpus_policy=parent_prov.corpus_policy,
+        chunker_config_hash=parent_prov.chunker_config_hash,
+        manifest_hash=parent_prov.manifest_hash,
+        config_id=parent_prov.config_id,
+        parent_rows_digest=parent_prov.rows_digest,
+        selection_manifest_digest=provenance._selection_digest(row_ids),
+    )
+    fabricated = Dataset(
+        texts=np.array([text], dtype=object),
+        y=np.array([0], dtype=int),
+        groups=np.array([group], dtype=object),
+        authors=["gamma"],
+    )
+    fabricated.provenance = fake_prov
+    with pytest.raises(
+        provenance.ProvenanceError,
+        match="ordered subsequence",
+    ):
+        provenance.prepare_synthetic_derived_scientific_evaluation(
+            parent_context,
+            fabricated,
+        )
+
+
+def test_disk_verified_parent_authorizes_only_its_validated_subsequence(
+    tmp_path,
+    monkeypatch,
+):
+    from stylo.eval import dispatch, provenance
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    root = tmp_path / "frags"
+    _legacy_corpus(root)
+    parent = load_dataset(root)
+    monkeypatch.setattr(
+        dispatch,
+        "frozen_run_contract",
+        lambda _cfg: provenance.RunContract.build(root, (), "unknown"),
+    )
+    parent_context = provenance.prepare_scientific_evaluation(
+        object(),
+        parent,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    child = provenance.derive_dataset(parent, [0, 1, 5, 6])
+    child_context = provenance.prepare_derived_scientific_evaluation(
+        parent_context,
+        child,
+    )
+    assert child_context.disk_verified is True
+    assert (
+        provenance.require_disk_verified_scientific_context(child_context)
+        is child_context
+    )
+
+
+def test_serialized_production_context_must_reverify_against_disk(
+    tmp_path,
+    monkeypatch,
+):
+    import pickle
+
+    from stylo.eval import dispatch, provenance
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    class _Cfg:
+        def to_dict(self):
+            return {"paths": {"data": "test"}}
+
+    root = tmp_path / "frags"
+    _legacy_corpus(root)
+    dataset = load_dataset(root)
+    monkeypatch.setattr(
+        dispatch,
+        "frozen_run_contract",
+        lambda _cfg: provenance.RunContract.build(root, (), "unknown"),
+    )
+    cfg = _Cfg()
+    context = provenance.prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    transport = pickle.loads(pickle.dumps(context))
+    assert transport.disk_verified is False
+    restored = provenance.reverify_scientific_context_from_disk(
+        cfg,
+        transport,
+    )
+    assert restored.disk_verified is True
+    assert restored.rows_digest == context.rows_digest
 
 
 def test_raw_cv_kernel_callers_are_exactly_the_guarded_orchestrators():
@@ -535,6 +841,44 @@ def test_raw_cv_kernel_callers_are_exactly_the_guarded_orchestrators():
                 if name in observed:
                     observed[name].add(path.relative_to(root).as_posix())
     assert observed == expected
+
+
+def test_raw_cv_kernel_symbols_cannot_hide_behind_aliases_or_dynamic_lookup():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    allowed = {
+        "_lobo_run": {
+            "src/stylo/eval/final.py",
+            "src/stylo/eval/lobo.py",
+            "src/stylo/eval/sweep.py",
+        },
+        "_gkf_run": {
+            "src/stylo/eval/groupkfold.py",
+            "src/stylo/eval/sweep.py",
+        },
+        "_gkf_run_panel": {"src/stylo/eval/groupkfold.py"},
+        "_evaluate_frozen_panel_factory_validated": {
+            "src/stylo/eval/groupkfold.py",
+        },
+    }
+    observed = {name: set() for name in allowed}
+    for source_root in ("src", "scripts"):
+        for path in (root / source_root).rglob("*.py"):
+            relative = path.relative_to(root).as_posix()
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                references = []
+                if isinstance(node, ast.Name):
+                    references.append(node.id)
+                elif isinstance(node, ast.Attribute):
+                    references.append(node.attr)
+                elif isinstance(node, ast.alias):
+                    references.append(node.name.rsplit(".", 1)[-1])
+                elif isinstance(node, ast.Constant) and type(node.value) is str:
+                    references.append(node.value)
+                for name in references:
+                    if name in observed:
+                        observed[name].add(relative)
+    assert observed == allowed
 
 
 def test_run_all_checks_content_isolation_before_cache_and_training():
@@ -660,6 +1004,270 @@ def test_benchmark_candidate_writer_preserves_historical_site_inputs(
     assert candidate["claim_status"] == "exploratory_internal"
     assert provenance["public_headline_authorized"] is False
     assert provenance["supersedes"] is None
+
+
+def test_benchmark_attestation_binds_runner_lock_runtime_and_rejects_dirty(
+    tmp_path,
+    monkeypatch,
+):
+    from importlib.metadata import version
+
+    namespace = runpy.run_path(
+        str(
+            pathlib.Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "run_benchmark.py"
+        ),
+        run_name="stylo_benchmark_attestation_test",
+    )
+    root = tmp_path / "checkout"
+    runner = root / "scripts" / "run_benchmark.py"
+    runner.parent.mkdir(parents=True)
+    runner.write_text("RUNNER = 1\n", encoding="utf-8")
+    (root / "requirements.lock").write_text(
+        "locked-dependencies\n",
+        encoding="utf-8",
+    )
+    (root / "pyproject.toml").write_text(
+        "[project]\nname='test'\n",
+        encoding="utf-8",
+    )
+    base = {
+        "git_commit": "a" * 40,
+        "git_dirty": False,
+        "code_tree_sha256": "b" * 64,
+        "config_id": "c" * 64,
+    }
+    cfg = load_config()
+    identity_body = {
+        "requested_model": cfg.get_path("language.spacy_model"),
+        "resolved_model": cfg.get_path("language.spacy_model"),
+        "fallback_used": False,
+        "package_version": str(
+            cfg.get_path("language.spacy_model_version")
+        ),
+        "package_record_sha256": "d" * 64,
+        "spacy_version": version("spacy"),
+        "disabled_pipes": ["ner"],
+        "active_pipes": ["tok2vec", "morphologizer", "parser", "lemmatizer"],
+        "max_length": 5_000_000,
+    }
+    nlp_identity = {
+        **identity_body,
+        "identity_sha256": hashlib.sha256(
+            dumps_strict(
+                identity_body,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
+    }
+    environment_body = {
+        "schema_version": "stylo.canonical-environment.v1",
+        "python_implementation": "CPython",
+        "python_major_minor": "3.11",
+        "distributions": {"spacy": version("spacy")},
+        "environment_lock_identity_sha256": "e" * 64,
+    }
+    environment = {
+        **environment_body,
+        "contract_sha256": hashlib.sha256(
+            dumps_strict(
+                environment_body,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
+    }
+    helper = namespace["benchmark_attestation"]
+    verified_roots = []
+    monkeypatch.setitem(
+        helper.__globals__,
+        "_attestation",
+        lambda _cfg: dict(base),
+    )
+    monkeypatch.setitem(
+        helper.__globals__,
+        "verify_installed_environment",
+        lambda observed_root: (
+            verified_roots.append(pathlib.Path(observed_root)),
+            dict(environment),
+        )[1],
+    )
+    first = helper(cfg, nlp_identity=nlp_identity, root=root)
+    assert set(first["runtime"]) == {
+        "python",
+        "python_implementation",
+        "numpy",
+        "scipy",
+        "scikit_learn",
+        "spacy",
+    }
+    assert first["installed_environment"] == environment
+    assert first["nlp_model_identity"] == nlp_identity
+    assert first["cache_authority"] == {
+        "schema_version": "stylo.channel-benchmark-cache-authority.v1",
+        "mode": "fresh_ephemeral_recompute",
+        "persistent_cache_reads_allowed": False,
+        "representation_cache": "unique_empty_temporary_root",
+        "doc_cache": "unique_empty_temporary_root",
+        "dsp_cache": "run_local_empty_mapping",
+        "process_memory_precondition": (
+            "representation_doc_and_nlp_caches_empty"
+        ),
+    }
+    assert verified_roots == [root.resolve()]
+    runner.write_text("RUNNER = 2\n", encoding="utf-8")
+    second = helper(cfg, nlp_identity=nlp_identity, root=root)
+    assert second["runner_sha256"] != first["runner_sha256"]
+    assert (
+        second["requirements_lock_sha256"]
+        == first["requirements_lock_sha256"]
+    )
+
+    monkeypatch.setitem(
+        helper.__globals__,
+        "_attestation",
+        lambda _cfg: {**base, "git_dirty": True},
+    )
+    with pytest.raises(RuntimeError, match="clean Git worktree"):
+        helper(cfg, nlp_identity=nlp_identity, root=root)
+
+    monkeypatch.setitem(
+        helper.__globals__,
+        "_attestation",
+        lambda _cfg: dict(base),
+    )
+    changed_identity = {
+        **nlp_identity,
+        "package_record_sha256": "f" * 64,
+    }
+    with pytest.raises(RuntimeError, match="digest does not match"):
+        helper(cfg, nlp_identity=changed_identity, root=root)
+
+    bad_environment = {
+        **environment,
+        "python_major_minor": "0.0",
+    }
+    monkeypatch.setitem(
+        helper.__globals__,
+        "verify_installed_environment",
+        lambda _root: bad_environment,
+    )
+    with pytest.raises(RuntimeError, match="contract digest is invalid"):
+        helper(cfg, nlp_identity=nlp_identity, root=root)
+
+
+def test_benchmark_uses_only_empty_ephemeral_disk_caches(
+    tmp_path,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+    from stylo.features import reps as reps_module
+
+    namespace = runpy.run_path(
+        str(
+            pathlib.Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "run_benchmark.py"
+        ),
+        run_name="stylo_benchmark_cache_authority_test",
+    )
+    persistent = tmp_path / "persistent"
+    persistent.mkdir()
+    poison = persistent / "dsp_bench_cache.json"
+    poison.write_text('{"forged": [1]}', encoding="utf-8")
+    cfg = with_overrides(
+        load_config(),
+        {
+            "paths.data": str(persistent),
+            "paths.doc_cache": str(persistent / "doc"),
+        },
+    )
+    workspace = tmp_path / "ephemeral"
+    workspace.mkdir()
+    monkeypatch.setattr(reps_module, "_MEM_REPS", {})
+    monkeypatch.setattr(nlp_module, "_MEM_DOCS", {})
+    monkeypatch.setattr(nlp_module, "_NLP_CACHE", {})
+    monkeypatch.setattr(nlp_module, "_NLP_IDENTITIES", {})
+
+    runtime_cfg = namespace["isolated_benchmark_config"](cfg, workspace)
+    assert pathlib.Path(runtime_cfg.get_path("paths.data")).parent == workspace
+    assert (
+        pathlib.Path(runtime_cfg.get_path("paths.doc_cache")).parent
+        == workspace
+    )
+    assert poison.read_text(encoding="utf-8") == '{"forged": [1]}'
+    assert not list(workspace.iterdir())
+
+    (workspace / "preexisting").write_text("untrusted", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="must start empty"):
+        namespace["isolated_benchmark_config"](cfg, workspace)
+
+    source = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "run_benchmark.py"
+    ).read_text(encoding="utf-8")
+    assert "dsp_bench_cache.json" not in source
+    assert "make_channels(runtime_cfg)" in source
+    assert "make_rep_cache(runtime_cfg)" in source
+
+
+def test_benchmark_dsp_cache_is_run_local_and_nlp_identity_scoped():
+    namespace = runpy.run_path(
+        str(
+            pathlib.Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "run_benchmark.py"
+        ),
+        run_name="stylo_benchmark_dsp_cache_test",
+    )
+
+    class Token:
+        lemma_ = "мудрость"
+        pos_ = "NOUN"
+
+    class Doc(list):
+        def __init__(self, text):
+            super().__init__([Token()])
+            self.text = text
+
+    class NLP:
+        calls = 0
+
+        def pipe(self, texts, *, batch_size):
+            assert batch_size == 64
+            self.calls += 1
+            return [Doc(text) for text in texts]
+
+    cache = {}
+    nlp = NLP()
+    helper = namespace["dsp_matrix"]
+    first = helper(
+        ["первый текст"],
+        nlp=nlp,
+        nlp_identity_sha256="a" * 64,
+        cache=cache,
+    )
+    second = helper(
+        ["первый текст"],
+        nlp=nlp,
+        nlp_identity_sha256="a" * 64,
+        cache=cache,
+    )
+    assert np.array_equal(first, second)
+    assert first.shape == (1, len(namespace["SUF"]) + 2)
+    assert nlp.calls == 1
+
+    helper(
+        ["первый текст"],
+        nlp=nlp,
+        nlp_identity_sha256="b" * 64,
+        cache=cache,
+    )
+    assert nlp.calls == 2
+    assert len(cache) == 2
 
 
 @pytest.mark.parametrize(

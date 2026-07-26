@@ -4,7 +4,6 @@ from __future__ import annotations
 import copy
 import hashlib
 import threading
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -12,6 +11,8 @@ from sklearn.metrics import f1_score
 
 from stylo.corpus import Dataset
 from stylo.eval import stylo_lobo_validation as tl
+from stylo.eval.provenance import prepare_synthetic_scientific_evaluation
+from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
 from stylo.jsonio import dump_strict, load_strict
 
 
@@ -45,10 +46,13 @@ def tiny_target():
         y=y,
         groups=groups,
         authors=authors,
-        provenance=SimpleNamespace(rows_digest="d" * 64),
     )
-    inventory = tl.derive_inventory(dataset)
-    return _Cfg(), dataset, inventory
+    context = prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    inventory = tl.derive_inventory(context)
+    return _Cfg(), context, inventory
 
 
 _CHUNK_PROBABILITIES = {
@@ -118,7 +122,7 @@ def _identity(
     config_path="synthetic.yaml",
     cache_path="synthetic-reps.pkl",
 ):
-    return tl.build_run_identity(
+    return tl.build_synthetic_run_identity(
         dataset=dataset,
         inventory=inventory,
         config={
@@ -159,6 +163,81 @@ def test_kernel_release_is_absent_while_libc_and_runtime_inventory_are_binding(t
         invalid = _runtime_binding(**{forbidden: "must-not-bind"})
         with pytest.raises(tl.TrueLoboError, match="field mismatch"):
             _identity(dataset, inventory, runtime_fingerprint=invalid)
+
+
+def test_true_lobo_identity_and_runners_bind_evaluation_authority(
+    tiny_target,
+    tmp_path,
+    monkeypatch,
+):
+    cfg, dataset, inventory = tiny_target
+    identity = _identity(dataset, inventory)
+    assert identity["evaluation_authority"] == {
+        "mode": tl.SYNTHETIC_AUTHORITY_MODE,
+        "context_rows_digest": dataset.rows_digest,
+        "evaluator": tl.SYNTHETIC_EVALUATOR_ID,
+    }
+    with pytest.raises(Exception, match="disk-verified"):
+        tl.build_run_identity(
+            dataset=dataset,
+            inventory=inventory,
+            config={
+                "path": "synthetic.yaml",
+                "sha256": "c" * 64,
+                "resolved_sha256": "e" * 64,
+            },
+            code_hashes={"runner.py": "b" * 64},
+            git_commit="a" * 40,
+            git_dirty=True,
+            runtime_fingerprint=_runtime_binding(),
+            thread_fingerprint={"worker_policy": "one"},
+            representation_cache={
+                "path": "synthetic-reps.pkl",
+                "size_bytes": 1,
+                "sha256": "7" * 64,
+                "rep_version": "synthetic-v1",
+            },
+        )
+
+    monkeypatch.setattr(
+        tl,
+        "require_disk_verified_scientific_context",
+        lambda value: value,
+    )
+    with pytest.raises(tl.TrueLoboError, match="injected evaluator"):
+        tl.run_true_lobo(
+            cfg,
+            dataset,
+            identity,
+            _reference(identity),
+            output_path=tmp_path / "forbidden.json",
+            checkpoint_root=tmp_path / "forbidden.checkpoints",
+            n_jobs=1,
+            evaluator=_fake_evaluator(identity, []),
+        )
+    with pytest.raises(tl.TrueLoboError, match="injected clock"):
+        tl.run_true_lobo(
+            cfg,
+            dataset,
+            identity,
+            _reference(identity),
+            output_path=tmp_path / "forbidden-clock.json",
+            checkpoint_root=tmp_path / "forbidden-clock.checkpoints",
+            n_jobs=1,
+            clock=lambda: 0.0,
+        )
+
+    forged = copy.deepcopy(identity)
+    forged["evaluation_authority"] = {
+        "mode": tl.DISK_AUTHORITY_MODE,
+        "context_rows_digest": dataset.rows_digest,
+        "evaluator": tl.PRODUCTION_EVALUATOR_ID,
+    }
+    forged["run_id"] = tl.canonical_hash(tl._run_id_material(forged))
+    forged["self_hash"] = tl.artifact_self_hash(forged)
+    tl.validate_run_identity(forged)
+    with pytest.raises(tl.CheckpointError, match="authority"):
+        tl._validate_context_against_run_identity(dataset, forged)
 
 
 def test_run_id_is_relocation_stable_while_absolute_paths_remain_display_only(
@@ -318,7 +397,7 @@ def test_inventory_and_real_fold_keep_singleton_train_only_and_average_once(tiny
     observed = []
     all_works = {item["work_id"] for item in inventory["work_universe"]}
     for fold in inventory["tested_inventory"]:
-        result = tl.evaluate_true_lobo_fold(
+        result = tl.evaluate_synthetic_true_lobo_fold(
             cfg, dataset, fold, lambda: _SpyEstimator(registry))
         observed.append(result)
         estimator = registry[-1]
@@ -414,7 +493,7 @@ def test_a0_reference_mismatch_blocks_all_a4_a1_scheduling(tiny_target, tmp_path
     bad["records_sha256"] = tl.canonical_hash(bad["records"])
     calls = []
     with pytest.raises(tl.A0ParityError, match="per-work frozen parity"):
-        tl.run_true_lobo(
+        tl.run_synthetic_true_lobo(
             cfg,
             dataset,
             identity,
@@ -430,6 +509,34 @@ def test_a0_reference_mismatch_blocks_all_a4_a1_scheduling(tiny_target, tmp_path
     assert not list((tmp_path / "blocked.checkpoints" / "A1").glob("*.json"))
 
 
+def test_context_mutation_is_rejected_before_checkpoint_creation(
+    tiny_target,
+    tmp_path,
+):
+    cfg, dataset, inventory = tiny_target
+    identity = _identity(dataset, inventory)
+    reference = _reference(identity)
+    dataset.texts.setflags(write=True)
+    dataset.texts[0] = "changed after run identity was constructed"
+    dataset.texts.setflags(write=False)
+    checkpoint_root = tmp_path / "mutated.checkpoints"
+    with pytest.raises(Exception, match="receipt|changed"):
+        tl.run_synthetic_true_lobo(
+            cfg,
+            dataset,
+            identity,
+            reference,
+            output_path=tmp_path / "mutated.json",
+            checkpoint_root=checkpoint_root,
+            n_jobs=1,
+            cells=["A0"],
+            smoke_only=True,
+            evaluator=_fake_evaluator(identity, []),
+            clock=lambda: 0.0,
+        )
+    assert not checkpoint_root.exists()
+
+
 def test_interrupted_resume_only_computes_missing_and_matches_uninterrupted_bytes(
         tiny_target, tmp_path):
     cfg, dataset, inventory = tiny_target
@@ -439,7 +546,7 @@ def test_interrupted_resume_only_computes_missing_and_matches_uninterrupted_byte
     resumed_clock = _CounterClock()
     resume_root = tmp_path / "resume.checkpoints"
     resume_output = tmp_path / "resume.json"
-    smoke = tl.run_true_lobo(
+    smoke = tl.run_synthetic_true_lobo(
         cfg,
         dataset,
         identity,
@@ -454,7 +561,7 @@ def test_interrupted_resume_only_computes_missing_and_matches_uninterrupted_byte
     )
     assert smoke["completed_a0_checkpoints"] == 1
     assert resumed_calls == [("A0", 0)]
-    resumed = tl.run_true_lobo(
+    resumed = tl.run_synthetic_true_lobo(
         cfg,
         dataset,
         identity,
@@ -471,7 +578,7 @@ def test_interrupted_resume_only_computes_missing_and_matches_uninterrupted_byte
     uninterrupted_calls = []
     uninterrupted_clock = _CounterClock()
     uninterrupted_output = tmp_path / "uninterrupted.json"
-    uninterrupted = tl.run_true_lobo(
+    uninterrupted = tl.run_synthetic_true_lobo(
         cfg,
         dataset,
         identity,
@@ -490,7 +597,7 @@ def test_interrupted_resume_only_computes_missing_and_matches_uninterrupted_byte
     # Pure resume validates all 12 checkpoints but evaluates nothing and preserves exact bytes.
     before = resume_output.read_bytes()
     calls = []
-    again = tl.run_true_lobo(
+    again = tl.run_synthetic_true_lobo(
         cfg,
         dataset,
         identity,
@@ -507,7 +614,7 @@ def test_interrupted_resume_only_computes_missing_and_matches_uninterrupted_byte
 def test_outer_parallel_generator_publishes_a_smoke_checkpoint(tiny_target, tmp_path):
     cfg, dataset, inventory = tiny_target
     identity = _identity(dataset, inventory)
-    result = tl.run_true_lobo(
+    result = tl.run_synthetic_true_lobo(
         cfg,
         dataset,
         identity,

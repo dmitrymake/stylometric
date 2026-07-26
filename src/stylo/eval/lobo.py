@@ -41,7 +41,7 @@ from .prediction_contract import (
 from .provenance import (
     UnsupportedVariantError,
     prepare_scientific_evaluation,
-    require_scientific_evaluation_context,
+    require_disk_verified_scientific_context,
 )
 from .work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
@@ -391,7 +391,7 @@ def _lobo_run(
     A bare Dataset is rejected: callers must pass the sealed result of
     :func:`prepare_scientific_evaluation`. This is not a public API.
     """
-    dataset = require_scientific_evaluation_context(context)
+    dataset = require_disk_verified_scientific_context(context)
     weighting = dataset.weighting
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
     n_jobs = _bounded_lobo_workers(cfg, n_jobs)

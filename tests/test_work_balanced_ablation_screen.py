@@ -54,7 +54,7 @@ def tiny_panel():
     ], dtype=object)
     groups = np.array([str(t).split(":", 1)[0] for t in texts], dtype=object)
     y = np.array([0 if str(g).startswith("aa/") else 1 for g in groups], dtype=int)
-    dataset = Dataset(
+    manifest_dataset = Dataset(
         texts=texts,
         y=y,
         groups=groups,
@@ -63,8 +63,14 @@ def tiny_panel():
         # re-verifies provenance because its caller has already bound the frozen panel.
         provenance=SimpleNamespace(rows_digest="1" * 64),
     )
-    manifest = sp.build_manifest(dataset, k=2, seed=42)
+    manifest = sp.build_manifest(manifest_dataset, k=2, seed=42)
     sp.verify_manifest(manifest)
+    dataset = Dataset(
+        texts=texts,
+        y=y,
+        groups=groups,
+        authors=["aa", "bb"],
+    )
     context = prepare_synthetic_scientific_evaluation(
         dataset,
         CHUNK_WEIGHTED_LEGACY,
@@ -123,7 +129,7 @@ def _work_ids(df):
 def test_frozen_factory_is_fold_local_and_averages_chunks_exactly_once(tiny_panel):
     cfg, dataset, manifest = tiny_panel
     factory, instances = _spy_factory()
-    df, probs, y_true, timing = groupkfold.evaluate_frozen_panel_factory(
+    df, probs, y_true, timing = groupkfold.evaluate_synthetic_frozen_panel_factory(
         cfg, dataset, factory, manifest, spec="spy", clock=_TickClock())
 
     ordered_works = ["aa/w1", "aa/w2", "bb/w1", "bb/w2"]
@@ -171,7 +177,7 @@ def test_frozen_gkf_uses_stable_top1_and_worst_tie_rank(tiny_panel):
             return np.full((len(texts), 2), 0.5, dtype=np.float64)
 
     df, probabilities, _y_true, _timing = (
-        groupkfold.evaluate_frozen_panel_factory(
+        groupkfold.evaluate_synthetic_frozen_panel_factory(
             cfg, dataset, UniformEstimator, manifest, spec="uniform",
             clock=_TickClock(),
         )
@@ -185,12 +191,12 @@ def test_frozen_gkf_uses_stable_top1_and_worst_tie_rank(tiny_panel):
 def test_injected_A0_helper_exactly_matches_existing_panel_worker(tiny_panel, monkeypatch):
     cfg, dataset, manifest = tiny_panel
     direct_factory, _ = _spy_factory()
-    direct = groupkfold.evaluate_frozen_panel_factory(
+    direct = groupkfold.evaluate_synthetic_frozen_panel_factory(
         cfg, dataset, direct_factory, manifest, spec="majority", clock=_TickClock())[:3]
 
     old_factory, _ = _spy_factory()
     monkeypatch.setattr(groupkfold, "make_factory", lambda *args, **kwargs: old_factory)
-    wrapped = groupkfold._gkf_run_panel(
+    wrapped = groupkfold._gkf_run_panel_synthetic(
         cfg, dataset, "majority", None, manifest)
 
     pd.testing.assert_frame_equal(wrapped[0], direct[0], check_exact=True)
@@ -208,7 +214,7 @@ def _controlled_evaluator(calls):
     def evaluate(cfg, dataset, factory, manifest, *, spec="injected", clock=None):
         calls.append(spec)
         spy_factory, _ = _spy_factory()
-        return groupkfold.evaluate_frozen_panel_factory(
+        return groupkfold.evaluate_synthetic_frozen_panel_factory(
             cfg, dataset, spy_factory, manifest, spec=spec, clock=_TickClock())
     return evaluate
 
@@ -238,6 +244,63 @@ def _cell(artifact, model, cell):
     return matches[0]
 
 
+def test_ablation_artifacts_bind_synthetic_authority_and_production_hooks(
+    tiny_panel,
+    tmp_path,
+    monkeypatch,
+):
+    from stylo.eval import work_balanced_ablation_screen as ablation_screen
+
+    cfg, dataset, manifest = tiny_panel
+    artifact = ablation_screen.run_synthetic_ablation_screen(
+        cfg,
+        dataset,
+        manifest,
+        tmp_path / "authority.json",
+        models=["majority"],
+        cells=["A0"],
+        evaluator=_controlled_evaluator([]),
+        **_screen_kwargs(),
+    )
+    assert artifact["evaluation_authority"] == {
+        "mode": ablation_screen.SYNTHETIC_AUTHORITY_MODE,
+        "context_rows_digest": dataset.rows_digest,
+        "evaluator": "injected_synthetic_test_evaluator",
+    }
+
+    monkeypatch.setattr(
+        ablation_screen,
+        "require_disk_verified_scientific_context",
+        lambda value: value,
+    )
+    with pytest.raises(
+        ablation_screen.AblationScreenArtifactError,
+        match="canonical evaluator",
+    ):
+        ablation_screen.run_ablation_screen(
+            cfg,
+            dataset,
+            manifest,
+            tmp_path / "forbidden-evaluator.json",
+            evaluator=_controlled_evaluator([]),
+            **_screen_kwargs(),
+        )
+    production_kwargs = _screen_kwargs()
+    production_kwargs.pop("clock")
+    with pytest.raises(
+        ablation_screen.AblationScreenArtifactError,
+        match="injected clock",
+    ):
+        ablation_screen.run_ablation_screen(
+            cfg,
+            dataset,
+            manifest,
+            tmp_path / "forbidden-clock.json",
+            clock=lambda: 0.0,
+            **production_kwargs,
+        )
+
+
 @pytest.mark.parametrize(
     "model,cell,status,field,value",
     [
@@ -251,7 +314,7 @@ def test_runner_records_typed_applicability_without_fake_metrics(
 
     cfg, dataset, manifest = tiny_panel
     calls = []
-    artifact = ablation_screen.run_ablation_screen(
+    artifact = ablation_screen.run_synthetic_ablation_screen(
         cfg, dataset, manifest, tmp_path / f"{model}-{cell}.json",
         models=[model], cells=[cell], evaluator=_controlled_evaluator(calls), **_screen_kwargs())
 
@@ -272,7 +335,7 @@ def test_resume_is_byte_stable_and_rejects_changed_inputs_before_eval(tiny_panel
     output = tmp_path / "resume.json"
     calls = []
     kwargs = _screen_kwargs()
-    first = ablation_screen.run_ablation_screen(
+    first = ablation_screen.run_synthetic_ablation_screen(
         cfg, dataset, manifest, output, models=["majority", "stylo"], cells=["A0"],
         evaluator=_controlled_evaluator(calls), **kwargs)
     first_bytes = output.read_bytes()
@@ -280,7 +343,7 @@ def test_resume_is_byte_stable_and_rejects_changed_inputs_before_eval(tiny_panel
 
     # Both completed cells resume without constructing/evaluating them again; canonical bytes and
     # self-hash remain unchanged.
-    second = ablation_screen.run_ablation_screen(
+    second = ablation_screen.run_synthetic_ablation_screen(
         cfg, dataset, manifest, output, models=["majority", "stylo"], cells=["A0"],
         evaluator=_controlled_evaluator(calls), **kwargs)
     assert len(calls) == 2
@@ -291,7 +354,7 @@ def test_resume_is_byte_stable_and_rejects_changed_inputs_before_eval(tiny_panel
     # even the injected evaluator sees a cell.
     before = list(calls)
     with pytest.raises(ValueError):
-        ablation_screen.run_ablation_screen(
+        ablation_screen.run_synthetic_ablation_screen(
             cfg, dataset, manifest, output, models=["majority", "stylo"], cells=["A0"],
             evaluator=_controlled_evaluator(calls), **_screen_kwargs(config_sha256="d" * 64))
     assert calls == before
@@ -300,7 +363,7 @@ def test_resume_is_byte_stable_and_rejects_changed_inputs_before_eval(tiny_panel
     other_manifest["self_hash"] = sp._self_hash(other_manifest)
     sp.verify_manifest(other_manifest)
     with pytest.raises(ValueError):
-        ablation_screen.run_ablation_screen(
+        ablation_screen.run_synthetic_ablation_screen(
             cfg, dataset, other_manifest, output, models=["majority", "stylo"], cells=["A0"],
             evaluator=_controlled_evaluator(calls), **kwargs)
     assert calls == before
@@ -313,7 +376,7 @@ def test_resume_rejects_rehashed_semantic_forgery_before_triage_or_eval(
 
     cfg, dataset, manifest = tiny_panel
     original_path = tmp_path / "original.json"
-    original = ablation_screen.run_ablation_screen(
+    original = ablation_screen.run_synthetic_ablation_screen(
         cfg,
         dataset,
         manifest,
@@ -356,7 +419,7 @@ def test_resume_rejects_rehashed_semantic_forgery_before_triage_or_eval(
         dump_strict(artifact, path)
         calls = []
         with pytest.raises(ablation_screen.AblationScreenArtifactError):
-            ablation_screen.run_ablation_screen(
+            ablation_screen.run_synthetic_ablation_screen(
                 cfg,
                 dataset,
                 manifest,
@@ -374,7 +437,7 @@ def test_artifact_hash_load_and_format_fail_closed_on_tamper(tiny_panel, tmp_pat
 
     cfg, dataset, manifest = tiny_panel
     output = tmp_path / "artifact.json"
-    artifact = ablation_screen.run_ablation_screen(
+    artifact = ablation_screen.run_synthetic_ablation_screen(
         cfg, dataset, manifest, output, models=["majority"], cells=["A0"],
         evaluator=_controlled_evaluator([]), **_screen_kwargs())
 
@@ -391,7 +454,7 @@ def test_artifact_hash_load_and_format_fail_closed_on_tamper(tiny_panel, tmp_pat
     dump_strict(tampered, tampered_path)
     calls = []
     with pytest.raises(ValueError):
-        ablation_screen.run_ablation_screen(
+        ablation_screen.run_synthetic_ablation_screen(
             cfg, dataset, manifest, tampered_path, models=["majority"], cells=["A0"],
             evaluator=_controlled_evaluator(calls), **_screen_kwargs())
     assert calls == []
@@ -405,7 +468,7 @@ def test_controlled_fresh_runs_are_deterministic_and_share_work_inventory(tiny_p
     payloads = []
     for name in ("one.json", "two.json"):
         path = tmp_path / name
-        artifacts.append(ablation_screen.run_ablation_screen(
+        artifacts.append(ablation_screen.run_synthetic_ablation_screen(
             cfg, dataset, manifest, path, models=["majority", "stylo"], cells=["A0"],
             evaluator=_controlled_evaluator([]), **_screen_kwargs()))
         payloads.append(path.read_bytes())
@@ -423,7 +486,7 @@ def test_complete_matrix_uses_one_exact_ordered_fold_inventory(tiny_panel, tmp_p
 
     cfg, dataset, manifest = tiny_panel
     calls = []
-    artifact = ablation_screen.run_ablation_screen(
+    artifact = ablation_screen.run_synthetic_ablation_screen(
         cfg, dataset, manifest, tmp_path / "complete-matrix.json",
         evaluator=_controlled_evaluator(calls), **_screen_kwargs())
 
@@ -453,7 +516,7 @@ def test_interrupted_run_keeps_prior_cell_and_resumes_without_recompute(tiny_pan
         return completed(*args, **kwargs)
 
     with pytest.raises(KeyboardInterrupt):
-        ablation_screen.run_ablation_screen(
+        ablation_screen.run_synthetic_ablation_screen(
             cfg, dataset, manifest, output, models=["stylo", "majority"], cells=["A0"],
             evaluator=interrupt_second, **_screen_kwargs())
 
@@ -462,7 +525,7 @@ def test_interrupted_run_keeps_prior_cell_and_resumes_without_recompute(tiny_pan
     assert [(r["model"], r["cell"]) for r in partial["cells"]] == [("stylo", "A0")]
 
     resumed_calls = []
-    final = ablation_screen.run_ablation_screen(
+    final = ablation_screen.run_synthetic_ablation_screen(
         cfg, dataset, manifest, output, models=["stylo", "majority"], cells=["A0"],
         evaluator=_controlled_evaluator(resumed_calls), **_screen_kwargs())
     assert resumed_calls == ["majority/A0"]

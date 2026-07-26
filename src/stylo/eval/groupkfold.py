@@ -20,6 +20,7 @@ from .lobo import _align_proba, _validate_proba, make_factory
 from .prediction_contract import stable_top1_and_worst_tie_rank
 from .provenance import (
     prepare_scientific_evaluation,
+    require_disk_verified_scientific_context,
     require_scientific_evaluation_context,
 )
 from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
@@ -54,7 +55,7 @@ def _gkf_run(cfg, context, spec, enabled_override, k, panel=None):
     result checked against the canonical manifest. Otherwise the legacy per-run StratifiedGroupKFold
     proxy is used (toy datasets / non-canonical corpora / the work_balanced arm). The caller must
     first pass the dataset through :func:`prepare_scientific_evaluation`."""
-    dataset = require_scientific_evaluation_context(context)
+    dataset = require_disk_verified_scientific_context(context)
     weighting = dataset.weighting
     if panel is not None:
         return _gkf_run_panel(
@@ -157,11 +158,35 @@ def bind_screening_panel(cfg, dataset, weighting):
 
 def _gkf_run_panel(cfg, context, spec, enabled_override, manifest):
     """GKF over the FROZEN screening_panel_v1 folds; ``dataset`` is already the panel subset."""
-    dataset = require_scientific_evaluation_context(context)
+    dataset = require_disk_verified_scientific_context(context)
     weighting = dataset.weighting
     factory = make_factory(spec, cfg, enabled_override, weighting=weighting)
     df, prob_matrix, y_true, _timing = evaluate_frozen_panel_factory(
         cfg, dataset, factory, manifest, spec=spec)
+    return df, prob_matrix, y_true
+
+
+def _gkf_run_panel_synthetic(cfg, context, spec, enabled_override, manifest):
+    """Explicit non-production counterpart used by isolated panel tests."""
+
+    dataset = require_scientific_evaluation_context(context)
+    if dataset.disk_verified:
+        raise ValueError("synthetic panel worker requires a synthetic context")
+    factory = make_factory(
+        spec,
+        cfg,
+        enabled_override,
+        weighting=dataset.weighting,
+    )
+    df, prob_matrix, y_true, _timing = (
+        evaluate_synthetic_frozen_panel_factory(
+            cfg,
+            dataset,
+            factory,
+            manifest,
+            spec=spec,
+        )
+    )
     return df, prob_matrix, y_true
 
 
@@ -173,6 +198,54 @@ def evaluate_frozen_panel_factory(
     *,
     spec="injected",
     clock=None,
+):
+    """Production frozen-panel evaluator; requires disk-verified authority."""
+
+    context = require_disk_verified_scientific_context(context)
+    return _evaluate_frozen_panel_factory_validated(
+        cfg,
+        context,
+        factory,
+        manifest,
+        spec=spec,
+        clock=clock,
+    )
+
+
+def evaluate_synthetic_frozen_panel_factory(
+    cfg,
+    context,
+    factory,
+    manifest,
+    *,
+    spec="synthetic-injected",
+    clock=None,
+):
+    """Explicit non-production evaluator seam for isolated integration tests."""
+
+    context = require_scientific_evaluation_context(context)
+    if context.disk_verified:
+        raise ValueError(
+            "synthetic panel evaluator requires a synthetic context"
+        )
+    return _evaluate_frozen_panel_factory_validated(
+        cfg,
+        context,
+        factory,
+        manifest,
+        spec=spec,
+        clock=clock,
+    )
+
+
+def _evaluate_frozen_panel_factory_validated(
+    cfg,
+    context,
+    factory,
+    manifest,
+    *,
+    spec,
+    clock,
 ):
     """Evaluate a fresh estimator from ``factory`` on each frozen screening-panel fold.
 

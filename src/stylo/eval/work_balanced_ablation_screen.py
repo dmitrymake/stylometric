@@ -23,7 +23,7 @@ from .prediction_contract import (
 )
 from .provenance import (
     ScientificEvaluationContext,
-    prepare_synthetic_scientific_evaluation,
+    require_disk_verified_scientific_context,
     require_scientific_evaluation_context,
 )
 from .run_attestation import LiveRunAttestationError
@@ -40,7 +40,9 @@ from .work_weighting import (
 )
 
 STATUS = "exploratory_screening_proxy_not_confirmatory"
-SCHEMA_VERSION = "b4_wfr_pilot_v1"
+SCHEMA_VERSION = "b4_wfr_pilot_v2"
+DISK_AUTHORITY_MODE = "disk_verified"
+SYNTHETIC_AUTHORITY_MODE = "synthetic_test"
 
 CELL_ABLATIONS = {
     "A0": LEGACY_ABLATION,
@@ -141,6 +143,8 @@ def _find_record(artifact: dict, model: str, cell: str) -> dict | None:
 def _expected_metadata(
     manifest: dict,
     *,
+    authority_mode: str,
+    context_rows_digest: str,
     config_path,
     config_sha256: str,
     git_commit: str,
@@ -154,6 +158,15 @@ def _expected_metadata(
     return {
         "schema_version": SCHEMA_VERSION,
         "status": STATUS,
+        "evaluation_authority": {
+            "mode": authority_mode,
+            "context_rows_digest": context_rows_digest,
+            "evaluator": (
+                "stylo.eval.groupkfold.evaluate_frozen_panel_factory"
+                if authority_mode == DISK_AUTHORITY_MODE
+                else "injected_synthetic_test_evaluator"
+            ),
+        },
         "git_commit": str(git_commit),
         "git_dirty": bool(git_dirty),
         "config": {"path": str(config_path), "sha256": str(config_sha256)},
@@ -719,6 +732,66 @@ def run_ablation_screen(
     dataset,
     manifest: dict,
     output_path,
+    **kwargs,
+) -> dict:
+    """Production entrypoint requiring a disk-verified panel context."""
+
+    context = require_disk_verified_scientific_context(dataset)
+    if (
+        kwargs.get("evaluator", evaluate_frozen_panel_factory)
+        is not evaluate_frozen_panel_factory
+    ):
+        raise AblationScreenArtifactError(
+            "production ablation screen requires the canonical evaluator"
+        )
+    if kwargs.get("clock") is not None:
+        raise AblationScreenArtifactError(
+            "production ablation screen does not accept an injected clock"
+        )
+    return _run_ablation_screen_validated(
+        cfg,
+        context,
+        manifest,
+        output_path,
+        **kwargs,
+    )
+
+
+def run_synthetic_ablation_screen(
+    cfg,
+    dataset,
+    manifest: dict,
+    output_path,
+    **kwargs,
+) -> dict:
+    """Explicit non-production entrypoint for isolated integration tests."""
+
+    context = require_scientific_evaluation_context(dataset)
+    if context.disk_verified:
+        raise AblationScreenArtifactError(
+            "synthetic ablation screen requires a synthetic context"
+        )
+    if (
+        kwargs.get("evaluator", evaluate_frozen_panel_factory)
+        is evaluate_frozen_panel_factory
+    ):
+        raise AblationScreenArtifactError(
+            "synthetic ablation screen requires an injected test evaluator"
+        )
+    return _run_ablation_screen_validated(
+        cfg,
+        context,
+        manifest,
+        output_path,
+        **kwargs,
+    )
+
+
+def _run_ablation_screen_validated(
+    cfg,
+    dataset,
+    manifest: dict,
+    output_path,
     *,
     config_path,
     config_sha256: str,
@@ -746,21 +819,49 @@ def run_ablation_screen(
         raise ValueError("ci_level must be between zero and one")
     if not isinstance(manifest, dict) or manifest.get("self_hash") is None:
         raise TypeError("manifest must be a verified screening-panel dict")
-    if type(dataset) is ScientificEvaluationContext:
-        dataset = require_scientific_evaluation_context(dataset)
-    else:
-        dataset = prepare_synthetic_scientific_evaluation(
-            dataset,
-            CHUNK_WEIGHTED_LEGACY,
+    if type(dataset) is not ScientificEvaluationContext:
+        raise AblationScreenArtifactError(
+            "ablation screen requires a scientific evaluation context"
         )
+    dataset = require_scientific_evaluation_context(dataset)
     if dataset.weighting != CHUNK_WEIGHTED_LEGACY:
         raise AblationScreenArtifactError(
             "frozen screening panel requires the legacy dataset arm"
         )
+    from .screening_panel import verify_manifest
+
+    verify_manifest(manifest)
+    manifest_works = [str(work["work_id"]) for work in manifest["works"]]
+    if (
+        list(dataset.authors) != list(manifest["authors"])
+        or sorted(set(str(group) for group in dataset.groups))
+        != sorted(manifest_works)
+    ):
+        raise AblationScreenArtifactError(
+            "scientific context does not match the screening-panel inventory"
+        )
+    authority_mode = (
+        DISK_AUTHORITY_MODE
+        if dataset.disk_verified
+        else SYNTHETIC_AUTHORITY_MODE
+    )
+    if dataset.disk_verified:
+        provenance = dataset.provenance
+        if (
+            provenance is None
+            or provenance.parent_rows_digest
+            != manifest["parent_dataset_digest"]
+            or provenance.selection_manifest_digest is None
+        ):
+            raise AblationScreenArtifactError(
+                "production panel context is not derived from the registered parent"
+            )
     plan = selected_plan(models, cells)
     output_path = pathlib.Path(output_path)
     metadata = _expected_metadata(
         manifest,
+        authority_mode=authority_mode,
+        context_rows_digest=dataset.rows_digest,
         config_path=config_path,
         config_sha256=config_sha256,
         git_commit=git_commit,
@@ -961,5 +1062,6 @@ __all__ = [
     "AblationScreenArtifactError",
     "selected_plan",
     "run_ablation_screen",
+    "run_synthetic_ablation_screen",
     "format_compact_table",
 ]

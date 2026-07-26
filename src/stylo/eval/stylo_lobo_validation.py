@@ -35,19 +35,31 @@ from ..lang import display_name
 from .dispatch import fit_estimator
 from .lobo import make_factory_for_ablation, run_fold
 from .metrics import accuracy, macro_f1, topk_accuracy
+from .provenance import (
+    reverify_scientific_context_from_disk,
+    require_disk_verified_scientific_context,
+    require_scientific_evaluation_context,
+)
 from .significance import paired_bootstrap_diff_clustered
 from .work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION, WEIGHTS_ONLY_ABLATION
 
 
 STATUS = "true_lobo_target_protocol_validation_not_external_replication"
-SCHEMA_VERSION = "b4_true_lobo_a0_a1_a4_v1"
-CHECKPOINT_SCHEMA_VERSION = "b4_true_lobo_checkpoint_v1"
+SCHEMA_VERSION = "b4_true_lobo_a0_a1_a4_v2"
+CHECKPOINT_SCHEMA_VERSION = "b4_true_lobo_checkpoint_v2"
 LEGACY_RUN_SCHEMA_VERSION = "b4_true_lobo_run_v1"
-PREVIOUS_RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v2"
-RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v3"
-GATE_SCHEMA_VERSION = "b4_true_lobo_a0_gate_v1"
+OLDER_RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v2"
+PREVIOUS_RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v3"
+RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v4"
+GATE_SCHEMA_VERSION = "b4_true_lobo_a0_gate_v2"
 LEGACY_RUNTIME_SCHEMA_VERSION = "b4_true_lobo_runtime_v1"
 RUNTIME_SCHEMA_VERSION = "stylo_lobo_runtime_v2"
+DISK_AUTHORITY_MODE = "disk_verified"
+SYNTHETIC_AUTHORITY_MODE = "synthetic_test"
+PRODUCTION_EVALUATOR_ID = (
+    "stylo.eval.stylo_lobo_validation.evaluate_cell_fold"
+)
+SYNTHETIC_EVALUATOR_ID = "injected_synthetic_test_evaluator"
 
 try:
     import fcntl
@@ -134,6 +146,7 @@ def derive_inventory(dataset, *, enforce_target: bool = False) -> dict[str, Any]
     Labels are never compacted: the metric order is expressed in the original full-universe label
     space, so the four singleton authors remain valid prediction targets without entering macro-F1.
     """
+    dataset = require_scientific_evaluation_context(dataset)
     texts = np.asarray(dataset.texts, dtype=object)
     y = np.asarray(dataset.y)
     groups = np.asarray(dataset.groups, dtype=object)
@@ -384,6 +397,54 @@ def evaluate_true_lobo_fold(
     wall_clock: Callable[[], float] = time.perf_counter,
     cpu_clock: Callable[[], float] = time.process_time,
 ) -> dict[str, Any]:
+    """Production fold evaluator requiring a disk-verified context."""
+
+    dataset = require_disk_verified_scientific_context(dataset)
+    return _evaluate_true_lobo_fold_validated(
+        cfg,
+        dataset,
+        fold_spec,
+        factory,
+        wall_clock=wall_clock,
+        cpu_clock=cpu_clock,
+    )
+
+
+def evaluate_synthetic_true_lobo_fold(
+    cfg,
+    dataset,
+    fold_spec: dict[str, Any],
+    factory: Callable[[], Any],
+    *,
+    wall_clock: Callable[[], float] = time.perf_counter,
+    cpu_clock: Callable[[], float] = time.process_time,
+) -> dict[str, Any]:
+    """Explicit non-production fold seam for isolated integration tests."""
+
+    dataset = require_scientific_evaluation_context(dataset)
+    if dataset.disk_verified:
+        raise TrueLoboError(
+            "synthetic true-LOBO fold requires a synthetic context"
+        )
+    return _evaluate_true_lobo_fold_validated(
+        cfg,
+        dataset,
+        fold_spec,
+        factory,
+        wall_clock=wall_clock,
+        cpu_clock=cpu_clock,
+    )
+
+
+def _evaluate_true_lobo_fold_validated(
+    cfg,
+    dataset,
+    fold_spec: dict[str, Any],
+    factory: Callable[[], Any],
+    *,
+    wall_clock: Callable[[], float] = time.perf_counter,
+    cpu_clock: Callable[[], float] = time.process_time,
+) -> dict[str, Any]:
     """Evaluate one full-work fold via the existing LOBO implementation and add split/timing proof."""
     work_id = fold_spec["work_id"]
     groups = np.asarray(dataset.groups, dtype=object)
@@ -467,6 +528,7 @@ def evaluate_true_lobo_fold(
 
 def evaluate_cell_fold(cfg, dataset, cell: str, fold_spec: dict[str, Any]) -> dict[str, Any]:
     """Picklable outer-fold worker: build one signed ablation factory and evaluate one work."""
+    dataset = reverify_scientific_context_from_disk(cfg, dataset)
     factory = make_factory_for_ablation("stylo", cfg, ablation=CELL_ABLATIONS[cell])
     return evaluate_true_lobo_fold(cfg, dataset, fold_spec, factory)
 
@@ -497,7 +559,11 @@ def _validate_runtime_binding(runtime_fingerprint: dict[str, Any]) -> None:
 
 def _runtime_schema_for_identity(identity: dict[str, Any]) -> str:
     schema = identity.get("schema_version")
-    if schema in {RUN_SCHEMA_VERSION, PREVIOUS_RUN_SCHEMA_VERSION}:
+    if schema in {
+        RUN_SCHEMA_VERSION,
+        PREVIOUS_RUN_SCHEMA_VERSION,
+        OLDER_RUN_SCHEMA_VERSION,
+    }:
         return RUNTIME_SCHEMA_VERSION
     if schema == LEGACY_RUN_SCHEMA_VERSION:
         return LEGACY_RUNTIME_SCHEMA_VERSION
@@ -512,11 +578,16 @@ def _run_id_material(identity: dict[str, Any]) -> dict[str, Any]:
         for key, value in identity.items()
         if key not in {"run_id", "self_hash"}
     }
-    if identity.get("schema_version") == RUN_SCHEMA_VERSION:
+    if identity.get("schema_version") in {
+        RUN_SCHEMA_VERSION,
+        PREVIOUS_RUN_SCHEMA_VERSION,
+    }:
         if not isinstance(body.get("config"), dict) or not isinstance(
             body.get("representation_cache"), dict
         ):
-            raise CheckpointError("v3 run identity lacks config/cache objects")
+            raise CheckpointError(
+                "relocatable run identity lacks config/cache objects"
+            )
         # ``threadpoolctl`` reports the absolute shared-library filepath.  Its
         # version/API/thread properties remain binding, but install/check-out
         # location is display-only just like config/cache paths.
@@ -535,7 +606,25 @@ def _run_id_material(identity: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
-def build_run_identity(
+def build_run_identity(*, dataset, **kwargs) -> dict[str, Any]:
+    """Build a production identity from a live disk-verification authority."""
+
+    dataset = require_disk_verified_scientific_context(dataset)
+    return _build_run_identity(dataset=dataset, **kwargs)
+
+
+def build_synthetic_run_identity(*, dataset, **kwargs) -> dict[str, Any]:
+    """Build an explicitly non-production identity for isolated tests."""
+
+    dataset = require_scientific_evaluation_context(dataset)
+    if dataset.disk_verified:
+        raise TrueLoboError(
+            "synthetic run identity requires a synthetic scientific context"
+        )
+    return _build_run_identity(dataset=dataset, **kwargs)
+
+
+def _build_run_identity(
     *,
     dataset,
     inventory: dict[str, Any],
@@ -553,13 +642,13 @@ def build_run_identity(
     noninferiority_margin: float = 0.02,
 ) -> dict[str, Any]:
     """Build the immutable scientific identity that every checkpoint binds explicitly."""
+    dataset = require_scientific_evaluation_context(dataset)
     if type(seed) is not int or type(bootstrap_iters) is not int or bootstrap_iters <= 0:
         raise TrueLoboError("seed/bootstrap_iters must be exact positive integers")
     if not 0.0 < float(ci_level) < 1.0 or float(noninferiority_margin) <= 0.0:
         raise TrueLoboError("invalid CI level or noninferiority margin")
     _validate_runtime_binding(runtime_fingerprint)
-    provenance = getattr(dataset, "provenance", None)
-    dataset_digest = getattr(provenance, "rows_digest", None)
+    dataset_digest = dataset.rows_digest
     if type(dataset_digest) is not str or len(dataset_digest) != 64:
         raise TrueLoboError("verified dataset must carry a canonical rows_digest")
     code_tree_sha256 = canonical_hash(code_hashes)
@@ -586,6 +675,19 @@ def build_run_identity(
     body = {
         "schema_version": RUN_SCHEMA_VERSION,
         "status": STATUS,
+        "evaluation_authority": {
+            "mode": (
+                DISK_AUTHORITY_MODE
+                if dataset.disk_verified
+                else SYNTHETIC_AUTHORITY_MODE
+            ),
+            "context_rows_digest": dataset_digest,
+            "evaluator": (
+                PRODUCTION_EVALUATOR_ID
+                if dataset.disk_verified
+                else SYNTHETIC_EVALUATOR_ID
+            ),
+        },
         "git_commit": str(git_commit),
         "git_dirty": bool(git_dirty),
         "config": {
@@ -648,6 +750,7 @@ def validate_run_identity(identity: dict[str, Any]) -> None:
         not in {
             RUN_SCHEMA_VERSION,
             PREVIOUS_RUN_SCHEMA_VERSION,
+            OLDER_RUN_SCHEMA_VERSION,
             LEGACY_RUN_SCHEMA_VERSION,
         }
     ):
@@ -661,6 +764,7 @@ def validate_run_identity(identity: dict[str, Any]) -> None:
     if identity["schema_version"] == RUN_SCHEMA_VERSION:
         config = identity.get("config")
         cache = identity.get("representation_cache")
+        authority = identity.get("evaluation_authority")
         if (
             not isinstance(config, dict)
             or set(config) != {"display_path", "sha256", "resolved_sha256"}
@@ -669,10 +773,97 @@ def validate_run_identity(identity: dict[str, Any]) -> None:
             or set(cache)
             != {"display_path", "size_bytes", "sha256", "rep_version"}
             or type(cache["display_path"]) is not str
+            or not isinstance(authority, dict)
+            or set(authority)
+            != {"mode", "context_rows_digest", "evaluator"}
+            or authority["mode"]
+            not in {DISK_AUTHORITY_MODE, SYNTHETIC_AUTHORITY_MODE}
+            or type(authority["context_rows_digest"]) is not str
+            or len(authority["context_rows_digest"]) != 64
+            or authority["evaluator"]
+            != (
+                PRODUCTION_EVALUATOR_ID
+                if authority["mode"] == DISK_AUTHORITY_MODE
+                else SYNTHETIC_EVALUATOR_ID
+            )
         ):
-            raise CheckpointError("v3 display/content binding fields are invalid")
-    if identity["schema_version"] in {RUN_SCHEMA_VERSION, PREVIOUS_RUN_SCHEMA_VERSION}:
+            raise CheckpointError(
+                "v4 display/content/authority binding fields are invalid"
+            )
+    if identity["schema_version"] in {
+        RUN_SCHEMA_VERSION,
+        PREVIOUS_RUN_SCHEMA_VERSION,
+        OLDER_RUN_SCHEMA_VERSION,
+    }:
         _validate_runtime_binding(identity.get("runtime_fingerprint"))
+
+
+def _validate_context_against_run_identity(
+    dataset,
+    identity: dict[str, Any],
+) -> None:
+    """Re-derive every corpus/inventory binding before checkpoint mutation."""
+
+    dataset = require_scientific_evaluation_context(dataset)
+    if identity.get("schema_version") != RUN_SCHEMA_VERSION:
+        raise CheckpointError(
+            "legacy true-LOBO identity lacks evaluation authority and is not resumable"
+        )
+    expected_authority = {
+        "mode": (
+            DISK_AUTHORITY_MODE
+            if dataset.disk_verified
+            else SYNTHETIC_AUTHORITY_MODE
+        ),
+        "context_rows_digest": dataset.rows_digest,
+        "evaluator": (
+            PRODUCTION_EVALUATOR_ID
+            if dataset.disk_verified
+            else SYNTHETIC_EVALUATOR_ID
+        ),
+    }
+    if identity.get("evaluation_authority") != expected_authority:
+        raise CheckpointError(
+            "current scientific context authority does not match run identity"
+        )
+    inventory = derive_inventory(dataset)
+    expected_dataset = {
+        "rows_digest": dataset.rows_digest,
+        "n_chunks": int(inventory["n_chunks"]),
+        "n_authors": len(inventory["probability_class_order"]),
+        "n_works": len(inventory["work_universe"]),
+        "n_tested_authors": len(inventory["metric_label_order"]),
+        "n_tested_works": len(inventory["tested_inventory"]),
+    }
+    if identity.get("dataset") != expected_dataset:
+        raise CheckpointError(
+            "current scientific context does not match run dataset identity"
+        )
+    for field in (
+        "probability_class_order",
+        "metric_label_order",
+        "work_universe",
+        "tested_inventory",
+        "singleton_train_only",
+    ):
+        if identity.get(field) != inventory[field]:
+            raise CheckpointError(
+                f"current scientific context does not match {field}"
+            )
+    digest_bindings = {
+        "probability_order_sha256": inventory["probability_order_sha256"],
+        "metric_order_sha256": inventory["metric_order_sha256"],
+        "work_universe_sha256": inventory["work_universe_sha256"],
+        "tested_inventory_sha256": inventory["tested_inventory_sha256"],
+    }
+    bindings = identity.get("bindings")
+    if not isinstance(bindings, dict) or any(
+        bindings.get(field) != expected
+        for field, expected in digest_bindings.items()
+    ):
+        raise CheckpointError(
+            "current scientific context inventory digests do not match run identity"
+        )
 
 
 def _expected_split(identity: dict[str, Any], fold_spec: dict[str, Any]) -> dict[str, Any]:
@@ -704,6 +895,9 @@ def build_checkpoint(
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "status": STATUS,
         "run_id": identity["run_id"],
+        "evaluation_authority": copy.deepcopy(
+            identity["evaluation_authority"]
+        ),
         "bindings": copy.deepcopy(identity["bindings"]),
         "cell": cell,
         "axes": _axes(cell),
@@ -734,6 +928,7 @@ def validate_checkpoint(
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "status": STATUS,
         "run_id": identity["run_id"],
+        "evaluation_authority": identity["evaluation_authority"],
         "bindings": identity["bindings"],
         "cell": cell,
         "axes": _axes(cell),
@@ -1277,6 +1472,9 @@ def primary_a4_gate(lo: float, hi: float, margin: float = 0.02) -> str:
 def _a0_receipt(identity: dict[str, Any], a0: dict[str, Any], reference: dict[str, Any]) -> dict[str, Any]:
     receipt = verify_a0_parity(a0, reference)
     receipt["run_id"] = identity["run_id"]
+    receipt["evaluation_authority"] = copy.deepcopy(
+        identity["evaluation_authority"]
+    )
     receipt["self_hash"] = artifact_self_hash(receipt)
     return receipt
 
@@ -1354,7 +1552,7 @@ def assemble_artifact(
             for key in (
                 "git_commit", "git_dirty", "config", "code_hashes", "code_tree_sha256",
                 "dataset", "bindings", "runtime_fingerprint", "thread_fingerprint",
-                "representation_cache", "statistics",
+                "representation_cache", "statistics", "evaluation_authority",
             )
         },
         "probability_class_order": copy.deepcopy(identity["probability_class_order"]),
@@ -1410,6 +1608,8 @@ def _validate_final_artifact(artifact: dict[str, Any], identity: dict[str, Any])
         or artifact.get("schema_version") != SCHEMA_VERSION
         or artifact.get("status") != STATUS
         or artifact.get("run_id") != identity["run_id"]
+        or artifact.get("attestation", {}).get("evaluation_authority")
+        != identity["evaluation_authority"]
         or artifact.get("self_hash") != artifact_self_hash(artifact)
     ):
         raise TrueLoboError("existing final true-LOBO artifact is invalid or belongs to another run")
@@ -1434,8 +1634,10 @@ def _evaluate_with_live_attestation(
     attestor,
 ) -> dict[str, Any]:
     label = f"{cell}/fold-{fold['fold_index']}"
+    dataset = require_scientific_evaluation_context(dataset)
     _attest(attestor, f"before-{label}")
     result = evaluator(cfg, dataset, cell, fold)
+    require_scientific_evaluation_context(dataset)
     _attest(attestor, f"after-{label}")
     return result
 
@@ -1524,6 +1726,60 @@ def run_true_lobo(
     dataset,
     identity: dict[str, Any],
     reference: dict[str, Any],
+    **kwargs,
+) -> dict[str, Any]:
+    """Production true-LOBO entrypoint requiring disk-verified authority."""
+
+    dataset = require_disk_verified_scientific_context(dataset)
+    if kwargs.get("evaluator", evaluate_cell_fold) is not evaluate_cell_fold:
+        raise TrueLoboError(
+            "production true-LOBO runner does not accept an injected evaluator"
+        )
+    if kwargs.get("clock", time.perf_counter) is not time.perf_counter:
+        raise TrueLoboError(
+            "production true-LOBO runner does not accept an injected clock"
+        )
+    return _run_true_lobo_validated(
+        cfg,
+        dataset,
+        identity,
+        reference,
+        **kwargs,
+    )
+
+
+def run_synthetic_true_lobo(
+    cfg,
+    dataset,
+    identity: dict[str, Any],
+    reference: dict[str, Any],
+    **kwargs,
+) -> dict[str, Any]:
+    """Explicit non-production resumability seam for isolated tests."""
+
+    dataset = require_scientific_evaluation_context(dataset)
+    if dataset.disk_verified:
+        raise TrueLoboError(
+            "synthetic true-LOBO runner requires a synthetic context"
+        )
+    if kwargs.get("evaluator", evaluate_cell_fold) is evaluate_cell_fold:
+        raise TrueLoboError(
+            "synthetic true-LOBO runner requires an injected test evaluator"
+        )
+    return _run_true_lobo_validated(
+        cfg,
+        dataset,
+        identity,
+        reference,
+        **kwargs,
+    )
+
+
+def _run_true_lobo_validated(
+    cfg,
+    dataset,
+    identity: dict[str, Any],
+    reference: dict[str, Any],
     *,
     output_path: str | pathlib.Path,
     checkpoint_root: str | pathlib.Path,
@@ -1551,10 +1807,10 @@ def run_true_lobo(
         raise TrueLoboError("A0 is a mandatory dependency")
     if not smoke_only and set(requested) != set(CELL_ORDER):
         raise TrueLoboError("the complete target validation requires exactly A0,A1,A4")
+    dataset = require_scientific_evaluation_context(dataset)
     validate_run_identity(identity)
+    _validate_context_against_run_identity(dataset, identity)
     _attest(attestor, "run-start")
-    from ..domain.corpus_identity import assert_cross_work_content_isolation
-    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
     store = CheckpointStore(checkpoint_root, identity)
     identity = store.identity
     output_path = pathlib.Path(output_path)
@@ -1677,10 +1933,15 @@ __all__ = [
     "SCHEMA_VERSION",
     "CHECKPOINT_SCHEMA_VERSION",
     "LEGACY_RUN_SCHEMA_VERSION",
+    "OLDER_RUN_SCHEMA_VERSION",
     "RUN_SCHEMA_VERSION",
     "GATE_SCHEMA_VERSION",
     "LEGACY_RUNTIME_SCHEMA_VERSION",
     "RUNTIME_SCHEMA_VERSION",
+    "DISK_AUTHORITY_MODE",
+    "SYNTHETIC_AUTHORITY_MODE",
+    "PRODUCTION_EVALUATOR_ID",
+    "SYNTHETIC_EVALUATOR_ID",
     "RUNTIME_BINDING_FIELDS",
     "REFERENCE_SHA256",
     "REFERENCE_CORRECT",
@@ -1695,8 +1956,10 @@ __all__ = [
     "derive_inventory",
     "load_pinned_a0_reference",
     "evaluate_true_lobo_fold",
+    "evaluate_synthetic_true_lobo_fold",
     "evaluate_cell_fold",
     "build_run_identity",
+    "build_synthetic_run_identity",
     "validate_run_identity",
     "build_checkpoint",
     "validate_checkpoint",
@@ -1708,5 +1971,6 @@ __all__ = [
     "primary_a4_gate",
     "assemble_artifact",
     "run_true_lobo",
+    "run_synthetic_true_lobo",
     "format_compact_table",
 ]

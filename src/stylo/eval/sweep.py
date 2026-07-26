@@ -60,14 +60,14 @@ def _evaluate_case(
     weighting: str,
     panel=None,
 ) -> Dict:
-    from .provenance import require_scientific_evaluation_context
+    from .provenance import reverify_scientific_context_from_disk
 
     if strategy not in ("gkf", "lobo"):
         raise ValueError(
             f"unknown sweep strategy {strategy!r} "
             "(expected 'gkf' or 'lobo')"
         )
-    dataset = require_scientific_evaluation_context(context)
+    dataset = reverify_scientific_context_from_disk(cfg, context)
     weighting = require_weighting(weighting)
     if weighting != dataset.weighting:
         raise ValueError(

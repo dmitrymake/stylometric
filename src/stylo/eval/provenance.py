@@ -15,6 +15,8 @@ import enum
 import hashlib
 import numbers
 import re
+import threading
+import weakref
 from typing import Optional, Sequence
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -54,12 +56,14 @@ class UnsupportedVariantError(RuntimeError):
 SCIENTIFIC_ISOLATION_CONTRACT_VERSION = (
     "stylo.cross-work-content-isolation.word5.v1"
 )
-_SCIENTIFIC_CONTEXT_SEAL = (
-    "stylo.scientific-evaluation-context.sealed.v1"
-)
+_SCIENTIFIC_CONTEXT_SEAL = object()
 
 
-@dataclasses.dataclass(frozen=True)
+class _DiskVerificationAuthority:
+    """Identity-only receipt minted after an actual on-disk corpus comparison."""
+
+
+@dataclasses.dataclass(frozen=True, init=False, eq=False)
 class ScientificEvaluationContext:
     """Read-only, dataset-bound authority required by scientific CV kernels.
 
@@ -79,13 +83,8 @@ class ScientificEvaluationContext:
     isolation_receipt_sha256: str
     isolation_contract_version: str
     disk_verified: bool
-    _seal: str = dataclasses.field(repr=False, compare=False)
-
-    def __post_init__(self) -> None:
-        if self._seal != _SCIENTIFIC_CONTEXT_SEAL:
-            raise TypeError(
-                "ScientificEvaluationContext cannot be constructed directly"
-            )
+    _seal: object = dataclasses.field(repr=False, compare=False)
+    _disk_authority: object = dataclasses.field(repr=False, compare=False)
 
     def __len__(self) -> int:
         return len(self.texts)
@@ -116,9 +115,19 @@ class ScientificEvaluationContext:
                 self.rows_digest,
                 self.isolation_receipt_sha256,
                 self.isolation_contract_version,
-                self.disk_verified,
             ),
         )
+
+
+_SCIENTIFIC_CONTEXT_REGISTRY: weakref.WeakKeyDictionary = (
+    weakref.WeakKeyDictionary()
+)
+_SCIENTIFIC_CONTEXT_REGISTRY_LOCK = threading.RLock()
+_DISK_AUTHORITY_REGISTRY: weakref.WeakKeyDictionary = (
+    weakref.WeakKeyDictionary()
+)
+_VERIFIED_DATASET_REGISTRY: dict[int, tuple] = {}
+_WORKER_REVERIFIED_CONTEXTS: dict[tuple, ScientificEvaluationContext] = {}
 
 
 def _restore_scientific_evaluation_context(
@@ -131,29 +140,22 @@ def _restore_scientific_evaluation_context(
     rows_digest,
     isolation_receipt_sha256,
     isolation_contract_version,
-    disk_verified,
 ) -> ScientificEvaluationContext:
-    import numpy as np
-
-    frozen_arrays = (
-        np.array(texts, dtype=object, copy=True),
-        np.array(y, dtype=int, copy=True),
-        np.array(groups, dtype=object, copy=True),
-    )
-    for values in frozen_arrays:
-        values.setflags(write=False)
-    return ScientificEvaluationContext(
-        texts=frozen_arrays[0],
-        y=frozen_arrays[1],
-        groups=frozen_arrays[2],
-        authors=tuple(authors),
+    # A process boundary never trusts the serialized seal.  Rebuild through
+    # structural/provenance/content validation as a synthetic transport
+    # context. Production workers must independently re-verify it against disk
+    # with their run config before invoking a production evaluator.
+    return _build_scientific_evaluation_context(
+        texts=texts,
+        y=y,
+        groups=groups,
+        authors=authors,
         provenance=provenance,
         weighting=weighting,
         rows_digest=rows_digest,
         isolation_receipt_sha256=isolation_receipt_sha256,
         isolation_contract_version=isolation_contract_version,
-        disk_verified=disk_verified,
-        _seal=_SCIENTIFIC_CONTEXT_SEAL,
+        disk_authority=None,
     )
 
 
@@ -490,6 +492,41 @@ def verify_dataset_against_disk(cfg, dataset, weighting: str, contract: "RunCont
     else:                                                       # a full dataset
         if prov.rows_digest != disk.rows_digest:
             raise ProvenanceError("dataset digest != frozen on-disk digest (fabricated/non-disk)")
+    authors = tuple(dataset.authors)
+    receipt = _scientific_rows_receipt(
+        dataset.texts,
+        dataset.y,
+        dataset.groups,
+        authors,
+    )
+    fingerprint = _scientific_payload_fingerprint(
+        texts=dataset.texts,
+        y=dataset.y,
+        groups=dataset.groups,
+        authors=authors,
+        provenance=prov,
+        weighting=weighting,
+        rows_digest=prov.rows_digest,
+        isolation_receipt_sha256=receipt,
+        isolation_contract_version=SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
+    )
+    authority = _DiskVerificationAuthority()
+    dataset_key = id(dataset)
+
+    def cleanup(reference, *, key=dataset_key):
+        with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+            current = _VERIFIED_DATASET_REGISTRY.get(key)
+            if current is not None and current[0] is reference:
+                _VERIFIED_DATASET_REGISTRY.pop(key, None)
+
+    reference = weakref.ref(dataset, cleanup)
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        _DISK_AUTHORITY_REGISTRY[authority] = fingerprint
+        _VERIFIED_DATASET_REGISTRY[dataset_key] = (
+            reference,
+            fingerprint,
+            authority,
+        )
     return weighting
 
 
@@ -507,52 +544,333 @@ def _scientific_rows_receipt(texts, y, groups, authors) -> str:
     return digest.hexdigest()
 
 
+def _provenance_fingerprint(provenance) -> tuple | None:
+    """Immutable value snapshot of every provenance/audit field."""
+
+    if provenance is None:
+        return None
+    _validate_provenance_schema(provenance)
+    return (
+        provenance.digest_version,
+        provenance.loader_kind,
+        tuple(_canonical_ri(row_id) for row_id in provenance.row_ids),
+        provenance.authors,
+        provenance.n_rows,
+        provenance.chunker_config_hash,
+        (
+            provenance.corpus_policy.exclude_from_benchmark,
+            provenance.corpus_policy.unknown_dir_name,
+        ),
+        provenance.frags_root,
+        provenance.rows_digest,
+        provenance.manifest_hash,
+        provenance.config_id,
+        provenance.parent_rows_digest,
+        provenance.selection_manifest_digest,
+    )
+
+
+def _scientific_payload_fingerprint(
+    *,
+    texts,
+    y,
+    groups,
+    authors,
+    provenance,
+    weighting,
+    rows_digest,
+    isolation_receipt_sha256,
+    isolation_contract_version,
+) -> tuple:
+    return (
+        _scientific_rows_receipt(texts, y, groups, authors),
+        tuple(authors),
+        weighting,
+        rows_digest,
+        isolation_receipt_sha256,
+        isolation_contract_version,
+        _provenance_fingerprint(provenance),
+    )
+
+
+def _require_disk_authority_for_dataset(
+    dataset,
+    weighting: str,
+) -> _DiskVerificationAuthority:
+    provenance = getattr(dataset, "provenance", None)
+    authors = tuple(dataset.authors)
+    rows_digest = getattr(provenance, "rows_digest", None)
+    receipt = _scientific_rows_receipt(
+        dataset.texts,
+        dataset.y,
+        dataset.groups,
+        authors,
+    )
+    current = _scientific_payload_fingerprint(
+        texts=dataset.texts,
+        y=dataset.y,
+        groups=dataset.groups,
+        authors=authors,
+        provenance=provenance,
+        weighting=weighting,
+        rows_digest=rows_digest,
+        isolation_receipt_sha256=receipt,
+        isolation_contract_version=SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
+    )
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        record = _VERIFIED_DATASET_REGISTRY.get(id(dataset))
+        if (
+            record is None
+            or record[0]() is not dataset
+            or record[1] != current
+            or _DISK_AUTHORITY_REGISTRY.get(record[2]) != current
+        ):
+            raise ProvenanceError(
+                "disk-verified context requires a current registered "
+                "verify_dataset_against_disk receipt"
+            )
+        return record[2]
+
+
+def _scientific_context_fingerprint(
+    context: ScientificEvaluationContext,
+) -> tuple:
+    """Return the immutable state registered for one in-process capability."""
+
+    return (
+        _scientific_payload_fingerprint(
+            texts=context.texts,
+            y=context.y,
+            groups=context.groups,
+            authors=context.authors,
+            provenance=context.provenance,
+            weighting=context.weighting,
+            rows_digest=context.rows_digest,
+            isolation_receipt_sha256=context.isolation_receipt_sha256,
+            isolation_contract_version=context.isolation_contract_version,
+        ),
+        context.disk_verified,
+        id(context._disk_authority),
+    )
+
+
+def _build_scientific_evaluation_context(
+    *,
+    texts,
+    y,
+    groups,
+    authors,
+    provenance,
+    weighting,
+    rows_digest,
+    isolation_receipt_sha256,
+    isolation_contract_version,
+    disk_authority,
+) -> ScientificEvaluationContext:
+    """Validate, content-gate, freeze and register one context capability.
+
+    This is also the pickle restore boundary.  Serialized seals are never
+    trusted: every restored payload passes the exact content-isolation gate
+    again before it becomes an accepted in-process capability.
+    """
+
+    import numpy as np
+
+    if type(authors) is not tuple or not all(
+        type(author) is str for author in authors
+    ):
+        raise ProvenanceError("scientific context authors must be a tuple of exact str")
+    if type(weighting) is not str:
+        raise ProvenanceError("scientific context weighting must be an exact str")
+    weighting = resolve_training_weighting(weighting)
+    if (
+        type(rows_digest) is not str
+        or not _HEX64.fullmatch(rows_digest)
+    ):
+        raise ProvenanceError("scientific context rows_digest must be a sha256")
+    if (
+        type(isolation_receipt_sha256) is not str
+        or not _HEX64.fullmatch(isolation_receipt_sha256)
+    ):
+        raise ProvenanceError(
+            "scientific context isolation receipt must be a sha256"
+        )
+    if (
+        type(isolation_contract_version) is not str
+        or isolation_contract_version
+        != SCIENTIFIC_ISOLATION_CONTRACT_VERSION
+    ):
+        raise ProvenanceError("scientific context isolation contract mismatch")
+    if (
+        disk_authority is not None
+        and type(disk_authority) is not _DiskVerificationAuthority
+    ):
+        raise ProvenanceError("scientific context disk authority is malformed")
+
+    raw_arrays = tuple(np.asarray(values) for values in (texts, y, groups))
+    if any(values.ndim != 1 for values in raw_arrays):
+        raise ProvenanceError("scientific context arrays must be one-dimensional")
+    raw_texts, raw_y, raw_groups = raw_arrays
+    if not all(type(value) is str for value in raw_texts):
+        raise ProvenanceError("scientific context texts must contain exact str")
+    if not all(type(value) is str for value in raw_groups):
+        raise ProvenanceError("scientific context groups must contain exact str")
+    normalized_y = [
+        _as_label(value, index) for index, value in enumerate(raw_y)
+    ]
+    frozen_arrays = (
+        np.array(raw_texts, dtype=object, copy=True),
+        np.array(normalized_y, dtype=int, copy=True),
+        np.array(raw_groups, dtype=object, copy=True),
+    )
+    if not (
+        len(frozen_arrays[0])
+        == len(frozen_arrays[1])
+        == len(frozen_arrays[2])
+    ):
+        raise ProvenanceError("scientific context length mismatch")
+    _validate_semantics(frozen_arrays[1], frozen_arrays[2], authors)
+
+    receipt = _scientific_rows_receipt(
+        frozen_arrays[0],
+        frozen_arrays[1],
+        frozen_arrays[2],
+        authors,
+    )
+    if receipt != isolation_receipt_sha256:
+        raise ProvenanceError("scientific context isolation receipt mismatch")
+
+    _corpus_identity.assert_cross_work_content_isolation(
+        frozen_arrays[0],
+        frozen_arrays[2],
+    )
+    if provenance is None:
+        if disk_authority is not None:
+            raise ProvenanceError(
+                "disk-verified scientific context requires exact provenance"
+            )
+        if rows_digest != receipt:
+            raise ProvenanceError(
+                "synthetic scientific context rows_digest mismatch"
+            )
+    else:
+        if type(provenance) is not DatasetProvenance:
+            raise ProvenanceError(
+                "scientific context provenance must be exactly DatasetProvenance"
+            )
+        _verify_stored_provenance(
+            frozen_arrays[0],
+            frozen_arrays[1],
+            frozen_arrays[2],
+            authors,
+            provenance,
+        )
+        if rows_digest != provenance.rows_digest:
+            raise ProvenanceError(
+                "scientific context rows_digest != provenance rows_digest"
+            )
+
+    payload_fingerprint = _scientific_payload_fingerprint(
+        texts=frozen_arrays[0],
+        y=frozen_arrays[1],
+        groups=frozen_arrays[2],
+        authors=authors,
+        provenance=provenance,
+        weighting=weighting,
+        rows_digest=rows_digest,
+        isolation_receipt_sha256=isolation_receipt_sha256,
+        isolation_contract_version=isolation_contract_version,
+    )
+    if disk_authority is None:
+        disk_verified = False
+    else:
+        with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+            authorized = _DISK_AUTHORITY_REGISTRY.get(disk_authority)
+        if authorized != payload_fingerprint:
+            raise ProvenanceError(
+                "scientific context lacks a matching disk-verification receipt"
+            )
+        disk_verified = True
+
+    for values in frozen_arrays:
+        values.setflags(write=False)
+
+    context = object.__new__(ScientificEvaluationContext)
+    for name, value in (
+        ("texts", frozen_arrays[0]),
+        ("y", frozen_arrays[1]),
+        ("groups", frozen_arrays[2]),
+        ("authors", authors),
+        ("provenance", provenance),
+        ("weighting", weighting),
+        ("rows_digest", rows_digest),
+        ("isolation_receipt_sha256", isolation_receipt_sha256),
+        ("isolation_contract_version", isolation_contract_version),
+        ("disk_verified", disk_verified),
+        ("_seal", _SCIENTIFIC_CONTEXT_SEAL),
+        ("_disk_authority", disk_authority),
+    ):
+        object.__setattr__(context, name, value)
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        _SCIENTIFIC_CONTEXT_REGISTRY[context] = (
+            _scientific_context_fingerprint(context)
+        )
+    return context
+
+
 def _freeze_scientific_context(
     dataset,
     weighting: str,
     *,
     disk_verified: bool,
 ) -> ScientificEvaluationContext:
-    import numpy as np
-
-    texts = np.array(dataset.texts, dtype=object, copy=True)
-    y = np.array(dataset.y, dtype=int, copy=True)
-    groups = np.array(dataset.groups, dtype=object, copy=True)
-    for values in (texts, y, groups):
-        values.setflags(write=False)
+    if type(disk_verified) is not bool:
+        raise ProvenanceError("disk_verified must be an exact bool")
+    weighting = resolve_training_weighting(weighting)
+    disk_authority = (
+        _require_disk_authority_for_dataset(dataset, weighting)
+        if disk_verified
+        else None
+    )
     authors = tuple(dataset.authors)
     provenance = getattr(dataset, "provenance", None)
     rows_digest = getattr(provenance, "rows_digest", None)
     if type(rows_digest) is not str:
-        rows_digest = _scientific_rows_receipt(texts, y, groups, authors)
-    return ScientificEvaluationContext(
-        texts=texts,
-        y=y,
-        groups=groups,
+        rows_digest = _scientific_rows_receipt(
+            dataset.texts,
+            dataset.y,
+            dataset.groups,
+            authors,
+        )
+    return _build_scientific_evaluation_context(
+        texts=dataset.texts,
+        y=dataset.y,
+        groups=dataset.groups,
         authors=authors,
         provenance=provenance,
-        weighting=resolve_training_weighting(weighting),
+        weighting=weighting,
         rows_digest=rows_digest,
         isolation_receipt_sha256=_scientific_rows_receipt(
-            texts,
-            y,
-            groups,
+            dataset.texts,
+            dataset.y,
+            dataset.groups,
             authors,
         ),
         isolation_contract_version=SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
-        disk_verified=bool(disk_verified),
-        _seal=_SCIENTIFIC_CONTEXT_SEAL,
+        disk_authority=disk_authority,
     )
 
 
 def require_scientific_evaluation_context(
     context,
 ) -> ScientificEvaluationContext:
-    """Reject bare/malformed datasets before any raw evaluator side effect."""
+    """Validate an already registered context, including explicit test contexts."""
+
+    import numpy as np
 
     if (
         type(context) is not ScientificEvaluationContext
-        or context._seal != _SCIENTIFIC_CONTEXT_SEAL
+        or getattr(context, "_seal", None) is not _SCIENTIFIC_CONTEXT_SEAL
         or context.isolation_contract_version
         != SCIENTIFIC_ISOLATION_CONTRACT_VERSION
     ):
@@ -560,11 +878,21 @@ def require_scientific_evaluation_context(
             "scientific evaluator requires a sealed "
             "ScientificEvaluationContext"
         )
-    if any(getattr(values, "flags", None).writeable for values in (
-        context.texts,
-        context.y,
-        context.groups,
-    )):
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        registered = _SCIENTIFIC_CONTEXT_REGISTRY.get(context)
+    if registered is None:
+        raise ProvenanceError(
+            "scientific evaluator requires a registered sealed context"
+        )
+    if any(
+        type(values) is not np.ndarray or values.ndim != 1
+        for values in (context.texts, context.y, context.groups)
+    ):
+        raise ProvenanceError("scientific evaluation context arrays are malformed")
+    if any(
+        values.flags.writeable
+        for values in (context.texts, context.y, context.groups)
+    ):
         raise ProvenanceError("scientific evaluation context arrays are mutable")
     if not (
         len(context.texts)
@@ -572,6 +900,103 @@ def require_scientific_evaluation_context(
         == len(context.groups)
     ):
         raise ProvenanceError("scientific evaluation context length mismatch")
+    if type(context.authors) is not tuple or not all(
+        type(author) is str for author in context.authors
+    ):
+        raise ProvenanceError("scientific evaluation context authors are malformed")
+    if not all(type(value) is str for value in context.texts):
+        raise ProvenanceError("scientific evaluation context texts are malformed")
+    if not all(type(value) is str for value in context.groups):
+        raise ProvenanceError("scientific evaluation context groups are malformed")
+    _validate_semantics(context.y, context.groups, context.authors)
+    if (
+        type(context.weighting) is not str
+        or resolve_training_weighting(context.weighting) != context.weighting
+    ):
+        raise ProvenanceError("scientific evaluation context weighting is malformed")
+    if type(context.disk_verified) is not bool:
+        raise ProvenanceError(
+            "scientific evaluation context disk_verified is malformed"
+        )
+    if (
+        (context.disk_verified and type(context._disk_authority)
+         is not _DiskVerificationAuthority)
+        or (not context.disk_verified and context._disk_authority is not None)
+    ):
+        raise ProvenanceError(
+            "scientific evaluation context disk authority is malformed"
+        )
+    receipt = _scientific_rows_receipt(
+        context.texts,
+        context.y,
+        context.groups,
+        context.authors,
+    )
+    if (
+        type(context.isolation_receipt_sha256) is not str
+        or receipt != context.isolation_receipt_sha256
+    ):
+        raise ProvenanceError(
+            "scientific evaluation context isolation receipt mismatch"
+        )
+    if context.provenance is None:
+        if context.disk_verified or context.rows_digest != receipt:
+            raise ProvenanceError(
+                "synthetic scientific evaluation context binding mismatch"
+            )
+    else:
+        if type(context.provenance) is not DatasetProvenance:
+            raise ProvenanceError(
+                "scientific evaluation context provenance is malformed"
+            )
+        _verify_stored_provenance(
+            context.texts,
+            context.y,
+            context.groups,
+            context.authors,
+            context.provenance,
+        )
+        if context.rows_digest != context.provenance.rows_digest:
+            raise ProvenanceError(
+                "scientific evaluation context rows_digest mismatch"
+            )
+    payload_fingerprint = _scientific_payload_fingerprint(
+        texts=context.texts,
+        y=context.y,
+        groups=context.groups,
+        authors=context.authors,
+        provenance=context.provenance,
+        weighting=context.weighting,
+        rows_digest=context.rows_digest,
+        isolation_receipt_sha256=context.isolation_receipt_sha256,
+        isolation_contract_version=context.isolation_contract_version,
+    )
+    if context.disk_verified:
+        with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+            authorized = _DISK_AUTHORITY_REGISTRY.get(
+                context._disk_authority
+            )
+        if authorized != payload_fingerprint:
+            raise ProvenanceError(
+                "scientific evaluation context disk authority is stale"
+            )
+    if _scientific_context_fingerprint(context) != registered:
+        raise ProvenanceError(
+            "scientific evaluation context changed after authorization"
+        )
+    return context
+
+
+def require_disk_verified_scientific_context(
+    context,
+) -> ScientificEvaluationContext:
+    """Require the production scientific authority, never the synthetic seam."""
+
+    context = require_scientific_evaluation_context(context)
+    if not context.disk_verified:
+        raise ProvenanceError(
+            "production scientific evaluator requires a disk-verified context"
+        )
     return context
 
 
@@ -594,15 +1019,95 @@ def prepare_scientific_evaluation(
         weighting,
         frozen_run_contract(cfg),
     )
-    _corpus_identity.assert_cross_work_content_isolation(
-        dataset.texts,
-        dataset.groups,
-    )
     return _freeze_scientific_context(
         dataset,
         weighting,
         disk_verified=True,
     )
+
+
+def reverify_scientific_context_from_disk(
+    cfg,
+    context,
+) -> ScientificEvaluationContext:
+    """Re-establish production authority after a process/pickle boundary.
+
+    Serialized contexts are deliberately restored without disk authority.
+    Workers use the trusted run config to repeat the full on-disk comparison;
+    a small process-local cache avoids reloading the same corpus for every fold.
+    """
+
+    context = require_scientific_evaluation_context(context)
+    if context.disk_verified:
+        return require_disk_verified_scientific_context(context)
+    if type(context.provenance) is not DatasetProvenance:
+        raise ProvenanceError(
+            "disk-verified re-verification requires exact dataset provenance"
+        )
+    try:
+        config_body = cfg.to_dict()
+    except Exception as exc:
+        raise ProvenanceError(
+            "disk re-verification requires a resolved run configuration"
+        ) from exc
+    from ..jsonio import dumps_strict
+
+    config_sha256 = hashlib.sha256(
+        dumps_strict(config_body, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    payload = _scientific_payload_fingerprint(
+        texts=context.texts,
+        y=context.y,
+        groups=context.groups,
+        authors=context.authors,
+        provenance=context.provenance,
+        weighting=context.weighting,
+        rows_digest=context.rows_digest,
+        isolation_receipt_sha256=context.isolation_receipt_sha256,
+        isolation_contract_version=context.isolation_contract_version,
+    )
+    cache_key = (config_sha256, payload)
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        cached = _WORKER_REVERIFIED_CONTEXTS.get(cache_key)
+    if cached is not None:
+        return require_disk_verified_scientific_context(cached)
+
+    import numpy as np
+
+    from ..corpus import Dataset
+
+    dataset = Dataset(
+        texts=np.array(context.texts, dtype=object, copy=True),
+        y=np.array(context.y, dtype=int, copy=True),
+        groups=np.array(context.groups, dtype=object, copy=True),
+        authors=list(context.authors),
+        provenance=context.provenance,
+    )
+    verified = prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        context.weighting,
+    )
+    verified_payload = _scientific_payload_fingerprint(
+        texts=verified.texts,
+        y=verified.y,
+        groups=verified.groups,
+        authors=verified.authors,
+        provenance=verified.provenance,
+        weighting=verified.weighting,
+        rows_digest=verified.rows_digest,
+        isolation_receipt_sha256=verified.isolation_receipt_sha256,
+        isolation_contract_version=verified.isolation_contract_version,
+    )
+    if verified_payload != payload:
+        raise ProvenanceError(
+            "disk re-verification changed the scientific context payload"
+        )
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        if len(_WORKER_REVERIFIED_CONTEXTS) >= 4:
+            _WORKER_REVERIFIED_CONTEXTS.clear()
+        _WORKER_REVERIFIED_CONTEXTS[cache_key] = verified
+    return verified
 
 
 def prepare_derived_scientific_evaluation(
@@ -611,15 +1116,44 @@ def prepare_derived_scientific_evaluation(
 ) -> ScientificEvaluationContext:
     """Authorize a provenance-preserving subset of an already verified parent."""
 
+    parent = require_disk_verified_scientific_context(parent_context)
+    return _prepare_derived_scientific_evaluation(parent, dataset)
+
+
+def prepare_synthetic_derived_scientific_evaluation(
+    parent_context,
+    dataset,
+) -> ScientificEvaluationContext:
+    """Explicit non-production subset seam for isolated integration tests."""
+
     parent = require_scientific_evaluation_context(parent_context)
+    if parent.disk_verified:
+        raise ProvenanceError(
+            "synthetic derived preparation requires a synthetic parent"
+        )
+    return _prepare_derived_scientific_evaluation(parent, dataset)
+
+
+def _prepare_derived_scientific_evaluation(
+    parent,
+    dataset,
+) -> ScientificEvaluationContext:
+    parent_prov = parent.provenance
+    if type(parent_prov) is not DatasetProvenance:
+        raise ProvenanceError(
+            "derived scientific evaluation requires a provenance-bound parent"
+        )
     prov = getattr(dataset, "provenance", None)
-    if not isinstance(prov, DatasetProvenance):
+    if type(prov) is not DatasetProvenance:
         raise ProvenanceError("derived scientific dataset has no provenance")
     if (
         prov.parent_rows_digest != parent.rows_digest
-        or prov.frags_root != getattr(parent.provenance, "frags_root", None)
-        or prov.corpus_policy
-        != getattr(parent.provenance, "corpus_policy", None)
+        or prov.frags_root != parent_prov.frags_root
+        or prov.corpus_policy != parent_prov.corpus_policy
+        or prov.loader_kind != parent_prov.loader_kind
+        or prov.chunker_config_hash != parent_prov.chunker_config_hash
+        or prov.manifest_hash != parent_prov.manifest_hash
+        or prov.config_id != parent_prov.config_id
     ):
         raise ProvenanceError(
             "derived scientific dataset is not bound to the verified parent"
@@ -631,14 +1165,58 @@ def prepare_derived_scientific_evaluation(
         dataset.authors,
         prov,
     )
-    _corpus_identity.assert_cross_work_content_isolation(
+    if (
+        prov.selection_manifest_digest is None
+        or _selection_digest(prov.row_ids)
+        != prov.selection_manifest_digest
+    ):
+        raise ProvenanceError(
+            "derived scientific dataset selection manifest mismatch"
+        )
+    _require_subsequence(prov.row_ids, parent_prov.row_ids)
+    if not parent.disk_verified:
+        return _freeze_scientific_context(
+            dataset,
+            parent.weighting,
+            disk_verified=False,
+        )
+
+    # The already disk-verified parent is the authority for this exact ordered
+    # subsequence. Mint the child receipt only here, after the complete
+    # provenance-chain and row-identity checks above; callers cannot request
+    # this state through a flag or serialized context.
+    authors = tuple(dataset.authors)
+    receipt = _scientific_rows_receipt(
         dataset.texts,
+        dataset.y,
         dataset.groups,
+        authors,
     )
-    return _freeze_scientific_context(
-        dataset,
-        parent.weighting,
-        disk_verified=parent.disk_verified,
+    payload_fingerprint = _scientific_payload_fingerprint(
+        texts=dataset.texts,
+        y=dataset.y,
+        groups=dataset.groups,
+        authors=authors,
+        provenance=prov,
+        weighting=parent.weighting,
+        rows_digest=prov.rows_digest,
+        isolation_receipt_sha256=receipt,
+        isolation_contract_version=SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
+    )
+    authority = _DiskVerificationAuthority()
+    with _SCIENTIFIC_CONTEXT_REGISTRY_LOCK:
+        _DISK_AUTHORITY_REGISTRY[authority] = payload_fingerprint
+    return _build_scientific_evaluation_context(
+        texts=dataset.texts,
+        y=dataset.y,
+        groups=dataset.groups,
+        authors=authors,
+        provenance=prov,
+        weighting=parent.weighting,
+        rows_digest=prov.rows_digest,
+        isolation_receipt_sha256=receipt,
+        isolation_contract_version=SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
+        disk_authority=authority,
     )
 
 
@@ -649,10 +1227,6 @@ def prepare_synthetic_scientific_evaluation(
     """Content-gated context for synthetic integration tests and injected evaluators."""
 
     weighting = resolve_training_weighting(weighting)
-    _corpus_identity.assert_cross_work_content_isolation(
-        dataset.texts,
-        dataset.groups,
-    )
     return _freeze_scientific_context(
         dataset,
         weighting,

@@ -35,9 +35,8 @@ from stylo.eval.stylo_lobo_validation import (  # noqa: E402
     load_pinned_a0_reference,
     run_true_lobo,
 )
-from stylo.eval.dispatch import frozen_run_contract  # noqa: E402
 from stylo.eval.paired_audit.run_plan import verify_installed_environment  # noqa: E402
-from stylo.eval.provenance import verify_dataset_against_disk  # noqa: E402
+from stylo.eval.provenance import prepare_scientific_evaluation  # noqa: E402
 from stylo.eval.run_attestation import LiveRunAttestor  # noqa: E402
 from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY  # noqa: E402
 from stylo.features.reps import make_rep_cache  # noqa: E402
@@ -314,27 +313,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
         unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"),
     )
-    verified = verify_dataset_against_disk(
-        cfg, dataset, CHUNK_WEIGHTED_LEGACY, frozen_run_contract(cfg, data_root))
-    if verified != CHUNK_WEIGHTED_LEGACY:
-        raise RuntimeError(f"unexpected verified corpus arm {verified!r}")
-    # The lower-level resumable runner repeats this fail-closed check at its
-    # own mutation boundary. This early copy is intentional: the executable
-    # entrypoint must reject an ineligible snapshot before warming the
-    # representation cache.
-    from stylo.domain.corpus_identity import (  # noqa: E402
-        assert_cross_work_content_isolation,
+    context = prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
     )
-    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
-    if dataset.provenance.rows_digest != LEGACY_DATASET_DIGEST:
+    if context.rows_digest != LEGACY_DATASET_DIGEST:
         raise RuntimeError(
-            f"legacy corpus digest drift: {dataset.provenance.rows_digest} != {LEGACY_DATASET_DIGEST}")
+            f"legacy corpus digest drift: {context.rows_digest} != {LEGACY_DATASET_DIGEST}")
 
-    inventory = derive_inventory(dataset, enforce_target=True)
+    inventory = derive_inventory(context, enforce_target=True)
     reference = load_pinned_a0_reference(REFERENCE_PATH, inventory)
     rep_cache = make_rep_cache(cfg)
     warmed = rep_cache.warm(
-        list(dataset.texts), n_process=cfg.get_path("language.parse_n_process", 4))
+        list(context.texts), n_process=cfg.get_path("language.parse_n_process", 4))
     print(f"representation_cache_warmed={warmed}", flush=True)
     if not rep_cache.path.is_file():
         raise RuntimeError(f"warmed representation cache is missing: {rep_cache.path}")
@@ -359,7 +351,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     code_hashes = _code_hashes()
     identity = build_run_identity(
-        dataset=dataset,
+        dataset=context,
         inventory=inventory,
         config=config,
         code_hashes=code_hashes,
@@ -385,7 +377,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     result = run_true_lobo(
         cfg,
-        dataset,
+        context,
         identity,
         reference,
         output_path=output_path,
