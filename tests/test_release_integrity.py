@@ -397,6 +397,14 @@ class TestReleaseHygiene:
             "/research/reviews/stylometry_codebase_inventory.json export-ignore",
         }.issubset(attributes)
 
+    def test_archive_hygiene_disables_bytecode_before_local_import(self):
+        script = (
+            REPO_ROOT / "scripts" / "check_release_hygiene.py"
+        ).read_text(encoding="utf-8")
+        assert script.index("sys.dont_write_bytecode = True") < script.index(
+            "from stylo.release.hygiene import"
+        )
+
     def test_publish_gate_flags_private_paths_in_tree(self, tmp_path):
         repo = tmp_path / "r"
         _init_repo(repo)

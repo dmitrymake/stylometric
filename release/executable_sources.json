@@ -103,7 +103,7 @@
     "research/governance/topology.json": "529496d32918f4d29cb0933169192b6b09b5eaad9171be0dc78b7e70e5a05200",
     "research/reviews/stylometry_owner_decision_memo.md": "241c393ac42e4d8201d2ee328dd0d814c92a46406f0486f9ab8bbafec55ce8a5",
     "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",
-    "scripts/check_release_hygiene.py": "39633c096deb637517be134e7a499c238df560bfe7bb7ade5eab165e8da4cdcb",
+    "scripts/check_release_hygiene.py": "69534811b444999cedfbebb840f66fc9b72ad0609dc5cf3c4ccbea2d2d2284e5",
     "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
     "scripts/gen-readme.mjs": "e064e6ed93ee94eacc9e58437e17711eb57e77bb72e3184d86c16a07c359b3f7",
     "scripts/gen-site-data.mjs": "c9416ec771ef8706efd54647cff6a5d38d173142a939ea55d25ca9913ff217ad",

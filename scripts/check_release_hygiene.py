@@ -22,6 +22,11 @@ import argparse
 import sys
 from pathlib import Path
 
+# The archive checker imports its own implementation before scanning. Prevent
+# that import from creating a new ``__pycache__`` member whose compiled
+# constants could otherwise self-match the private-path detector.
+sys.dont_write_bytecode = True
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
