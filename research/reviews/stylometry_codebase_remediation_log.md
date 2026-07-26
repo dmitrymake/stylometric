@@ -244,3 +244,11 @@ not change the normative ledger or frozen evidence.
   default-config digest bound by the frozen ablation golden. Restored both
   config copies byte-for-byte instead of refreezing evidence; the runtime
   calibration hard stop and its tests remain in force.
+- 2026-07-26: Reproduced the user-reported production-site crash caused by the
+  stale free identifier `MF1_CI` in `Method.jsx`. Replaced the withdrawn
+  macro-F1 interval claim with the still-authoritative point estimate and an
+  explicit withdrawal explanation, and corrected the same stale claim in the
+  corpus findings copy. Added a full-app Vite SSR/render smoke to the ordinary
+  Pages build and bound that executable gate in the release inventory. The
+  focused site/withdrawal/inventory tests, production build and 91-source
+  provenance verification pass; frozen scientific evidence is unchanged.

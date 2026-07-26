@@ -349,7 +349,8 @@ export default function Method() {
             <summary style={SUMMARY_STYLE}>Три среза корпуса</summary>
             <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 8px", maxWidth: "80ch" }}>
               На <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> верных попаданий больше ({fmtScore(BENCH.topTop1)}) и точность по авторам выше ({fmtScore(BENCH.topMacroF1)}): меньше авторов — их труднее спутать.
-              Заголовочные числа считаются на <strong style={{ color: "var(--text)" }}>{SLICE_BOOK}</strong>: {fmtScore(LOBO_STRICT.styloFullLobo, 3)} верных попаданий, точность по авторам в диапазоне [{MF1_CI}].
+              Заголовочные числа считаются на <strong style={{ color: "var(--text)" }}>{SLICE_BOOK}</strong>: доля верных попаданий {fmtScore(LOBO_STRICT.styloFullLobo, 3)}, точность по авторам (macro-F1) {fmtScore(HEADLINE.macroF1, 3)}.
+              Интервал macro-F1 отозван: пересборка по авторам меняет набор классов и не оценивает разброс одной фиксированной метрики.
               И то, и другое зависит от состава среза, поэтому числа с разных срезов между собой не сравнивают.
             </p>
             <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px", maxWidth: "80ch" }}>

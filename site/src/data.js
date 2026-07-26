@@ -125,7 +125,7 @@ export const CONFUSIONS = D.confusions.map((c) => ({
 // Находки валидатора корпуса (docs/corpus_validation.json).
 export const CORPUS_FINDINGS = [
   { severity: "warn", title: "Внутриавторские near-duplicate", text: "Прутков (cos 0.95–0.96 между сборниками афоризмов) и Гаршин — пересекающиеся фрагменты. Источник утечки train↔test; учитывается при чтении силуэта коллектива." },
-  { severity: "warn", title: `Дисбаланс ${D.corpus.research.imbalanceRatio}×`, text: "Достоевский (≈1.15M слов) против Волошина (≈1.8k). Accuracy завышается «толстыми» классами — поэтому headline и author-clustered CI считаем на macro-F1." },
+  { severity: "warn", title: `Дисбаланс ${D.corpus.research.imbalanceRatio}×`, text: "Достоевский (≈1.15M слов) против Волошина (≈1.8k). Accuracy завышается «толстыми» классами — поэтому рядом приводим macro-F1. Интервал macro-F1 по авторам отозван; интервал accuracy сохранён." },
   { severity: "info", title: "1-книжные авторы вне оценки", text: "Гончаров, Григорович, Решетников, Волошин — книгу нельзя оставить, не лишив автора профиля; в book-level CV не участвуют." },
   { severity: "info", title: "Дуэт и дневники — отдельно", text: "Ильф-Петров (соавторство) и дневники Николая II (не проза) исключены из headline-бенчмарка и разбираются отдельными кейсами." },
 ];

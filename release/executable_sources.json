@@ -63,6 +63,7 @@
     "scripts/gen-site-data.mjs",
     "site/package-lock.json",
     "site/package.json",
+    "site/scripts/check-render.mjs",
     "site/src/generated/manifest.json",
     "src/stylo/resources/authors.json",
     "src/stylo/resources/classics.yaml",
@@ -88,7 +89,8 @@
     "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
     "scripts/gen-site-data.mjs": "67e27535b63c6156f1e91887836bb2fc1ee47b9e652aceacd1eb7fc1e6ca3e92",
     "site/package-lock.json": "bdb1e7b5d7bf3855ef11eff237687d2c4e1f19889204221c3d54fc854fd49218",
-    "site/package.json": "aa8daf5cbb7f724aa9a3b61a36a72878cadfa139a58d902d10508bf213555c83",
+    "site/package.json": "881ae5666566ac1ae4859038e2ffb3317bb4ad47c4984dbe791e93b9de06e34c",
+    "site/scripts/check-render.mjs": "9f3195cc2d3dea63a4cb7b97ff8059fdae06ceffcb16da6ae4cfeafe4757c22e",
     "site/src/generated/manifest.json": "84ef693fe65d5a636f9d2153b199f49147a5b59383904527ee50da04a20f6efc",
     "tests/fixtures/work_balanced_ablation_goldens_v1.SHA256SUMS": "9e36cfb98a67dbf92dfcfdae56a689a1e314cc1b44afd44d002f1772c2219a71",
     "tests/fixtures/work_balanced_ablation_goldens_v1.json": "c66e63e7e8af36b03b6aaa28f3d8cb23b71ef8e7a433ddd0c85322463b993a25"

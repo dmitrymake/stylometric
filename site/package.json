@@ -8,7 +8,8 @@
     "predev": "node ../scripts/gen-site-data.mjs",
     "dev": "vite",
     "prebuild": "node ../scripts/gen-site-data.mjs",
-    "build": "vite build",
+    "build": "vite build && npm run test:render",
+    "test:render": "node ./scripts/check-render.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
