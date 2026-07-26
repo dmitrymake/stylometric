@@ -1,18 +1,12 @@
 import { Card, Stat } from "@dmitrymake/rk-ui";
 import { HEADLINE, MODELS, AUTHOR_RECALL, CHANNELS } from "../data.js";
 import { BENCH_EXT } from "../segdata.js";
-import { fmtPct, fmtP, fmtScore, fmtInt } from "../format.js";
-import HistoricalHeadlineNotice from "../components/HistoricalHeadlineNotice.jsx";
+import { fmtPct, fmtScore, fmtInt } from "../format.js";
 
 const BOW = MODELS.find((m) => m.id === "bow_lr");
 const PROZA_NEURO = BENCH_EXT.prozaNeuro;                                  // ruBERT-tiny2 без дообучения
 const PROZA_LEADER = BENCH_EXT.prozaLeader;                                // лучший классический метод на той же прозе
-const DSP_TOP1 = CHANNELS.byId("DSP (suffixes)").top1;                     // слабейший канал ПОЛНОГО среза (43 автора / 251 книга), тот же, что и headline
-
-// «Запас» = разность уже округлённых до одного знака отображаемых чисел (88.0 и 80.1),
-// чтобы плашка совпадала с видимой разницей, а не расходилась из-за отдельного округления.
-const pct1 = (frac) => Math.round(frac * 1000) / 10;                       // доля 0..1 → проценты с одним знаком
-const GAP_PCT = pct1(HEADLINE.accuracy) - pct1(BOW.acc);
+const DSP_TOP1 = CHANNELS.byId("DSP (suffixes)").top1;                     // слабейший канал первого полного среза (43 автора / 251 книга)
 
 // склонения без литералов о результатах — только грамматика
 const ruBooks = (n) => {
@@ -75,7 +69,7 @@ export default function Conclusion() {
     <section className="section" id="conclusion">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Вердикт</p>
+          <p className="eyebrow">Вывод</p>
           <h2>Почерк виден, когда данных хватает</h2>
           <p className="prose lead muted">
             Когда книг мало и авторы далеки друг от друга, автора выдаёт сама тема —
@@ -84,34 +78,28 @@ export default function Conclusion() {
             какие служебные слова, где стоят знаки.
           </p>
         </div>
-        <HistoricalHeadlineNotice compact />
 
         {/* признаки окупаются */}
         <div className="split reveal module" style={{ alignItems: "start" }}>
           <div className="prose">
             <p className="verdict">
-              В историческом отозванном расчёте stylo получила больше верных ответов, чем мешок слов —
+              Первый эксперимент подсказал, что сочетание синтаксиса, служебных слов
+              и пунктуации различает авторов лучше, чем один словарь:{" "}
               <strong style={{ color: "var(--gold)" }}> {fmtPct(HEADLINE.accuracy, 1)} против {fmtPct(BOW.acc, 1)}</strong>,
-              при сохранённом McNemar p&nbsp;{fmtP(BOW.p)}. Из-за cross-work content leakage
-              это не текущий вывод о преимуществе и не действующее свидетельство значимости.
+              соответственно. Насколько велик этот выигрыш после очистки корпуса,
+              должен показать новый расчёт.
             </p>
-            {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
-              <p className="mono muted" style={{ fontSize: 12 }}>
-                Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-                один голос» возможен только после content-safe миграции и полного пересчёта.
-              </p>
-            )}
             <p>
-              Историческая разность задаёт гипотезу для нового расчёта там, где кандидаты из одной
+              Особенно интересны группы, где кандидаты принадлежат одной
               школы. Донская школа, одесситы, деревенщики стоят тесно: общий край, общее
               время, общий круг сюжетов. На таких соседях голая лексика легко путает автора
               с его же школой — а синтаксис и расстановка знаков ещё различают руку.
-              Отдельного замера по каждой школе здесь нет: разница общая, на весь корпус.
+              Отдельного замера по каждой школе пока нет: это вопрос для следующего опыта.
             </p>
           </div>
           <div className="grid cols-2" style={{ alignContent: "start" }}>
-            <Stat label="historical McNemar p" value={fmtP(BOW.p)} accent="var(--gold)" parade hint="не для текущего inferential вывода" />
-            <Stat label="историческая разность" value={`+${GAP_PCT.toFixed(1)}%`} accent="var(--success)" hint={`${fmtPct(HEADLINE.accuracy, 1)} против ${fmtPct(BOW.acc, 1)}; snapshot ineligible`} />
+            <Stat label="верные книги · первый опыт" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
+            <Stat label="macro-F1 · первый опыт" value={fmtScore(HEADLINE.macroF1, 3)} accent="var(--icon-blue)" hint="Каждый автор получает одинаковый вес." />
           </div>
         </div>
 
@@ -120,7 +108,7 @@ export default function Conclusion() {
           <h3>Что усилит следующие проверки</h3>
           <p className="prose muted" style={{ marginBottom: 22 }}>
             Дело не в эффектных новых признаках. Самый слабый канал — разбор по
-            хвостам-суффиксам слов (DSP): в том же историческом срезе ({fmtInt(HEADLINE.authors)}{" "}
+            хвостам-суффиксам слов (DSP): в том же первом эксперименте ({fmtInt(HEADLINE.authors)}{" "}
             {ruAuthors(HEADLINE.authors)}, {fmtInt(HEADLINE.books)} {ruBooks(HEADLINE.books)})
             верных ответов лишь {fmtPct(DSP_TOP1)}. Настоящие рычаги проще: больше текстов
             на автора, ровнее подобранные жанры и отдельная работа с темой.

@@ -10,6 +10,12 @@ const T = LIMITS.threshold; // порог надёжной атрибуции (0
 
 const SEP_ACCENT = { sovremennik: "var(--success)", petersburg: "var(--icon-blue)" };
 const LIM_ACCENT = { nekrasov: "var(--cinnabar)", pair: "var(--gold)", kolokol: "var(--gold)", chekhonte: "var(--cosmos)" };
+const LIMIT_REASON = {
+  nekrasov: "тема заслоняет почерк",
+  pair: "слишком похожие руки",
+  kolokol: "слишком похожие руки",
+  chekhonte: "слабая группа сравнения",
+};
 
 // русское склонение существительного после числа: форма следует за данными, а не хардкодится под падеж
 const plural = (n, one, few, many) => {
@@ -46,8 +52,8 @@ const SEP_NOTE = {
 const LIM_NOTE = {
   nekrasov: "По служебным словам, не зависящим от темы, руки соавторов неразличимы; деление появляется только на содержании — значит несёт тему, а не почерк.",
   pair: "Пара учитель↔ученик внутри одной школы остаётся ниже порога: 0.70 при p=0.2222. Руки сошлись слишком близко для этой панели.",
-  kolokol: "После равного train-side веса работ прежнее разделение исчезло: 0.6857 при p=0.0755. Герцен и Огарёв для этого корпуса формально неразличимы.",
-  chekhonte: "Панель не узнаёт известные руки достаточно надёжно. Номер «Будильника» теперь оцифрован, а точный заказ Курепина сильнее поддерживает Чехова, чем top провалившей gate панели — переатрибуции нет.",
+  kolokol: "После того как каждой книге дали равный вес, прежнее разделение исчезло: 0.6857 при p=0.0755. Герцен и Огарёв для этого корпуса формально неразличимы.",
+  chekhonte: "Панель не узнаёт известные руки достаточно надёжно. Номер «Будильника» теперь оцифрован, а точный заказ Курепина сильнее поддерживает Чехова, чем лидер слабой компьютерной проверки — переатрибуции нет.",
 };
 
 // одна строка метрики внутри карточки
@@ -98,7 +104,7 @@ export default function Limits() {
       <div className="wrap flow">
         {/* ───────────────────────── шапка ───────────────────────── */}
         <div className="section-head reveal">
-          <p className="eyebrow">Урок счёта и карта режимов</p>
+          <p className="eyebrow">Границы метода</p>
           <h2>Где метод работает, а где нет</h2>
           <p className="prose lead muted">
             Хороший инструмент честно говорит о своих пределах. Один и тот же корпус — а вывод
@@ -107,7 +113,7 @@ export default function Limits() {
           </p>
           <div className="grid cols-2 reveal" style={{ maxWidth: 520 }}>
             <Stat label={`${plural(nCases, "кейс", "кейса", "кейсов")} на карте`} value={nCases} accent="var(--icon-blue)" parade />
-            <Stat label={`${plural(nModes, "режим", "режима", "режимов")} отказа`} value={nModes} accent="var(--cinnabar)" hint="автор ≡ тема · сросшиеся руки · панель у случайности" />
+            <Stat label={`${plural(nModes, "случай", "случая", "случаев")} без уверенного ответа`} value={nModes} accent="var(--cinnabar)" hint="тема вместо почерка · слишком похожие руки · слабая группа сравнения" />
           </div>
         </div>
 
@@ -214,7 +220,7 @@ export default function Limits() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 22, height: 2, background: accent }} />
-                    <Badge className="case-badge" tone="success">делит руки · выше порога</Badge>
+                    <Badge className="case-badge" tone="success">различие устойчиво</Badge>
                   </div>
                   <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
                   <p className="muted" style={{ margin: 0, fontSize: 14.5 }}>{c.question}</p>
@@ -242,7 +248,7 @@ export default function Limits() {
 
         {/* ──────────────── карта: метод честно отказывает ──────────────── */}
         <div className="reveal">
-          <h3>Где метод честно отказывает</h3>
+          <h3>Где метод не различает</h3>
           <p className="prose muted">
             Отказ случается в {nModes} {plural(nModes, "режиме", "режимах", "режимах")} — и метод честно
             их показывает: когда видимое
@@ -259,7 +265,7 @@ export default function Limits() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 22, height: 2, background: accent }} />
-                    <Badge className="case-badge" tone="warning">предел · {c.reason}</Badge>
+                    <Badge className="case-badge" tone="warning">ответа пока нет · {LIMIT_REASON[c.id] || c.reason}</Badge>
                   </div>
                   <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
                   <p className="muted" style={{ margin: 0, fontSize: 14.5 }}>{c.question}</p>
@@ -289,8 +295,9 @@ export default function Limits() {
 
         {/* ──────────────────── финальный вердикт ──────────────────── */}
         <p className="verdict reveal">
-          Единица работы должна быть симметричной: один голос удержанному тексту и
-          один равный вклад каждой обучающей работе в авторский центроид. После этой
+          <strong style={{ color: "var(--text)" }}>Одна книга — один голос.</strong>{" "}
+          Проверяемый текст получает один голос, и каждая обучающая книга вносит
+          равный вклад в профиль автора. После этой
           проверки школьная ось «Современника» и Петербургская панель сохраняются,
           а прежнее разделение Герцена и Огарёва снимается. Метод также отказывает
           там, где тема притворяется почерком, руки сошлись внутри одной школы или

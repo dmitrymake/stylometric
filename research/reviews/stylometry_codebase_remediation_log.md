@@ -424,3 +424,10 @@ not change the normative ledger or frozen evidence.
   failed primary/fallback loads. Full/NER route-order and real lg/md poisoned
   namespace regressions prove that no substituted package callable executes;
   frozen evidence and every owner-controlled gate remain unchanged.
+- 2026-07-27: Reworked the public presentation as one reader-facing
+  popular-science narrative. The first experiment is now explained once in
+  plain Russian, raw governance statuses no longer reach rendered pages, and
+  the «Тарас Бульба» chapter again tells the literary investigation before its
+  methodological correction. README and metadata use the same framing; SSR
+  rejects internal audit jargon. Generated scientific data, frozen evidence,
+  registrations and owner-controlled gates were not changed.

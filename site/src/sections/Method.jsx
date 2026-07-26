@@ -1,21 +1,14 @@
 import { Fragment } from "react";
 import { Card, Stat, Timeline, WhyBlock } from "@dmitrymake/rk-ui";
-import { FEATURES, LOBO_STRICT, TOMSK, HEADLINE, MODELS } from "../data.js";
+import { FEATURES, LOBO_STRICT, TOMSK, HEADLINE } from "../data.js";
 import { CORPUS } from "../corpus.js";
 import { CASES, BENCH, BENCH_EXT } from "../segdata.js";
-import { fmtScore, fmtP, fmtRange, fmtPct } from "../format.js";
+import { fmtScore, fmtRange, fmtPct } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
 import Sources from "../components/Sources.jsx";
-import HistoricalHeadlineNotice from "../components/HistoricalHeadlineNotice.jsx";
 
 const TA = CASES.tolstoyAn;
 const C = CASES;
-// значимость — все числа из генератора, не литералы
-const BOW_M = MODELS.find((m) => m.id === "bow_lr");
-// author-clustered CI macro-F1 ОТОЗВАН (HEADLINE.macroF1CI === null) — показываем точку.
-// Accuracy-интервал статистически определён в исторической арифметике, но upstream
-// corpus snapshot непригоден из-за cross-work leakage: это не текущая uncertainty.
-const HISTORICAL_ACC_CI = fmtRange(HEADLINE.accCIAuthor[0], HEADLINE.accCIAuthor[1]);
 // max шкал берётся из данных, не литералом
 const CH_MAX = Math.max(...BENCH.channels.map((r) => r.v));
 const PROZA_MAX = Math.max(...BENCH_EXT.prozaCompare.map((r) => r.v));
@@ -40,7 +33,7 @@ const chRu = (c) => CH_RU[c] || c;
 // разброс «цельного одиночки» берём из бесспорных контролей, не литералом
 const SINGLE_LOW = Math.min(...C.controls.map((c) => c.v));
 const SINGLE_HIGH = Math.max(...C.controls.map((c) => c.v));
-// Историческая PD-only диагностика: худший recall и число помеченных книг.
+// Открытая выборка: худший recall и число помеченных книг.
 const WORST = BENCH.worstRecall;
 const WORST_OK = Math.round(WORST.recall * WORST.books);
 const ruBooks = (n) => {
@@ -69,7 +62,7 @@ const TOMSK_KMAX = Math.max(...TOMSK.headToHead.table.map((r) => r.k));
 
 // Короткие устойчивые ярлыки трёх срезов корпуса — чтобы читатель не путал 22 / 43 / 51 автора
 // (числа приходят из данных, склонение — через ruAuthors; форма именительная для скобочного вида).
-const SLICE_OPEN = `исторический открытый срез (${BENCH.nAuthors} ${ruAuthors(BENCH.nAuthors)})`;
+const SLICE_OPEN = `открытая выборка (${BENCH.nAuthors} ${ruAuthors(BENCH.nAuthors)})`;
 const SLICE_BOOK = `срез по книгам (${CORPUS.benchmark.authors} ${ruAuthors(CORPUS.benchmark.authors)})`;
 const SLICE_ALL = `весь корпус (${CORPUS.research.authors} ${ruAuthors(CORPUS.research.authors)})`;
 
@@ -102,10 +95,10 @@ const featName = (n) => FEAT_NAME_RU[n] || n;
 const featNote = (n) => FEAT_NOTE_RU[n] || n;
 
 const PROTOCOL = [
-  { marker: "01", title: "очистка", body: "Нормализация текста, удаление точных дублей по контрольной сумме, отсев почти-одинаковых отрывков одного автора — чтобы куски своих же книг не подсматривали из обучения в проверку.", color: "var(--icon-blue)", state: "done" },
-  { marker: "02", title: "разделение", body: "Книга — неделимая единица. Отрывки одной книги никогда не попадают по разные стороны границы между обучением и проверкой.", color: "var(--icon-blue)", state: "done" },
-  { marker: "03", title: "исторический LOBO", body: `В старом расчёте каждую книгу по очереди убирали — ${HEADLINE.books} пересчётов. Позднее аудит нашёл совпадающее содержание под другими work-id по разные стороны границы, поэтому эти ${HEADLINE.authors} ${ruAuthors(HEADLINE.authors)} / ${HEADLINE.books} ${ruBooks(HEADLINE.books)} сохраняются только как исторический срез.`, color: "var(--gold)", state: "done" },
-  { marker: "04", title: "историческая диагностика", body: "Интервалы и p воспроизводят старую арифметику, но не разрешают текущий вывод о точности или преимуществе на непригодном snapshot.", color: "var(--cinnabar)", state: "done" },
+  { marker: "01", title: "чистим тексты", body: "Убираем библиотечные пометы и точные повторы, приводим дореформенную орфографию к современной, но сохраняем ритм и пунктуацию.", color: "var(--icon-blue)", state: "done" },
+  { marker: "02", title: "собираем семьи текстов", body: "Рассказ, отдельное издание и сборник с тем же рассказом считаются связанными. Они никогда не оказываются по разные стороны проверки.", color: "var(--icon-blue)", state: "done" },
+  { marker: "03", title: "прячем книгу целиком", body: `Каждую из ${HEADLINE.books} книг по очереди убираем вместе со связанными текстами. Профиль автора строится только по тому, что осталось.`, color: "var(--gold)", state: "done" },
+  { marker: "04", title: "сравниваем ответы", body: "Смотрим не только на долю попаданий, но и на простой «мешок слов»: сложный метод полезен лишь тогда, когда добавляет что-то сверх темы.", color: "var(--success)", state: "done" },
 ];
 
 export default function Method() {
@@ -114,34 +107,22 @@ export default function Method() {
       <div className="wrap flow">
         <div className="section-head reveal">
           <p className="eyebrow">Метод</p>
-          <h2>Проверка по книгам — и обнаруженная граница утечки</h2>
+          <h2>Как проверить модель, не давая ей подсказок</h2>
           <p className="prose lead muted">
-            Главное в атрибуции не принять смену темы за смену руки. Автор
-            берёт новый сюжет, других героев, другой словарь — и слабый метод решает, что
-            сменился человек. Следующий протокол должен целиком убирать из обучения весь
-            content-компонент проверяемой книги и возвращать его только на шаге
-            предсказания. Тогда ни словарь, ни частоты, ни классификатор не увидят тот же
-            текст под другим именем. Исторический corpus snapshot этому требованию не
-            соответствовал: вложенные произведения и точное совпадение чанка находились
-            под разными work-id, поэтому отложенное содержание оставалось в train.
+            Представьте экзамен: программа читает книги известных авторов, затем получает
+            одну незнакомую и должна назвать имя. Проверяемую книгу прячут целиком — вместе
+            со всеми сборниками и изданиями, где повторяется то же содержание. Только после
+            обучения она возвращается как вопрос. Так модель не может узнать знакомый
+            рассказ и выдать это за знание авторского стиля.
           </p>
           <p className="prose muted">
-            Исторический отозванный LOBO оставлял по одной книге; сохранённая доля
-            попаданий — {fmtScore(LOBO_STRICT.styloFullLobo, 3)}.
-            Деление корпуса на 5 частей было быстрым ориентиром для перебора
-            ({fmtScore(LOBO_STRICT.proxyTop1, 3)}). Числа близкие, но считаются по-разному
-            и на разных наборах авторов; оба остаются диагностикой старого snapshot.
+            Первый эксперимент уже прятал книги по одной, но считал отдельный рассказ и
+            сборник разными объектами. Проверка корпуса обнаружила эту слабость. Теперь
+            граница проходит не по названию файла, а по самому содержанию.
           </p>
-          <HistoricalHeadlineNotice compact />
-          {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
-            <p className="mono muted" style={{ fontSize: 12 }}>
-              Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-              один голос» не реабилитирует старый snapshot: сначала нужна content-safe миграция.
-            </p>
-          )}
         </div>
 
-        {/* Требование к следующему content-safe протоколу */}
+        {/* Строгая проверка без подсказок */}
         <div className="split reveal" style={{ alignItems: "start" }}>
           <div className="prose">
             {/* Заголовок раздела — вручную свёрстанный <h3>, а не <StageHeader>:
@@ -150,17 +131,16 @@ export default function Method() {
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
                 <span style={{ width: 10, height: 10, background: "var(--gold)", flex: "0 0 auto" }} />
                 <span style={{ fontFamily: "var(--font-text)", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", letterSpacing: "var(--tracking-caption)", textTransform: "uppercase", color: "var(--text-muted)" }}>
-                  Следующий протокол · content-safe
+                  Проверка без подсказок
                 </span>
               </div>
               <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-display-2)", lineHeight: "var(--lh-display-2)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-tight)", margin: 0, color: "var(--text)" }}>
-                Модель не должна видеть content-компонент проверки
+                Проверяемый текст невидим до самого ответа
               </h3>
               <p style={{ fontFamily: "var(--font-text)", fontSize: "var(--fs-body)", lineHeight: "var(--lh-body)", color: "var(--text-muted)", margin: "var(--space-2) 0 0", maxWidth: "60ch" }}>
-                После content-safe миграции словарь, частоты и классификатор должны видеть
-                только непересекающиеся компоненты. Весь content-компонент отложенной книги
-                появляется только на шаге предсказания; старый snapshot этому требованию не
-                соответствовал.
+                Словарь, частоты и классификатор строятся только по учебным книгам.
+                Проверяемая книга и все тексты с тем же содержанием появляются лишь
+                после обучения — как настоящий незнакомый пример.
               </p>
             </header>
             <details style={{ marginTop: 4 }}>
@@ -171,13 +151,17 @@ export default function Method() {
                 и точкой отсчёта «всегда самый частый автор».
               </p>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — Историческая точка macro-F1 (средняя по всем авторам поровну) — {fmtScore(HEADLINE.macroF1)}. Она описывает сохранённую арифметику, но не является текущей оценкой; её author-clustered интервал дополнительно недействителен и отозван.
+                — Accuracy — доля правильно названных книг. В первом эксперименте она
+                составила {fmtScore(HEADLINE.accuracy, 4)}.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — Исторический accuracy-интервал [{HISTORICAL_ACC_CI}] воспроизводит старый bootstrap, но из-за upstream content leakage не оценивает текущую неопределённость.
+                — Macro-F1 даёт каждому автору одинаковый вес, даже если у одного десять
+                книг, а у другого две. В первом эксперименте — {fmtScore(HEADLINE.macroF1, 4)}.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — McNemar p {fmtP(BOW_M.p)} сохранён как историческая диагностика. На ineligible corpus snapshot он не подтверждает текущий claim о превосходстве над Burrows Delta или мешком слов.
+                — Интервалы и сравнение с простыми методами будут посчитаны заново после
+                очистки корпуса. Старый интервал macro-F1 здесь не показывается: он был
+                построен для другой статистической постановки.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
                 — Калибровка (ECE — насколько заявленная уверенность расходится с реальной долей попаданий) {fmtScore(HEADLINE.ece)}: плохая (хорошая около 0.02–0.05). Модель склонна переоценивать себя, поэтому доли вероятностей в разборах читаем как порядок версий, а не как точную уверенность.
@@ -189,15 +173,15 @@ export default function Method() {
           </Card>
         </div>
 
-        {/* почему отрывка и одной book-id недостаточно */}
+        {/* Почему случайного деления на отрывки недостаточно */}
         <div className="reveal module">
-          <WhyBlock title="Почему не по отрывкам — и почему одной book-id мало">
+          <WhyBlock title="Почему нельзя случайно делить одну книгу на куски">
             Отрывки внутри одной книги похожи между собой: общая тема, лексика, герои.
             Считать их независимыми — значит занижать погрешность: точность кажется
-            надёжнее, чем она есть. Книга остаётся единицей предсказания, но граница fit/test
-            должна проходить по независимому content-компоненту целиком: все вложенные и
-            совпадающие work-id уходят вместе. Историческая группировка только по book-id
-            этого не обеспечила, поэтому её интервалы и проверки значимости отозваны.
+            надёжнее, чем она есть. Поэтому книга остаётся единицей ответа, а все её
+            отрывки движутся вместе. Если рассказ входит ещё и в сборник, сборник тоже
+            уходит на ту же сторону: одинаковое содержание нельзя разделять между
+            обучением и проверкой.
           </WhyBlock>
         </div>
 
@@ -313,15 +297,15 @@ export default function Method() {
           </p>
         </div>
 
-        {/* историческая диагностика на ineligible corpus snapshot */}
+        {/* Какие группы признаков выглядели полезнее в первом эксперименте */}
         <div className="reveal module">
-          <h3>Историческая диагностика открытого среза</h3>
+          <h3>Какие признаки пробовали</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 16 }}>
-            Сохранённый PD-only артефакт — <strong style={{ color: "var(--text)" }}>{BENCH.nBooks} {ruBooks(BENCH.nBooks)}</strong> по{" "}
-            <strong style={{ color: "var(--text)" }}>{BENCH.nAuthors} авторам-классикам</strong>, умершим больше 70 лет назад:
-            его байты можно воспроизвести, но известный Turgenev content-component
-            пересекает work-id границу. Поэтому показатели групп признаков ниже —
-            историческая арифметика, не текущая точность:
+            В открытой выборке — <strong style={{ color: "var(--text)" }}>{BENCH.nBooks} {ruBooks(BENCH.nBooks)}</strong> по{" "}
+            <strong style={{ color: "var(--text)" }}>{BENCH.nAuthors} авторам-классикам</strong>,
+            умершим больше 70 лет назад. Полоски показывают, какие группы признаков
+            выглядели сильнее в первом эксперименте. Это сравнение идей внутри одного
+            опыта, а не новая оценка точности:
           </p>
           <div className="split" style={{ alignItems: "center" }}>
             <div>
@@ -333,40 +317,40 @@ export default function Method() {
                 </div>
               ))}
             </div>
-            <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
+              <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
               <div className="grid cols-2">
-                <Stat label="historical PD macro-F1" value={fmtScore(BENCH.topMacroF1)} accent="var(--icon-blue)" />
-                <Stat label="historical PD accuracy" value={fmtScore(BENCH.topTop1)} accent="var(--text)" />
+                <Stat label="macro-F1 · открытая выборка" value={fmtScore(BENCH.topMacroF1)} accent="var(--icon-blue)" />
+                <Stat label="верные книги · открытая выборка" value={fmtScore(BENCH.topTop1)} accent="var(--text)" />
               </div>
               <p className="note" style={{ margin: 0 }}>
-                Ансамбль «все группы поровну» — это простое усреднение групп признаков. Его веса{" "}
-                <strong style={{ color: "var(--text)" }}>не зависят от test labels</strong>, но это не устраняет upstream cross-work content leakage.
+                Ансамбль «все группы поровну» просто усредняет ответы разных признаков.
+                Проверяемая книга не участвует в выборе этих весов.
               </p>
               <p className="note" style={{ margin: 0 }}>
                 Под <em>одним</em> классификатором{" "}
-                <strong style={{ color: "var(--text)" }}>цепочки букв ({fmtScore(CH_CHAR.v, 3)}) и синтаксис ({fmtScore(CH_SYN.v, 3)}) дали близкую историческую арифметику</strong>.
-                Это гипотеза для нового content-safe пересчёта.
+                <strong style={{ color: "var(--text)" }}>цепочки букв ({fmtScore(CH_CHAR.v, 3)}) и синтаксис ({fmtScore(CH_SYN.v, 3)}) дали близкий результат</strong>.
+                Значит, устройство фразы стоит снова проверить на очищенном корпусе.
               </p>
             </div>
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 12, maxWidth: "80ch" }}>
-            Это открытый срез из {BENCH.nAuthors} {ruAuthors(BENCH.nAuthors)}. Исторические
-            {fmtScore(LOBO_STRICT.styloFullLobo, 3)} получены на другом, большем и ныне
-            непригодном срезе; эти числа не сравнивают и не используют как текущий claim.
+            Открытая выборка состоит из {BENCH.nAuthors} {ruAuthors(BENCH.nAuthors)}.
+            Результат {fmtScore(LOBO_STRICT.styloFullLobo, 3)} относится к другой,
+            большей группе авторов, поэтому напрямую сравнивать эти числа нельзя.
           </p>
           <details style={{ marginTop: 6 }}>
             <summary style={SUMMARY_STYLE}>Три среза корпуса</summary>
             <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 8px", maxWidth: "80ch" }}>
-              Для <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> сохранены точки {fmtScore(BENCH.topTop1)} / {fmtScore(BENCH.topMacroF1)}.
-              Исторические отозванные числа для <strong style={{ color: "var(--text)" }}>{SLICE_BOOK}</strong>: доля верных попаданий {fmtScore(LOBO_STRICT.styloFullLobo, 3)}, описательная точка macro-F1 {fmtScore(HEADLINE.macroF1, 3)}.
-              Весь snapshot непригоден из-за cross-work content leakage; интервал macro-F1 дополнительно отозван, потому что пересборка по авторам меняет набор классов.
-              Ни один срез не поддерживает текущий claim; между собой их тоже не сравнивают.
+              Для <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> первый
+              эксперимент дал {fmtScore(BENCH.topTop1)} / {fmtScore(BENCH.topMacroF1)}.
+              Для <strong style={{ color: "var(--text)" }}>{SLICE_BOOK}</strong> —{" "}
+              {fmtScore(LOBO_STRICT.styloFullLobo, 3)} верных книг и macro-F1{" "}
+              {fmtScore(HEADLINE.macroF1, 3)}. Состав авторов различается, поэтому это
+              две отдельные картины. После очистки корпуса обе будут пересчитаны.
             </p>
             <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px", maxWidth: "80ch" }}>
               Слабее всех узнаётся {WORST.name} — коллективная маска: своим именем помечена лишь половина его книг ({WORST_OK} из {WORST.books}).
               Маску из нескольких почерков трудно свести к одному профилю.
-              Исторический PD macro-F1 interval — {fmtRange(BENCH.ci[0], BENCH.ci[1])}.
-              Он сохранён для аудита arithmetic и не является текущей uncertainty.
             </p>
             <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px", maxWidth: "80ch" }}>
               <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> — классики, умершие больше 70 лет назад ({BENCH.nBooks} {ruBooks(BENCH.nBooks)}):
@@ -483,19 +467,20 @@ export default function Method() {
             <div className="split" style={{ alignItems: "start", marginTop: 12 }}>
               <div>
                 <div className="grid cols-3">
-                  <Stat label="исторический отозванный LOBO" value={fmtScore(LOBO_STRICT.styloFullLobo, 3)} accent="var(--gold)" />
-                  <Stat label="историческая 5-fold диагностика" value={fmtScore(LOBO_STRICT.proxyTop1, 3)} accent="var(--text)" />
-                  <Stat label={`исторический посимвольный ориентир (${LOBO_STRICT.trueLoboBooks} ${ruBooks(LOBO_STRICT.trueLoboBooks)})`} value={fmtScore(LOBO_STRICT.trueLoboTop1, 3)} accent="var(--text-muted)" />
+                  <Stat label="первый эксперимент · по книгам" value={fmtScore(LOBO_STRICT.styloFullLobo, 3)} accent="var(--gold)" />
+                  <Stat label="быстрая проверка · пять частей" value={fmtScore(LOBO_STRICT.proxyTop1, 3)} accent="var(--text)" />
+                  <Stat label={`цепочки букв · ${LOBO_STRICT.trueLoboBooks} ${ruBooks(LOBO_STRICT.trueLoboBooks)}`} value={fmtScore(LOBO_STRICT.trueLoboTop1, 3)} accent="var(--text-muted)" />
                 </div>
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 10, maxWidth: "54ch" }}>
-                  Отозванная историческая точка — {fmtScore(LOBO_STRICT.styloFullLobo, 3)} ({HEADLINE.authors} {ruAuthors(HEADLINE.authors)} / {HEADLINE.books} {ruBooks(HEADLINE.books)}).
+                  Первый опыт по целым книгам — {fmtScore(LOBO_STRICT.styloFullLobo, 3)} ({HEADLINE.authors} {ruAuthors(HEADLINE.authors)} / {HEADLINE.books} {ruBooks(HEADLINE.books)}).
                   Деление на 5 частей ({fmtScore(LOBO_STRICT.proxyTop1, 3)}) и посимвольный
-                  косинус ({fmtScore(LOBO_STRICT.trueLoboTop1, 3)}) сохраняются только как диагностика того же ineligible snapshot.
+                  косинус ({fmtScore(LOBO_STRICT.trueLoboTop1, 3)}) отвечают на соседние
+                  вопросы и служат ориентирами, а не заменой повторного опыта.
                 </p>
                 {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
                   <p className="mono muted" style={{ fontSize: 12, marginTop: 8, maxWidth: "54ch" }}>
-                    Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-                    один голос» возможен после content-safe миграции; старую цифру он не делает допустимой.
+                    В первом эксперименте длинная книга сильнее влияла на профиль автора.
+                    В повторном расчёте каждая книга получает один голос.
                   </p>
                 )}
               </div>
@@ -551,9 +536,9 @@ export default function Method() {
             </p>
             <div style={{ display: "grid", gap: 8, maxWidth: "72ch" }}>
               {[
-                { what: "Исторический PD-only артефакт", cmd: "scripts/run_benchmark.py --pd-only", out: "docs/validation_pd.json" },
+                { what: "Открытая выборка классиков", cmd: "scripts/run_benchmark.py --pd-only", out: "docs/validation_pd.json" },
                 { what: "Русский набор Proza.ru", cmd: "scripts/run_proza_ru.py", out: null },
-                { what: "Отозванный исторический LOBO", cmd: "final.py / lobo.py", out: "final_comparison.csv" },
+                { what: "Первый эксперимент по книгам", cmd: "final.py / lobo.py", out: "final_comparison.csv" },
               ].map((r) => (
                 <div key={r.cmd} style={{ display: "grid", gridTemplateColumns: "20ch 1fr", gap: 10, alignItems: "baseline", borderBottom: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingBottom: 7 }}>
                   <span style={{ fontSize: 12.5, color: "var(--text)" }}>{r.what}</span>

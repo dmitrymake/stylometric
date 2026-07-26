@@ -3,23 +3,22 @@ import { REPRO, BENCH } from "../segdata.js";
 import { LOBO_STRICT, HEADLINE } from "../data.js";
 import { CORPUS } from "../corpus.js";
 import { fmtScore, fmtPct } from "../format.js";
-import HistoricalHeadlineNotice from "../components/HistoricalHeadlineNotice.jsx";
 
 const GUARANTEES = [
   {
-    title: "Повторяемо",
+    title: "Проверяемо",
     accent: "var(--success)",
-    body: `Один файл настроек (configs/default.yaml) и замороженные версии библиотек (requirements.lock). Исторические байты и диагностики воспроизводимы, но воспроизводимость не делает отозванный headline допустимым. Все ${REPRO.gatesBitExact} контрольных прогонов спорных кейсов повторяются бит-в-бит. Самый тяжёлый (${REPRO.longestGateName}) считается дольше остальных, но сверяется так же точно.`,
+    body: `Настройки лежат в одном файле, версии библиотек закреплены. Все ${REPRO.gatesBitExact} контрольных расчётов литературных кейсов повторяются бит-в-бит. Самый долгий из них — «${REPRO.longestGateName}», но и он проверяется автоматически.`,
   },
   {
-    title: "Быстро",
+    title: "Экономно",
     accent: "var(--icon-blue)",
     body: "Языковой разбор текста делается один раз и ложится на диск, признаки отрывков считаются заранее. Тяжёлую часть машина не повторяет — каждый следующий прогон только разгоняется.",
   },
   {
-    title: "Граница усилена",
+    title: "Без подсказок",
     accent: "var(--gold)",
-    body: "Старый work-id split не поймал вложенное содержание между разными произведениями. Новая версия должна делить по content-компонентам и только затем заново оценивать метод.",
+    body: "Перед обучением программа ищет совпадающие и вложенные произведения. Проверяемая книга уходит вместе со всей группой текстов того же содержания.",
   },
 ];
 
@@ -29,27 +28,26 @@ export default function Repro() {
       <div className="wrap flow">
         <div className="section-head reveal">
           <p className="eyebrow">Можно повторить у себя</p>
-          <h2>Исторические артефакты и новый gated-прогон</h2>
+          <h2>Как повторить исследование</h2>
           <p className="prose lead muted">
-            Сохранённые docs и provenance позволяют проверить байты исторической арифметики —{" "}
-            {fmtScore(BENCH.topTop1, 3)}, около {fmtPct(BENCH.topTop1)} попаданий, — но это
-            artifact replay, а не новый научный прогон. Загрузка классиков выполняется отдельной
-            командой и сама по себе не собирает допустимый корпус. Для <code>run.sh all</code>{" "}
-            нужен уже зарегистрированный content-safe corpus; нынешний ineligible snapshot
-            обязан остановиться на content-isolation gate до публикации новой оценки.
+            Код, настройки, список источников и промежуточные результаты лежат в
+            репозитории. Открытую часть корпуса можно собрать заново и пройти тот же
+            путь: проверить тексты, выделить стилевые признаки, обучить модель и
+            получить отчёт. Сохранённый первый расчёт тоже воспроизводится — его
+            точка на открытой выборке была {fmtScore(BENCH.topTop1, 3)}, около{" "}
+            {fmtPct(BENCH.topTop1)} верных ответов.
           </p>
-          <HistoricalHeadlineNotice compact />
           <p className="prose muted">
-            Эта открытая часть меньше и различимее: {BENCH.nAuthors} автора, {BENCH.nBooks} книг, и
-            все они — хорошо узнаваемые классики. Историческое отозванное число полного среза —{" "}
-            {fmtScore(LOBO_STRICT.styloFullLobo, 3)}. Оно получено на ineligible corpus snapshot. В полный
-            срез входит больше имён ({CORPUS.benchmark.authors} против {BENCH.nAuthors}) и другой
-            состав; числа получены на разных наборах и не поддерживают текущий comparative claim.
+            Открытая выборка меньше: {BENCH.nAuthors} автора и {BENCH.nBooks} книг.
+            В полном первом эксперименте было {CORPUS.benchmark.authors} автора, и
+            доля верных ответов составила {fmtScore(LOBO_STRICT.styloFullLobo, 3)}.
+            Эти числа нельзя сравнивать напрямую: наборы авторов разные. После
+            пересборки корпуса оба расчёта будут выполнены заново.
           </p>
           {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
-            <p className="mono muted" style={{ fontSize: 12 }}>
-              И ещё: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-              один голос» не исправляет content leakage; сначала нужна новая версия корпуса.
+            <p className="note" style={{ fontSize: 13 }}>
+              В первом эксперименте длинные книги сильнее влияли на авторский
+              профиль. В новом расчёте действует простое правило: одна книга — один голос.
             </p>
           )}
           <p className="prose muted">
@@ -60,20 +58,20 @@ export default function Repro() {
 
         {/* Полный пайплайн */}
         <div className="module reveal" style={{ display: "grid", gap: 16 }}>
-          <CodeBlock language="bash" title="новый прогон после content-safe миграции">
-            {`./run.sh fetch-classics   # отдельная загрузка открытых источников; не часть all
-./run.sh all              # только для уже собранного и зарегистрированного content-safe corpus`}
+          <CodeBlock language="bash" title="собрать открытую часть и запустить расчёт">
+            {`./run.sh fetch-classics   # загрузить классику из открытых источников
+./run.sh all              # проверить корпус → обучить → оценить → собрать отчёт`}
           </CodeBlock>
 
           <p className="prose muted" style={{ margin: 0, fontSize: 13.5 }}>
-            После подготовки допустимого корпуса pipeline выполняет preflight, очистку,
-            валидацию, split, прогрев кэша, обучение, sweep, оценку, предсказание и отчёт.
-            Зарегистрированный исторический snapshot эту границу не проходит.
+            Перед обучением скрипт проверяет, разделены ли совпадающие произведения.
+            Если корпус ещё не готов, расчёт останавливается — модель не успевает
+            увидеть данные и не публикует новую цифру.
           </p>
 
           <CodeBlock language="bash" title="по шагам">
-            {`./run.sh sweep      # exploratory screening на допустимом зарегистрированном corpus
-./run.sh evaluate   # content-isolation gate → оценка; historical snapshot должен остановиться
+            {`./run.sh sweep      # проверить, какие группы признаков действительно помогают
+./run.sh evaluate   # спрятать книги по очереди и оценить ответы
 ./run.sh predict    # определяем автора неизвестного текста по профилям авторов`}
           </CodeBlock>
         </div>
@@ -90,12 +88,11 @@ export default function Repro() {
           ))}
         </div>
 
-        {/* Требование к следующей content-safe границе */}
         <p className="verdict reveal">
-          Следующий gate должен гарантировать, что на каждом шаге модель
-          <strong style={{ color: "var(--cinnabar)" }}> не видела ни проверяемую книгу,
-          ни её content-компонент</strong>. Совпадение под другим work-id должно ронять
-          сборку до fit; исторический snapshot этого требования не выполнял.
+          Главное правило повторного эксперимента: модель
+          <strong style={{ color: "var(--gold)" }}> не видит ни проверяемую книгу,
+          ни другой текст с тем же содержанием</strong>. Если программа находит такое
+          совпадение, она останавливается до обучения.
         </p>
       </div>
     </section>

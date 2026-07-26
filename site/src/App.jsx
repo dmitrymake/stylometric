@@ -16,11 +16,11 @@ import Nikolai from "./sections/Nikolai.jsx";
 import ForeignHands from "./sections/ForeignHands.jsx";
 
 const CHAPTERS = [
-  ["framework", "Фреймворк"],
-  ["sholokhov", "Шолохов"],
-  ["ilfpetrov", "Ильф и Петров"],
-  ["nikolai", "Николай II"],
-  ["hohol", "Гоголь"],
+  ["framework", "Как это работает"],
+  ["sholokhov", "«Тихий Дон»"],
+  ["ilfpetrov", "«12 стульев»"],
+  ["nikolai", "Дневник Николая II"],
+  ["hohol", "«Тарас Бульба»"],
 ];
 
 export const CHAPTER_IDS = Object.freeze(CHAPTERS.map(([id]) => id));
@@ -50,13 +50,13 @@ export default function App({ initialChapter } = {}) {
   return (
     <div className="shell" ref={ref} key={chapter}>
       <a className="skip-link" href="#main">К содержанию</a>
-      <nav className="topbar" aria-label="Главы документа">
+      <nav className="topbar" aria-label="Главы исследования">
         <div className="wrap topbar-inner">
           <a className="rk-brand" href="#main" style={{ border: "none" }} onClick={() => setChapter("framework")}>
             <LogoMark className="rk-brand-mark" size={48} aria-hidden />
-            <span className="rk-brand-text">
-              <span className="rk-brand-word">Стилометрия</span>
-              <span className="rk-brand-tagline-line">атрибуция авторства</span>
+              <span className="rk-brand-text">
+                <span className="rk-brand-word">Стилометрия</span>
+                <span className="rk-brand-tagline-line">как язык выдаёт автора</span>
             </span>
           </a>
           <div className="chapters" role="tablist">

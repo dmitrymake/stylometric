@@ -168,70 +168,98 @@ export default function Taras() {
       <section className="section" id="hohol">
         <div className="wrap flow">
           <div className="section-head reveal">
-            <p className="eyebrow">Adversarial audit · вторая редакция «Тараса Бульбы»</p>
+            <p className="eyebrow">Литературное расследование · две редакции повести</p>
             <h2>Кто дописал «Тараса Бульбу»?</h2>
-            <p className="verdict">
-              Текущая батарея <strong style={{ color: "var(--text)" }}>не устанавливает единственную руку</strong>.
-              Старый гоголевский headline снят после обнаружения train-side pseudoreplication: длинные произведения
-              раньше сильнее тянули авторский центроид числом своих кусков. Теперь каждая работа имеет один равный вес.
+            <p className="prose lead muted">
+              Между редакциями 1835 и 1842 годов повесть почти удвоилась, стала
+              эпичнее, в ней появилась знаменитая речь о товариществе. Гоголь жил
+              за границей, Павел Анненков переписывал его рукописи набело, Николай
+              Прокопович готовил книгу к печати. Мог ли кто-то из них не только
+              переписать, но и сочинить большие вставки? Сравниваем добавленный
+              текст с прозой самого Гоголя и его современников.
             </p>
             <div className="grid cols-4 reveal" style={{ maxWidth: 900 }}>
-              <Stat label="панель подозреваемых" value={fmtScore(PA.suspectsStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="ниже обязательного порога 0.80" />
-              <Stat label="панель эпохи" value={fmtScore(PA.samePeriodStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="ниже обязательного порога 0.80" />
-              <Stat label="Гоголь–Анненков" value={fmtScore(PA.annenkovBinary.work_macro_recall, 3)} accent="var(--success)" hint="бинарная панель проходит gate" />
-              <Stat label="Гоголь–Сомов" value={fmtScore(PA.somovBinary.work_macro_recall, 3)} accent="var(--success)" hint="бинарная панель проходит gate" />
+              <Stat label="слов в строгом наборе" value={fmtInt(TARAS.manifest.strictWords)} accent="var(--icon-blue)" />
+              <Stat label="слов в широком наборе" value={fmtInt(TARAS.manifest.looseWords)} accent="var(--cosmos)" />
+              <Stat label="узнаваемость группы подозреваемых" value={fmtScore(PA.suspectsStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="Ниже принятого порога 0.80: группа недостаточно надёжно узнаёт известные тексты." />
+              <Stat label="узнаваемость авторов эпохи" value={fmtScore(PA.samePeriodStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="Ниже принятого порога 0.80." />
             </div>
           </div>
 
           <div className="module reveal">
-            <h3>Что изменил аудит</h3>
+            <h3>Что именно сравниваем</h3>
             <p className="prose muted" style={{ maxWidth: "76ch" }}>
-              При неизменных текстах, окнах, признаках и seed многоавторная панель подозреваемых падает до {" "}
-              <strong style={{ color: "var(--text)" }}>{fmtScore(PA.suspectsStrict.work_macro_recall, 4)}</strong>,
-              а панель авторов той же эпохи — до {" "}
-              <strong style={{ color: "var(--text)" }}>{fmtScore(PA.samePeriodStrict.work_macro_recall, 4)}</strong>.
-              Малые permutation p не спасают результат: prereg требует одновременно p ≤ 0.05 и recall ≥ 0.80.
-              Поэтому сохранённые top=Gogol на этих панелях не являются атрибуцией.
+              Обе редакции взяты из академического издания. Машина выделила
+              предложения, появившиеся в 1842 году и почти отсутствующие в версии
+              1835-го. Получились строгий и широкий наборы добавлений. Сравнение идёт
+              по служебным словам — союзам, частицам и предлогам, — чтобы казачья тема
+              не выдавала себя за авторский почерк. Саму «Тараса Бульбу» из профиля
+              Гоголя убрали.
             </p>
           </div>
 
           <div className="module reveal">
-            <h3>Почему бинарные проверки не дают имени автора</h3>
+            <h3>Почему прежний ответ изменился</h3>
+            <p className="prose muted" style={{ maxWidth: "76ch" }}>
+              Раньше длинная книга влияла на профиль автора столько раз, сколько из
+              неё получилось отрывков. После правила «одна книга — один голос»
+              широкая группа подозреваемых узнаёт известные контрольные тексты с
+              результатом {fmtScore(PA.suspectsStrict.work_macro_recall, 4)}, а группа
+              авторов той же эпохи — {fmtScore(PA.samePeriodStrict.work_macro_recall, 4)}.
+              Обе чуть ниже заранее выбранного порога 0.80. Если сравнение недостаточно
+              хорошо узнаёт тексты с известным автором, его победителя нельзя превращать
+              в имя автора спорных вставок.
+            </p>
+          </div>
+
+          <div className="module reveal">
+            <h3>Почему пары подозреваемых спорят друг с другом</h3>
             <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
               <Card padding={22}>
                 <h4 style={{ color: "var(--text)" }}>Гоголь против Анненкова</h4>
-                <p className="prose muted">Gate {fmtScore(PA.annenkovBinary.work_macro_recall, 3)}; цель → {nm(PA.annenkovBinary.top)}, {fmtPct(annShare, 1)} кусков.</p>
+                <p className="prose muted">
+                  Контрольные тексты различаются надёжно ({fmtScore(PA.annenkovBinary.work_macro_recall, 3)}).
+                  Добавления ближе к {nm(PA.annenkovBinary.top)}: туда уходят{" "}
+                  {fmtPct(annShare, 1)} отрывков.
+                </p>
               </Card>
               <Card padding={22}>
                 <h4 style={{ color: "var(--text)" }}>Гоголь против Сомова</h4>
-                <p className="prose muted">Gate {fmtScore(PA.somovBinary.work_macro_recall, 3)}; цель → {nm(PA.somovBinary.top)}, {fmtPct(somovShare, 1)} кусков.</p>
+                <p className="prose muted">
+                  Эта пара тоже хорошо различается ({fmtScore(PA.somovBinary.work_macro_recall, 3)}),
+                  но добавления теперь ближе к {nm(PA.somovBinary.top)}:{" "}
+                  {fmtPct(somovShare, 1)} отрывков.
+                </p>
               </Card>
             </div>
             <p className="callout">
-              Прямая версия «всё написал Анненков» не поддерживается, но выбор победителя меняется вместе с
-              составом альтернатив. Это evidence против уникальной закрытой атрибуции, а не доказательство Гоголя или Сомова.
+              Версия «все большие вставки написал Анненков» не подтверждается. Но
+              победитель меняется вместе с кругом сравнения: одна пара указывает на
+              Гоголя, другая — на Сомова. Значит, единственного автора эти данные не называют.
             </p>
           </div>
 
           <div className="module reveal">
-            <h3>Научный статус</h3>
+            <h3>Что можно сказать сейчас</h3>
             <p className="verdict">
-              {PA.conclusion} Пересчёт exploratory: он исправляет обнаруженную после результата ошибку estimand,
-              но не превращается задним числом в предрегистрацию. Исправленный Delta с полным model-refit null
-              ведёт к Гоголю на suspects, однако в прошедшей binary Гоголь–Сомов меняет ответ по признаку:
-              fixed FW → {nm(PA.delta.somovBinaryFw.targets.strict_additions.top)}, MFW → {nm(PA.delta.somovBinaryMfw.targets.strict_additions.top)}.
-              Поэтому cross-feature устойчивости нет; исторические паспорта и старый Delta-отчёт сохранены как legacy.
+              Данные возражают против простой версии «всё написал Анненков», но не
+              дают устойчивого выбора между Гоголем, Сомовым и другими авторами эпохи.
+              Даже два способа считать частые слова в паре Гоголь–Сомов выбирают
+              разных лидеров: {nm(PA.delta.somovBinaryFw.targets.strict_additions.top)} и{" "}
+              {nm(PA.delta.somovBinaryMfw.targets.strict_additions.top)}. Прозы
+              Прокоповича почти не сохранилось, поэтому его участие напрямую
+              проверить нельзя. Итог этой главы — граница метода, а не новое имя на обложке.
             </p>
           </div>
 
           <Sources
             items={[
-              { cite: "Парный work-balanced аудит: 16 кейсов, по 2000 перестановок", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/README.md" },
-              { cite: "Исправленный Delta: equal-work centroids и full-refit permutation null", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json" },
+              { cite: "Повторный расчёт: равный вес книг, 16 проверок по 2000 перестановок", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/README.md" },
+              { cite: "Проверка методом Delta с равным весом книг", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json" },
               { cite: "«Тарас Бульба», редакция 1835 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm" },
               { cite: "«Тарас Бульба», редакция 1842 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm" },
             ]}
-            note={`Формула центроида: ${PA.centroidWeighting}. Дата аудита: ${PA.date}.`}
+            note={`В пересчёте каждая книга получает одинаковый вес. Дата проверки: ${PA.date}.`}
           />
         </div>
       </section>

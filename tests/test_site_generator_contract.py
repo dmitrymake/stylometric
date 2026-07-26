@@ -13,8 +13,8 @@ RENDER_SMOKE = ROOT / "site" / "scripts" / "check-render.mjs"
 NO_UNDEF_GATE = ROOT / "site" / "scripts" / "check-no-undef.mjs"
 SITE_INDEX = ROOT / "site" / "index.html"
 PNPM_LOCK = ROOT / "site" / "pnpm-lock.yaml"
-HISTORICAL_NOTICE = (
-    ROOT / "site" / "src" / "components" / "HistoricalHeadlineNotice.jsx"
+RESEARCH_UPDATE = (
+    ROOT / "site" / "src" / "components" / "ResearchUpdate.jsx"
 )
 PUBLIC_HEADLINE_SECTIONS = (
     "Hero.jsx",
@@ -30,7 +30,7 @@ PUBLIC_HEADLINE_SUPPORT_FILES = (
     ROOT / "site" / "src" / "data.js",
     ROOT / "site" / "src" / "corpus.js",
     ROOT / "site" / "src" / "segdata.js",
-    HISTORICAL_NOTICE,
+    RESEARCH_UPDATE,
 )
 
 
@@ -75,7 +75,8 @@ def test_site_build_executes_a_real_server_render_smoke():
     app_source = (ROOT / "site" / "src" / "App.jsx").read_text(encoding="utf-8")
     assert 'ssrLoadModule("/src/App.jsx")' in source
     assert "renderToStaticMarkup" in source
-    assert "Исторический LOBO headline отозван" in source
+    assert "Исследование продолжается" in source
+    assert "PUBLIC_BANNED_MARKERS" in source
     assert "NONDEFAULT_FREE_IDENTIFIER" in source
     assert "initialChapter: chapter" in source
     for chapter in ("framework", "sholokhov", "ilfpetrov", "nikolai", "hohol"):
@@ -107,7 +108,7 @@ def test_site_lock_contains_every_declared_optional_platform_package():
     assert incomplete_registry_records == []
 
 
-def test_historical_headline_status_is_visible_and_fail_closed():
+def test_first_experiment_context_is_honest_and_machine_status_fails_closed():
     registry = json.loads(
         (
             ROOT
@@ -126,20 +127,31 @@ def test_historical_headline_status_is_visible_and_fail_closed():
     assert headline["corpusEligibilityStatus"] == registry["status"]
     assert headline["claimStatus"] == "exploratory_internal"
 
-    notice = HISTORICAL_NOTICE.read_text(encoding="utf-8")
+    notice = RESEARCH_UPDATE.read_text(encoding="utf-8")
     for marker in (
-        "Исторический LOBO headline отозван",
-        "не leakage-free оценка точности",
-        "не действующее",
-        "Нужны новая версия корпуса и полный пересчёт",
+        "В первом эксперименте",
+        "окончательную точность метода",
+        "пересобрать корпус",
+        "не позволяет выдавать их за финальную оценку",
     ):
         assert marker in notice
+    for internal_marker in (
+        "ineligible_for_new_scientific_runs",
+        "exploratory_internal",
+        "headline отозван",
+        "inferential",
+    ):
+        assert internal_marker not in notice
 
+    rendered_contexts = []
     for section in PUBLIC_HEADLINE_SECTIONS:
         source = (ROOT / "site" / "src" / "sections" / section).read_text(
             encoding="utf-8"
         )
-        assert "HistoricalHeadlineNotice" in source
+        if "ResearchUpdate" in source:
+            rendered_contexts.append(section)
+        assert "HistoricalHeadlineNotice" not in source
+    assert rendered_contexts == ["Hero.jsx"]
 
 
 def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
@@ -196,7 +208,7 @@ def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
         assert phrase not in generator
 
 
-def test_package_summary_and_readme_opening_do_not_claim_leakage_free_results():
+def test_package_summary_and_readme_opening_are_accurate_and_reader_facing():
     project = tomllib.loads(
         (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
@@ -206,18 +218,23 @@ def test_package_summary_and_readme_opening_do_not_claim_leakage_free_results():
     assert "leakage-free" not in summary
 
     opening = "\n".join(
-        (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:8]
+        (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:12]
     )
-    assert "не объявляет текущий зарегистрированный corpus snapshot leakage-free" in opening
+    assert "Можно ли узнать автора по служебным словам" in opening
+    assert "Интерактивная научпоп-статья" in opening
+    assert "ineligible_for_new_scientific_runs" not in opening
     assert "честно оценивает" not in opening
 
 
-def test_static_site_metadata_withdraws_headline_and_uses_production_domain():
+def test_static_site_metadata_is_reader_facing_and_uses_production_domain():
     index = SITE_INDEX.read_text(encoding="utf-8")
     assert "leakage-free LOBO" not in index
     assert "russkykod.com" not in index
     assert index.count("https://stylometry.russkiykod.com/") == 2
-    assert index.count("Исторический LOBO headline отозван") == 3
+    assert "Стилометрия русской прозы — как язык выдаёт автора" in index
+    assert "Исторический LOBO headline отозван" not in index
+    assert "cross-work content leakage" not in index
+    assert 'content="summary"' in index
 
 
 def test_readme_is_byte_identical_to_its_fail_closed_generator():
@@ -271,15 +288,19 @@ def test_method_does_not_render_the_withdrawn_macro_f1_interval():
     source = (ROOT / "site" / "src" / "sections" / "Method.jsx").read_text(encoding="utf-8")
     assert "MF1_CI" not in source
     assert "точность по авторам в диапазоне" not in source
-    assert "интервал macro-F1 дополнительно отозван" in source
-    assert "Следующий протокол · content-safe" in source
-    assert "Весь content-компонент отложенной книги" in source
+    assert "Старый интервал macro-F1 здесь не показывается" in source
+    assert "Проверка без подсказок" in source
+    assert "Проверяемая книга и все тексты с тем же содержанием" in source
+    assert "ineligible" not in source
+    assert "content-safe" not in source
 
 
-def test_repro_separates_artifact_replay_acquisition_and_new_scientific_run():
+def test_repro_explains_acquisition_and_safety_in_plain_language():
     source = (ROOT / "site" / "src" / "sections" / "Repro.jsx").read_text(
         encoding="utf-8"
     )
-    assert "artifact replay, а не новый научный прогон" in source
-    assert "нынешний ineligible snapshot" in source
     assert "./run.sh fetch-classics" in source
+    assert "Если корпус ещё не готов, расчёт останавливается" in source
+    assert "проверяемую книгу" in source
+    for internal_marker in ("artifact replay", "ineligible snapshot", "content-isolation gate"):
+        assert internal_marker not in source

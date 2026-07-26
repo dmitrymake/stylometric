@@ -63,7 +63,6 @@ if (
 }
 
 const M = Object.fromEntries(sd.models.map((m) => [m.id, m]));
-const ci = (m) => `[${m.ci[0]}, ${m.ci[1]}]`;
 const pdc = valPd.channels;
 const pdEns = pdc["АНСАМБЛЬ (равновес.)"];           // равновесный (leak-free) PD-ансамбль
 const pzc = proza.comparison_top1_macroF1;
@@ -73,14 +72,6 @@ const prozaEqual = pzc["наш равновесный ансамбль (стар
 const prozaEns = pzc["НАШ ансамбль (reliability^6, test-favoured diagnostic)"][0]; // веса train-OOF (leak-free), но степень 6 — лучшая из свипа на тесте
 
 const wordsM = (cv.summary.total_words / 1e6).toFixed(1);
-// author-clustered 95% CI macro-F1 ОТОЗВАН (sd.headline.macroF1CI = null): ресэмпл авторов меняет
-// набор классов macro-усреднения → это не CI фиксированной 43-классовой функции. Точка описательна.
-const MF1_WITHDRAWN = sd.headline.macroF1CI === null;
-const taras = sd.tarasCase;
-const tarasStrict = taras.headline[0];
-const tarasLoose = taras.headline[1];
-const tarasSpeech = taras.speech;
-const tarasExt = taras.extended[0];
 const wbCase = (stem) => wbAudit.cases.find((row) => row.source_spec.endsWith(`/${stem}.yaml`));
 const wbTarasSusStrict = wbCase("taras_bulba_additions_strict_suspects_v2_fw_2000");
 const wbTarasSameStrict = wbCase("taras_bulba_additions_strict_sameperiod_fw_2000");
@@ -98,37 +89,51 @@ const ruBooks = (n) => {
   if (mod10 >= 2 && mod10 <= 4) return "книги";
   return "книг";
 };
+const ruCandidate = (name) => ({ gogol: "Гоголь", somov: "Сомов" })[name] || name;
 
-const tr = (label, m) => `| ${label} | ${f4(m.acc)} ${ci(m)} | ${f4(m.f1)} | ${f4(m.top2)} | ${fp(m.p)} |`;
+const tr = (label, m) => `| ${label} | ${f4(m.acc)} | ${f4(m.f1)} | ${f4(m.top2)} | ${fp(m.p)} |`;
 
-const R = `# Stylo — воспроизводимая атрибуция авторства русской прозы
+const R = `# Stylo — стилометрия русской прозы
 
-Исследовательский пакет стилометрии с fail-closed границами корпуса,
-проверяемой provenance-цепочкой и раздельными exploratory/confirmatory gates.
-Он не объявляет текущий зарегистрированный corpus snapshot leakage-free:
-его публичные показатели ниже отозваны до content-safe миграции и полного пересчёта.
+Можно ли узнать автора по служебным словам, синтаксису и пунктуации? Stylo
+собирает цифровой «почерк» писателя, сравнивает спорный текст с корпусом русской
+прозы и показывает не только ближайшее имя, но и пределы такого сравнения.
 
-> **Отзыв исторического headline (2026-07-26).** В зарегистрированном корпусе
-> обнаружены произведения, вложенные друг в друга через границу LOBO (включая
-> точный межкнижный дубликат чанка). Поэтому \`${f4(M.stylo.acc)}\` и производные интервалы
-> ниже сохранены только как историческая арифметика и **не являются
-> leakage-free оценкой точности**. Новые LOBO/RuAA-запуски на этом snapshot
-> блокируются до зарегистрированной миграции content-компонент и полного
-> перерасчёта. Машиночитаемый статус:
-> \`research/evidence/ineligible_corpus_registrations_v1.json\`
-> (\`${ineligibleCorpus.status}\`).
+**[Интерактивная научпоп-статья →](https://stylometry.russkiykod.com/)**
+
+В проекте есть полный воспроизводимый путь от подготовки корпуса до литературных
+кейсов: «Тихий Дон», «12 стульев», дневники Николая II и две редакции «Тараса
+Бульбы». Код отдельно проверяет повторы, границу обучения и теста, происхождение
+данных и устойчивость результатов.
+
+> **О цифрах первого эксперимента.** Модель правильно определила автора в
+> \`${f4(M.stylo.acc)}\` случаев; macro-F1 составила \`${f4(M.stylo.f1)}\`.
+> Поздняя проверка нашла одинаковое и вложенное содержание в нескольких
+> произведениях, поэтому эти числа описывают исходный опыт, а не окончательную
+> точность на корпусе без пересечений. Следующий шаг — пересобрать корпус и
+> повторить расчёт целиком.
+
+<details>
+<summary>Технический статус и воспроизводимость первого опыта</summary>
+
+Машиночитаемые статусы сохранены для автоматических проверок: corpus
+\`${ineligibleCorpus.status}\`, macro-F1 CI
+\`${sd.headline.macroF1CIStatus}\`. Исходные результаты и их контрольные суммы
+не переписываются задним числом.
+</details>
 
 > Числа в этом README **генерируются** из тех же \`docs/*.json\`, что и сайт
 > (\`scripts/gen-readme.mjs\`), поэтому не расходятся с витриной. Ручные правки чисел перетираются следующим прогоном генератора.
 
 ## Корпус
 
-**${cv.summary.n_authors} автор, ${cv.summary.n_books} книг, ~${wordsM} млн слов** (\`docs/corpus_validation.json\`; провенанс
+**${cv.summary.n_authors} автор, ${cv.summary.n_books} книг, ~${wordsM} млн слов** (\`docs/corpus_validation.json\`; происхождение
 с sha256/источниками/объёмами — \`docs/corpus_manifest.json\`). Корпус прошёл аудит целостности
-(\`log/experiments/audit_corpus.py\`): без задвоений, обрезки по 60000 слов и невычищенной
-викиразметки у классиков. Дисбаланс объёмов ${Math.round(cv.summary.imbalance_ratio)}× (Достоевский ~1.15М слов vs Волошин ~1.8к) —
-поэтому в историческом расчёте рядом с accuracy сохранялась описательная **macro-F1 point**.
-Все интервалы ниже — только историческая арифметика, а macro-F1 CI дополнительно отозван. Тексты под
+(\`log/experiments/audit_corpus.py\`): он ищет дубли, вложенные произведения,
+обрезки по 60000 слов и невычищенную викиразметку. Дисбаланс объёмов
+${Math.round(cv.summary.imbalance_ratio)}× (Достоевский ~1.15М слов против Волошина ~1.8к) —
+поэтому рядом с общей долей ответов нужна macro-F1, где каждый автор получает
+равный вес. Тексты под
 копирайтом — локально, **не в git**.
 
 **Нормализация текста** (\`src/stylo/pipeline/clean.py\`, применяется до признаков): все виды тире → «—», ё → е,
@@ -144,14 +149,14 @@ ${prov.n_books} книг) даёт AUC ${prov.probes.char_3_5.book_auc_loao} н�
 «локальная оцифровка» разнороден, установленное семейство источников одно (Викитека) — проба измеряет границу
 «Викитека против остального», а не различие двух конкретных изданий.
 
-Исторический (отозванный) headline — per-book LOBO (${sd.corpus.lobo.pool_authors} в обучаемом пуле /
+Первый эксперимент по целым книгам — per-book LOBO (${sd.corpus.lobo.pool_authors} в обучаемом пуле /
 ${sd.corpus.lobo.tested_authors} тестированных автора / ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)}; таблица ниже).
 Диагностика каналов (LinearSVC + StratifiedGroupKFold(5)) — на срезе **${val.n_authors} автора / ${val.n_books} книга**
-(одно-книжные авторы выпадают; Ильф-Петров и дневники Николая II вынесены в кейсы) — отдельный протокол, не headline.
+(одно-книжные авторы выпадают; Ильф-Петров и дневники Николая II вынесены в отдельные кейсы).
 
-| Модель | Historical accuracy (book-level) | Historical macro-F1 | Historical top-2 | Historical vs stylo (McNemar) |
+| Метод | Верные книги · первый опыт | macro-F1 · первый опыт | top-2 · первый опыт | McNemar · первый опыт |
 |--------|----------------------|----------|-------|--------------------|
-| **stylo (historical/ineligible corpus)** | **${f4(M.stylo.acc)} — ОТОЗВАНО как оценка точности**; исторические интервалы ${ci(M.stylo)} / [${styloCI.accuracy_authorclustered_CI[0]}, ${styloCI.accuracy_authorclustered_CI[1]}] | историческая точка ${f4(M.stylo.f1)}; inferential use запрещён | ${f4(M.stylo.top2)} (historical) | cross-work content leakage |
+| **стилометрия · все признаки** | **${f4(M.stylo.acc)}**† | ${f4(M.stylo.f1)}† | ${f4(M.stylo.top2)}† | — |
 ${tr("Мешок слов + логрег", M.bow_lr)}
 ${tr("char-3gram cosine", M.char_cos)}
 | Cosine Delta · 150 / 300 / 500 MFW | ${f4(dcos.chunk_level["delta_cos:150"].accuracy)} / ${f4(dcos.chunk_level["delta_cos:300"].accuracy)} / ${f4(dcos.chunk_level["delta_cos:500"].accuracy)} | ${f4(dcos.chunk_level["delta_cos:150"].macro_f1)} / ${f4(dcos.chunk_level["delta_cos:300"].macro_f1)} / ${f4(dcos.chunk_level["delta_cos:500"].macro_f1)} | — | ${fp(dcos.chunk_level["delta_cos:500"].vs_stylo.mcnemar_p)} |
@@ -160,17 +165,21 @@ ${tr("Legacy selected-mass Delta (чанки) · 150 MFW", M["delta:150"])}
 | Legacy selected-mass Delta (чанки) · 300 / 500 | ${f4(M["delta:300"].acc)} / ${f4(M["delta:500"].acc)} | ${f4(M["delta:300"].f1)} / ${f4(M["delta:500"].f1)} | — | p < 0.0001 |
 | majority (нижняя граница) | ${f4(M.majority.acc)} | ${f4(M.majority.f1)} | — | — |
 
-> Исторический расчёт использовал per-book LOBO (leave-one-book-out): на каждом шаге одна книга — тест,
+† Все значения таблицы — арифметика первого эксперимента. После обнаруженного
+пересечения содержания их нельзя читать как текущую оценку точности или
+значимости; полный расчёт будет повторён на новой версии корпуса.
+
+> Первый расчёт использовал per-book LOBO (leave-one-book-out): на каждом шаге одна книга — тест,
 > всё обучаемое (vocab/IDF/MFW/scaler/классификатор) фитится на остальных книгах (\`docs/final_comparison.csv\`).
-> Он более не называется leakage-free: work-id complement не обеспечил
-> независимость содержания. В LOBO-срезе оценивалась ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)}
+> Позднее выяснилось, что одного идентификатора книги недостаточно: одинаковое
+> содержание встречалось под разными названиями. В этом опыте оценивалась
+> ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)}
 > (${sd.corpus.lobo.pool_authors - sd.corpus.lobo.tested_authors} автора с одной книгой в LOBO не тестировались — нет train-примера;
 > macro-F1 считается по ${sd.corpus.lobo.tested_authors} тестированным классам). StratifiedGroupKFold(5) — лишь быстрый прокси в sweep/ablation.
 >
-> **Взвешивание обучения — \`${styloCI.training_weighting}\`.** Длинная книга получает больший train-вес внутри автора,
-> vocab/IDF/MFW фитятся по чанкам. Work-balanced пересчёт (одна работа — один голос на train-стороне) ещё не проведён;
-> до него headline трактуется как legacy-оценка (\`docs/cases/work_balanced_audit/\`). LOBO держит тестовую книгу целиком —
-> это отдельное смещение train-weighting, не объяснение обнаруженной cross-work утечки.
+> **Вес книг в обучении.** В первом опыте длинная книга сильнее влияла на
+> авторский профиль, потому что давала больше отрывков. В повторном расчёте будет
+> действовать правило «одна книга — один голос» (\`docs/cases/work_balanced_audit/\`).
 > Строки Cosine Delta и legacy selected-mass Delta по книгам посчитаны тем же LOBO-протоколом отдельным скриптом
 > (\`log/experiments/delta_cosine_lobo.py\` → \`docs/delta_cosine_lobo.json\`); контроль воспроизведения: delta:150 этим
 > путём даёт ту же долю верных попаданий, что и исторический расчёт из final_comparison.csv (delta:150 на ${sd.corpus.lobo.books} книгах), —
@@ -178,13 +187,13 @@ ${tr("Legacy selected-mass Delta (чанки) · 150 MFW", M["delta:150"])}
 > Знак столбца author-clustered Δacc CI в исторических \`docs/final_comparison.csv\` (и \`docs/ruaa_bench_v1.json\`)
 > исправлен алгебраически в версионных \`docs/final_comparison.v2.csv\`/\`.v2.txt\` и \`docs/ruaa_bench_v1.0.1.json\` —
 > точка, accuracy, macro-F1, McNemar и флаг значимости не изменились (запись и SHA-инвентарь — \`docs/ci_sign_erratum.json\`).
-> Исторический McNemar-p считался по книгам; при коррелированных внутри автора
+> McNemar-p первого опыта считался по книгам; при коррелированных внутри автора
 > книгах это антиконсервативная граница. Сохранённая cluster-robust арифметика
 > stylo−BoW: Δacc +${crob.delta_accuracy}, author-clustered 95% CI
 > [+${crob.author_clustered.ci95[0]}, +${crob.author_clustered.ci95[1]}],
-> P(Δ≤0)=${crob.author_clustered.p_like_P_delta_le_0}. Из-за upstream cross-work
-> leakage она не подтверждает текущий superiority claim. Это GKF-диагностика
-> (\`docs/cluster_robust_stylo_vs_bow.json\`); историческая LOBO-разница
+> P(Δ≤0)=${crob.author_clustered.p_like_P_delta_le_0}. После найденного пересечения
+> содержания это не действующее доказательство преимущества, а сохранённая
+> арифметика первого опыта (\`docs/cluster_robust_stylo_vs_bow.json\`). LOBO-разница
 > +${(M.stylo.acc - M.bow_lr.acc).toFixed(3)} получена другим протоколом.
 
 > **Как выбрана конфигурация (честно):** «stylo (все блоки)» — априорный дефолт \`configs/default.yaml\`, а не победитель
@@ -193,34 +202,34 @@ ${tr("Legacy selected-mass Delta (чанки) · 150 MFW", M["delta:150"])}
 > зафиксированные до итоговой оценки. Отложенных авторов и nested CV нет — вся разработка велась на этом корпусе,
 > поэтому у цифры может оставаться оптимизм итеративной разработки; свип используется описательно, конфигурация по нему не выбирается.
 
-**Историческая диагностическая гипотеза:** в отозванном расчёте богатый набор
-признаков дал ${f4(M.stylo.acc)}, а мешок слов — ${f4(M.bow_lr.acc)}; McNemar
-${fp(M.bow_lr.p)} сохранён только для воспроизведения и не является действующим
-свидетельством значимости. Cosine Delta ${f4(dcos.chunk_level["delta_cos:500"].accuracy)}
-и legacy selected-mass Delta по целым книгам ${f4(dcos.book_level["delta_book:1000"].accuracy)} также
-остаются историческими ориентирами. Эта картина мотивирует новый content-safe
-пересчёт, но не разрешает superiority claim. Провал строк «legacy selected-mass Delta (чанки)» при росте MFW
+**Что подсказал первый опыт:** богатый набор признаков дал ${f4(M.stylo.acc)}, а
+мешок слов — ${f4(M.bow_lr.acc)}. Это интересное направление для повторной
+проверки, а не установленное преимущество. Cosine Delta
+${f4(dcos.chunk_level["delta_cos:500"].accuracy)} и selected-mass Delta по целым
+книгам ${f4(dcos.book_level["delta_book:1000"].accuracy)} служат простыми
+ориентирами. Провал строк «selected-mass Delta (чанки)» при росте MFW
 (${f4(M["delta:150"].acc)} → ${f4(M["delta:500"].acc)}) — эффект протокола, не свойство классики: на чанках в 500 слов слова MFW-рангов 301–500
 встречаются лишь в ~${Math.round(dcos.mechanism_mfw_tail_sparsity_in_chunks.mfw_301_500.median_share_of_band_present_in_chunk * 100)}% (медиана доли слов диапазона на чанк), их z-оценки — шум разреженности, топящий манхэттенское
 среднее; cosine на тех же z-оценках растёт с MFW, как в литературе. На корпусе со стилистически близкими авторами
 (донская школа, одесситы, деревенщики) лексика путает похожих по теме, а структурный сигнал (синтаксис, служебные
 слова, символьные паттерны) их разводит.
 
-**Оговорка о macro-F1 CI (важно):** author-clustered 95% CI для macro-F1 не публикуется
+**Почему не показан старый интервал macro-F1:** author-clustered 95% CI не публикуется
 (\`docs/stylo_lobo_authorci.json\` → \`macro_f1_authorclustered_interval_status = ${sd.headline.macroF1CIStatus}\`,
 запись — \`${sd.headline.macroF1CIErratumRef}\`). Author-clustered bootstrap ресэмплит авторов и тем меняет набор
 классов в macro-усреднении: автор, выпавший из ресэмпла, но предсказанный, даёт F1=0. Это не CI одной фиксированной
 ${sd.corpus.lobo.tested_authors}-классовой функции, поэтому интервал недействителен как мера разброса macro-F1 (точка
 ${f4(M.stylo.f1)} лежит выше его верхней границы); корректный интервал требует предрегистрированного протокола с
-фиксированным набором меток. Точка macro-F1 ${f4(M.stylo.f1)} остаётся только
-описательной исторической величиной. Внутри старой арифметики accuracy-bootstrap
+фиксированным набором меток. Точка macro-F1 ${f4(M.stylo.f1)} описывает первый
+эксперимент. Внутри того же расчёта accuracy-bootstrap
 давал author-clustered CI [${styloCI.accuracy_authorclustered_CI[0]}, ${styloCI.accuracy_authorclustered_CI[1]}]
-и медиану ${styloCI.accuracy_bootstrap_median}, но upstream corpus ineligibility
-делает и этот интервал историческим, не текущей uncertainty.
+и медиану ${styloCI.accuracy_bootstrap_median}; после очистки корпуса интервал
+нужно посчитать заново.
 Реальный размер выборки для по-авторных выводов — ${sd.corpus.lobo.tested_authors} тестированных автора, а не ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)}.
 
-**Кейс «Тихий Дон»** (см. \`site/\` — статья, и \`docs/sholokhov_*.json\`): единственный формальный confirmatory-тест —
-нециркулярный leave-block-out LOBO — атрибутирует **${shLobo.td_attributed_to_sholokhov} тома ТД → Шолохову**
+**Кейс «Тихий Дон»** (см. \`site/\` — статья, и \`docs/sholokhov_*.json\`):
+самая строгая нециркулярная проверка leave-block-out LOBO атрибутирует
+**${shLobo.td_attributed_to_sholokhov} тома ТД → Шолохову**
 (все тома вне обучения; процедурные контроли валидны). В этом LOBO спад «чужой» доли от тома к тому
 (${f4(shLobo.disputed_td[0].foreign_fraction)}→${f4(shLobo.disputed_td.at(-1).foreign_fraction)}) — описание картины,
 отдельной тестовой статистикой он не проверялся. Отдельный сегментный контроль проверяет долю «чужих» отрывков
@@ -242,19 +251,17 @@ Koppel–Winter) на ТД тоже прогнано: 0/4 томов вериф�
 этом сеттинге метод смещён: зрелые бесспорные вещи Шолохова тоже проваливают unmasking (1/4), поэтому «ТД→Крюков» по
 этим методам — артефакт, не свидетельство (\`docs/sholokhov_verify.json\`, \`docs/sholokhov_verify3_FW_ONLY.json\`).
 
-**Кейс «Тарас Бульба» — статус после adversarial audit 2026-07-11.** Исторический headline был получен
-центроидами, в которых длинные произведения имели больше train-side веса по числу чанков. После исправления на
-\`L2(mean chunks/work) → equal mean works/author → L2\` многоавторная панель подозреваемых даёт gate
-${f4(wbTarasSusStrict.work_balanced.work_macro_recall)} и панель эпохи ${f4(wbTarasSameStrict.work_balanced.work_macro_recall)}:
-обе ниже предзарегистрированного порога 0.80, поэтому их top=Gogol **не интерпретируется**. Две бинарные панели
-разделимы, но отвечают по-разному: Гоголь–Анненков → ${wbTarasAnn.work_balanced.top}
+**Кейс «Тарас Бульба».** В первом расчёте длинные произведения сильнее влияли на
+профиль автора числом своих отрывков. После правила «одна книга — один голос»
+группа подозреваемых узнаёт контрольные тексты с результатом
+${f4(wbTarasSusStrict.work_balanced.work_macro_recall)}, а группа авторов эпохи —
+${f4(wbTarasSameStrict.work_balanced.work_macro_recall)}. Обе чуть ниже принятого
+порога 0.80, поэтому их лидера нельзя превращать в имя автора. Две надёжные пары
+отвечают по-разному: Гоголь–Анненков → ${ruCandidate(wbTarasAnn.work_balanced.top)}
 (${(100 * wbTarasAnn.work_balanced.winner_share.gogol).toFixed(1)}% чанков), Гоголь–Сомов →
-${wbTarasSomov.work_balanced.top} (${(100 * wbTarasSomov.work_balanced.winner_share.somov).toFixed(1)}%). Корректный вывод:
-простая версия «это Анненков» не поддержана в прямой паре, но уникальная гоголевская атрибуция крупных добавлений
-текущей батареей **не установлена**. Парный отчёт 16 кейсов и отдельные паспорта:
-\`docs/cases/work_balanced_audit/\`. Исправленный Delta full-refit rerun поддерживает Гоголя на suspects,
-но в валидной бинарной Гоголь–Сомов меняет top по признаку (fixed FW → Гоголь, MFW → Сомов),
-поэтому межпризнаковой/panel-invariant атрибуции также не даёт; старый Delta-отчёт остаётся legacy.
+${ruCandidate(wbTarasSomov.work_balanced.top)} (${(100 * wbTarasSomov.work_balanced.winner_share.somov).toFixed(1)}% чанков).
+Версия «всё написал Анненков» не поддерживается, но единственного автора больших
+вставок эти данные не устанавливают (\`docs/cases/work_balanced_audit/\`).
 
 ## Что это делает
 
@@ -305,22 +312,23 @@ spaCy-разбор кешируется на диск (DocBin) и предвыч
 (POS/пунктуация/bleach, счётчики morph/dep, синтаксис, длины) в один файл — LOBO/sweep не вызывают
 spaCy и не дробят I/O. Sweep считает конфиги параллельно; финальный LOBO — параллельно по фолдам.
 
-## Историческая оценка и исправленная граница
+## Как читать первый эксперимент
 
-- **Book-id grouping оказалось недостаточно**: fit исключал отложенный work-id, но
-  совпадающее содержание оставалось под другим id. Новый протокол должен делить
-  content-компоненты; старые CV/LOBO числа отозваны.
-- **Исторические метрики**: Top-1/Top-2, macro-F1, per-author recall и bootstrap-CI
-  сохранены для аудита арифметики, но не являются текущими estimates/claims.
-- **Baseline-ы**: frozen legacy selected-mass Delta (\`delta:N\`; знаменатель
+- **Одного названия книги оказалось недостаточно**: проверяемая книга исключалась,
+  но то же содержание могло остаться в сборнике под другим названием. Новый
+  протокол объединяет такие тексты в одну группу.
+- **Метрики первого опыта**: Top-1/Top-2, macro-F1 и per-author recall сохранены
+  для воспроизводимости. После очистки корпуса они будут посчитаны заново.
+- **Простые методы для сравнения**: selected-mass Delta (\`delta:N\`; знаменатель
   \`Σ selected-MFW\`, не canonical all-token Burrows), char-3gram cosine,
   BoW-логрег, majority.
-- **Историческая значимость**: McNemar и paired/author-clustered bootstrap не
-  интерпретируются inferentially до полного content-safe пересчёта.
+- **Сравнения методов**: McNemar и bootstrap из первого опыта не используются как
+  доказательство преимущества до полного повторного расчёта.
 - **Множественные сравнения**: в кейсах с несколькими гипотезами p-значения даются и сырыми, и с поправкой
   Холма (\`docs/holm_correction.json\`); вердикты кейсов опираются на скорректированные.
-- **Историческая калибровка**: ECE = ${f4(sd.headline.ece)} — это ПЛОХАЯ калибровка
-  (хорошая ~0.02–0.05), модель переуверена, поэтому доли вероятностей в кейсах — ранжирование, не вероятности.
+- **Калибровка первого опыта**: ECE = ${f4(sd.headline.ece)} — модель заметно
+  переоценивала уверенность
+  (хорошая ~0.02–0.05), поэтому доли вероятностей в кейсах — ранжирование, не точные вероятности.
 
 ## Установка и запуск
 
@@ -333,15 +341,14 @@ python -m pytest -q        # быстрый unit/release-hygiene smoke; uv.lock 
 python scripts/check_release_hygiene.py --audit-local-refs   # перед релизом: publish-ref + индекс = FAIL при приватных путях; другие refs/stash = WARN
 git config core.hooksPath .githooks   # включить pre-push-гейт (блокирует пуш приватной истории до загрузки объектов)
 ./run.sh fetch-classics      # отдельная загрузка открытых источников; не входит в all
-./run.sh all                 # только зарегистрированный content-safe corpus; historical snapshot обязан упасть на gate
-python scripts/run_benchmark.py --pd-only   # новый scientific run — только после content-safe регистрации
-python scripts/run_benchmark.py             # новый scientific run — только после content-safe регистрации
-node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # replay сохранённых docs/provenance, не новый scientific run
+./run.sh all                 # проверить корпус → обучить → оценить → собрать отчёт
+python scripts/run_benchmark.py --pd-only   # открытая выборка классиков
+python scripts/run_benchmark.py             # полная локальная выборка
+node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # обновить сайт и README из сохранённых результатов
 \`\`\`
-Команда \`fetch-classics\` не вызывается из \`all\`: acquisition и scientific
-pipeline разделены. Сохранённые исторические числа воспроизводятся как
-артефакты, но зарегистрированный ineligible snapshot не должен проходить новый
-\`evaluate\` до content-component миграции.
+Команда \`fetch-classics\` отделена от вычислений: источники сначала загружаются,
+затем корпус проверяется. Если совпадающие произведения ещё не разделены, новый
+\`evaluate\` останавливается до обучения.
 Файл \`.python-version\` фиксирует поддерживаемый runtime: CPython 3.11.
 Единственный поддерживаемый точный путь установки core/dev-окружения использует
 \`requirements.lock\` именно как constraints-файл, как показано выше. После
@@ -371,14 +378,13 @@ immutable generation под \`.stylo-batches/<publication>/generations/<sha256>/
 разрешать поколение через \`resolve_published_batch\`, а не собирать соседние
 flat-файлы, которые могут относиться к старому историческому запуску.
 
-## Историческая точность и воспроизводимые артефакты
+## Открытая выборка и перенос на другие жанры
 
 > **Состав корпуса:** полный корпус (${cv.summary.n_authors} автор; ${val.n_authors} в
-> историческом бенчмарке) включает копирайтных и здравствующих авторов.
-> И полный, и PD-only срезы происходят из зарегистрированного ineligible snapshot:
-> в компоненте классиков Тургенева найдены вложенные произведения. Их можно
-> воспроизвести как исторические артефакты, но нельзя публиковать как текущую
-> оценку точности. Тексты в репозитории не хранятся и докачиваются по URL-манифесту.
+> проверке по книгам) включает копирайтных и здравствующих авторов. В первом
+> опыте у Тургенева обнаружились вложенные произведения, поэтому итоговые метрики
+> будут пересчитаны после очистки. Тексты в репозитории не хранятся и докачиваются
+> по URL-манифесту.
 > У двух авторов среза (Гумилёв, Пильняк) срок охраны в РФ продлён после реабилитации
 > (ст. 1281 п. 5 ГК) — срез не является «редистрибутируемым» набором данных.
 > Дневники Николая II — не проза, исключены.
@@ -394,7 +400,7 @@ flat-файлы, которые могут относиться к старом�
 (\`docs/authorship_cases.json\`, \`docs/nikolas2_authorship.json\`). Числа таблиц выше на кросс-жанровые кейсы
 не переносятся, и это прямо оговорено в каждом таком кейсе.
 
-**Исторический PD-only бенчмарк (${valPd.n_authors} автора-классика (†70+ лет) / ${valPd.n_books} книг; snapshot ineligible):**
+**Открытая выборка первого эксперимента (${valPd.n_authors} автора-классика (†70+ лет) / ${valPd.n_books} книг):**
 
 | канал (единый SVM) | top-1 | macro-F1 |
 |---|---|---|
@@ -402,17 +408,13 @@ flat-файлы, которые могут относиться к старом�
 | function words | ${pdc.function_words.top1} | ${pdc.function_words.macro_f1} |
 | синтаксис (dep+pos+syn) | ${pdc["syntax (dep+pos+syn)"].top1} | ${pdc["syntax (dep+pos+syn)"].macro_f1} |
 | dependency (чистый идиолект) | ${pdc.dependency.top1} | ${pdc.dependency.macro_f1} |
-| **ансамбль (равновесный, historical)** | **${pdEns.top1}** | **${pdEns.macro_f1}** |
+| **ансамбль (все группы поровну)** | **${pdEns.top1}** | **${pdEns.macro_f1}** |
 
-Веса равновесного ансамбля не зависят от test, но upstream cross-work leakage
-делает весь результат историческим. Старый macro-F1 author-clustered 95% CI
-**[${valPd.macro_f1_authorclustered_CI[0]}, ${valPd.macro_f1_authorclustered_CI[1]}]**
-не используется для текущего inferential вывода.
-**Историческая диагностика каналов:** на полном бенчмарке (${val.n_authors} автора) равновесный ансамбль каналов под
+Эти значения описывают первый эксперимент и будут пересчитаны на очищенном
+корпусе. На полной выборке (${val.n_authors} автора) ансамбль каналов под
 *другим* классификатором (LinearSVC + StratifiedGroupKFold(5), а не LR+LOBO) даёт macro-F1 ${val.headline_macro_f1} /
-top-1 ${val.ensemble_top1} (\`docs/validation.json\`). Это старый diagnostic view, не
-альтернативный headline; LR+LOBO и GKF не смешиваются. PD-only и полный срезы
-имеют разный состав классов и оба требуют нового content-safe пересчёта.
+top-1 ${val.ensemble_top1} (\`docs/validation.json\`). Методы и состав авторов
+различаются, поэтому напрямую сравнивать эти строки нельзя.
 
 > **Средние метрики ≠ пригодность для конкретного кейса.** macro-F1 — среднее по авторам поровну; у отдельных
 > авторов recall равен нулю (Катаев, Олеша, Зощенко — по 2–3 книги: один промах по целой книге обнуляет метрику),

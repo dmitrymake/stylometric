@@ -185,6 +185,47 @@ h4 { font-size: clamp(1rem, .95rem + .25vw, 1.12rem); font-weight: 600; color: v
 .note { border-left: 2px solid color-mix(in srgb, var(--line) 70%, transparent);
   padding-left: 18px; margin: var(--beat-group) 0; color: var(--text-muted);
   font-size: .95em; line-height: 1.62; max-width: var(--measure); }
+/* Одно спокойное объяснение статуса первого эксперимента. Это часть рассказа
+   об исследовании, а не аварийный баннер и не служебный статус. */
+.research-update {
+  max-width: 68ch;
+  margin: clamp(30px, 4vw, 44px) 0 0;
+  padding: clamp(20px, 3vw, 28px);
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--border));
+  border-radius: var(--radius-card, 12px);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 56%),
+    color-mix(in srgb, var(--surface) 64%, transparent);
+  color: var(--text-muted);
+  line-height: 1.58;
+}
+.research-update p { margin: 0; }
+.research-update p + p { margin-top: 9px; }
+.research-update strong { color: var(--text); }
+.research-update-kicker {
+  font-family: var(--font-mono);
+  color: var(--gold);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.research-update-lead {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(1.08rem, 1rem + .35vw, 1.25rem);
+}
+.research-update details { margin-top: 14px; }
+.research-update summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.research-update details p {
+  margin-top: 9px;
+  font-size: 13.5px;
+}
 /* Вердикт секции — ОБЫЧНЫЙ шрифт (не курсив), без заливки/градиента: единый стиль кита.
    Тот же левый бордюр, что у акцента, но прямой текст и чуть крупнее. */
 .verdict { border-left: 3px solid var(--gold);

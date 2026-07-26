@@ -48,16 +48,16 @@ const ruBooks = (n) => {
 // p = сохранённая McNemar-арифметика по книгам против stylo; это не действующий
 // significance claim. p===0 → машинный нуль (≪0.0001).
 const MODEL_META = {
-  stylo: { name: "stylo (все блоки)", kind: "ours" },
-  bow_lr: { name: "Мешок слов + логрег", kind: "baseline" },
-  char_cos: { name: "char-3gram косинус", kind: "baseline" },
+  stylo: { name: "стилометрия · все признаки", kind: "ours" },
+  bow_lr: { name: "мешок слов", kind: "baseline" },
+  char_cos: { name: "косинус по цепочкам букв", kind: "baseline" },
   "delta:150": { name: "Burrows Delta · 150 MFW", kind: "classic" },
   "delta:300": { name: "Burrows Delta · 300 MFW", kind: "classic" },
   "delta:500": { name: "Burrows Delta · 500 MFW", kind: "classic" },
   "delta_cos:150": { name: "Cosine Delta · 150 частых слов", kind: "classic" },
   "delta_cos:300": { name: "Cosine Delta · 300 частых слов", kind: "classic" },
   "delta_cos:500": { name: "Cosine Delta · 500 частых слов", kind: "classic" },
-  majority: { name: "majority (нижняя граница)", kind: "floor" },
+  majority: { name: "всегда самый частый автор", kind: "floor" },
 };
 export const MODELS = D.models
   .map((m) => ({ ...m, ...MODEL_META[m.id] }))

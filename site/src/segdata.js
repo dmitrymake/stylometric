@@ -58,10 +58,10 @@ export const BENCH = {
     .map((c) => ({ c: PD_CH_LABELS[c.id] || c.id, v: c.top1, hi: c.id.startsWith("АНСАМБЛЬ") }))
     .sort((a, b) => b.v - a.v),
   caveat:
-    `PD-only (${D.corpus.pd.authors} автора, ансамбль ${D.corpus.pd.ensembleTop1}) и полный ` +
-    `(${D.corpus.benchmark.authors} автора, ${D.headline.ensembleTop1}) срезы сохранены как ` +
-    `историческая диагностика ineligible corpus snapshot. Их нельзя сравнивать или использовать ` +
-    `для текущего claim до content-safe миграции и полного пересчёта.`,
+    `Открытая выборка (${D.corpus.pd.authors} автора, ансамбль ${D.corpus.pd.ensembleTop1}) ` +
+    `и полная (${D.corpus.benchmark.authors} автора, ${D.headline.ensembleTop1}) содержат ` +
+    `разные группы писателей. Это результаты первого эксперимента; после очистки корпуса ` +
+    `оба расчёта нужно повторить, а напрямую сравнивать их нельзя.`,
 };
 
 // Внешние бенчмарки + сравнение с современными инструментами — docs/ccat50.json, proza_compare.json
