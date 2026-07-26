@@ -139,6 +139,14 @@ def test_resolved_nlp_identity_changes_between_fallback_and_primary(monkeypatch)
             raise OSError("missing")
         return spacy.blank("ru")
 
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        lambda name: (
+            "test-version",
+            hashlib.sha256(name.encode("utf-8")).hexdigest(),
+        ),
+    )
     monkeypatch.setattr(nlp_module.spacy, "load", fallback_load)
     fallback_pipeline = nlp_module.load_nlp(
         "primary", "fallback", max_length=1234
@@ -172,6 +180,14 @@ def test_doc_cache_rejects_swapped_text_payload(tmp_path, monkeypatch):
         nlp_module.spacy,
         "load",
         lambda _name, **_kwargs: spacy.blank("ru"),
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        lambda name: (
+            "test-version",
+            hashlib.sha256(name.encode("utf-8")).hexdigest(),
+        ),
     )
     cache = nlp_module.DocCache(tmp_path, "model", "configured-v1")
     key = nlp_module._text_key(
@@ -1024,10 +1040,20 @@ def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
         .rstrip(b"=")
         .decode("ascii")
     )
-    record = f"{member},sha256={encoded},{len(payload)}\n"
+    dist_info = tmp_path / "example_model-3.8.0.dist-info"
+    dist_info.mkdir()
+    record_member = "example_model-3.8.0.dist-info/RECORD"
+    record_path = dist_info / "RECORD"
+    record = (
+        f"{member},sha256={encoded},{len(payload)}\n"
+        f"{record_member},,\n"
+    )
+    base_record = record
+    record_path.write_text(record, encoding="utf-8")
 
     class Distribution:
         version = "3.8.0"
+        _path = dist_info
 
         @staticmethod
         def read_text(name):
@@ -1056,8 +1082,218 @@ def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
     unhashed = tmp_path / "example_model" / "vectors.bin"
     unhashed.write_bytes(b"unhashed vectors")
     record += "example_model/vectors.bin,,\n"
+    record_path.write_text(record, encoding="utf-8")
     with pytest.raises(RuntimeError, match="unhashed model payload"):
         nlp_module.verified_installed_package_record("example_model")
+
+    record = base_record + "other-1.0.dist-info/RECORD,,\n"
+    record_path.write_text(record, encoding="utf-8")
+    with pytest.raises(RuntimeError, match="unhashed model payload"):
+        nlp_module.verified_installed_package_record("example_model")
+
+    record = f"{member},sha256={encoded},{len(payload)}\n"
+    record_path.write_text(record, encoding="utf-8")
+    with pytest.raises(RuntimeError, match="does not bind its own wheel RECORD"):
+        nlp_module.verified_installed_package_record("example_model")
+
+
+def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
+    tmp_path,
+    monkeypatch,
+):
+    import base64
+    import importlib.util
+    import marshal
+    import py_compile
+
+    from stylo import nlp as nlp_module
+
+    source = tmp_path / "example_model" / "__init__.py"
+    source.parent.mkdir()
+    source_bytes = b'VALUE = "trusted"\n'
+    source.write_bytes(source_bytes)
+    bytecode = pathlib.Path(importlib.util.cache_from_source(str(source)))
+    py_compile.compile(
+        str(source),
+        cfile=str(bytecode),
+        dfile=str(source.resolve()),
+        doraise=True,
+        optimize=0,
+        invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP,
+    )
+
+    source_member = "example_model/__init__.py"
+    bytecode_member = bytecode.relative_to(tmp_path).as_posix()
+    source_digest = (
+        base64.urlsafe_b64encode(hashlib.sha256(source_bytes).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    dist_info = tmp_path / "example_model-3.8.0.dist-info"
+    dist_info.mkdir()
+    record_member = "example_model-3.8.0.dist-info/RECORD"
+    record = (
+        f"{source_member},sha256={source_digest},{len(source_bytes)}\n"
+        f"{record_member},,\n"
+        f"{bytecode_member},,\n"
+    )
+    (dist_info / "RECORD").write_text(record, encoding="utf-8")
+
+    class Distribution:
+        version = "3.8.0"
+        _path = dist_info
+
+        @staticmethod
+        def read_text(name):
+            assert name == "RECORD"
+            return record
+
+        @staticmethod
+        def locate_file(path):
+            return tmp_path / path
+
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: Distribution(),
+    )
+    assert nlp_module.verified_installed_package_record("example_model") == (
+        "3.8.0",
+        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    )
+
+    raw = bytecode.read_bytes()
+    forged_code = compile(
+        b'VALUE = "changed"\n',
+        str(source.resolve()),
+        "exec",
+        dont_inherit=True,
+        optimize=0,
+    )
+    bytecode.write_bytes(raw[:16] + marshal.dumps(forged_code))
+    with pytest.raises(RuntimeError, match="does not derive"):
+        nlp_module.verified_installed_package_record("example_model")
+
+    py_compile.compile(
+        str(source),
+        cfile=str(bytecode),
+        dfile=str(source.resolve()),
+        doraise=True,
+        optimize=0,
+        invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP,
+    )
+    record = (
+        f"{source_member},sha256={source_digest},{len(source_bytes)}\n"
+        f"{record_member},,\n"
+    )
+    (dist_info / "RECORD").write_text(record, encoding="utf-8")
+    assert nlp_module.verified_installed_package_record("example_model") == (
+        "3.8.0",
+        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    )
+
+    raw = bytecode.read_bytes()
+    expected_code = marshal.loads(raw[16:])
+    forged_code = expected_code.replace(co_qualname="forged_module")
+    assert forged_code == expected_code
+    bytecode.write_bytes(raw[:16] + marshal.dumps(forged_code))
+    with pytest.raises(RuntimeError, match="does not derive"):
+        nlp_module.verified_installed_package_record("example_model")
+
+
+def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    events = []
+
+    def verify(name):
+        events.append(("verify", name))
+        return ("test-version", hashlib.sha256(name.encode()).hexdigest())
+
+    def load(name, **_kwargs):
+        events.append(("load", name))
+        if name == "primary":
+            raise OSError("primary load failed")
+        return spacy.blank("ru")
+
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        verify,
+    )
+    monkeypatch.setattr(nlp_module.spacy, "load", load)
+    loaded = nlp_module.load_nlp("primary", "fallback")
+    assert nlp_module.resolved_nlp_identity(loaded).resolved_model == "fallback"
+    assert events == [
+        ("verify", "primary"),
+        ("load", "primary"),
+        ("verify", "fallback"),
+        ("load", "fallback"),
+        ("verify", "fallback"),
+    ]
+
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    events.clear()
+
+    def verify_missing_primary(name):
+        events.append(("verify", name))
+        if name == "primary":
+            raise nlp_module.importlib.metadata.PackageNotFoundError(name)
+        return ("test-version", hashlib.sha256(name.encode()).hexdigest())
+
+    def load_fallback_only(name, **_kwargs):
+        events.append(("load", name))
+        assert name == "fallback"
+        return spacy.blank("ru")
+
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        verify_missing_primary,
+    )
+    monkeypatch.setattr(nlp_module.spacy, "load", load_fallback_only)
+    loaded = nlp_module.load_nlp("primary", "fallback")
+    assert nlp_module.resolved_nlp_identity(loaded).resolved_model == "fallback"
+    assert events == [
+        ("verify", "primary"),
+        ("verify", "fallback"),
+        ("load", "fallback"),
+        ("verify", "fallback"),
+    ]
+
+
+@pytest.mark.parametrize("loader_name", ["load_nlp", "load_ner"])
+def test_spacy_record_failure_blocks_model_import_and_fallback(
+    loader_name,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    imported = []
+
+    def reject(_name):
+        raise RuntimeError("RECORD integrity failed")
+
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        reject,
+    )
+    monkeypatch.setattr(
+        nlp_module.spacy,
+        "load",
+        lambda name, **_kwargs: imported.append(name),
+    )
+    with pytest.raises(RuntimeError, match="RECORD integrity failed"):
+        getattr(nlp_module, loader_name)("primary", "fallback")
+    assert imported == []
 
 
 def test_benchmark_snapshot_rejects_actual_fallback_and_binds_live_state(

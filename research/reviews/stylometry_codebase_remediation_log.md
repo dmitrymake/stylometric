@@ -110,6 +110,7 @@ Initial state:
 | SCI-FINAL-001 | MEDIUM | fixed | Final exact-commit review showed that the benchmark reconstructed its snapshot with `resolved=requested`, so a real `ru_core_news_md` fallback could be published as a no-fallback `ru_core_news_lg` run. The snapshot now consumes only the identity registered by `load_nlp`, rejects any fallback/request mismatch, verifies every hashed wheel-`RECORD` member against its current bytes and size, and binds an exact serialization digest of the live pipeline into a self-hashed benchmark identity used by the DSP cache. Before/after snapshots detect live component-state drift; regressions distinguish same-pipe-name pipelines with different segmentation and reproduce fallback rejection. |
 | SITE-FINAL-001 | MEDIUM | fixed | Final public-surface review found a stale hard-coded Sholokhov paragraph in the generated README and therefore in wheel/sdist metadata: it said 4/4 and mixed a 0.455 open-set control with the registered noncircular LOBO gradient. The generator now fails closed on and renders directly from `docs/sholokhov_lobo.json`: 3/4 and 0.595→0.035. The separate 0.455 block-permutation control is explicitly labeled as a distinct test; active site fields no longer consume the older frozen `sholokhov_rigor12.json` verdict; and a source-bound regression prevents README/package prose from drifting from the registered JSON. No evidence bytes or scientific approval state changed. |
 | SCI-FINAL-002 | MEDIUM | fixed | Rereview of the wheel boundary showed that an arbitrary `RECORD` row with an empty digest was skipped, so an unhashed vector/vocab/config payload could change without changing the package identity. Empty digests are now accepted only for the wheel's own `*.dist-info/RECORD` row and installer-generated `__pycache__/*.pyc`; every other member must carry a verified SHA-256 and exact size. A forged `vectors.bin,,` regression fails closed, while the real `ru_core_news_lg` wheel's two legitimate unhashed installer rows still verify. |
+| SCI-FINAL-003 | HIGH | fixed | Exact rereview showed that the remaining path-shaped `__pycache__/*.pyc,,` exception could execute bytecode unrelated to its RECORD-hashed source, and verification still occurred only after `spacy.load`. The verifier now binds the sole empty `RECORD` row to the distribution's actual metadata file, discovers canonical runtime caches even when RECORD omits them, requires every such pyc to map to an already SHA-256/size-verified source, and exact-compares its tag, header, optimization path and marshalled body with bytecode compiled from that source. Both primary and fallback packages are verified before and after model import for full and NER loaders; an integrity failure cannot trigger fallback. Adversarial listed/unlisted bytecode, ignored-code-field, import-order and real `ru_core_news_{lg,md}` regressions pass without changing frozen evidence, owner dispositions or confirmatory gates. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -396,3 +397,11 @@ not change the normative ledger or frozen evidence.
   hashed member. Restricted the wheel-RECORD empty-digest exception to its
   exact installer-generated rows; unhashed model payloads now fail before an
   identity is issued. The canonical model's RECORD remains valid.
+- 2026-07-26: Architecture rereview of `62ee922b` demonstrated that the
+  remaining path-only pyc exception could still execute unrelated bytecode
+  before post-load verification. Listed and unlisted runtime bytecode is now
+  accepted only when its exact marshalled body derives from a verified source,
+  and both primary and fallback model wheels are checked before import and
+  resnapshotted after load. The canonical lg/md wheels and focused adversarial
+  import-order tests pass; scientific approvals and frozen evidence remain
+  untouched.
