@@ -1,0 +1,288 @@
+{
+  "schema": "stylo.governance.topology.v1",
+  "historical_evidence": {
+    "path": "docs/p0_baseline_snapshot.json",
+    "digest_map": "artifacts.sha256",
+    "contract": "Legacy source bytes remain recoverable from git history and are bound by these pre-retirement SHA256 values."
+  },
+  "discovery_contract": {
+    "canonical_paths": [
+      "src/stylo/pipeline/clean.py",
+      "src/stylo/pipeline/split.py",
+      "src/stylo/pipeline/train.py",
+      "src/stylo/pipeline/predict.py",
+      "src/stylo/cli.py",
+      "src/stylo/corpus_tools/validate_corpus.py",
+      "src/stylo/report/build.py",
+      "src/stylo/report/evidence.py",
+      "src/stylo/eval/final.py",
+      "src/stylo/eval/segment.py",
+      "src/stylo/eval/segmentation.py",
+      "scripts/evaluation/run_stylo_lobo_validation.py",
+      "scripts/evaluation/run_work_balanced_ablation_screen.py"
+    ],
+    "legacy_script_basenames": [
+      "ablation.py",
+      "anomaly_stats.py",
+      "clean_text.py",
+      "clustering.py",
+      "consistency.py",
+      "experiments.py",
+      "lobo_cv.py",
+      "predict.py",
+      "report.py",
+      "split.py",
+      "train.py",
+      "umap_vis.py",
+      "validate_books.py"
+    ],
+    "contract": "Entries exactly cover every canonical path and every Python file below scripts/ whose basename is in legacy_script_basenames."
+  },
+  "directories": [
+    {
+      "path": "scripts/experimental",
+      "status": "canonical",
+      "responsibility": "named_experimental_research_scripts"
+    },
+    {
+      "path": "scripts/experemental",
+      "status": "retired_removed_typo",
+      "responsibility": "historical_misspelled_directory"
+    }
+  ],
+  "entries": [
+    {
+      "path": "src/stylo/pipeline/clean.py",
+      "status": "canonical",
+      "responsibility": "complete_versioned_clean_snapshot",
+      "public_surface": "stylo clean"
+    },
+    {
+      "path": "src/stylo/pipeline/split.py",
+      "status": "canonical",
+      "responsibility": "single_generation_fragment_snapshot",
+      "public_surface": "stylo split"
+    },
+    {
+      "path": "src/stylo/pipeline/train.py",
+      "status": "canonical",
+      "responsibility": "authenticated_bundle_training",
+      "public_surface": "stylo train"
+    },
+    {
+      "path": "src/stylo/pipeline/predict.py",
+      "status": "canonical",
+      "responsibility": "authenticated_bundle_prediction",
+      "public_surface": "stylo predict"
+    },
+    {
+      "path": "src/stylo/cli.py",
+      "status": "canonical",
+      "responsibility": "command_routing_and_exploratory_output_publication",
+      "public_surface": "stylo"
+    },
+    {
+      "path": "src/stylo/corpus_tools/validate_corpus.py",
+      "status": "canonical",
+      "responsibility": "corpus_validation_evidence_publication",
+      "public_surface": "stylo validate"
+    },
+    {
+      "path": "src/stylo/report/build.py",
+      "status": "canonical",
+      "responsibility": "verified_evidence_report_publication",
+      "public_surface": "stylo report"
+    },
+    {
+      "path": "src/stylo/report/evidence.py",
+      "status": "canonical",
+      "responsibility": "corpus_and_prediction_section_evidence_publication",
+      "public_surface": "internal canonical writer"
+    },
+    {
+      "path": "src/stylo/eval/final.py",
+      "status": "compatibility_module",
+      "responsibility": "exploratory_model_comparison",
+      "public_surface": "stylo evaluate"
+    },
+    {
+      "path": "src/stylo/eval/segment.py",
+      "status": "canonical_diagnostic",
+      "responsibility": "rolling_attribution_diagnostic",
+      "public_surface": "Python API"
+    },
+    {
+      "path": "src/stylo/eval/segmentation.py",
+      "status": "canonical",
+      "responsibility": "mixed_authorship_evaluation",
+      "public_surface": "Python API"
+    },
+    {
+      "path": "scripts/evaluation/run_stylo_lobo_validation.py",
+      "status": "canonical_bounded_exploratory",
+      "responsibility": "registered_true_lobo_validation",
+      "public_surface": "explicit research runner"
+    },
+    {
+      "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
+      "status": "canonical_bounded_exploratory",
+      "responsibility": "registered_frozen_panel_ablation",
+      "public_surface": "explicit research runner"
+    },
+    {
+      "path": "scripts/report.py",
+      "status": "compatibility_entrypoint",
+      "responsibility": "canonical_report_forwarder",
+      "replacement": "stylo report"
+    },
+    {
+      "path": "scripts/train.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_loose_artifact_training",
+      "replacement": "stylo train"
+    },
+    {
+      "path": "scripts/predict.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_unauthenticated_prediction",
+      "replacement": "stylo predict --model-bundle-token TOKEN"
+    },
+    {
+      "path": "scripts/experiments.py",
+      "status": "retired_hard_disabled_source",
+      "responsibility": "historical_automatic_lobo_experiments",
+      "replacement": "stylo evaluate"
+    },
+    {
+      "path": "scripts/clean_text.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_non_atomic_clean_overlay",
+      "replacement": "stylo clean"
+    },
+    {
+      "path": "scripts/split.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_multi_root_fragment_builder",
+      "replacement": "stylo split"
+    },
+    {
+      "path": "scripts/lobo_cv.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_unbounded_mutable_lobo",
+      "replacement": "scripts/evaluation/run_stylo_lobo_validation.py"
+    },
+    {
+      "path": "scripts/ablation.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_independent_corpus_ablation",
+      "replacement": "scripts/evaluation/run_work_balanced_ablation_screen.py"
+    },
+    {
+      "path": "scripts/clustering.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_loose_artifact_clustering",
+      "replacement": "none_until_content_bound_representation_exists"
+    },
+    {
+      "path": "scripts/umap_vis.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_loose_artifact_umap",
+      "replacement": "none_until_content_bound_representation_exists"
+    },
+    {
+      "path": "scripts/validate_books.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_loose_artifact_book_validation",
+      "replacement": "stylo validate"
+    },
+    {
+      "path": "scripts/statistic/anomaly_stats.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_loose_artifact_anomaly_statistics",
+      "replacement": "none_until_content_bound_representation_exists"
+    },
+    {
+      "path": "scripts/statistic/consistency.py",
+      "status": "retired_hard_disabled_shim",
+      "responsibility": "historical_loose_artifact_consistency",
+      "replacement": "none_until_content_bound_representation_exists"
+    }
+  ],
+  "output_owners": [
+    {
+      "namespace": "<paths.input_clean>",
+      "owner": "src/stylo/pipeline/clean.py",
+      "contract": "atomic_complete_clean_snapshot"
+    },
+    {
+      "namespace": "<paths.data>/fragment_snapshots/versions/<generation-token>",
+      "owner": "src/stylo/pipeline/split.py",
+      "contract": "immutable_train_unknown_map_generation"
+    },
+    {
+      "namespace": "<paths.data>/deployment/chunk_weighted_legacy/versions/<bundle-token>",
+      "owner": "src/stylo/pipeline/train.py",
+      "contract": "immutable_authenticated_bundle"
+    },
+    {
+      "namespace": "<paths.data>/exploratory/work_balanced/versions/<bundle-token>",
+      "owner": "src/stylo/pipeline/train.py",
+      "contract": "immutable_exploratory_authenticated_bundle"
+    },
+    {
+      "namespace": "<paths.docs>/{prediction.txt,prediction.evidence.json}",
+      "owner": "src/stylo/report/evidence.py",
+      "contract": "bundle_and_unknown_snapshot_bound_evidence"
+    },
+    {
+      "namespace": "<paths.docs>/{corpus_validation.txt,corpus_validation.json,corpus_validation.evidence.json}",
+      "owner": "src/stylo/report/evidence.py",
+      "contract": "clean_snapshot_bound_evidence"
+    },
+    {
+      "namespace": "<paths.docs>/index.html",
+      "owner": "src/stylo/report/build.py",
+      "contract": "verified_evidence_only_report"
+    },
+    {
+      "namespace": "docs/final_comparison.csv",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "<paths.docs>/exploratory/{legacy_recompute,work_balanced}/**/final_comparison.{txt,csv}",
+      "owner": "src/stylo/cli.py",
+      "contract": "exploratory_only_model_comparison"
+    },
+    {
+      "namespace": "docs/exploratory/work_balanced/stylo_lobo_work_weighting_a0_a1_a4_v2.json",
+      "owner": "scripts/evaluation/run_stylo_lobo_validation.py",
+      "contract": "ignored_identity_bound_exploratory_artifact"
+    },
+    {
+      "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",
+      "owner": "scripts/evaluation/run_work_balanced_ablation_screen.py",
+      "contract": "ignored_frozen_panel_exploratory_artifact"
+    },
+    {
+      "namespace": "docs/experiments_summary.txt",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    },
+    {
+      "namespace": "docs/experiments_detailed.csv",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    },
+    {
+      "namespace": "docs/ablation_report.txt",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    },
+    {
+      "namespace": "docs/{clusters,umap,book_validation,anomaly_stats,artifact_consistency}.*",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    }
+  ]
+}

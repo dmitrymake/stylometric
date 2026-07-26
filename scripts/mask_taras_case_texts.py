@@ -3,7 +3,7 @@
 The benchmark anchors under input_clean/ are NER-masked (PERSON -> "@"), while
 case targets and the az.lib panel are raw. Character-level channels (char3)
 compare texts literally, so both sides must be masked the same way. This
-script applies scripts.clean_text.mask_names to every case text and mirrors
+script applies the canonical pipeline masking helper to every case text and mirrors
 the layout under input_cases/taras_bulba/masked/.
 
 Run from the repo root:
@@ -15,9 +15,9 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
-from scripts.clean_text import mask_names  # noqa: E402
+from stylo.pipeline.clean import mask_names_with_config as mask_names  # noqa: E402
 
 CASE_DIR = ROOT / "input_cases" / "taras_bulba"
 OUT_DIR = CASE_DIR / "masked"

@@ -14,6 +14,9 @@ from typing import Dict
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 CASE_DIR = ROOT / "input_cases" / "taras_bulba"
 DOC_DIR = ROOT / "docs" / "cases" / "taras_hardened"
 SPEECH_PATH = CASE_DIR / "tovarishchestvo_speech.txt"
@@ -96,7 +99,7 @@ def main() -> int:
             },
         },
     }
-    MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+    MANIFEST_PATH.write_text(dumps_strict(manifest, ensure_ascii=False, indent=2) + "\n",
                              encoding="utf-8")
     print(f"wrote {SPEECH_PATH.relative_to(ROOT)}")
     print(f"wrote {MANIFEST_PATH.relative_to(ROOT)}")

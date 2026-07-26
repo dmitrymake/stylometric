@@ -19,6 +19,9 @@ import re
 from typing import Dict, List, Set
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 CASE_DIR = ROOT / "input_cases" / "taras_bulba"
 DOC_DIR = ROOT / "docs" / "cases" / "taras_hardened"
 OUT_PATH = DOC_DIR / "reports" / "extraction_audit.json"
@@ -193,7 +196,7 @@ def main() -> int:
     }
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+    OUT_PATH.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n",
                         encoding="utf-8")
     print(f"wrote {OUT_PATH.relative_to(ROOT)}")
     for k, v in cont.items():

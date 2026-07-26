@@ -93,6 +93,12 @@ export default function Conclusion() {
               <strong style={{ color: "var(--gold)" }}> {fmtPct(HEADLINE.accuracy, 1)} против {fmtPct(BOW.acc, 1)}</strong>,
               и разница не случайна (McNemar, p&nbsp;{fmtP(BOW.p)}). Структурные признаки окупаются.
             </p>
+            {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+              <p className="mono muted" style={{ fontSize: 12 }}>
+                Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+                один голос» ещё впереди — число может немного сдвинуться.
+              </p>
+            )}
             <p>
               Сильнее всего этот перевес логично ждать там, где кандидаты из одной
               школы. Донская школа, одесситы, деревенщики стоят тесно: общий край, общее

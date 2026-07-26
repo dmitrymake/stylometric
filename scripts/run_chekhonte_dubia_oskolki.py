@@ -24,10 +24,13 @@ from collections import Counter
 
 import numpy as np
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
-from stylo.lang import function_words  # noqa: E402
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
+from stylo.lang import function_words  # noqa: E402
+from _gate_metrics import work_balanced_centroid  # noqa: E402
+
 CASE = ROOT / "input_cases" / "chekhonte_dubia"
 CHEK = ROOT / "input_cases" / "chekhonte"
 OUT = ROOT / "docs" / "cases" / "chekhonte_dubia_oskolki.json"
@@ -45,31 +48,61 @@ AUG = {**BASE, "bilibin": [CHEK / "cand_bilibin", CASE / "cand_bilibin_oskolki"]
 
 
 def read(path) -> list[str]:
+    return [text for _work, text in docs_by_work(path, split_long=False)]
+
+
+def _source_files(path):
     paths = path if isinstance(path, list) else [path]
-    out = []
+    files = []
     for p in paths:
-        files = sorted(p.glob("*.txt")) if p.is_dir() else [p]
-        out += [f.read_text("utf-8", "ignore") for f in files if f.exists()]
+        files.extend(sorted(p.glob("*.txt")) if p.is_dir() else [p])
+    return [f for f in files if f.exists()]
+
+
+def docs_by_work(path, *, split_long=True):
+    out = []
+    for file in _source_files(path):
+        text = file.read_text("utf-8", "ignore")
+        work_id = str(file.resolve())
+        words = text.split()
+        if not split_long or len(words) <= 2200:
+            out.append((work_id, text))
+        else:
+            for i in range(0, len(words), 1500):
+                out.append((work_id, " ".join(words[i:i + 1500])))
     return out
 
 
 def docs_of(path) -> list[str]:
-    out = []
-    for text in read(path):
-        w = text.split()
-        if len(w) <= 2200:
-            out.append(text)
-        else:
-            for i in range(0, len(w), 1500):
-                out.append(" ".join(w[i:i + 1500]))
-    return out
+    return [text for _work, text in docs_by_work(path)]
+
+
+class WorkVectors(list):
+    """List-compatible chunk vectors retaining their source work ids."""
+
+    def __init__(self, vectors, work_ids):
+        super().__init__(vectors)
+        self.work_ids = tuple(work_ids)
+
+
+def work_centroids(vectors):
+    """Unit directions of individual works represented by ``vectors``."""
+    by_work = {}
+    for work, vector in zip(vectors.work_ids, vectors):
+        by_work.setdefault(work, []).append(vector)
+    return np.vstack(
+        [
+            np.mean(rows, axis=0) / (np.linalg.norm(np.mean(rows, axis=0)) + 1e-9)
+            for rows in by_work.values()
+        ]
+    )
 
 
 def make_model(mystery_docs: list[str], candidates: dict, use_char3: bool):
     fw = sorted(function_words("ru"))
     fwi = {w: i for i, w in enumerate(fw)}
-    corpus = {n: docs_of(p) for n, p in candidates.items()}
-    everything = [t for docs in corpus.values() for t in docs] + mystery_docs
+    corpus = {n: docs_by_work(p) for n, p in candidates.items()}
+    everything = [t for docs in corpus.values() for _work, t in docs] + mystery_docs
     top3, t3i = [], {}
     if use_char3:
         grams: dict[str, int] = {}
@@ -101,11 +134,14 @@ def make_model(mystery_docs: list[str], candidates: dict, use_char3: bool):
         c3 /= np.linalg.norm(c3) + 1e-9
         return np.concatenate([fwv, c3])
 
-    docvecs = {n: [vec(t) for t in docs] for n, docs in corpus.items() if docs}
+    docvecs = {
+        n: WorkVectors([vec(t) for _work, t in docs], [work for work, _t in docs])
+        for n, docs in corpus.items()
+        if docs
+    }
     cents = {}
     for n, v in docvecs.items():
-        c = np.mean(v, axis=0)
-        cents[n] = c / (np.linalg.norm(c) + 1e-9)
+        cents[n] = work_balanced_centroid(zip(v.work_ids, v))
     return vec, docvecs, cents
 
 
@@ -120,17 +156,34 @@ def loo(docvecs) -> dict:
     names = list(docvecs)
     correct = total = 0
     for name in names:
-        if len(docvecs[name]) < 2:
+        works = list(dict.fromkeys(docvecs[name].work_ids))
+        if len(works) < 2:
             continue
-        for idx, v in enumerate(docvecs[name]):
-            nv = v / (np.linalg.norm(v) + 1e-9)
-            row = {}
+        for held_work in works:
+            test = [
+                vector
+                for work, vector in zip(docvecs[name].work_ids, docvecs[name])
+                if work == held_work
+            ]
+            cents = {}
             for o in names:
-                tr = [x for j, x in enumerate(docvecs[o]) if not (o == name and j == idx)]
-                if tr:
-                    c = np.mean(tr, axis=0)
-                    row[o] = float(np.dot(nv, c / (np.linalg.norm(c) + 1e-9)))
-            if max(row, key=row.get) == name:
+                train = [
+                    (work, vector)
+                    for work, vector in zip(docvecs[o].work_ids, docvecs[o])
+                    if not (o == name and work == held_work)
+                ]
+                if train:
+                    cents[o] = work_balanced_centroid(train)
+            preds = [
+                max(
+                    cents,
+                    key=lambda o: float(
+                        np.dot(v / (np.linalg.norm(v) + 1e-9), cents[o])
+                    ),
+                )
+                for v in test
+            ]
+            if Counter(preds).most_common(1)[0][0] == name:
                 correct += 1
             total += 1
     return {"correct": correct, "total": total, "accuracy": round(correct / total, 4) if total else None}
@@ -157,6 +210,7 @@ def run_panel(candidates: dict, use_char3: bool) -> dict:
                          "second": s[1]["candidate"], "margin": round(s[0]["cos"] - s[1]["cos"], 4)})
     return {
         "pooled_prose": agg,
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         "loo": loo(docvecs),
         "eligible_per_text_top_counts": dict(counts.most_common()),
         "eligible_per_text": rows,
@@ -205,7 +259,7 @@ def main() -> None:
         "Устойчива одна атрибуция 15->Билибин; в остальном атрибуция Dubia "
         "атрибуция Dubia определяется регистром/изданием, а не решена."
     )
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
     for feat in report["panels"]:
         print(f"\n== {feat} ==")

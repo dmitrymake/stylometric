@@ -1,0 +1,78 @@
+{
+  "schema": "stylo.governance.status_ledger.v1",
+  "as_of": "2026-07-26",
+  "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
+  "paired_audit": {
+    "control_plane": {
+      "status": "implemented_synthetic",
+      "claim": "The fail-closed synthetic control plane, audit-corpus builder, run plan, checkpoints, result audit, and publisher exist and are covered by synthetic tests.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "build_audit_corpus",
+          "sha256": "e4060db3b6f1158b629963a543338ecad315810bdc2f285e70a43ac526d41869"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/runner.py",
+          "symbol": "run_paired_audit",
+          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+        }
+      ]
+    },
+    "preparation": {
+      "status": "implemented_local_candidate_preparation_only",
+      "claim": "A preparation command and local candidate flow exist; this is not approval to execute a confirmatory estimator.",
+      "bindings": [
+        {
+          "path": "scripts/evaluation/prepare_paired_audit_inputs.py",
+          "symbol": "prepare",
+          "sha256": "469cd4f55a046af4d9799e19d9286f5a70ced6f86da38738748ce25c9bb4b85c"
+        }
+      ]
+    },
+    "manifest_freeze": {
+      "status": "candidate_unapproved",
+      "claim": "No reviewed freeze-root digest is pinned in the execution control plane.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/runner.py",
+          "symbol": "APPROVED_FREEZE_ROOT_SHA256",
+          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+        }
+      ]
+    },
+    "production_evaluator": {
+      "status": "blocked_unregistered",
+      "claim": "A canonical production evaluator identity has not been registered for confirmatory execution.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/runner.py",
+          "symbol": "run_execution",
+          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+        }
+      ]
+    },
+    "confirmatory_execution": {
+      "status": "hard_disabled",
+      "claim": "Execution must fail until an independently reviewed freeze digest is pinned and the other confirmatory preconditions are satisfied.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/runner.py",
+          "symbol": "assert_confirmatory_freeze_approved",
+          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+        }
+      ]
+    },
+    "headline": {
+      "status": "not_authorized",
+      "claim": "No paired-audit headline decision or publication is authorized."
+    }
+  },
+  "historical_records": [
+    {
+      "path": "research/work_balanced/paired_audit_review_provenance.md",
+      "status": "historical_with_withdrawn_rounds",
+      "sha256": "5e961397bfa23c2e42bd9a4038cebf538c64ba3565b3a6ffcffa444093bb720d"
+    }
+  ]
+}

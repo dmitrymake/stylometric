@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import collections
 import hashlib
-import json
 import logging
+import os
 import pathlib
 import re
 from dataclasses import dataclass, field
@@ -54,6 +54,22 @@ class CorpusReport:
     def add(self, severity: str, code: str, message: str):
         self.findings.append(Finding(severity, code, message))
 
+    @property
+    def errors(self) -> tuple[Finding, ...]:
+        return tuple(finding for finding in self.findings if finding.severity == "error")
+
+
+class CorpusValidationError(RuntimeError):
+    """Fatal corpus findings were recorded; downstream stages must stop."""
+
+    def __init__(self, report: CorpusReport):
+        self.report = report
+        super().__init__(
+            "corpus validation failed with "
+            f"{len(report.errors)} error(s): "
+            + ", ".join(finding.code for finding in report.errors[:5])
+        )
+
 
 def _word_count(text: str) -> int:
     return len(text.split())
@@ -68,20 +84,35 @@ def validate(corpus_dir: pathlib.Path | str, near_dup_threshold: float = 0.4,
              min_words_tiny: int = 50) -> CorpusReport:
     corpus_dir = pathlib.Path(corpus_dir)
     rep = CorpusReport()
+    if corpus_dir.is_symlink() or not corpus_dir.is_dir():
+        rep.add("error", "invalid_root", f"небезопасный/отсутствующий каталог: {corpus_dir}")
+        return rep
 
     book_texts: Dict[str, str] = {}   # "author/book" -> text
     book_hashes: Dict[str, str] = {}
     author_words: Dict[str, int] = collections.defaultdict(int)
     author_books: Dict[str, int] = collections.defaultdict(int)
 
-    for adir in sorted(p for p in corpus_dir.iterdir() if p.is_dir()):
+    author_dirs = []
+    for entry in sorted(os.scandir(corpus_dir), key=lambda item: item.name):
+        if entry.is_symlink():
+            rep.add("error", "symlink", f"символическая ссылка запрещена: {entry.path}")
+        elif entry.is_dir(follow_symlinks=False):
+            author_dirs.append(pathlib.Path(entry.path))
+    for adir in author_dirs:
         author = adir.name
-        for book in sorted(adir.glob("*.txt")):
+        books = []
+        for entry in sorted(os.scandir(adir), key=lambda item: item.name):
+            if entry.is_symlink():
+                rep.add("error", "symlink", f"символическая ссылка запрещена: {entry.path}")
+            elif entry.is_file(follow_symlinks=False) and entry.name.endswith(".txt"):
+                books.append(pathlib.Path(entry.path))
+        for book in books:
             key = f"{author}/{book.stem}"
             try:
-                text = book.read_text(encoding="utf-8", errors="replace")
-            except Exception as exc:
-                rep.add("error", "read_fail", f"{key}: не читается ({exc})")
+                text = book.read_bytes().decode("utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                rep.add("error", "read_fail", f"{key}: не читается как strict UTF-8 ({exc})")
                 continue
             wc = _word_count(text)
             author_words[author] += wc
@@ -178,7 +209,12 @@ def format_report(rep: CorpusReport) -> str:
     return "\n".join(lines)
 
 
-def run(cfg=None, corpus_dir: str | None = None) -> CorpusReport:
+def run(
+    cfg=None,
+    corpus_dir: str | None = None,
+    *,
+    report_only: bool = False,
+) -> CorpusReport:
     from ..config import load_config
     cfg = cfg or load_config()
     cdir = corpus_dir or cfg.get_path("paths.input_clean", "input_clean")
@@ -188,13 +224,25 @@ def run(cfg=None, corpus_dir: str | None = None) -> CorpusReport:
     rep = validate(cdir, near_dup_threshold=near, min_books=min_books,
                    min_words_book=min_words)
     docs = pathlib.Path(cfg.get_path("paths.docs", "docs"))
+    if docs.is_symlink():
+        raise RuntimeError(f"docs root must not be a symlink: {docs}")
     docs.mkdir(parents=True, exist_ok=True)
     txt = format_report(rep)
-    (docs / "corpus_validation.txt").write_text(txt, encoding="utf-8")
-    (docs / "corpus_validation.json").write_text(
-        json.dumps({"summary": rep.summary, "authors": rep.authors,
-                    "findings": [vars(f) for f in rep.findings],
-                    "duplicates": rep.duplicates}, ensure_ascii=False, indent=2),
-        encoding="utf-8")
+    structured = {
+        "summary": rep.summary,
+        "authors": rep.authors,
+        "findings": [vars(f) for f in rep.findings],
+        "duplicates": rep.duplicates,
+    }
+    from ..report.evidence import publish_corpus_validation
+
+    publish_corpus_validation(
+        cfg,
+        corpus_root=pathlib.Path(cdir),
+        text=txt,
+        structured=structured,
+    )
     print(txt)
+    if rep.errors and not report_only:
+        raise CorpusValidationError(rep)
     return rep

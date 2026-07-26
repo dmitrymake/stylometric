@@ -14,6 +14,24 @@ from typing import Callable, Dict, List, Sequence, Tuple
 import numpy as np
 from sklearn.metrics import f1_score
 
+from .metric_contract import (
+    MetricContractError,
+    assert_labels_in_universe,
+    author_order,
+    confidence_level,
+    exact_nonnegative_int,
+    exact_positive_int,
+    finite_statistic,
+    frozen_label_order,
+    integer_vector,
+    metric_callable,
+    paired_integer_vectors,
+    probability_matrix,
+    random_seed,
+    rank_vector,
+    unknown_prediction_policy,
+)
+
 
 # фиксированный seed для воспроизводимости бутстрапа
 def _rng(seed: int) -> np.random.Generator:
@@ -21,37 +39,70 @@ def _rng(seed: int) -> np.random.Generator:
 
 
 def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    if len(y_true) == 0:
+    truth, pred = paired_integer_vectors(y_true, y_pred)
+    if truth.size == 0:
         return 0.0
-    return float(np.mean(np.asarray(y_true) == np.asarray(y_pred)))
+    return float(np.mean(truth == pred))
 
 
-def macro_f1(y_true: np.ndarray, y_pred: np.ndarray, labels: Sequence[int]) -> float:
-    if len(y_true) == 0:
+def macro_f1(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    labels: Sequence[int],
+    *,
+    unknown_pred: str = "reject",
+) -> float:
+    truth, pred = paired_integer_vectors(y_true, y_pred)
+    label_order = frozen_label_order(labels)
+    unknown_pred = unknown_prediction_policy(unknown_pred)
+    assert_labels_in_universe(truth, label_order, name="y_true")
+    if unknown_pred == "reject":
+        assert_labels_in_universe(pred, label_order, name="y_pred")
+    if truth.size == 0:
         return 0.0
-    return float(f1_score(y_true, y_pred, labels=list(labels), average="macro", zero_division=0))
+    return float(
+        f1_score(
+            truth,
+            pred,
+            labels=list(label_order),
+            average="macro",
+            zero_division=0,
+        )
+    )
 
 
 def topk_accuracy(ranks: np.ndarray, k: int) -> float:
     """ranks — 1-based ранг истинного автора в каждой книге."""
-    if len(ranks) == 0:
+    rank_array = rank_vector(ranks)
+    k = exact_positive_int(k, name="k")
+    if rank_array.size == 0:
         return 0.0
-    return float(np.mean(np.asarray(ranks) <= k))
+    return float(np.mean(rank_array <= k))
 
 
 def per_author_recall(y_true: np.ndarray, y_pred: np.ndarray, authors: List[str]) -> Dict[str, float]:
+    author_ids = author_order(authors)
+    truth, pred = paired_integer_vectors(y_true, y_pred)
+    label_order = tuple(range(len(author_ids)))
+    assert_labels_in_universe(truth, label_order, name="y_true")
+    assert_labels_in_universe(pred, label_order, name="y_pred")
     out: Dict[str, float] = {}
-    y_true = np.asarray(y_true)
-    y_pred = np.asarray(y_pred)
-    for idx, a in enumerate(authors):
-        mask = y_true == idx
-        out[a] = float(np.mean(y_pred[mask] == idx)) if mask.any() else float("nan")
+    for idx, author in enumerate(author_ids):
+        mask = truth == idx
+        out[author] = (
+            float(np.mean(pred[mask] == idx)) if mask.any() else float("nan")
+        )
     return out
 
 
 def confusion(y_true: np.ndarray, y_pred: np.ndarray, n: int) -> np.ndarray:
+    n = exact_positive_int(n, name="n")
+    truth, pred = paired_integer_vectors(y_true, y_pred)
+    label_order = tuple(range(n))
+    assert_labels_in_universe(truth, label_order, name="y_true")
+    assert_labels_in_universe(pred, label_order, name="y_pred")
     m = np.zeros((n, n), dtype=int)
-    for t, p in zip(np.asarray(y_true), np.asarray(y_pred)):
+    for t, p in zip(truth, pred, strict=True):
         m[int(t), int(p)] += 1
     return m
 
@@ -75,14 +126,25 @@ def bootstrap_ci(
 ) -> CI:
     """Бутстрап-CI. stat_fn получает массив индексов книг (ресэмпл с возвратом)
     и возвращает скаляр метрики на этой подвыборке."""
+    stat_fn = metric_callable(stat_fn, name="stat_fn")
+    n_units = exact_nonnegative_int(n_units, name="n_units")
+    iters = exact_positive_int(iters, name="iters")
+    level = confidence_level(level)
+    seed = random_seed(seed)
     if n_units == 0:
         return CI(0.0, 0.0, 0.0)
     rng = _rng(seed)
-    point = stat_fn(np.arange(n_units))
+    point = finite_statistic(
+        stat_fn(np.arange(n_units)),
+        name="stat_fn(full)",
+    )
     boot = np.empty(iters)
     for i in range(iters):
         idx = rng.integers(0, n_units, size=n_units)
-        boot[i] = stat_fn(idx)
+        boot[i] = finite_statistic(
+            stat_fn(idx),
+            name=f"stat_fn(bootstrap[{i}])",
+        )
     alpha = (1.0 - level) / 2.0
     lo, hi = np.percentile(boot, [100 * alpha, 100 * (1 - alpha)])
     return CI(float(point), float(lo), float(hi))
@@ -90,8 +152,16 @@ def bootstrap_ci(
 
 def expected_calibration_error(probs: np.ndarray, y_true: np.ndarray, n_bins: int = 10) -> float:
     """ECE: средневзвешенное расхождение уверенности и точности по бинам."""
-    probs = np.asarray(probs)
-    y_true = np.asarray(y_true)
+    y_true = integer_vector(y_true, name="y_true")
+    n_bins = exact_positive_int(n_bins, name="n_bins")
+    probs = probability_matrix(probs, n_rows=len(y_true))
+    assert_labels_in_universe(
+        y_true,
+        tuple(range(probs.shape[1])),
+        name="y_true",
+    )
+    if y_true.size == 0:
+        return 0.0
     conf = probs.max(axis=1)
     pred = probs.argmax(axis=1)
     correct = (pred == y_true).astype(float)
@@ -115,12 +185,16 @@ def summarize_book_results(
     seed: int = 42,
 ) -> Dict[str, object]:
     """Сводка метрик по книгам с CI. y_*/ranks — на уровне книг."""
-    y_true = np.asarray(y_true)
-    y_pred = np.asarray(y_pred)
-    ranks = np.asarray(ranks)
-    # macro-F1 — по тестированным классам: метки в y_true ∪ y_pred (sklearn-дефолт).
-    # В LOBO single-book авторы не тестируются (run_fold → None) и в y_true не входят.
-    labels = np.unique(np.concatenate([y_true, y_pred])).tolist()
+    author_ids = author_order(authors)
+    y_true, y_pred = paired_integer_vectors(y_true, y_pred)
+    ranks = rank_vector(ranks)
+    if ranks.shape != y_true.shape:
+        raise MetricContractError(
+            "ranks and labels must have identical 1-D shape"
+        )
+    labels = tuple(range(len(author_ids)))
+    assert_labels_in_universe(y_true, labels, name="y_true")
+    assert_labels_in_universe(y_pred, labels, name="y_pred")
 
     acc_ci = bootstrap_ci(lambda ix: accuracy(y_true[ix], y_pred[ix]), len(y_true), iters, level, seed)
     f1_ci = bootstrap_ci(lambda ix: macro_f1(y_true[ix], y_pred[ix], labels), len(y_true), iters, level, seed)
@@ -130,5 +204,5 @@ def summarize_book_results(
         "accuracy": acc_ci,
         "macro_f1": f1_ci,
         "top2": top2_ci,
-        "per_author_recall": per_author_recall(y_true, y_pred, authors),
+        "per_author_recall": per_author_recall(y_true, y_pred, list(author_ids)),
     }

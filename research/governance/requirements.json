@@ -1,0 +1,163 @@
+{
+  "schema": "stylo.governance.requirements.v1",
+  "source": "research/work_balanced/paired_audit_protocol.md",
+  "collection_command": "python -m pytest --collect-only -q -o addopts= -p no:cacheprovider",
+  "requirements": [
+    {
+      "id": "PA-CORPUS-ANCHOR-PARITY",
+      "description": "Legacy anchor, semantic parity, and row ordering fail closed.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/corpus.py", "symbol": "build_audit_corpus"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_legacy_anchor_mismatch_aborts_build",
+        "tests/test_paired_audit_corpus.py::TestSemanticParity::test_parity_mismatch_between_different_corpora",
+        "tests/test_paired_audit_corpus.py::TestSemanticParity::test_row_order_parity_invariant_catches_reordering"
+      ]
+    },
+    {
+      "id": "PA-CORPUS-BYTE-AND-IDENTITY-CLOSURE",
+      "description": "Changed, stray, or duplicate chunks and partial roots are rejected.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/corpus.py", "symbol": "verify_published_corpus"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_wb_manifest_guard_catches_byte_mutation_directly",
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_wb_manifest_guard_catches_stray_chunk_directly",
+        "tests/test_paired_audit_fail_closed_sweep.py::test_duplicate_chunk_identity_aborts_build",
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_partial_root_never_valid"
+      ]
+    },
+    {
+      "id": "PA-CORPUS-IMMUTABILITY-AND-SELF-HASH",
+      "description": "Immutable-root conflicts, manifest self-hash drift, and forged subset bindings are rejected.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/corpus.py", "symbol": "verify_published_corpus"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_conflicting_immutable_root_is_fatal",
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_corpus_manifest_self_hash_tamper_rejected",
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_forged_selection_digest_rejected_at_disk_verify",
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_forged_parent_digest_rejected_at_disk_verify"
+      ]
+    },
+    {
+      "id": "PA-SUBSET-WHOLE-WORK-EXACTNESS",
+      "description": "The nested RuAA selection is exact, duplicate-free, and whole-work.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/work_subset.py", "symbol": "derive_work_subset"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_whole_work_includes_all_chunks",
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_missing_and_extra_and_duplicate_rejected"
+      ]
+    },
+    {
+      "id": "PA-MANIFEST-FROZEN-UNIVERSE",
+      "description": "Fold manifests bind exact class orders and frozen universe counts.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/manifest.py", "symbol": "assert_lobo_universe"},
+        {"path": "src/stylo/eval/paired_audit/manifest.py", "symbol": "assert_ruaa_universe"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_bogus_class_order_contents_rejected",
+        "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_lobo_universe_rejects_off_counts",
+        "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_ruaa_universe_rejects_off_counts"
+      ]
+    },
+    {
+      "id": "PA-RUN-IDENTITY",
+      "description": "Canonical run plans are stable and every binding change changes run_id.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/run_plan.py", "symbol": "build_run_plan"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_control_plane.py::TestRunPlan::test_build_run_plan_and_stable_run_id",
+        "tests/test_paired_audit_control_plane.py::TestRunPlan::test_run_id_changes_on_any_binding_change",
+        "tests/test_paired_audit_control_plane.py::TestRunPlan::test_runtime_fingerprint_binds_stack_omits_kernel"
+      ]
+    },
+    {
+      "id": "PA-CHECKPOINT-EXACT-RESUME",
+      "description": "Only valid exact checkpoints resume; corruption, conflicts, and extras fail.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/checkpoints.py", "symbol": "CheckpointStore"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_checkpoints.py::TestSaveResume::test_valid_resume_skips_present_and_pends_missing",
+        "tests/test_paired_audit_checkpoints.py::TestFailClosed::test_corrupt_self_hash_is_fatal",
+        "tests/test_paired_audit_checkpoints.py::TestFailClosed::test_conflicting_checkpoint_is_fatal",
+        "tests/test_paired_audit_checkpoints.py::TestFailClosed::test_extra_checkpoint_is_fatal_on_resume",
+        "tests/test_paired_audit_checkpoints.py::TestComplete::test_assert_complete_success_and_incomplete_fatal"
+      ]
+    },
+    {
+      "id": "PA-PUBLISHER-PATH-ATOMICITY",
+      "description": "Publisher paths cannot escape or overwrite headlines and immutable publication is recoverable.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/publisher.py", "symbol": "publish_audit"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_publisher.py::TestPathGuard::test_rejects_headline_basename",
+        "tests/test_paired_audit_publisher.py::TestPathGuard::test_rejects_escape_and_unallowed",
+        "tests/test_paired_audit_publisher.py::TestPublish::test_recovers_from_staging_orphan",
+        "tests/test_paired_audit_publisher.py::TestPublish::test_publish_and_load_round_trip",
+        "tests/test_paired_audit_publisher.py::TestPublishFailClosed::test_tampered_summary_self_hash_rejected"
+      ]
+    },
+    {
+      "id": "PA-INFERENCE-DEGENERACY",
+      "description": "Cluster p-value degeneracies and the constant non-zero case follow the registered ordering.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/inference.py", "symbol": "paired_cluster_pvalue"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_inference.py::TestClusterPValue::test_rule1_single_author_returns_one_even_with_effect",
+        "tests/test_paired_audit_inference.py::TestClusterPValue::test_rule2_all_zero_differences_returns_one",
+        "tests/test_paired_audit_inference.py::TestClusterPValue::test_rule3_constant_nonzero_effect_not_special_cased"
+      ]
+    },
+    {
+      "id": "PA-HOLM-FAMILY-EXACTNESS",
+      "description": "The fixed 15-comparison family cannot shrink or gain members.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/inference.py", "symbol": "holm_over_registered_family"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_inference.py::TestHolmRegisteredFamily::test_full_family_runs_with_m15",
+        "tests/test_paired_audit_inference.py::TestHolmRegisteredFamily::test_missing_or_extra_member_invalidates_family"
+      ]
+    },
+    {
+      "id": "PA-HEADLINE-BOUNDARY",
+      "description": "Equality at the noninferiority boundary is inconclusive.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/headline.py", "symbol": "headline_gate"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_headline.py::TestHeadlineGate::test_boundary_equality_is_inconclusive"
+      ]
+    },
+    {
+      "id": "PA-EXECUTION-AUTHORIZATION",
+      "description": "Confirmatory execution is disabled until an independently reviewed freeze root is pinned.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/runner.py", "symbol": "assert_confirmatory_freeze_approved"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_runner.py::test_confirmatory_execution_is_disabled_until_reviewed_freeze_is_pinned"
+      ]
+    },
+    {
+      "id": "PA-A0-A4-GOLDENS",
+      "description": "A0/A4 external fixtures and production-default routing remain exact.",
+      "code": [
+        {"path": "src/stylo/domain/work_weighting.py", "symbol": "AblationConfig"}
+      ],
+      "tests": [
+        "tests/test_work_balanced_ablation_goldens.py::test_fixture_matches_pinned_full_sha",
+        "tests/test_work_balanced_ablation_config.py::test_make_factory_weighting_contract_unchanged"
+      ]
+    }
+  ]
+}

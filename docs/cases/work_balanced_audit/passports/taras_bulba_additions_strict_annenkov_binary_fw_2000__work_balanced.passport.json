@@ -1,0 +1,132 @@
+{
+  "case_id": "taras_bulba_additions_strict_annenkov_binary_fw_2000__work_balanced",
+  "title": "Taras Bulba 1842 strict additions, Gogol vs Annenkov binary: fw_fixed random_2000",
+  "hypothesis": "The large 1842 additions were written by Annenkov, who copied the manuscript under dictation in Rome, 1841.",
+  "target_description": "strict additions, binary Gogol vs Annenkov",
+  "claim": "Direct binary comparison against the main documented suspect.",
+  "limitations": [
+    "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+    "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+  ],
+  "status": "moderate",
+  "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.875, margin=0.027542).",
+  "confidence": "medium",
+  "evidence_score": 95.51,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 1.0,
+      "chunk_weighted_recall": 0.934,
+      "work_recall": {
+        "annenkov_1840s": "5/5",
+        "gogol": "10/10"
+      },
+      "chunk_recall": {
+        "annenkov_1840s": "153/162",
+        "gogol": "133/144"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": 0.00033,
+      "confusion": {
+        "annenkov_1840s": {
+          "annenkov_1840s": 153,
+          "gogol": 9
+        },
+        "gogol": {
+          "annenkov_1840s": 11,
+          "gogol": 133
+        }
+      },
+      "n_works": 15,
+      "n_chunks": 306,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "gogol",
+      "second": "annenkov_1840s",
+      "margin": 0.027542,
+      "margin_ci95": [
+        0.0173,
+        0.038957
+      ],
+      "winner_share": {
+        "gogol": 0.875,
+        "annenkov_1840s": 0.125
+      },
+      "similarities": [
+        {
+          "candidate": "gogol",
+          "cos": 0.963845
+        },
+        {
+          "candidate": "annenkov_1840s",
+          "cos": 0.936303
+        }
+      ],
+      "per_chunk_winners": {
+        "gogol": 14,
+        "annenkov_1840s": 2
+      },
+      "n_chunks": 16
+    }
+  ],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "work_balanced",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "gogol",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/gogol"
+        ],
+        "exclude": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_clean/gogol/тарас_бульба.txt"
+        ],
+        "label": null
+      },
+      {
+        "id": "annenkov_1840s",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/cand_annenkov_1840s"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/taras_hardened/specs/../../../../input_cases/taras_bulba/dobavleniya1842_strict.txt",
+    "sources": [
+      "Local Taras Bulba case data, cleaned benchmark anchors, curated az.lib panel (docs/cases/taras_hardened/panel_manifest.json)."
+    ],
+    "n_candidate_works": 15,
+    "n_candidate_chunks": 306,
+    "works_per_author": {
+      "annenkov_1840s": 5,
+      "gogol": 10
+    },
+    "target_chunks": 16
+  },
+  "provenance": {
+    "manifest": "docs/cases/taras_hardened/target_manifest.json",
+    "panel_manifest": "docs/cases/taras_hardened/panel_manifest.json",
+    "analysis_command": "PYTHONPATH=src .venv/bin/python -m stylo.cli case run docs/cases/taras_hardened/specs/taras_bulba_additions_strict_annenkov_binary_fw_2000.yaml --out docs/cases/taras_hardened/passports/taras_bulba_additions_strict_annenkov_binary_fw_2000.passport.json"
+  },
+  "notes": "Бинарная постановка против главного документированного подозреваемого."
+}

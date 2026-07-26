@@ -3,6 +3,12 @@
 """
 
 from __future__ import annotations
+
+raise SystemExit(
+    "scripts/experiments.py is retired historical source and cannot write legacy "
+    "experiment artifacts. Use `stylo evaluate` for the canonical model comparison."
+)
+
 import pathlib
 import logging
 import numpy as np

@@ -1,0 +1,418 @@
+{
+  "dataset": "SOCIOLIT-lite public TF matrix (Russian)",
+  "source": {
+    "repository": "https://github.com/DDPronin/Rank-Turbulence-Delta",
+    "paper": "https://arxiv.org/abs/2604.19499",
+    "tf_matrix": "https://media.githubusercontent.com/media/DDPronin/Rank-Turbulence-Delta/main/data/TfMatrixRU.json",
+    "authors": "https://raw.githubusercontent.com/DDPronin/Rank-Turbulence-Delta/main/data/authorsRU.json"
+  },
+  "protocol": {
+    "kind": "lexical/TF benchmark on public derived artifacts",
+    "not_full_stylo_pipeline": true,
+    "documents": 639,
+    "authors": 89,
+    "features_used": 10000,
+    "feature_order": "first rows of TfMatrixRU.json, sorted by corpus Count in the source notebook",
+    "top_features_preview": [
+      "и",
+      "в",
+      "не",
+      "он",
+      "я",
+      "на",
+      "что",
+      "с",
+      "быть",
+      "она",
+      "а",
+      "это",
+      "как",
+      "то",
+      "они",
+      "к",
+      "но",
+      "всё",
+      "ты",
+      "по"
+    ],
+    "labels": "authorsRU.json order aligned to matrix document columns",
+    "primary_metric": "balanced_accuracy",
+    "caveats": [
+      "Full SOCIOLIT texts are not publicly redistributed, so syntax/morphology/cleaning channels are not evaluated here.",
+      "Global z-score nearest-neighbor metrics are marked paper-style/transductive because standardization sees the full matrix.",
+      "The supervised SVM uses public precomputed feature selection from the released matrix; treat it as SOCIOLIT-lite, not a strict raw-text benchmark."
+    ],
+    "svm": {
+      "protocol": "stratified-3-fold",
+      "requested_folds": 3,
+      "actual_folds": 3,
+      "note": "Feature matrix and MFW selection are public derived SOCIOLIT artifacts; this is not a raw-text full-pipeline run."
+    }
+  },
+  "results": {
+    "nn_raw_cosine": {
+      "accuracy": 0.632238,
+      "balanced_accuracy": 0.540026,
+      "macro_f1": 0.539299,
+      "zero_recall_authors": 15,
+      "median_author_recall": 0.6,
+      "min_author_recall": 0.0
+    },
+    "nn_global_z_cosine": {
+      "accuracy": 0.920188,
+      "balanced_accuracy": 0.89734,
+      "macro_f1": 0.901126,
+      "zero_recall_authors": 0,
+      "median_author_recall": 1.0,
+      "min_author_recall": 0.333333
+    },
+    "nn_global_z_l1": {
+      "accuracy": 0.834116,
+      "balanced_accuracy": 0.781853,
+      "macro_f1": 0.801116,
+      "zero_recall_authors": 3,
+      "median_author_recall": 0.833333,
+      "min_author_recall": 0.0
+    },
+    "linear_svm_tf": {
+      "accuracy": 0.904538,
+      "balanced_accuracy": 0.905126,
+      "macro_f1": 0.900524,
+      "zero_recall_authors": 0,
+      "median_author_recall": 1.0,
+      "min_author_recall": 0.571429,
+      "cv": {
+        "protocol": "stratified-3-fold",
+        "requested_folds": 3,
+        "actual_folds": 3,
+        "note": "Feature matrix and MFW selection are public derived SOCIOLIT artifacts; this is not a raw-text full-pipeline run."
+      }
+    }
+  },
+  "best_by_balanced_accuracy": {
+    "method": "linear_svm_tf",
+    "accuracy": 0.904538,
+    "balanced_accuracy": 0.905126,
+    "macro_f1": 0.900524,
+    "zero_recall_authors": 0,
+    "median_author_recall": 1.0,
+    "min_author_recall": 0.571429,
+    "cv": {
+      "protocol": "stratified-3-fold",
+      "requested_folds": 3,
+      "actual_folds": 3,
+      "note": "Feature matrix and MFW selection are public derived SOCIOLIT artifacts; this is not a raw-text full-pipeline run."
+    }
+  },
+  "top_error_pairs": {
+    "nn_raw_cosine": [
+      {
+        "true": "Тургенев",
+        "pred": "Соловьев",
+        "n": 3
+      },
+      {
+        "true": "Водолазкин",
+        "pred": "Солженицын",
+        "n": 2
+      },
+      {
+        "true": "Глуховский",
+        "pred": "Солженицын",
+        "n": 2
+      },
+      {
+        "true": "Глуховский",
+        "pred": "Акунин",
+        "n": 2
+      },
+      {
+        "true": "Григорович",
+        "pred": "Салтыков-Щедрин",
+        "n": 2
+      },
+      {
+        "true": "Достоевский",
+        "pred": "Лермонтов",
+        "n": 2
+      },
+      {
+        "true": "Леонтьев",
+        "pred": "Лесков",
+        "n": 2
+      },
+      {
+        "true": "Нарежный",
+        "pred": "Булгарин",
+        "n": 2
+      },
+      {
+        "true": "Пелевин",
+        "pred": "Трифонов",
+        "n": 2
+      },
+      {
+        "true": "Пепперштейн",
+        "pred": "Пастернак",
+        "n": 2
+      },
+      {
+        "true": "Писемский",
+        "pred": "Гейнце",
+        "n": 2
+      },
+      {
+        "true": "Писемский",
+        "pred": "Достоевский",
+        "n": 2
+      },
+      {
+        "true": "Писемский",
+        "pred": "Лесков",
+        "n": 2
+      },
+      {
+        "true": "Полевой",
+        "pred": "Лесков",
+        "n": 2
+      },
+      {
+        "true": "Потапенко",
+        "pred": "Соловьев",
+        "n": 2
+      }
+    ],
+    "nn_global_z_cosine": [
+      {
+        "true": "Карнович",
+        "pred": "Соловьев",
+        "n": 2
+      },
+      {
+        "true": "Соловьев",
+        "pred": "Карнович",
+        "n": 2
+      },
+      {
+        "true": "Аксенов",
+        "pred": "Солженицын",
+        "n": 1
+      },
+      {
+        "true": "Бестужев",
+        "pred": "Булгарин",
+        "n": 1
+      },
+      {
+        "true": "Булгаков",
+        "pred": "ТолстойА",
+        "n": 1
+      },
+      {
+        "true": "Вельтман",
+        "pred": "Загоскин",
+        "n": 1
+      },
+      {
+        "true": "Владимов",
+        "pred": "Солженицын",
+        "n": 1
+      },
+      {
+        "true": "Владимов",
+        "pred": "Глуховский",
+        "n": 1
+      },
+      {
+        "true": "Гейнце",
+        "pred": "Полевой",
+        "n": 1
+      },
+      {
+        "true": "Гейнце",
+        "pred": "ТолстойЛ",
+        "n": 1
+      },
+      {
+        "true": "Гоголь",
+        "pred": "Полевой",
+        "n": 1
+      },
+      {
+        "true": "Иванов",
+        "pred": "Мамин-Сибиряк",
+        "n": 1
+      },
+      {
+        "true": "Иванов",
+        "pred": "Солженицын",
+        "n": 1
+      },
+      {
+        "true": "Иванов",
+        "pred": "ТолстойА",
+        "n": 1
+      },
+      {
+        "true": "Карамзин",
+        "pred": "Полевой",
+        "n": 1
+      }
+    ],
+    "nn_global_z_l1": [
+      {
+        "true": "Панаев",
+        "pred": "Достоевский",
+        "n": 4
+      },
+      {
+        "true": "Куприн",
+        "pred": "Достоевский",
+        "n": 3
+      },
+      {
+        "true": "Шолохов",
+        "pred": "Леонтьев",
+        "n": 3
+      },
+      {
+        "true": "Ясинский",
+        "pred": "Достоевский",
+        "n": 3
+      },
+      {
+        "true": "Грин",
+        "pred": "ТолстойЛ",
+        "n": 2
+      },
+      {
+        "true": "Дружинин",
+        "pred": "Достоевский",
+        "n": 2
+      },
+      {
+        "true": "Плещеев",
+        "pred": "Достоевский",
+        "n": 2
+      },
+      {
+        "true": "Потапенко",
+        "pred": "Достоевский",
+        "n": 2
+      },
+      {
+        "true": "Соллогуб",
+        "pred": "Загоскин",
+        "n": 2
+      },
+      {
+        "true": "ТолстойА",
+        "pred": "Леонтьев",
+        "n": 2
+      },
+      {
+        "true": "Трифонов",
+        "pred": "Солженицын",
+        "n": 2
+      },
+      {
+        "true": "Хвощинска",
+        "pred": "Достоевский",
+        "n": 2
+      },
+      {
+        "true": "Шишкин",
+        "pred": "Леонтьев",
+        "n": 2
+      },
+      {
+        "true": "Апухтин",
+        "pred": "Писемский",
+        "n": 1
+      },
+      {
+        "true": "Астафьев",
+        "pred": "Короленко",
+        "n": 1
+      }
+    ],
+    "linear_svm_tf": [
+      {
+        "true": "Шишкин",
+        "pred": "Пришвин",
+        "n": 2
+      },
+      {
+        "true": "Акунин",
+        "pred": "Бестужев",
+        "n": 1
+      },
+      {
+        "true": "Бестужев",
+        "pred": "ТолстойЛ",
+        "n": 1
+      },
+      {
+        "true": "Булгарин",
+        "pred": "Загоскин",
+        "n": 1
+      },
+      {
+        "true": "Водолазкин",
+        "pred": "Глуховский",
+        "n": 1
+      },
+      {
+        "true": "Водолазкин",
+        "pred": "Трифонов",
+        "n": 1
+      },
+      {
+        "true": "Водолазкин",
+        "pred": "Пришвин",
+        "n": 1
+      },
+      {
+        "true": "Гейнце",
+        "pred": "Салтыков-Щедрин",
+        "n": 1
+      },
+      {
+        "true": "Глуховский",
+        "pred": "Аксенов",
+        "n": 1
+      },
+      {
+        "true": "Гончаров",
+        "pred": "Шолохов",
+        "n": 1
+      },
+      {
+        "true": "Грин",
+        "pred": "Аксенов",
+        "n": 1
+      },
+      {
+        "true": "Грин",
+        "pred": "Апухтин",
+        "n": 1
+      },
+      {
+        "true": "Достоевский",
+        "pred": "Аксенов",
+        "n": 1
+      },
+      {
+        "true": "Достоевский",
+        "pred": "Солженицын",
+        "n": 1
+      },
+      {
+        "true": "Загоскин",
+        "pred": "Данилевский",
+        "n": 1
+      }
+    ]
+  },
+  "runtime_sec": 28.212
+}

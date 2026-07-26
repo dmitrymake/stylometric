@@ -23,6 +23,83 @@ def _sep_data(n_works=3):
     return data, ["A", "B"]
 
 
+def _unequal_work_data():
+    """A-long has nine chunks but must have the same train weight as A-short."""
+    data = [("A", "A-long", np.array([1.0, 0.0])) for _ in range(9)]
+    data += [
+        ("A", "A-short", np.array([0.0, 1.0])),
+        ("A", "A-test", np.array([0.6, 0.8])),
+        ("B", "B0", np.array([0.0, 1.0])),
+        ("B", "B1", np.array([0.0, 1.0])),
+    ]
+    return data, ["A", "B"]
+
+
+def test_train_centroid_gives_each_work_equal_weight():
+    rows = [("long", np.array([1.0, 0.0])) for _ in range(9)]
+    rows.append(("short", np.array([0.0, 1.0])))
+
+    centroid = gm.work_balanced_centroid(rows)
+
+    expected = np.array([1.0, 1.0]) / np.sqrt(2.0)
+    assert np.allclose(centroid, expected)
+    assert not np.allclose(centroid, gm._cent([v for _work, v in rows]))
+
+
+def test_train_centroid_gives_each_work_direction_equal_weight():
+    rows = [
+        ("heterogeneous", np.array([1.0, 0.0])),
+        ("heterogeneous", np.array([-0.8, 0.0])),
+        ("stable", np.array([0.0, 1.0])),
+    ]
+
+    centroid = gm.work_balanced_centroid(rows)
+
+    expected = np.array([1.0, 1.0]) / np.sqrt(2.0)
+    raw_work_mean = gm._unit(np.mean([[0.1, 0.0], [0.0, 1.0]], axis=0))
+    assert np.allclose(centroid, expected)
+    assert not np.allclose(centroid, raw_work_mean)
+
+
+def test_optimized_permutation_precompute_uses_unit_work_directions():
+    by_work = {
+        "heterogeneous": [np.array([1.0, 0.0]), np.array([-0.8, 0.0])],
+        "stable": [np.array([0.0, 1.0])],
+    }
+
+    work_ids, work_means, _unit_chunks = gm._precompute_work_means(by_work)
+
+    assert work_ids == ["heterogeneous", "stable"]
+    assert np.allclose(work_means["heterogeneous"], [1.0, 0.0])
+    assert np.allclose(work_means["stable"], [0.0, 1.0])
+
+
+def test_work_loo_uses_work_balanced_train_centroids():
+    data, authors = _unequal_work_data()
+
+    wcp, _conf, _works = gm.leave_one_work_out(data, authors)
+
+    predictions = {work: preds for _author, work, preds in wcp}
+    # Equal work weights put A at [0.5, 0.5], so A-test is closer to A.
+    # A flat chunk mean would put A near [0.9, 0.1] and predict B instead.
+    assert predictions["A-test"] == ["A"]
+
+
+def test_optimized_permutation_estimator_matches_public_work_balanced_loo():
+    data, authors = _unequal_work_data()
+    by_work = {}
+    label_of_work = {}
+    for author, work, vector in data:
+        by_work.setdefault(work, []).append(vector)
+        label_of_work[work] = author
+
+    optimized = gm._workmacro_under(by_work, label_of_work, authors)
+    wcp, _conf, _works = gm.leave_one_work_out(data, authors)
+    public = gm.both_metrics(wcp, authors)["work_macro_recall"]
+
+    assert round(optimized, 4) == public
+
+
 def test_work_macro_recall_separable():
     data, authors = _sep_data(3)
     wcp, _conf, _works = gm.leave_one_work_out(data, authors)
@@ -64,3 +141,15 @@ def test_permutation_exact_floor_formula():
     _p, method, floor = gm.work_permutation_p(data, lambda a: a, authors, max_exact=1000)
     assert method == "exact_70"
     assert floor == round(1.0 / comb(8, 4), 5)
+
+
+def test_permutation_treats_same_work_name_from_different_authors_as_distinct():
+    data, authors = _sep_data(2)
+    renamed = [(author, "shared" if work.endswith("0") else work, vector)
+               for author, work, vector in data]
+
+    _p, method, floor = gm.work_permutation_p(renamed, lambda a: a, authors)
+
+    # Four works remain distinct: C(4, 2), not C(3, 1).
+    assert method == "exact_6"
+    assert floor == round(1.0 / comb(4, 2), 5)

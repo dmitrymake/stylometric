@@ -1,9 +1,10 @@
 """Настоящая Delta считается только по MFW; метрики/CI ведут себя корректно."""
 import numpy as np
 
-from stylo.models.delta import BurrowsDelta
 from stylo.eval.metrics import accuracy, macro_f1, bootstrap_ci, expected_calibration_error
 from stylo.eval.significance import mcnemar, paired_bootstrap_diff, paired_bootstrap_diff_clustered
+from stylo.models.baselines import CharCosineBaseline
+from stylo.models.delta import BurrowsDelta
 
 
 def test_delta_uses_only_mfw():
@@ -17,6 +18,76 @@ def test_delta_uses_only_mfw():
     assert len(d.feature_names()) <= 10
     # текст в стиле автора 0 ближе к автору 0
     assert d.predict(["и в на и в на он " * 5])[0] == 0
+
+
+def test_delta_centroid_weights_works_not_chunks():
+    texts = ["x"] * 9 + ["y", "y", "y"]
+    y = np.array([0] * 10 + [1, 1])
+    groups = [("a", "long")] * 9 + [
+        ("a", "short"),
+        ("b", "0"),
+        ("b", "1"),
+    ]
+
+    model = BurrowsDelta(vocabulary=["x", "y"]).fit(texts, y, groups=groups)
+
+    z = model._z(texts)
+    expected_a = np.mean([z[:9].mean(axis=0), z[9:10].mean(axis=0)], axis=0)
+    flat_a = z[y == 0].mean(axis=0)
+    assert np.allclose(model.centroids_[0], expected_a)
+    assert not np.allclose(model.centroids_[0], flat_a)
+    assert model.group_weighting_ == "equal_group_after_within_group_mean"
+
+
+def test_delta_two_argument_fit_preserves_legacy_row_weighting():
+    texts = ["x x x y", "x y y y", "y y y y", "x x y y"]
+    y = np.array([0, 0, 1, 1])
+
+    model = BurrowsDelta(metric="cosine", vocabulary=["x", "y"]).fit(texts, y)
+    z = model._z(texts)
+
+    assert np.allclose(model.centroids_[0], z[y == 0].mean(axis=0))
+    assert np.allclose(model.centroids_[1], z[y == 1].mean(axis=0))
+    assert model.group_weighting_ == "equal_row"
+
+
+def test_char_cosine_centroid_weights_works_not_chunks():
+    texts = ["xxxx"] * 9 + ["yyyy", "yyyy", "yyyy"]
+    y = np.array([0] * 10 + [1, 1])
+    groups = np.array(["a-long"] * 9 + ["a-short", "b0", "b1"])
+
+    model = CharCosineBaseline(min_df=1).fit(texts, y, groups=groups)
+
+    X = model._vec.transform(texts)
+    expected_a = np.mean(
+        [
+            np.asarray(X[:9].mean(axis=0)).ravel(),
+            np.asarray(X[9:10].mean(axis=0)).ravel(),
+        ],
+        axis=0,
+    )
+    flat_a = np.asarray(X[y == 0].mean(axis=0)).ravel()
+    assert np.allclose(model._centroids[0], expected_a)
+    assert not np.allclose(model._centroids[0], flat_a)
+    assert model.group_weighting_ == (
+        "equal_group_direction_after_within_group_mean_l2"
+    )
+
+
+def test_char_cosine_two_argument_fit_preserves_legacy_row_weighting():
+    texts = ["aaaa", "aaab", "bbbb", "bbba"]
+    y = np.array([0, 0, 1, 1])
+
+    model = CharCosineBaseline(min_df=1).fit(texts, y)
+    X = model._vec.transform(texts)
+
+    assert np.allclose(
+        model._centroids[0], np.asarray(X[y == 0].mean(axis=0)).ravel()
+    )
+    assert np.allclose(
+        model._centroids[1], np.asarray(X[y == 1].mean(axis=0)).ravel()
+    )
+    assert model.group_weighting_ == "equal_row"
 
 
 def test_metrics_basic():

@@ -12,6 +12,7 @@
 from __future__ import annotations
 import sys, json, time, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler
 from sklearn.decomposition import TruncatedSVD
@@ -53,8 +54,13 @@ mas = MaxAbsScaler().fit(Xb); Xs = mas.transform(Xb); nc = max(2, min(40, Xs.sha
 svd = TruncatedSVD(nc, random_state=42).fit(Xs); ss = StandardScaler().fit(svd.transform(Xs))
 def B(texts): return ss.transform(svd.transform(mas.transform(vb.transform(list(texts)))))
 
+def author_centroid(bk):
+    """Equal-book centroid: chunks -> one book row, then books -> author."""
+    rows = [B(cap(ch, 60)).mean(0) for ch in bk.values() if ch]
+    return np.mean(rows, axis=0) if rows else None
+
 # центроиды авторов (для self-consistency)
-cent = {a: B(bal(allbk[a], 250)).mean(0) for a in PANEL}
+cent = {a: author_centroid(allbk[a]) for a in PANEL}
 def within_sil(bk):
     rows = [B(cap(ch)) for ch in bk.values() if len(ch) >= 4]
     if len(rows) < 2: return None
@@ -65,7 +71,7 @@ def self_rate(a):
         if len(ch) < 4: continue
         z = B(cap(ch)).mean(0)
         # ближайший центроид среди панели, но центроид САМОГО автора пересчитан БЕЗ этой книги
-        cself = B(bal({k: v for k, v in bk.items() if k != b}, 250)).mean(0) if len(bk) > 1 else cent[a]
+        cself = author_centroid({k: v for k, v in bk.items() if k != b}) if len(bk) > 1 else cent[a]
         dists = {a2: (np.linalg.norm(z - (cself if a2 == a else cent[a2]))) for a2 in PANEL}
         ok += (min(dists, key=dists.get) == a); tot += 1
     return (ok, tot)
@@ -94,10 +100,11 @@ verdict = ("В НОРМЕ одиночек — Шолохов когеренте
 log(f"ВЫВОД: {verdict}")
 
 out = {"metric": "within-author силуэт (book-balanced, чистый ансамбль dep+pos+syntax) — НИЗКО=когерентный одиночка",
+       "train_centroid_weighting": "equal_book_after_within_book_chunk_mean",
        "sholokhov_silhouette": sh["within_silhouette"], "sholokhov_rank": rank, "n_panel": len(rows_sorted),
        "indisputable_range": [round(min(sing_sils), 3), round(max(sing_sils), 3)], "indisputable_median": round(float(np.median(sing_sils)), 3),
        "collective_prutkov": prut["within_silhouette"] if prut else None,
        "verdict": verdict, "per_author": rows_sorted}
 (ROOT / "docs").mkdir(exist_ok=True)
-(ROOT / "docs" / "consistency.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+(ROOT / "docs" / "consistency.json").write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
 log("\n✓ saved docs/consistency.json")

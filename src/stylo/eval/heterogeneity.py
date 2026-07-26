@@ -109,11 +109,15 @@ def bimodality(Z: np.ndarray, k: int = 2, seed: int = 42) -> Tuple[float, np.nda
 
 def heterogeneity_score(texts: Sequence[str], cfg, k: int = 2,
                         basis: "StyleBasis | None" = None) -> dict:
-    """Оценка «двугорбости» корпуса: силуэт k=2 + размеры кластеров.
+    """Descriptive k-cluster silhouette in one pre-fitted outsider basis.
 
-    basis: если задан (fit_style_basis на отдельном reference) — leak-free; иначе in-sample
-    (для силуэта недопустимо, завышает разделение).
+    An in-sample basis makes target/control values incomparable, so this public
+    scoring helper now fails closed instead of silently fitting one.
     """
+    if basis is None:
+        raise ValueError(
+            "heterogeneity_score requires one shared outsider-fitted StyleBasis"
+        )
     Z = style_embedding(texts, cfg, basis=basis)
     sil, labels = bimodality(Z, k=k)
     sizes = [int(np.sum(labels == c)) for c in range(k)]
@@ -124,18 +128,18 @@ def heterogeneity_score(texts: Sequence[str], cfg, k: int = 2,
 def compare_to_controls(target_texts: Sequence[str], target_name: str,
                         control_corpora: dict, cfg,
                         reference_texts: Sequence[str] | None = None) -> dict:
-    """Сравнить «двугорбость» цели (Ильф-Петров) с одноавторскими контролями.
+    """Descriptively compare target and controls in one outsider-fitted basis.
 
-    control_corpora: {author_name: [chunk_texts]}. Возвращает силуэты и вывод:
-    выделяется ли цель сильнее контролей.
-
-    LEAK-FREE: передайте reference_texts (напр. объединение контролев или сторонний корпус) —
-    basis фитится на нём и применяется к цели+контролям, силуэт не завышен in-sample SVD.
-    Без reference_texts — in-sample (для метрик разделимости недопустимо, завышает разделение).
+    ``reference_texts`` must be an independent reference corpus.  The returned
+    standardized contrast is descriptive only: a handful of controls does not
+    define a sampling/null distribution and therefore cannot support a
+    significance label or a two-hands verdict.
     """
-    basis = None
-    if reference_texts is not None:
-        basis = fit_style_basis(reference_texts, cfg)
+    if reference_texts is None or len(reference_texts) == 0:
+        raise ValueError(
+            "compare_to_controls requires independent reference_texts for one shared basis"
+        )
+    basis = fit_style_basis(reference_texts, cfg)
     tgt = heterogeneity_score(target_texts, cfg, basis=basis)
     controls = {name: heterogeneity_score(txts, cfg, basis=basis)["silhouette_k2"]
                 for name, txts in control_corpora.items()}
@@ -150,11 +154,8 @@ def compare_to_controls(target_texts: Sequence[str], target_name: str,
         "control_silhouettes": controls,
         "control_mean": round(cmean, 4),
         "control_std": round(cstd, 4),
-        "z_vs_controls": round(z, 2),
-        "verdict": (
-            "корпус соавторов значимо «двугорбее» одноавторских (z≥2) — возможен след двух рук"
-            if z >= 2 else
-            "разделение не сильнее, чем у одного автора — НЕТ статистического следа двух рук"
-        ),
+        "standardized_descriptive_contrast": round(z, 2),
+        "claim_status": "descriptive_only_no_significance_or_authorship_verdict",
+        "inference": None,
         "labels": tgt["labels"],
     }

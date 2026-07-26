@@ -17,6 +17,9 @@ from collections import Counter
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 spec = importlib.util.spec_from_file_location("g", ROOT / "scripts" / "run_petersburg_chronicle_gate.py")
 g = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(g)
@@ -39,7 +42,7 @@ def main() -> None:
     rng = np.random.default_rng(20260630)
     nn_text = NN.read_text("utf-8", "ignore")
     vec, docvecs, cents = rd.make_model([nn_text], CANDS, use_char3=False)
-    arr = {n: np.array(docvecs[n]) for n in docvecs}
+    arr = {n: rd.work_centroids(docvecs[n]) for n in docvecs}
     mean_cent = _u(np.mean([cents[n] for n in cents], axis=0))
 
     def attribute(text):
@@ -79,9 +82,9 @@ def main() -> None:
         "segment_winners": seg_winners,
         "verdict": _verdict(whole, segs, seg_winners, fd_dist),
     }
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
-    print(json.dumps(report["NN_attribution"], ensure_ascii=False, indent=1))
+    print(dumps_strict(report["NN_attribution"], ensure_ascii=False, indent=1))
 
 
 def _verdict(whole, segs, seg_winners, fd_dist=None) -> str:

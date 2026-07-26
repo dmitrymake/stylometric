@@ -22,12 +22,26 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from ..corpus import Dataset
+from ..domain.corpus_identity import assert_cross_work_content_isolation
 from ..lang import display_name
 from ..models.baselines import CharCosineBaseline, MajorityBaseline, build_bow_lr
 from ..models.delta import BurrowsDelta
+from ..models.registry import (
+    ModelRegistryError,
+    assert_model_route,
+    resolve_model_spec,
+)
 from ..features.reps import make_rep_cache
-from ..models.lr import make_full_pipeline
+from ..models.lr import make_full_pipeline, make_logreg, make_scaler
 from ..vectorizer import StyloVectorizer
+from .dispatch import fit_estimator, frozen_run_contract
+from .prediction_contract import (
+    stable_top1_and_worst_tie_rank,
+    validate_probability_matrix,
+)
+from .provenance import UnsupportedVariantError, verify_dataset_against_disk
+from .work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+                             require_weighting, resolve_training_weighting)
 
 # BLAS-потоки ограничиваем, чтобы не конфликтовать с joblib
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -35,39 +49,240 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 log = logging.getLogger("stylo.eval.lobo")
+MAX_GENERIC_LOBO_WORKERS = 8
 
 
-def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = None) -> Callable:
-    """spec -> фабрика свежего эстиматора (fit/predict_proba/classes_)."""
+def _bounded_lobo_workers(cfg, requested: Optional[int]) -> int:
+    """Resolve joblib workers under an explicit process/memory amplification cap."""
+
+    raw = (
+        cfg.get_path("evaluation.n_jobs", MAX_GENERIC_LOBO_WORKERS)
+        if requested is None
+        else requested
+    )
+    if type(raw) is not int or raw == 0 or raw < -1:
+        raise ValueError("LOBO n_jobs must be -1 or a positive exact integer")
+    configured_cap = cfg.get_path(
+        "evaluation.max_parallel_folds",
+        MAX_GENERIC_LOBO_WORKERS,
+    )
+    if (
+        type(configured_cap) is not int
+        or configured_cap <= 0
+        or configured_cap > MAX_GENERIC_LOBO_WORKERS
+    ):
+        raise ValueError(
+            "evaluation.max_parallel_folds must be a positive exact integer "
+            f"<= {MAX_GENERIC_LOBO_WORKERS}"
+        )
+    cpu_cap = max(1, int(os.cpu_count() or 1))
+    cap = min(configured_cap, MAX_GENERIC_LOBO_WORKERS, cpu_cap)
+    wanted = cap if raw == -1 else raw
+    effective = min(wanted, cap)
+    if wanted != effective:
+        log.warning(
+            "LOBO n_jobs=%s capped to %s (configured/absolute/cpu resource bound)",
+            wanted,
+            effective,
+        )
+    return effective
+
+
+def make_factory_for_ablation(spec: str, cfg, *, ablation,
+                              enabled_override: Optional[Dict[str, bool]] = None) -> Callable:
+    """Factory-routing entrypoint for the paired W/F/R audit.
+
+    Three runnable ablations:
+
+    * **A0** (all axes off) and **A4** (all axes on) map to the two production weighting enums and are
+      built by the unchanged ``make_factory`` — so the corners reached this way reproduce the frozen
+      goldens byte-for-byte (no estimator math changes);
+    * **A1** (weights-only == ``(T,F,F)``) is an audit-only path: the work-balanced loss/calibration
+      protocol on a strictly legacy (A0) feature side, wired ONLY for the LR-family
+      (``stylo``/``bow_lr``/``stylo_stack``) via axis-aware estimators. A1 has NO production weighting
+      enum (``to_weighting`` stays corner-only), so it is never collapsed to ``WORK_BALANCED``.
+
+    A1 for a model where W is not a new loss axis fails closed with ``AblationNotApplicableError`` and an
+    exact ``reason`` (Delta → ``already_in_legacy``; char_cos/majority/other → ``not_applicable``); the
+    five remaining intermediates raise ``AblationNotImplementedError``.
+
+    Fail-closed: ``ablation`` is keyword-only and must be **exactly** an ``AblationConfig`` (never a
+    duck-typed / subclass object whose ``to_weighting`` could route A4 axes to a legacy estimator), its
+    three axis fields are re-verified as plain bools, and every downstream decision is taken from a
+    **freshly constructed** ``AblationConfig`` via **class** methods — so an instance whose axis
+    properties or ``to_weighting`` were shadowed (``object.__setattr__``) cannot mis-route the axes."""
+    from .work_weighting import AblationConfig
+    if type(ablation) is not AblationConfig:
+        raise TypeError(f"ablation must be exactly an AblationConfig, got {type(ablation).__name__}")
+    for f in ("weights", "feature_fit", "relative_fw"):
+        if type(getattr(ablation, f)) is not bool:
+            raise TypeError(f"ablation.{f} must be a plain bool")
+    fresh = AblationConfig(ablation.weights, ablation.feature_fit, ablation.relative_fw)   # clean, no shadowed attr
+    if AblationConfig.is_legacy_corner.fget(fresh) or AblationConfig.is_full_wb_corner.fget(fresh):
+        weighting = AblationConfig.to_weighting(fresh)         # class method, never an instance override
+        return make_factory(spec, cfg, enabled_override, weighting=weighting)
+    for cell in ("is_weights_only_corner", "is_feature_state_only_corner", "is_relative_fw_only_corner"):
+        if getattr(AblationConfig, cell).fget(fresh):
+            return _make_audit_factory(spec, cfg, enabled_override, fresh)   # A1 / A2 / A3
+    # the remaining intermediates (WFR 110/101/011) have no estimator wiring yet
+    raise AblationNotImplementedError(
+        f"ablation {fresh} has no estimator wiring yet (runnable: A0/A4 corners and audit A1/A2/A3)")
+
+
+def _delta_n_or_raise(spec: str) -> int:
+    """A well-formed positive int after the colon; a malformed/bare delta spec is a plain ValueError
+    (never laundered into a clean applicability status)."""
+    n = spec.split(":", 1)[1]
+    if not (n.isdigit() and int(n) > 0):
+        raise ValueError(f"invalid delta spec {spec!r}")
+    return int(n)
+
+
+def _make_audit_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]],
+                        ablation) -> Callable:
+    """Build the audit-only A1 (weights) / A2 (feature-state) / A3 (relative-FW) estimator, or fail
+    closed with the exact typed applicability signal recorded by the evaluation runner.
+
+    Loss/calibration: A1 is work-balanced (W on); A2/A3 keep the exact A0 loss (W off). Feature side:
+    A1 is exact legacy A0; A2 routes work-level feature fitting (F); A3 applies the pooled relative-FW
+    transform (R). Non-applicable cells raise ``AblationNotApplicableError`` (exact reason + requested)
+    or, for char_cos A2 which duplicates A4, ``AblationEquivalentError('A4')``."""
+    from .work_weighting import (AblationEquivalentError, AblationNotApplicableError,
+                                 CHUNK_WEIGHTED_LEGACY)
+    a1 = ablation.is_weights_only_corner
+    a2 = ablation.is_feature_state_only_corner
+    a3 = ablation.is_relative_fw_only_corner
+
     if spec == "stylo":
+        from ..models.work_balanced import (FeatureStateStyloPipeline, RelativeFwStyloPipeline,
+                                            WeightsOnlyStyloPipeline)
+        if a1:
+            return lambda: WeightsOnlyStyloPipeline([
+                ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override)),   # legacy A0 vec
+                ("scaler", make_scaler(cfg)),
+                ("classifier", make_logreg(cfg, class_weight=None))])                 # W on
+        if a2:
+            return lambda: FeatureStateStyloPipeline([
+                ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override, relative_fw=False)),
+                ("scaler", make_scaler(cfg)),
+                ("classifier", make_logreg(cfg))])                                   # A0 loss (canonical)
+        return lambda: RelativeFwStyloPipeline([                                      # a3
+            ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override, relative_fw=True)),
+            ("scaler", make_scaler(cfg)),
+            ("classifier", make_logreg(cfg))])                                       # A0 loss (canonical)
+    if spec == "bow_lr":
+        from ..models.work_balanced import build_bow_lr_feature_state, build_bow_lr_weights_only
+        if a1:
+            return lambda: build_bow_lr_weights_only()
+        if a2:
+            return lambda: build_bow_lr_feature_state()
+        raise AblationNotApplicableError(spec, "not_applicable", ablation)            # a3: BoW has no R
+    if spec == "stylo_stack":
+        from ..models.stacked_clf import StackedChannelClassifier
+        return lambda: StackedChannelClassifier(cfg, **_stacked_kwargs(cfg),
+                                                training_weighting=CHUNK_WEIGHTED_LEGACY, ablation=ablation)
+    if spec.startswith("delta:") or spec.startswith("delta_cos:"):
+        n = _delta_n_or_raise(spec)                                                   # plain ValueError if bad
+        if a1:
+            raise AblationNotApplicableError(spec, "already_in_legacy", ablation)     # W == equal-work already
+        metric = "cosine" if spec.startswith("delta_cos:") else cfg.get_path("delta.metric", "manhattan")
+        from ..models.delta import BurrowsDelta
+        return lambda: BurrowsDelta(n, metric, ablation=ablation)                     # A2/A3 F×R grid
+    if spec == "char_cos":
+        if a2:
+            raise AblationEquivalentError(spec, ablation, "A4")   # char A2 ≡ A4 (W legacy, no R, only F)
+        raise AblationNotApplicableError(spec, "not_applicable", ablation)            # A1/A3
+    if spec in ("majority", "bow_lr_ref_legacy"):
+        raise AblationNotApplicableError(spec, "not_applicable", ablation)
+    raise ValueError(f"Неизвестная модель: {spec}")
+
+
+def _stacked_kwargs(cfg) -> Dict:
+    """Shared stack hyper-params (identical for A0/A4/A1 — only the axis wiring differs)."""
+    st = cfg.get_path("evaluation.stacking", {}) or {}
+    get = st.get if hasattr(st, "get") else (lambda *_: None)
+    return dict(
+        inner_folds=get("inner_folds", 3) or 3,
+        svc_c=get("svc_c", 1.0) or 1.0,
+        meta_c=get("meta_c", 1.0) or 1.0,
+        seed=cfg.get_path("seed", 42),
+    )
+
+
+def _equal_channel_kwargs(cfg) -> Dict:
+    """Only hyperparameters that affect the fixed equal-channel estimator."""
+    st = cfg.get_path("evaluation.stacking", {}) or {}
+    get = st.get if hasattr(st, "get") else (lambda *_: None)
+    return {
+        "svc_c": get("svc_c", 1.0) or 1.0,
+        "seed": cfg.get_path("seed", 42),
+    }
+
+
+def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = None,
+                 *, weighting: str) -> Callable:
+    """spec + resolved weighting -> фабрика свежего эстиматора (fit/predict_proba/classes_).
+
+    The weighting enum (single toggle, resolved once upstream) is passed explicitly; the estimand
+    is baked into the returned estimator. The legacy arm reproduces the frozen estimators exactly.
+    """
+    weighting = require_weighting(weighting)   # strict: None is NOT a silent legacy fallback
+    wb = weighting == WORK_BALANCED
+    registration = resolve_model_spec(spec)
+    try:
+        assert_model_route(spec, weighting=weighting)
+    except ModelRegistryError as exc:
+        raise UnsupportedVariantError(str(exc)) from exc
+    if registration.key == "stylo":
+        if wb:
+            from ..models.work_balanced import WorkBalancedStyloPipeline
+            return lambda: WorkBalancedStyloPipeline([
+                ("vectorizer", StyloVectorizer.from_config(cfg, enabled_override)),
+                ("scaler", make_scaler(cfg)),
+                ("classifier", make_logreg(cfg, class_weight=None)),
+            ])
         return lambda: make_full_pipeline(cfg, StyloVectorizer.from_config(cfg, enabled_override))
-    if spec.startswith("delta:"):
+    if registration.key == "delta":
         n = int(spec.split(":", 1)[1])
         metric = cfg.get_path("delta.metric", "manhattan")
-        return lambda: BurrowsDelta(n, metric)
-    if spec.startswith("delta_cos:"):
+        return lambda: BurrowsDelta(n, metric, training_weighting=weighting)
+    if registration.key == "delta_cos":
         # Cosine Delta (Smith–Aldridge / Evert et al. 2017): та же MFW-z-механика,
         # угол вместо Manhattan — устойчив к разреженному хвосту MFW на коротких чанках
         n = int(spec.split(":", 1)[1])
-        return lambda: BurrowsDelta(n, "cosine")
-    if spec == "char_cos":
-        return lambda: CharCosineBaseline()
-    if spec == "bow_lr":
+        return lambda: BurrowsDelta(n, "cosine", training_weighting=weighting)
+    if registration.key == "char_cos":
+        return lambda: CharCosineBaseline(training_weighting=weighting)
+    if registration.key == "bow_lr":
+        if wb:
+            from ..models.work_balanced import build_bow_lr_work_balanced
+            return lambda: build_bow_lr_work_balanced()
         return lambda: build_bow_lr()
-    if spec == "majority":
+    if registration.key == "bow_lr_ref_legacy":
+        # frozen historical reference row — WB-only (forbidden in the legacy arm, where it would
+        # duplicate bow_lr and break byte-parity)
+        if not wb:
+            raise UnsupportedVariantError("bow_lr_ref_legacy is a work_balanced-only reference row")
+        return lambda: build_bow_lr()
+    if registration.key == "majority":
         return lambda: MajorityBaseline()
-    if spec == "stylo_stack":
+    if registration.key == "stylo_stack":
+        # The work-balanced stack wires feature fitting, loss weighting, and group-aware calibration.
         from ..models.stacked_clf import StackedChannelClassifier
-        st = cfg.get_path("evaluation.stacking", {}) or {}
-        get = st.get if hasattr(st, "get") else (lambda *_: None)
-        return lambda: StackedChannelClassifier(
-            cfg,
-            inner_folds=get("inner_folds", 3) or 3,
-            svc_c=get("svc_c", 1.0) or 1.0,
-            meta_c=get("meta_c", 1.0) or 1.0,
-            seed=cfg.get_path("seed", 42),
+        return lambda: StackedChannelClassifier(cfg, **_stacked_kwargs(cfg), training_weighting=weighting)
+    if registration.key == "stylo_equal_channels_v1":
+        from ..models.equal_channel_ensemble import EqualChannelEnsembleClassifier
+        return lambda: EqualChannelEnsembleClassifier(
+            cfg, **_equal_channel_kwargs(cfg), training_weighting=weighting,
         )
-    raise ValueError(f"Неизвестная модель: {spec}")
+    raise AssertionError(f"registry entry has no factory adapter: {registration.key}")
+
+
+def _validate_proba(proba: np.ndarray, classes_: np.ndarray, n_authors: int, n_rows: int) -> None:
+    """Compatibility wrapper around the one versioned prediction contract."""
+    validate_probability_matrix(
+        proba, classes_, n_classes=n_authors, n_rows=n_rows
+    )
 
 
 def _align_proba(proba: np.ndarray, classes_: np.ndarray, n_authors: int) -> np.ndarray:
@@ -100,17 +315,18 @@ def run_fold(
         return None
 
     est = factory()
-    if getattr(est, "needs_groups", False):
-        # стекинг: inner-CV по книгам train-фолда (leak-free: тестовой книги нет)
-        est.fit(texts[mask_train], y_train, groups=groups[mask_train])
-    else:
-        est.fit(texts[mask_train], y_train)
-    proba = est.predict_proba(texts[mask_test])
-    full = _align_proba(np.asarray(proba), np.asarray(est.classes_), n_authors)
+    # единый dispatch: groups маршрутизируются iff estimator их требует (LOBO/GKF/train — одинаково)
+    fit_estimator(est, texts[mask_train], y_train, groups[mask_train])
+    proba = np.asarray(est.predict_proba(texts[mask_test]))
+    _validate_proba(proba, est.classes_, n_authors, int(mask_test.sum()))   # fail-closed
+    full = _align_proba(proba, np.asarray(est.classes_), n_authors)
 
-    order = np.argsort(-full, kind="stable")  # равные → меньший индекс (как argmax/predict), без смещения к старшему
-    top1 = int(order[0])
-    rank = int((full >= full[true_label]).sum())  # tie-aware худший ранг: классы с prob >= p_true (включая сам класс); при вырожденных скорах (majority: нули) ничья не даёт ложного «2-го места»
+    decision = stable_top1_and_worst_tie_rank(
+        full, true_label=true_label, expected_width=n_authors
+    )
+    order = decision.order
+    top1 = decision.top1
+    rank = decision.true_rank
     top_candidates = [(authors[int(i)], float(full[int(i)])) for i in order[:top_k]]
 
     author_id, book_id = test_group.split("/", 1)
@@ -136,18 +352,30 @@ def lobo_evaluate(
     enabled_override: Optional[Dict[str, bool]] = None,
     max_books: int = 0,
     n_jobs: Optional[int] = None,
+    *,
+    weighting: str,
 ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
-    """Прогнать LOBO для одной модели. Возвращает (df_книг, prob_matrix, y_true_книг)."""
+    """Прогнать LOBO для одной модели. Возвращает (df_книг, prob_matrix, y_true_книг).
+
+    Публичный вход ВСЕГДА проверяет dataset против контракта, выведенного ТОЛЬКО из ``cfg``
+    (никакого caller-supplied contract — иначе Dataset+rogue-контракт обошли бы cfg-корпус)."""
+    weighting = require_weighting(weighting)
+    weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
+    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
+    return _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting)
+
+
+def _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting):
+    """Internal LOBO worker — NO verification (caller must have verified). Not a public API."""
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
-    if n_jobs is None:
-        n_jobs = cfg.get_path("evaluation.n_jobs", -1)
+    n_jobs = _bounded_lobo_workers(cfg, n_jobs)
 
     books = sorted(set(dataset.groups.tolist()))
     if max_books and max_books > 0:
         books = books[:max_books]
-    log.info("LOBO[%s]: %d книг, n_jobs=%s", spec, len(books), n_jobs)
+    log.info("LOBO[%s/%s]: %d книг, n_jobs=%s", spec, weighting, len(books), n_jobs)
 
-    factory = make_factory(spec, cfg, enabled_override)
+    factory = make_factory(spec, cfg, enabled_override, weighting=weighting)
 
     # Прогреть rep-кэш ОДИН раз в родителе перед параллельными фолдами: фолд-НЕЗАВИСИМые
     # представления (bleach/pos/punct/dep/morph/syntax/длины) строятся один раз и пишутся в
@@ -162,7 +390,9 @@ def lobo_evaluate(
 
     # verbose=10 → joblib печатает прогресс «Done N out of M» (иначе после старта LOBO — тишина до конца;
     # с CalibratedClassifierCV(cv=3) внутри stylo один фолд ~30 CPU-мин, прогон видеть НАДО).
-    res = Parallel(n_jobs=n_jobs, pre_dispatch="2*n_jobs", verbose=10)(
+    # Rep caches can be hundreds of MiB.  Never queue twice the active fold
+    # count: bounded pre-dispatch avoids needless serialization/RSS pressure.
+    res = Parallel(n_jobs=n_jobs, pre_dispatch=n_jobs, verbose=10)(
         delayed(run_fold)(dataset.texts, dataset.y, dataset.groups, dataset.n_authors,
                           dataset.authors, g, factory, top_k)
         for g in books
@@ -181,9 +411,8 @@ def format_top_candidates(top_candidates: List[Tuple[str, float]]) -> str:
     return ", ".join(f"{display_name(a)} ({s:.3f})" for a, s in top_candidates)
 
 
-def write_book_report(df: pd.DataFrame, path) -> None:
-    """Отчёт по каждой книге с топ-N претендентов."""
-    import pathlib
+def format_book_report(df: pd.DataFrame) -> str:
+    """Отчёт по каждой книге с топ-N претендентов (как строка)."""
     lines = ["=== LOBO: топ-кандидаты по каждой книге (leakage-free) ==="]
     for r in df.sort_values(["test_author", "test_book"]).itertuples():
         mark = "OK  " if r.correct else "MISS"
@@ -192,4 +421,10 @@ def write_book_report(df: pd.DataFrame, path) -> None:
             f"(rank истинного автора: {r.rank})\n"
             f"        топ: {format_top_candidates(r.top_candidates)}"
         )
-    pathlib.Path(path).write_text("\n".join(lines), encoding="utf-8")
+    return "\n".join(lines)
+
+
+def write_book_report(df: pd.DataFrame, path) -> None:
+    """Отчёт по каждой книге с топ-N претендентов."""
+    import pathlib
+    pathlib.Path(path).write_text(format_book_report(df), encoding="utf-8")

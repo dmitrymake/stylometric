@@ -1,7 +1,7 @@
 import { Card, Stat, ConfidenceBar } from "@dmitrymake/rk-ui";
 import { MODELS, CHANNELS, HEADLINE, WORST_CLASSIC_P } from "../data.js";
 import { CORPUS } from "../corpus.js";
-import { fmtScore, fmtPct, fmtP, fmtRange } from "../format.js";
+import { fmtScore, fmtPct, fmtP } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
 
 const ACCENT = {
@@ -96,6 +96,12 @@ export default function Results() {
               обгоняет и классику, и простой{" "}
               <strong style={{ color: "var(--icon-blue)" }}>мешок слов</strong> ({fmtPct(bow.acc, 1)}).
             </p>
+            {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+              <p className="mono muted" style={{ fontSize: 12 }}>
+                Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+                один голос» ещё впереди — число может немного сдвинуться.
+              </p>
+            )}
             <p>
               Классика — это метод Бэрроуза (Burrows Delta) и его косинусный вариант: оба сравнивают тексты
               по самым частым словам. Мешок слов проще — он смотрит лишь на то, какие слова и как часто
@@ -116,7 +122,7 @@ export default function Results() {
           <div className="grid cols-2" style={{ alignContent: "start" }}>
             <Stat label="stylo · доля угаданных книг" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
             <Stat label="мешок слов" value={fmtScore(bow.acc, 3)} accent="var(--icon-blue)" />
-            <Stat label="точность по авторам (macro-F1), 95% разброс" value={fmtRange(HEADLINE.macroF1CI[0], HEADLINE.macroF1CI[1], (x) => fmtScore(x, 3))} accent="var(--icon-blue)" hint={`на всём корпусе целиком выходит ${fmtScore(HEADLINE.styloMacroF1, 3)} — чуть выше верхней границы разброса`} />
+            <Stat label="точность по авторам (macro-F1)" value={fmtScore(HEADLINE.styloMacroF1, 3)} accent="var(--icon-blue)" hint="единая оценка на всех авторах сразу; author-clustered интервал отозван — пересборка по авторам меняет набор классов и недействительна как разброс macro-F1" />
             <Stat label="p · перевес над мешком слов" value={fmtP(bow.p)} accent="var(--gold)" hint="тот же парный тест: перевес не случаен" />
           </div>
         </div>

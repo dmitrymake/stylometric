@@ -1,0 +1,375 @@
+"""Pinned A0 reference verification — SHA256 before any parse (§3.2).
+
+The A0 reference files are verified by **pinned SHA256 before any parse** (not merely folded into the
+``run_id``): ``docs/lobo_books.txt`` and ``data/ruaa_bench_v1/reference_submission_stylo.csv``. RuAA is
+**additionally** checked against the frozen ``data/ruaa_bench_v1/SHA256SUMS``. Any mismatch aborts the
+confirmatory preflight before the reference is opened. The returned digests are the exact values the
+canonical RunPlan binds under ``a0_reference_shas``, so the RunPlan can never bind an unverified SHA.
+"""
+from __future__ import annotations
+
+import hashlib
+import pathlib
+import re
+
+LOBO_BOOKS_SHA256 = "26db64475e77657eaec6db895c55bad8bcd513344584ef5a64e9a580cf9f648d"
+LOBO_A0_CORRECT = 221
+LOBO_A0_TOTAL = 251
+RUAA_N_WORKS = 137
+RUAA_REGISTERED_INVENTORY_FILES = 141
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+_LOBO_STATUS_RE = re.compile(r"^\[(OK|MISS)\s*\]\s+(.+?)\s+/\s+(\S+)\s+\(rank[^:]*:\s*(\d+)\)\s*$")
+_LOBO_TOP_RE = re.compile(r"^\s+топ:\s+(.+?)\s+\(")
+RUAA_REFERENCE_SUBMISSION_SHA256 = "05e334f65d81aaff7ef240e7f4b5c1c9e422e050b906906482bfaa063da90db0"
+RUAA_REFERENCE_BASENAME = "reference_submission_stylo.csv"
+
+
+class ReferenceError(RuntimeError):
+    """Fail-closed: a pinned A0 reference file is missing, a symlink, or its SHA256 does not match."""
+
+
+def _sha256(path: pathlib.Path) -> str:
+    if path.is_symlink() or not path.is_file():
+        raise ReferenceError(f"reference missing or a symlink: {path}")
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _pinned(path: pathlib.Path, expected: str, what: str) -> str:
+    got = _sha256(path)
+    if got != expected:
+        raise ReferenceError(f"{what} SHA256 mismatch: got {got}, expected {expected}")
+    return got
+
+
+def _ruaa_sums_entry(sums_path: pathlib.Path, basename: str) -> str:
+    """The SHA recorded for ``basename`` in the frozen RuAA SHA256SUMS (fail-closed if absent)."""
+    if sums_path.is_symlink() or not sums_path.is_file():
+        raise ReferenceError(f"RuAA SHA256SUMS missing or a symlink: {sums_path}")
+    for line in sums_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        digest, _, name = line.partition("  ")
+        if name.strip() == basename:
+            return digest.strip()
+    raise ReferenceError(f"{basename} not listed in {sums_path}")
+
+
+def verify_a0_references(*, lobo_books: pathlib.Path | str, ruaa_reference_submission: pathlib.Path | str,
+                        ruaa_sha256sums: pathlib.Path | str) -> dict:
+    """Verify the pinned A0 reference files by SHA256 before any parse; returns the two verified SHAs
+    for the RunPlan ``a0_reference_shas`` binding."""
+    lobo_sha = _pinned(pathlib.Path(lobo_books), LOBO_BOOKS_SHA256, "docs/lobo_books.txt")
+    ruaa_sha = _pinned(pathlib.Path(ruaa_reference_submission), RUAA_REFERENCE_SUBMISSION_SHA256,
+                       "RuAA reference submission")
+    # RuAA is additionally checked against the frozen SHA256SUMS entry
+    listed = _ruaa_sums_entry(pathlib.Path(ruaa_sha256sums), RUAA_REFERENCE_BASENAME)
+    if listed != RUAA_REFERENCE_SUBMISSION_SHA256:
+        raise ReferenceError(
+            f"RuAA SHA256SUMS lists {listed} for {RUAA_REFERENCE_BASENAME}, expected the pinned SHA")
+    return {"lobo_books_txt": lobo_sha, "ruaa_reference_submission": ruaa_sha}
+
+
+# ── exact A0 reference parsing (only AFTER the SHA is verified) ───────────────
+def parse_lobo_a0_reference(lobo_books: pathlib.Path | str, *, expect_correct: int = LOBO_A0_CORRECT,
+                            expect_total: int = LOBO_A0_TOTAL) -> dict:
+    """Verify the SHA, then safely parse ``docs/lobo_books.txt`` and assert the stylo LOBO A0 result is
+    exactly ``221/251`` with per-work pred/correct/rank consistency. Returns the per-work reference."""
+    path = pathlib.Path(lobo_books)
+    _pinned(path, LOBO_BOOKS_SHA256, "docs/lobo_books.txt")     # SHA256 before any parse
+    lines = path.read_text(encoding="utf-8").splitlines()
+    per_work = []
+    for i, line in enumerate(lines):
+        m = _LOBO_STATUS_RE.match(line)
+        if not m:
+            continue
+        status, author, book, rank = m.group(1), m.group(2).strip(), m.group(3), int(m.group(4))
+        correct = status == "OK"
+        if correct != (rank == 1):
+            raise ReferenceError(f"lobo reference inconsistent: {status} but rank {rank} for {book!r}")
+        top = _LOBO_TOP_RE.match(lines[i + 1]) if i + 1 < len(lines) else None
+        if not top:
+            raise ReferenceError(f"lobo reference missing the top-candidates line for {book!r}")
+        pred = top.group(1).strip()
+        if correct and pred != author:
+            raise ReferenceError(f"lobo OK row pred {pred!r} != true author {author!r} for {book!r}")
+        per_work.append({"book": book, "author_display": author, "correct": correct,
+                         "rank": rank, "pred_display": pred})
+    n_total = len(per_work)
+    n_correct = sum(1 for w in per_work if w["correct"])
+    if n_total != expect_total:
+        raise ReferenceError(f"lobo reference has {n_total} works, expected {expect_total}")
+    if n_correct != expect_correct:
+        raise ReferenceError(f"lobo A0 accuracy {n_correct}/{n_total} != {expect_correct}/{expect_total}")
+    return {"n_correct": n_correct, "n_total": n_total, "per_work": per_work}
+
+
+def parse_ruaa_a0_reference(ruaa_reference_submission: pathlib.Path | str) -> dict:
+    """Verify the SHA, then parse the RuAA A0 reference submission (exactly 137 book_id,pred_author
+    rows)."""
+    import csv
+    path = pathlib.Path(ruaa_reference_submission)
+    _pinned(path, RUAA_REFERENCE_SUBMISSION_SHA256, "RuAA reference submission")
+    rows = []
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        if reader.fieldnames != ["book_id", "pred_author"]:
+            raise ReferenceError("RuAA submission header must be exactly book_id,pred_author")
+        for r in reader:
+            if not r.get("book_id") or not r.get("pred_author"):
+                raise ReferenceError("RuAA submission row missing book_id/pred_author")
+            rows.append({"book_id": r["book_id"], "pred_author": r["pred_author"]})
+    if len(rows) != RUAA_N_WORKS:
+        raise ReferenceError(f"RuAA submission has {len(rows)} rows, expected {RUAA_N_WORKS}")
+    if len({r["book_id"] for r in rows}) != len(rows):
+        raise ReferenceError("RuAA submission has duplicate book_id")
+    return {"n_rows": len(rows), "rows": rows}
+
+
+# ── exact one-to-one A0 contract (§3.2): compare by full work_id, never by basename ──────────
+A0_LOBO_FIELDS = ("true_author", "pred", "correct", "rank")
+A0_RUAA_FIELDS = ("pred",)
+
+
+def index_from_records(records, *, label: str) -> dict:
+    """Build a ``{work_id: fields}`` index from ``(work_id, fields)`` pairs, rejecting any duplicate
+    work id (two rows sharing a basename under different authors keep DISTINCT work ids and are not
+    collapsed; a genuinely repeated work id is fatal)."""
+    index: dict = {}
+    for work_id, fields in records:
+        key = str(work_id)
+        if key in index:
+            raise ReferenceError(f"{label} has a duplicate work id {key!r}")
+        index[key] = fields
+    return index
+
+
+def build_lobo_reference_index(parsed: dict, author_display_to_slug: dict) -> dict:
+    """Turn the display-space parsed lobo reference into a slug-keyed ``{work_id: {true_author, pred,
+    correct, rank}}`` index. Every display name that appears as a true author OR as a prediction must be
+    in the map; an unmapped name is fatal (the comparison never silently drops a pred)."""
+    def gen():
+        for w in parsed["per_work"]:
+            a = author_display_to_slug.get(w["author_display"])
+            if a is None:
+                raise ReferenceError(f"lobo reference author {w['author_display']!r} not in the display->slug map")
+            p = author_display_to_slug.get(w["pred_display"])
+            if p is None:
+                raise ReferenceError(f"lobo reference pred {w['pred_display']!r} not in the display->slug map")
+            yield f"{a}/{w['book']}", {"true_author": a, "pred": p,
+                                       "correct": bool(w["correct"]), "rank": int(w["rank"])}
+    return index_from_records(gen(), label="lobo reference")
+
+
+def build_ruaa_reference_index(parsed: dict) -> dict:
+    """Turn the parsed RuAA submission into a ``{book_id: {pred}}`` index (the submission carries only
+    book_id + pred_author; true author + rank live in the corpus, not the reference)."""
+    return index_from_records(((r["book_id"], {"pred": r["pred_author"]}) for r in parsed["rows"]),
+                              label="ruaa reference")
+
+
+def assert_a0_matches_index(a0_index: dict, reference_index: dict, *, fields, label: str) -> None:
+    """Exact one-to-one comparison of an A0 result index against a reference index, both keyed by the
+    full unique work id. Fails closed on any missing reference key, any extra result key, and any
+    per-field disagreement over ``fields`` (true_author/pred/correct/rank for LOBO, pred for RuAA).
+    A run whose predictions are all wrong but whose correct/rank happen to match is REJECTED because the
+    pred field is compared explicitly."""
+    a_keys, r_keys = set(a0_index), set(reference_index)
+    missing, extra = r_keys - a_keys, a_keys - r_keys
+    if missing:
+        raise ReferenceError(f"{label} A0 is missing {len(missing)} reference work(s), e.g. {sorted(missing)[:3]}")
+    if extra:
+        raise ReferenceError(f"{label} A0 has {len(extra)} work(s) absent from the reference, e.g. {sorted(extra)[:3]}")
+    for wid in sorted(r_keys):
+        got, want = a0_index[wid], reference_index[wid]
+        for f in fields:
+            if got.get(f) != want[f]:
+                raise ReferenceError(f"{label} A0 {f} mismatch for {wid}: {got.get(f)!r} != {want[f]!r}")
+
+
+_GOLDEN_INVENTORY_VERSION = "paired_audit.golden_inventory.v1"
+
+# the external A0/A4 golden fixture (captured from commit f1b8e165) whose inventory SHA the RunPlan
+# binds (§2.6/§4.2). The full model-output replay via make_factory_for_ablation is the §11
+# B4_LIVE_GOLDEN_REPLAY gate; the STRUCTURAL panel replay below binds the goldens without the estimator.
+B4_GOLDEN_FIXTURE_SHA256 = "c66e63e7e8af36b03b6aaa28f3d8cb23b71ef8e7a433ddd0c85322463b993a25"
+_B4_GOLDEN_INVENTORY_VERSION = "paired_audit.b4_golden_inventory.v1"
+WORK_BALANCED_GOLDEN_FIXTURE = "tests/fixtures/work_balanced_ablation_goldens_v1.json"
+B4_GOLDEN_FIXTURE_ALIASES = {
+    "b4_goldens_v1": WORK_BALANCED_GOLDEN_FIXTURE,
+    "b4_goldens_v1.json": WORK_BALANCED_GOLDEN_FIXTURE,
+    "tests/fixtures/b4_goldens_v1.json": WORK_BALANCED_GOLDEN_FIXTURE,
+    "work_balanced_ablation_goldens_v1": WORK_BALANCED_GOLDEN_FIXTURE,
+    "work_balanced_ablation_goldens_v1.json": WORK_BALANCED_GOLDEN_FIXTURE,
+    WORK_BALANCED_GOLDEN_FIXTURE: WORK_BALANCED_GOLDEN_FIXTURE,
+}
+
+
+def resolve_b4_golden_fixture(repository_root: pathlib.Path | str,
+                              identifier: str = "b4_goldens_v1") -> pathlib.Path:
+    """Resolve both the legacy B4 name and the descriptive v1 name to one file.
+
+    This is an explicit compatibility mapping, not a Git-history fallback: clean
+    archives and wheels never need a deleted object to replay the frozen bytes.
+    The canonical file is SHA-pinned before its path is returned.
+    """
+    relative = B4_GOLDEN_FIXTURE_ALIASES.get(identifier)
+    if relative is None:
+        raise ReferenceError(f"unknown B4 golden fixture identifier: {identifier!r}")
+    path = pathlib.Path(repository_root) / relative
+    _pinned(path, B4_GOLDEN_FIXTURE_SHA256, "B4 golden fixture")
+    return path
+
+
+def _b4_panel_sha256(panel: dict) -> str:
+    """The panel self-contained digest, matching the capture tool exactly:
+    ``sha256("␟".join(texts) + "␞" + ",".join(y) + "␞" + ",".join(groups))``."""
+    body = ("␟".join(panel["texts"]) + "␞" + ",".join(map(str, panel["y"]))
+            + "␞" + ",".join(map(str, panel["groups"])))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def verify_b4_goldens(fixture_path: pathlib.Path | str) -> dict:
+    """Verify the external A0/A4 golden fixture by its PINNED SHA256 and STRUCTURALLY live-replay every
+    panel (recompute ``panel_sha256`` from texts/y/groups and require equality) — a live replay that
+    binds the goldens deterministically without the estimator. Returns the golden-fixture inventory
+    digest the RunPlan binds. Fails closed on a missing/symlinked/tampered fixture or a panel replay
+    mismatch."""
+    import json
+    path = pathlib.Path(fixture_path)
+    fixture_sha = _sha256(path)                          # fails closed on missing/symlink
+    if fixture_sha != B4_GOLDEN_FIXTURE_SHA256:
+        raise ReferenceError(f"b4 golden fixture SHA256 {fixture_sha} != pinned {B4_GOLDEN_FIXTURE_SHA256}")
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    panels = fixture.get("panels", {})
+    if not isinstance(panels, dict) or not panels:
+        raise ReferenceError("b4 golden fixture carries no panels")
+    panel_shas = {}
+    for name in sorted(panels):
+        got = _b4_panel_sha256(panels[name])
+        if got != panels[name].get("panel_sha256"):
+            raise ReferenceError(f"b4 golden panel {name} replay {got} != recorded {panels[name].get('panel_sha256')}")
+        panel_shas[name] = got
+    h = hashlib.sha256()
+    h.update(len(_B4_GOLDEN_INVENTORY_VERSION).to_bytes(8, "big") + _B4_GOLDEN_INVENTORY_VERSION.encode("utf-8"))
+    h.update(bytes.fromhex(fixture_sha))
+    for name in sorted(panel_shas):
+        h.update(len(name).to_bytes(8, "big") + name.encode("utf-8"))
+        h.update(bytes.fromhex(panel_shas[name]))
+    return {"fixture_sha256": fixture_sha, "panels": panel_shas, "inventory_sha": h.hexdigest()}
+
+
+def golden_fixture_inventory(named_paths: dict) -> str:
+    """Content digest over the golden fixture files, computed FROM DISK — each path must be a real,
+    non-symlink file. Deterministic, so a replay recomputes the same digest and a caller cannot inject
+    an arbitrary SHA. An empty set is fatal."""
+    if not named_paths:
+        raise ReferenceError("golden fixture inventory is empty")
+    h = hashlib.sha256()
+    h.update(len(_GOLDEN_INVENTORY_VERSION).to_bytes(8, "big") + _GOLDEN_INVENTORY_VERSION.encode("utf-8"))
+    for name in sorted(named_paths):
+        digest = _sha256(pathlib.Path(named_paths[name]))    # fails closed on missing/symlink
+        h.update(len(name).to_bytes(8, "big") + name.encode("utf-8"))
+        h.update(bytes.fromhex(digest))
+    return h.hexdigest()
+
+
+def verify_ruaa_inventory(
+    ruaa_sha256sums: pathlib.Path | str,
+    ruaa_root: pathlib.Path | str,
+    *,
+    expected_files: int | None = None,
+) -> int:
+    """Verify an exact path↔digest bijection for a RuAA source directory.
+
+    The sums file may not duplicate a path or omit/add a regular payload.  Any
+    symlink anywhere below the root is fatal.  Confirmatory callers additionally
+    pin ``expected_files`` to the registered 141-file source inventory.
+    """
+    sums_path = pathlib.Path(ruaa_sha256sums)
+    root = pathlib.Path(ruaa_root)
+    if sums_path.is_symlink() or not sums_path.is_file():
+        raise ReferenceError(f"RuAA SHA256SUMS missing or a symlink: {sums_path}")
+    if root.is_symlink() or not root.is_dir():
+        raise ReferenceError(f"RuAA root missing or a symlink: {root}")
+    if expected_files is not None and (
+        type(expected_files) is not int or expected_files < 1
+    ):
+        raise TypeError("expected_files must be a positive exact integer")
+
+    recorded: dict[str, str] = {}
+    for raw in sums_path.read_text(encoding="utf-8").splitlines():
+        if not raw.strip():
+            continue
+        digest, separator, name = raw.partition("  ")
+        digest, name = digest.strip(), name.strip()
+        rel = pathlib.PurePosixPath(name)
+        if not (
+            separator == "  "
+            and _HEX64_RE.fullmatch(digest)
+            and name
+            and "\\" not in name
+            and ".." not in rel.parts
+            and not rel.is_absolute()
+            and rel.as_posix() == name
+        ):
+            raise ReferenceError(f"malformed/unsafe SHA256SUMS entry: {raw[:48]!r}")
+        if name in recorded:
+            raise ReferenceError(f"duplicate RuAA SHA256SUMS path: {name}")
+        recorded[name] = digest
+
+    if not recorded:
+        raise ReferenceError("RuAA SHA256SUMS is empty")
+
+    sums_absolute = sums_path.absolute()
+    actual: set[str] = set()
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise ReferenceError(f"RuAA inventory contains a symlink: {relative}")
+        if path.is_file() and path.absolute() != sums_absolute:
+            actual.add(relative)
+    listed = set(recorded)
+    if listed != actual:
+        raise ReferenceError(
+            "RuAA inventory path set mismatch: "
+            f"missing={sorted(actual - listed)!r}, extra={sorted(listed - actual)!r}"
+        )
+    if expected_files is not None and len(recorded) != expected_files:
+        raise ReferenceError(
+            f"RuAA inventory has {len(recorded)} files; expected exactly {expected_files}"
+        )
+    for name, digest in recorded.items():
+        if _sha256(root / name) != digest:
+            raise ReferenceError(f"RuAA inventory digest mismatch for {name}")
+    return len(recorded)
+
+
+def assert_a0_preflight(*, lobo_books: pathlib.Path | str,
+                        ruaa_reference_submission: pathlib.Path | str | None = None,
+                        ruaa_sha256sums: pathlib.Path | str | None = None,
+                        ruaa_root: pathlib.Path | str | None = None,
+                        require_ruaa: bool = True) -> dict:
+    """The full §3.2 A0 reference preflight the runner must pass before opening any cell: SHA-pin +
+    parse lobo_books (221/251), and — when the RuAA reference data is provisioned — the full RuAA
+    SHA256SUMS inventory + submission parse. Missing RuAA data with ``require_ruaa`` is fatal (the
+    confirmatory run needs it); the unit suite passes ``require_ruaa=False`` on a clean checkout."""
+    result = {"lobo": parse_lobo_a0_reference(lobo_books)}
+    paths = (ruaa_reference_submission, ruaa_sha256sums, ruaa_root)
+    ruaa_present = all(p is not None and pathlib.Path(p).exists() for p in paths)
+    if not ruaa_present:
+        if require_ruaa:
+            raise ReferenceError("RuAA reference data absent — the confirmatory A0 preflight cannot run")
+        result["ruaa"] = None
+        return result
+    n_inventory = verify_ruaa_inventory(
+        ruaa_sha256sums,
+        ruaa_root,
+        expected_files=RUAA_REGISTERED_INVENTORY_FILES,
+    )
+    result["ruaa"] = {"n_inventory": n_inventory, **parse_ruaa_a0_reference(ruaa_reference_submission)}
+    return result

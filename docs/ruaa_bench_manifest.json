@@ -1,6 +1,9 @@
 {
   "name": "RuAA-Bench",
   "version": "1.0",
+  "claim_status": "exploratory_internal",
+  "benchmark_role": "reproducible_cv_legacy_not_blind",
+  "training_weighting": "chunk_weighted_training_legacy",
   "task": "closed-set book-level authorship attribution, Russian",
   "n_authors": 22,
   "n_books": 137,

@@ -4,8 +4,9 @@ import { fmtScore, fmtRange, fmtP, fmtPct, fmtWordsM } from "../format.js";
 import { HEADLINE, MODELS } from "../data.js";
 import { CORPUS } from "../corpus.js";
 
-const MF1 = HEADLINE.macroF1;                       // точечная оценка на пуле (оптимистичный край)
-const MF1_LO = HEADLINE.macroF1CI[0], MF1_HI = HEADLINE.macroF1CI[1];   // author-clustered 95% CI
+const MF1 = HEADLINE.macroF1;                       // точечная оценка на пуле (описательная)
+// author-clustered 95% CI macro-F1 ОТОЗВАН (HEADLINE.macroF1CI === null): ресэмпл авторов меняет
+// набор классов macro-усреднения → это не CI фиксированной функции. Показываем только точку.
 const BOW = MODELS.find((m) => m.id === "bow_lr");
 
 // Русское склонение слова «книга» после числа (ruBooks в data.js не экспортируется — локальная копия).
@@ -38,19 +39,25 @@ export default function Hero() {
           </p>
 
           <div className="hero-stats">
-            <Stat label="точность по авторам (macro-F1) · 95% разброс" value={fmtRange(MF1_LO, MF1_HI)} accent="var(--success)" parade hint={`единая оценка на всех авторах сразу ${fmtScore(MF1)} — оптимистичный край: на отдельных наборах авторов бывает и ниже`} />
+            <Stat label="точность по авторам (macro-F1)" value={fmtScore(MF1)} accent="var(--success)" parade hint="единая оценка на всех авторах сразу; разброс по авторам не приводим — пересборка по авторам меняет набор классов, поэтому такой интервал для macro-F1 недействителен и отозван. Число описательное." />
             <Stat label="общая точность (accuracy)" value={fmtScore(HEADLINE.accuracy)} accent="var(--text-muted)" hint={`разброс по авторам ${fmtRange(HEADLINE.accCIAuthor[0], HEADLINE.accCIAuthor[1])}, середина ${fmtScore(HEADLINE.accBootstrapMedian)}`} />
             <Stat label="авторов / книг · весь корпус" value={`${CORPUS.research.authors} / ${CORPUS.research.books}`} accent="var(--icon-blue)" hint={`${CORPUS.lobo.tested_authors} проверены без подсказок (${CORPUS.lobo.books} ${ruBooks(CORPUS.lobo.books)} в строгой проверке)`} />
             <Stat label="слов · полный корпус" value={fmtWordsM(HEADLINE.words)} accent="var(--cosmos)" />
           </div>
+          {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+            <p className="mono muted" style={{ marginTop: 12, fontSize: 12, maxWidth: "52ch" }}>
+              Пока при обучении длинная книга весит больше короткой. Пересчёт «одна книга — один голос»
+              ещё впереди — итоговое число может немного сдвинуться.
+            </p>
+          )}
         </div>
 
         <div className="reveal in" style={{ display: "grid", placeItems: "center", gap: 18 }}>
           <RingStat
-            frac={(MF1_LO + MF1_HI) / 2}
+            frac={MF1}
             wide
-            big={fmtRange(MF1_LO, MF1_HI)}
-            caption={<>точность по авторам · 95% разброс<br />(единая оценка {fmtScore(MF1)} — оптимистичный край)</>}
+            big={fmtScore(MF1)}
+            caption={<>точность по авторам (macro-F1)<br />единая оценка · интервал по авторам отозван</>}
             accent="var(--text)"
           />
           <p className="muted" style={{ margin: 0, fontSize: "1.02em", textAlign: "center", maxWidth: "40ch" }}>

@@ -10,7 +10,7 @@
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import List, Sequence
 
 import numpy as np
@@ -18,6 +18,7 @@ from scipy.sparse import csr_matrix
 from spacy.tokens import Doc
 
 from .base import FeatureBlock
+from .work_vectorizer import MIN_DF_WORKS, count_marks_presence, validate_work_ids
 
 _AGG_NAMES = [
     "head_dist_mean", "head_dist_max",
@@ -44,12 +45,24 @@ class DependencyBlock(FeatureBlock):
         self.min_df = min_df
         self.dep_vocab: List[str] = []
 
-    def fit(self, texts, reps):
-        df = Counter()
-        for r in reps:
-            for dep in r.dep_counts.keys():
-                df[dep] += 1
-        self.dep_vocab = sorted(k for k, c in df.items() if c >= self.min_df)
+    def fit(self, texts, reps, groups=None):
+        if groups is None:
+            # legacy: chunk document-frequency
+            df = Counter()
+            for r in reps:
+                for dep in r.dep_counts.keys():
+                    df[dep] += 1
+            self.dep_vocab = sorted(k for k, c in df.items() if c >= self.min_df)
+        else:
+            # work_balanced: dep type counts once per WORK that actually contains it (count>0).
+            # An empty dep_vocab is allowed here — the six tree aggregates always remain.
+            work_ids = validate_work_ids(groups, len(reps))
+            feat_works: dict[str, set] = defaultdict(set)
+            for r, w in zip(reps, work_ids):
+                for dep, cnt in r.dep_counts.items():
+                    if count_marks_presence(cnt, f"dependency[{dep}]"):
+                        feat_works[dep].add(w)
+            self.dep_vocab = sorted(k for k, ws in feat_works.items() if len(ws) >= MIN_DF_WORKS)
         return self
 
     @staticmethod

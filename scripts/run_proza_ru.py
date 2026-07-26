@@ -10,6 +10,7 @@
 from __future__ import annotations
 import sys, json, time, pathlib, argparse
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 import numpy as np
 from scipy.special import softmax
 from sklearn.feature_extraction.text import HashingVectorizer, TfidfTransformer
@@ -126,7 +127,7 @@ def main():
            "ensemble_top1": res["АНСАМБЛЬ"]["top1"], "ensemble_macro_f1": res["АНСАМБЛЬ"]["macro_f1"],
            "note": "Внешний РУССКИЙ бенчмарк: работает ВЕСЬ инструмент (вкл. русский синтаксис/морфологию). Тексты короче CCAT50 → AA труднее. Сравн.: наш CCAT50 ансамбль 0.735."}
     (ROOT / "docs").mkdir(exist_ok=True)
-    (ROOT / "docs" / "proza_ru.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+    (ROOT / "docs" / "proza_ru.json").write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
     log(f"\n✓ saved docs/proza_ru.json | ансамбль top-1={res['АНСАМБЛЬ']['top1']} macro-F1={res['АНСАМБЛЬ']['macro_f1']}")
 
 if __name__ == "__main__":

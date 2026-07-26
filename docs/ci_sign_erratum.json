@@ -1,0 +1,50 @@
+{
+  "erratum": "author_clustered_ci_sign",
+  "transform": "[lo, hi] -> [-hi, -lo] (CI now matches the point estimate spec - stylo)",
+  "unchanged": [
+    "accuracy",
+    "macro_f1",
+    "vs_stylo_dacc",
+    "vs_stylo_mcnemar_p",
+    "vs_stylo_dacc_authorclustered_sig",
+    "headline stylo accuracy 0.8805"
+  ],
+  "frozen_inputs": {
+    "final_comparison.csv": "31bba7af930685fc9862fe6b1806b3f2ba5ba21b6726e66757e4dd756a3ded6f",
+    "final_comparison.txt": "5b2e6f6b6f18c87ce13183413cdec9e136b873be6674856f5780656dcda92d96",
+    "ruaa_bench_v1.json": "c7228c5019e211afe6c3ee323bcf82ec3dd7a71c472e84ef0cd3bf51fb83ffc6",
+    "ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a"
+  },
+  "artifacts": [
+    {
+      "original": "final_comparison.csv",
+      "original_sha256": "31bba7af930685fc9862fe6b1806b3f2ba5ba21b6726e66757e4dd756a3ded6f",
+      "corrected": "final_comparison.v2.csv",
+      "corrected_sha256": "83891e5ab1ea963266238b8da6c97174b9765563a892a2befa6e73ad164c3bb2",
+      "corrected_column": "vs_stylo_dacc_authorclustered_ci"
+    },
+    {
+      "original": "final_comparison.txt",
+      "original_sha256": "5b2e6f6b6f18c87ce13183413cdec9e136b873be6674856f5780656dcda92d96",
+      "corrected": "final_comparison.v2.txt",
+      "corrected_sha256": "892f7afcbda2881df0b8ae432b40f27c79cd89979f46aea853346ed81fca6f74",
+      "corrected_column": "vs_stylo_dacc_authorclustered_ci"
+    },
+    {
+      "original": "ruaa_bench_v1.json",
+      "original_sha256": "c7228c5019e211afe6c3ee323bcf82ec3dd7a71c472e84ef0cd3bf51fb83ffc6",
+      "corrected": "ruaa_bench_v1.0.1.json",
+      "corrected_sha256": "f860b8fb6c5c616905abf3578927147baefe6f5e8f5a509b73bbe1a158429808",
+      "corrected_column": "vs_stylo_dacc_authorclustered_ci",
+      "rows_flipped": 6
+    },
+    {
+      "original": "ruaa_bench_leaderboard.md",
+      "original_sha256": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
+      "corrected": "ruaa_bench_leaderboard_v1.0.1.md",
+      "corrected_sha256": "f5cb3dedddd4520c7250658f2c866c953906c5e0059c85b8297380aebdc15650",
+      "corrected_column": "vs_stylo_dacc_authorclustered_ci"
+    }
+  ],
+  "note": "historical files retained as superseded for this column; consumers should use the corrected version"
+}

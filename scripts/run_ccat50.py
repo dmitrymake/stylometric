@@ -12,6 +12,7 @@ n-gram/compression методы ~0.70-0.80, нейро (BERT-based) ~0.80-0.87.
 from __future__ import annotations
 import sys, json, time, pathlib, argparse
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 import numpy as np
 from scipy.special import softmax
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -202,7 +203,7 @@ def main():
            "note": ("Языко-независимые каналы (char/word) + POS-n-граммы. Канонический режим top-1 на фикс. сплите; "
                     "сопоставим только с Ngram_A 0.767, не с CV-нейро 0.82+. Русские морфо/синт-каналы — на русском корпусе (docs/validation.json).")}
     (ROOT / "docs").mkdir(exist_ok=True)
-    (ROOT / "docs" / "ccat50.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), "utf-8")
+    (ROOT / "docs" / "ccat50.json").write_text(dumps_strict(out, ensure_ascii=False, indent=2), "utf-8")
     log(f"\n✓ saved docs/ccat50.json | ансамбль top-1={res['АНСАМБЛЬ']['top1']} (канонич. ориентир Ngram_A 0.767)")
 
 if __name__ == "__main__":

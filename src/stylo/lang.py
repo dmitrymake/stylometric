@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import json
-import pathlib
+import importlib.resources
 from typing import Dict, FrozenSet
 
 # РУССКИЙ: служебные слова
@@ -129,15 +129,14 @@ def function_words(lang: str) -> FrozenSet[str]:
     return FUNCTION_WORDS_BY_LANG.get(lang, RUS_FUNCTION_WORDS)
 
 
-# Метаданные авторов
-_AUTHORS_PATH = pathlib.Path(__file__).resolve().parents[2] / "configs" / "authors.json"
+# Метаданные авторов входят в пакет: lookup одинаково работает из editable
+# checkout, wheel и sdist.
+_AUTHORS_RESOURCE = importlib.resources.files("stylo.resources").joinpath("authors.json")
 
 
 def load_author_meta() -> Dict[str, Dict[str, str]]:
-    if _AUTHORS_PATH.exists():
-        with open(_AUTHORS_PATH, encoding="utf-8") as fh:
-            return json.load(fh)
-    return {"unknown": {"name": "-", "work": "-"}}
+    with _AUTHORS_RESOURCE.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 _META_CACHE: Dict[str, Dict[str, str]] | None = None

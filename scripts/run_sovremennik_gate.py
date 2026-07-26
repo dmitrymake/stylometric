@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import pathlib
 import re
@@ -21,11 +22,21 @@ import numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
-from _gate_metrics import leave_one_work_out, both_metrics, work_permutation_p  # noqa: E402
+from _gate_metrics import (  # noqa: E402
+    both_metrics,
+    leave_one_work_out,
+    work_balanced_centroid,
+    work_permutation_p,
+)
 
 CASE = ROOT / "input_cases" / "sovremennik"
-OUT = ROOT / "docs" / "cases" / "sovremennik.json"
+HISTORICAL_OUT = ROOT / "docs" / "cases" / "sovremennik.json"
+DEFAULT_OUT = (
+    ROOT / "docs" / "cases" / "work_balanced_audit" / "custom"
+    / "sovremennik.work_balanced.json"
+)
 SCHOOL = {"chernyshevsky": "radical", "dobrolyubov": "radical",
           "druzhinin": "aesthete", "annenkov": "aesthete", "botkin": "aesthete"}
 WORD = r"[а-яёА-ЯЁ]+"
@@ -125,7 +136,12 @@ def analyze(data, label_of, rng):
     # перестановка ярлыков работ на work-level метрике; exact-перечисление при малом числе работ
     perm_p, perm_method, perm_floor = work_permutation_p(cdata, lambda l: l, labels)
 
-    cents_full = {l: _centroid([v for a, _, v in data if label_of(a) == l]) for l in labels}
+    cents_full = {
+        label: work_balanced_centroid(
+            (work, vector) for row_label, work, vector in cdata if row_label == label
+        )
+        for label in labels
+    }
     cos = (round(float(np.dot(cents_full[labels[0]], cents_full[labels[1]])), 4)
            if len(labels) == 2 else None)
     return {"per_recall": per_recall,                          # work-level (один текст = один голос)
@@ -136,7 +152,9 @@ def analyze(data, label_of, rng):
             "perm_p": perm_p,
             "permutation_method": perm_method,                 # exact_N или random_N
             "permutation_exact_floor": perm_floor,             # минимально достижимое точное p = 1/C(W,n1)
-            "centroid_cos": cos, "confusion": confusion}
+            "centroid_cos": cos,
+            "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
+            "confusion": confusion}
 
 
 def run_axis(label_of, subset_authors, use_char3):
@@ -147,7 +165,33 @@ def run_axis(label_of, subset_authors, use_char3):
     return analyze(data, label_of, rng)
 
 
-def main():
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", type=pathlib.Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--overwrite-historical",
+        action="store_true",
+        help="allow --out to replace the preserved legacy report",
+    )
+    args = parser.parse_args(argv)
+    if (
+        args.out.expanduser().resolve() == HISTORICAL_OUT.resolve()
+        and not args.overwrite_historical
+    ):
+        parser.error(
+            "refusing to overwrite the historical report without "
+            "--overwrite-historical"
+        )
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    out = args.out.expanduser()
+    try:
+        shown = out.resolve().relative_to(ROOT)
+    except ValueError:
+        shown = out.resolve()
     radicals = {"chernyshevsky", "dobrolyubov"}
     aesthetes = {"druzhinin", "annenkov", "botkin"}
     alla = radicals | aesthetes
@@ -220,11 +264,19 @@ def main():
                      "гонорарным ведомостям) — опорные точки шкалы атрибуций, значимая часть прогона — "
                      "калибровка", "url": "https://archive.org/"},
         ],
-        "analysis_command": "PYTHONPATH=src python3 scripts/run_sovremennik_gate.py",
+        "status": "exploratory_adversarial_rerun",
+        "lineage": {
+            "historical_report": str(HISTORICAL_OUT.relative_to(ROOT)),
+            "historical_report_status": "superseded_for_scientific_interpretation",
+        },
+        "analysis_command": (
+            "PYTHONPATH=src python3 scripts/run_sovremennik_gate.py "
+            f"--out {shown}"
+        ),
     }
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"записано {OUT.relative_to(ROOT)}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"записано {shown}")
     print("── ОСЬ ШКОЛ (валидация) ──")
     for f in ("fw", "c3"):
         r = axis_school[f]

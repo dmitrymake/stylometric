@@ -7,9 +7,10 @@
 Признак — служебные слова (leak-free: фикс-список, словарь не учится); char-3gram как вторая,
 зависимая от данных проверка. Объёмы резко неравны (Герцен ~159k, Огарёв ~14k), поэтому главная
 метрика — leave-one-WORK-out: куски каждой работы классифицируются по центроидам из ОСТАЛЬНЫХ работ
-(центроид автора при тесте его работы её НЕ включает). Это устойчиво к корреляции кусков внутри одной
-работы и к перекосу объёма (центроид — среднее, не зависит от числа кусков). Плюс уравнивание объёма
-и проверка центральности.
+(центроид автора при тесте его работы её НЕ включает). Внутри train-fold сначала строится единичный
+профиль каждой работы, затем авторский центроид усредняет работы с равным весом. Это устойчиво к
+корреляции кусков внутри одной работы и к перекосу их числа. Плюс уравнивание объёма и проверка
+центральности.
 
 Оговорка: у Огарёва чистым текстом по сути одна крупная работа («Моя исповедь»), поэтому позитивный
 исход — НЕОБХОДИМОЕ, но не достаточное условие (может мерить работу, а не руку); отрицательный —
@@ -17,6 +18,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import pathlib
 import re
@@ -27,11 +29,21 @@ import numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
-from _gate_metrics import leave_one_work_out, both_metrics, work_permutation_p  # noqa: E402
+from _gate_metrics import (  # noqa: E402
+    both_metrics,
+    leave_one_work_out,
+    work_balanced_centroid,
+    work_permutation_p,
+)
 
 CASE = ROOT / "input_cases" / "kolokol_herzen_ogaryov"
-OUT = ROOT / "docs" / "cases" / "kolokol_herzen_ogaryov.json"
+HISTORICAL_OUT = ROOT / "docs" / "cases" / "kolokol_herzen_ogaryov.json"
+DEFAULT_OUT = (
+    ROOT / "docs" / "cases" / "work_balanced_audit" / "custom"
+    / "kolokol_herzen_ogaryov.work_balanced.json"
+)
 DIRS = {
     "herzen": [CASE / "herzen_publicistic", CASE / "herzen_kolokol"],
     "ogaryov": [CASE / "ogaryov_publicistic", CASE / "ogaryov_wikisource"],
@@ -142,7 +154,10 @@ def evaluate(use_char3: bool) -> dict:
     perm_p, perm_method, perm_floor = work_permutation_p(data, lambda a: a, authors)
 
     # центральность/различимость: cos между центроидами авторов (высокий -> руки сближены)
-    full_cent = {a: centroid([v for au, _, v in data if au == a]) for a in authors}
+    full_cent = {
+        a: work_balanced_centroid((work, v) for au, work, v in data if au == a)
+        for a in authors
+    }
     cross_cos = round(float(np.dot(full_cent["herzen"], full_cent["ogaryov"])), 4)
 
     return {
@@ -155,13 +170,18 @@ def evaluate(use_char3: bool) -> dict:
         "permutation_method": perm_method,                 # exact_N или random_N
         "permutation_exact_floor": perm_floor,             # минимально достижимое точное p = 1/C(W,n1)
         "cross_author_centroid_cos": cross_cos,
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         "confusion": confusion,
         "chunks": {a: len(byauthor[a]) for a in authors},
         "works": {a: works[a] for a in authors},
     }
 
 
-def main() -> None:
+def main(out: pathlib.Path = DEFAULT_OUT) -> None:
+    try:
+        shown = out.relative_to(ROOT)
+    except ValueError:
+        shown = out
     fw_only = evaluate(use_char3=False)
     fw_char3 = evaluate(use_char3=True)
     # gate_pass требует НАДЁЖНОЙ (>=0.80) И значимой разделимости на устойчивой к корреляции метрике.
@@ -184,6 +204,11 @@ def main() -> None:
         status = "inseparable_hands"
     report = {
         "case": "kolokol_herzen_ogaryov",
+        "audit_status": "exploratory_adversarial_rerun",
+        "lineage": {
+            "historical_report": str(HISTORICAL_OUT.relative_to(ROOT)),
+            "historical_report_status": "superseded_for_scientific_interpretation",
+        },
         "stage": "feasibility_gate",
         "title": "«Колокол» (1857-1867): проверка выполнимости — разделяет ли панель Герцена и Огарёва",
         "status": status,
@@ -235,11 +260,14 @@ def main() -> None:
                      "imwerden.de, feb-web.ru (планируемое укрепление эталона Герцена)",
              "url": "https://imwerden.de/"},
         ],
-        "analysis_command": "PYTHONPATH=src python3 scripts/run_kolokol_gate.py",
+        "analysis_command": (
+            "PYTHONPATH=src python3 scripts/run_kolokol_gate.py "
+            f"--out {shown}"
+        ),
     }
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"записано {OUT.relative_to(ROOT)}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"записано {shown}")
     for tag, r in (("fw_only", fw_only), ("fw_char3", fw_char3)):
         print(f"  [{tag}] recall {r['per_author_recall']} macro {r['macro_recall']} | "
               f"balanced {r['within_work_chunk_accuracy']} | perm_p {r['work_level_permutation_p']} | "
@@ -267,5 +295,26 @@ def _verdict(status, fw, c3) -> str:
     return ("Под work-level разделение ниже порога/незначимо. " + metrics + cav)
 
 
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", type=pathlib.Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--overwrite-historical",
+        action="store_true",
+        help="allow --out to replace the preserved legacy report",
+    )
+    args = parser.parse_args(argv)
+    if (
+        args.out.expanduser().resolve() == HISTORICAL_OUT.resolve()
+        and not args.overwrite_historical
+    ):
+        parser.error(
+            "refusing to overwrite the historical report without "
+            "--overwrite-historical"
+        )
+    return args
+
+
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args.out)

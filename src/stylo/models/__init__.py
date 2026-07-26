@@ -1,1 +1,1 @@
-"""Модели атрибуции: LR-пайплайн (+калибровка) и настоящая Burrows's Delta."""
+"""Attribution models, including the frozen legacy selected-mass Delta."""

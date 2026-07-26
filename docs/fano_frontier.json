@@ -1,13 +1,34 @@
 {
-  "method": "Fano/Bayes information-пол (Harrison&Yener ISIT'25 framing) + синтетический splice-детектор; OOF=GKF5 leak-free; overlay = эмпирическая детекция vs per-pair Bayes-пол неразличимости",
+  "schema_version": "stylo.fano-frontier.historical-invalid.v1",
+  "artifact_status": "WITHDRAWN_INVALID_SCIENTIFIC_SEMANTICS",
+  "withdrawal": {
+    "reason": "The artifact substituted entropy of arbitrary model posteriors for H(A|F), then interpreted arithmetic transforms as mutual-information and Bayes/Fano error bounds. A constant overconfident output is a counterexample: it is independent of balanced truth (true mutual information 0; binary Bayes error 0.5) while the historical formulas report positive information and a near-zero error floor.",
+    "scope": "Every information lower-bound, Fano/Bayes floor, indistinguishability, detection-floor, and headline interpretation in this file is withdrawn.",
+    "replacement": "src/stylo/eval/fano.py:posterior_diagnostics_v2",
+    "replacement_semantics": "Descriptive model-posterior diagnostics only; no information or error bound.",
+    "historical_values_retained": true
+  },
+  "method": "HISTORICAL WITHDRAWN computation formerly labelled Fano/Bayes information floor; numeric values retained only to audit the invalid v1 analysis",
   "spec": "stylo",
-  "floor_semantics": "fano_floor_Pe — модель-зависимая описательная величина от энтропии постериоров модели, не нижняя граница ошибки: энтропия модели верхне оценивает H(A|F), а нижняя граница Фано требует нижнюю оценку, поэтому gap_empirical_minus_floor < 0. Валидная нижняя граница информации признаков — I_AF_bits (признаки несут не менее I_AF_bits бит о авторе). Нетривиальной модель-независимой нижней границы ошибки для книжных объёмов нет: корректная двухточечная граница (Ле Кам / Бхаттачарья, токенная единица счёта с поправкой на пачкообразность слов) для реальных пар авторов на книжной длине практически равна нулю.",
-  "valid_lower_bound_fields": [
-    "I_AF_bits"
+  "floor_semantics": "WITHDRAWN. fano_floor_Pe and bayes_floor_Pe are model-posterior entropy transforms, not lower bounds. H_A_given_F_bits is not identified as conditional entropy, and I_AF_bits is not a valid mutual-information lower bound. No field in this historical file is a valid information or unavoidable-error bound.",
+  "valid_lower_bound_fields": [],
+  "invalid_inferential_fields": [
+    "H_A_given_F_bits",
+    "I_AF_bits",
+    "fano_floor_Pe",
+    "gap_empirical_minus_floor",
+    "bayes_floor_Pe",
+    "indistinguishable",
+    "headline_check"
   ],
   "descriptive_only_fields": [
+    "H_A_bits",
+    "H_A_max_bits",
+    "H_A_given_F_bits",
+    "I_AF_bits",
     "fano_floor_Pe",
-    "gap_empirical_minus_floor"
+    "gap_empirical_minus_floor",
+    "bayes_floor_Pe"
   ],
   "fano_floor_book_level": {
     "n_books": 260,
@@ -316,6 +337,6 @@
   ],
   "detection_frontier": [],
   "overlay_detection_vs_floor": [],
-  "headline_check": "детекция чужой руки коллапсирует к 0 там, где pair_bayes_floor→0.5 (неразличимая пара) ⇒ splice/имитация между неразличимыми авторами = floor-феномен",
-  "status": "exploratory; НЕ headline-ready: Fano-пол (Pe≈0.256) ВЫШЕ эмпирической ошибки (≈0.188) → gap<0, нижняя граница невалидна. Причина: H(A|F) из некалиброванных OOF-постериоров (ECE≈0.24); регим GKF2, не LOBO. Не цитировать как результат до within-fold калибровки и sanity-гейта floor≤empirical_error."
+  "headline_check": "WITHDRAWN HISTORICAL STATEMENT. pair_bayes_floor is not a Bayes-error floor and cannot establish pair indistinguishability or a detection limit.",
+  "status": "WITHDRAWN_INVALID_SCIENTIFIC_SEMANTICS. Do not cite any information lower bound, Fano/Bayes floor, pair-indistinguishability verdict, or headline from this artifact. Calibration or a floor≤empirical_error sanity check cannot repair the missing identification assumptions; a separately proven and versioned estimator would be required."
 }

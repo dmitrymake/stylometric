@@ -130,3 +130,31 @@ RuATD (детекция машинного текста).
 
 Изменение состава PD-среза указывается в release notes как юридическое, не как
 улучшение метода.
+
+**Статус v1 (P0):** пакет промаркирован `benchmark_role = reproducible_cv_legacy_not_blind`,
+`claim_status = exploratory_internal`, взвешивание `chunk_weighted_training_legacy` (см. §5 и
+`docs/cases/work_balanced_audit/`). Клейм «первый публичный… официальная baseline-таблица»
+выше — целевая формулировка для **v2** (blind-пакет с opaque ID + work-balanced пересчёт);
+для v1 он не заявляется. `book_id = <author>/<book>` раскрывает истину, поэтому v1 непригоден
+как слепой benchmark.
+
+## 5. Пострезультатный adversarial audit центроидов (2026-07-11)
+
+После публикации исходных паспортов обнаружено расхождение estimand: test-side
+метрика давала каждой удержанной работе один голос, но train-side авторский
+центроид усреднял все chunks сразу. Поэтому длинная работа имела больший вес в
+обучении, хотя отчёт назывался work-level. Эта проверка не была
+предзарегистрирована до исходных результатов; все её итоги маркируются как
+exploratory adversarial evidence.
+
+Исправленный estimand заморожен до парного перезапуска:
+`L2(mean(chunks within work)) -> equal mean(works within author) -> L2`.
+Порог gate (`work_macro_recall >= 0.80`, permutation `p <= 0.05`), chunks,
+панели, признаки, seeds и targets не меняются. Старый расчёт сохраняется только
+как явно названный `chunk_weighted_legacy`; scientific default —
+`work_balanced`. Каждый новый паспорт обязан записывать режим.
+
+Правило интерпретации: target нельзя обсуждать, если work-balanced gate не
+прошёл, даже когда его top-label совпал с legacy. Устойчивым считается лишь
+результат, который сохраняет gate и направление target при work-balanced
+обучении; расхождение публикуется и не исправляется подбором панели по target.

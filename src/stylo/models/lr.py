@@ -12,11 +12,16 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MaxAbsScaler
 
 
-def make_logreg(cfg) -> LogisticRegression:
+_FROM_CFG = "__from_cfg__"
+
+
+def make_logreg(cfg, class_weight=_FROM_CFG) -> LogisticRegression:
     c = cfg.get_path("model.classifier", {})
+    cw = ((c.get("class_weight", "balanced") if hasattr(c, "get") else "balanced")
+          if class_weight is _FROM_CFG else class_weight)
     return LogisticRegression(
         max_iter=c.get("max_iter", 2000) if hasattr(c, "get") else 2000,
-        class_weight=c.get("class_weight", "balanced") if hasattr(c, "get") else "balanced",
+        class_weight=cw,
         solver=c.get("solver", "lbfgs") if hasattr(c, "get") else "lbfgs",
         C=c.get("C", 1.0) if hasattr(c, "get") else 1.0,
     )

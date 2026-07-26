@@ -1,0 +1,133 @@
+{
+  "case_id": "sovremennik_criticism_fourway_gate_autoscreen__chunk_weighted_legacy",
+  "title": "Sovremennik criticism: four-author feasibility gate",
+  "hypothesis": "",
+  "target_description": "",
+  "claim": "",
+  "limitations": [],
+  "status": "gate_only",
+  "verdict": "Feasibility gate пройден (fw_fixed): work_macro_recall=0.8875, permutation_p=0.0005.",
+  "confidence": "moderate",
+  "evidence_score": 64.94,
+  "gate_pass": true,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "pass",
+      "gate_pass": true,
+      "work_macro_recall": 0.8875,
+      "chunk_weighted_recall": 0.6766,
+      "work_recall": {
+        "annenkov": "5/5",
+        "chernyshevsky": "5/5",
+        "dobrolyubov": "4/5",
+        "druzhinin": "3/4"
+      },
+      "chunk_recall": {
+        "annenkov": "30/34",
+        "chernyshevsky": "48/72",
+        "dobrolyubov": "69/126",
+        "druzhinin": "25/41"
+      },
+      "permutation_p": 0.0005,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": null,
+      "confusion": {
+        "annenkov": {
+          "annenkov": 30,
+          "chernyshevsky": 0,
+          "dobrolyubov": 0,
+          "druzhinin": 4
+        },
+        "chernyshevsky": {
+          "annenkov": 3,
+          "chernyshevsky": 48,
+          "dobrolyubov": 13,
+          "druzhinin": 8
+        },
+        "dobrolyubov": {
+          "annenkov": 12,
+          "chernyshevsky": 27,
+          "dobrolyubov": 69,
+          "druzhinin": 18
+        },
+        "druzhinin": {
+          "annenkov": 8,
+          "chernyshevsky": 3,
+          "dobrolyubov": 5,
+          "druzhinin": 25
+        }
+      },
+      "n_works": 19,
+      "n_chunks": 273,
+      "failure_modes": []
+    }
+  ],
+  "attributions": [],
+  "failure_modes": [],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "chunk_weighted_legacy",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "chernyshevsky",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/sovremennik/chernyshevsky"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "dobrolyubov",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/sovremennik/dobrolyubov"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "annenkov",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/sovremennik/annenkov"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "druzhinin",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/sovremennik/druzhinin"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": null,
+    "sources": [
+      "Local Sovremennik case data."
+    ],
+    "n_candidate_works": 19,
+    "n_candidate_chunks": 273,
+    "works_per_author": {
+      "annenkov": 5,
+      "chernyshevsky": 5,
+      "dobrolyubov": 5,
+      "druzhinin": 4
+    },
+    "target_chunks": 0
+  },
+  "provenance": {},
+  "notes": "Gate-only four-way screening; Botkin excluded because local folder has only one eligible non-empty work."
+}

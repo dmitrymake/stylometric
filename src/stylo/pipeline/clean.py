@@ -6,14 +6,19 @@ PER -> '@' единым маркером (не раздувает char-n-гра�
 from __future__ import annotations
 
 import logging
+import hashlib
 import pathlib
 import re
+import shutil
+import tempfile
 from typing import List
 
 from joblib import Parallel, delayed
 
 from ..config import load_config
+from ..jsonio import dump_strict
 from ..nlp import load_ner
+from ._snapshot import publish_directory_snapshot
 
 log = logging.getLogger("stylo.pipeline.clean")
 
@@ -87,6 +92,23 @@ def mask_names(text: str, nlp) -> str:
     return " ".join(parts)
 
 
+def mask_names_with_config(text: str, cfg=None) -> str:
+    """Mask PERSON entities with the canonical configured NER resolver.
+
+    This side-effect-free API is for explicit one-off consumers. Corpus
+    publication still goes through :func:`run`.
+    """
+
+    cfg = cfg or load_config()
+    return mask_names(
+        text,
+        load_ner(
+            cfg.get_path("language.spacy_model", "ru_core_news_lg"),
+            cfg.get_path("language.spacy_fallback", None),
+        ),
+    )
+
+
 def normalize(text: str, model: str, fallback: str | None) -> str:
     nlp = load_ner(model, fallback)
     text = _WIKI_DIRT.sub(" ", text)     # снять остаточную вики-разметку до NER
@@ -99,44 +121,162 @@ def normalize(text: str, model: str, fallback: str | None) -> str:
     return _WS_RE.sub(" ", text).strip()
 
 
-def _process_file(fp: pathlib.Path, src: pathlib.Path, dst: pathlib.Path,
-                  model: str, fallback: str | None) -> int:
+CLEAN_MANIFEST = "clean_manifest.json"
+CLEAN_SCHEMA = "stylo.cleaned-corpus.v1"
+
+
+def _sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _read_raw_strict(fp: pathlib.Path) -> tuple[bytes, str]:
+    if fp.is_symlink() or not fp.is_file():
+        raise RuntimeError(f"raw corpus input must be a regular non-symlink file: {fp}")
+    payload = fp.read_bytes()
     try:
-        raw = fp.read_text(encoding="utf-8", errors="ignore")
-        if not raw.strip():
-            return 0
-        clean = normalize(raw, model, fallback)
-        if not clean:
-            return 0
-        out = dst / fp.relative_to(src)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(clean, "utf-8")
-        return 1
-    except Exception as exc:  # pragma: no cover
-        log.error("Ошибка очистки %s: %s", fp, exc)
-        return 0
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError(f"raw corpus input is not valid UTF-8: {fp}: {exc}") from exc
+    if not text.strip():
+        raise RuntimeError(f"raw corpus input is empty: {fp}")
+    return payload, text
+
+
+def _process_file(
+    fp: pathlib.Path,
+    src: pathlib.Path,
+    dst: pathlib.Path,
+    model: str,
+    fallback: str | None,
+) -> dict[str, str]:
+    payload, raw = _read_raw_strict(fp)
+    clean = normalize(raw, model, fallback)
+    if not clean:
+        raise RuntimeError(f"normalisation produced empty text: {fp}")
+    relative = fp.relative_to(src)
+    out = dst / relative
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(clean, encoding="utf-8")
+    return {
+        "source": relative.as_posix(),
+        "source_sha256": _sha256_bytes(payload),
+        "output_sha256": _sha256_bytes(clean.encode("utf-8")),
+    }
+
+
+def _raw_files(src: pathlib.Path) -> list[pathlib.Path]:
+    if src.is_symlink() or not src.is_dir():
+        raise RuntimeError(f"raw corpus root must be a real directory: {src}")
+    files: list[pathlib.Path] = []
+    for entry in sorted(src.iterdir()):
+        if entry.is_symlink():
+            raise RuntimeError(f"symlinked raw corpus entry rejected: {entry}")
+        if not entry.is_dir():
+            raise RuntimeError(
+                f"raw corpus root may contain only author directories: {entry}"
+            )
+        author_files = 0
+        for candidate in sorted(entry.iterdir()):
+            if candidate.is_symlink():
+                raise RuntimeError(f"symlinked raw corpus input rejected: {candidate}")
+            if candidate.is_dir():
+                raise RuntimeError(
+                    "nested raw corpus directories are unsupported; expected "
+                    f"author/*.txt: {candidate}"
+                )
+            if not candidate.is_file() or candidate.suffix != ".txt":
+                raise RuntimeError(
+                    f"unexpected raw corpus payload outside author/*.txt: {candidate}"
+                )
+            files.append(candidate)
+            author_files += 1
+        if author_files == 0:
+            raise RuntimeError(f"raw author {entry.name!r} has no .txt works")
+    if not files:
+        raise RuntimeError(f"raw corpus contains no author/*.txt inputs: {src}")
+    return files
+
+
+def _validate_staged_snapshot(
+    src: pathlib.Path,
+    staging: pathlib.Path,
+    entries: list[dict[str, str]],
+) -> None:
+    source_paths = {fp.relative_to(src).as_posix() for fp in _raw_files(src)}
+    recorded_paths = {entry["source"] for entry in entries}
+    output_paths = {
+        fp.relative_to(staging).as_posix()
+        for fp in staging.rglob("*.txt")
+        if fp.is_file() and not fp.is_symlink()
+    }
+    if source_paths != recorded_paths or output_paths != source_paths:
+        raise RuntimeError(
+            "cleaned snapshot is not an exact raw/output bijection: "
+            f"unrecorded_raw={sorted(source_paths-recorded_paths)[:3]}, "
+            f"missing_output={sorted(source_paths-output_paths)[:3]}, "
+            f"extra_output={sorted(output_paths-source_paths)[:3]}"
+        )
+    by_source = {entry["source"]: entry for entry in entries}
+    for relative in sorted(source_paths):
+        source_payload, _text = _read_raw_strict(src / relative)
+        output = staging / relative
+        if output.is_symlink() or not output.is_file():
+            raise RuntimeError(f"cleaned output is missing/unsafe: {relative}")
+        if _sha256_bytes(source_payload) != by_source[relative]["source_sha256"]:
+            raise RuntimeError(f"raw input changed during cleaning: {relative}")
+        if _sha256_bytes(output.read_bytes()) != by_source[relative]["output_sha256"]:
+            raise RuntimeError(f"cleaned output changed during staging: {relative}")
 
 
 def run(cfg=None, only: list[str] | None = None) -> None:
-    """Очистить input_raw -> input_clean. only=[author,...] — ограничить авторами."""
+    """Build and atomically publish an exact ``input_raw`` → ``input_clean`` snapshot.
+
+    Partial rebuilding is intentionally unsupported: carrying outputs from a
+    prior run could mix cleaner code/model/runtime generations even when the
+    raw bytes are unchanged.  No per-file failure can leave stale output
+    current.
+    """
+    if only is not None:
+        raise ValueError(
+            "partial clean is disabled; rebuild the complete raw corpus under "
+            "one cleaner/model/runtime generation"
+        )
     cfg = cfg or load_config()
     src = pathlib.Path(cfg.get_path("paths.input_raw", "input"))
     dst = pathlib.Path(cfg.get_path("paths.input_clean", "input_clean"))
     model = cfg.get_path("language.spacy_model", "ru_core_news_lg")
     fallback = cfg.get_path("language.spacy_fallback", None)
-    dst.mkdir(parents=True, exist_ok=True)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    files = _raw_files(src)
 
-    files: List[pathlib.Path] = []
-    for adir in sorted(src.iterdir()):
-        if not adir.is_dir():
-            continue
-        if only and adir.name not in only:
-            continue
-        files.extend(sorted(adir.glob("*.txt")))
-
-    log.info("Очистка %d файлов…", len(files))
-    n_jobs = cfg.get_path("evaluation.n_jobs", -1)   # общая машина: не занимать все ядра
-    res = Parallel(n_jobs=n_jobs, verbose=3)(
-        delayed(_process_file)(fp, src, dst, model, fallback) for fp in files
+    staging = pathlib.Path(
+        tempfile.mkdtemp(prefix=f".{dst.name}.staging-", dir=dst.parent)
     )
-    log.info("Очищено %d/%d", int(sum(res)), len(files))
+    entries: list[dict[str, str]] = []
+    try:
+        log.info("Очистка %d файлов в staging snapshot…", len(files))
+        n_jobs = cfg.get_path("evaluation.n_jobs", -1)
+        built = Parallel(n_jobs=n_jobs, verbose=3)(
+            delayed(_process_file)(fp, src, staging, model, fallback)
+            for fp in files
+        )
+        entries.extend(built)
+        entries.sort(key=lambda row: row["source"])
+        _validate_staged_snapshot(src, staging, entries)
+        dump_strict(
+            {
+                "schema_version": CLEAN_SCHEMA,
+                "source_root": str(src.resolve()),
+                "files": entries,
+            },
+            staging / CLEAN_MANIFEST,
+            sort_keys=True,
+        )
+        # Re-validate raw bytes immediately before the atomic exchange.
+        _validate_staged_snapshot(src, staging, entries)
+        publish_directory_snapshot(staging, dst)
+        staging = None
+    finally:
+        if staging is not None and staging.exists():
+            shutil.rmtree(staging)
+    log.info("Очищено и опубликовано %d/%d", len(entries), len(files))

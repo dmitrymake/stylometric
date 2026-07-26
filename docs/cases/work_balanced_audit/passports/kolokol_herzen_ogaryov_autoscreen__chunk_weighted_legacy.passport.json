@@ -1,0 +1,127 @@
+{
+  "case_id": "kolokol_herzen_ogaryov_autoscreen__chunk_weighted_legacy",
+  "title": "Kolokol: Herzen publicistic vs Ogaryov publicistic, target Herzen-Kolokol",
+  "hypothesis": "",
+  "target_description": "",
+  "claim": "",
+  "limitations": [],
+  "status": "fail",
+  "verdict": "Feasibility gate не пройден: work_macro_recall=0.7929, permutation_p=0.0155. Атрибуцию давать нельзя.",
+  "confidence": "low",
+  "evidence_score": 71.76,
+  "gate_pass": false,
+  "primary_feature_set": "fw_fixed",
+  "gates": [
+    {
+      "feature_set": "fw_fixed",
+      "status": "fail",
+      "gate_pass": false,
+      "work_macro_recall": 0.7929,
+      "chunk_weighted_recall": 0.4996,
+      "work_recall": {
+        "herzen_publicistic": "4/5",
+        "ogaryov_wikisource": "11/14"
+      },
+      "chunk_recall": {
+        "herzen_publicistic": "38/126",
+        "ogaryov_wikisource": "30/43"
+      },
+      "permutation_p": 0.0155,
+      "permutation_method": "random_2000",
+      "permutation_exact_floor": 9e-05,
+      "confusion": {
+        "herzen_publicistic": {
+          "herzen_publicistic": 38,
+          "ogaryov_wikisource": 88
+        },
+        "ogaryov_wikisource": {
+          "herzen_publicistic": 13,
+          "ogaryov_wikisource": 30
+        }
+      },
+      "n_works": 19,
+      "n_chunks": 169,
+      "failure_modes": [
+        "work_macro_recall_below_0_80"
+      ]
+    }
+  ],
+  "attributions": [
+    {
+      "feature_set": "fw_fixed",
+      "top": "herzen_publicistic",
+      "second": "ogaryov_wikisource",
+      "margin": 0.004973,
+      "margin_ci95": [
+        0.000254,
+        0.014478
+      ],
+      "winner_share": {
+        "ogaryov_wikisource": 0.538,
+        "herzen_publicistic": 0.462
+      },
+      "similarities": [
+        {
+          "candidate": "herzen_publicistic",
+          "cos": 0.985326
+        },
+        {
+          "candidate": "ogaryov_wikisource",
+          "cos": 0.980353
+        }
+      ],
+      "per_chunk_winners": {
+        "ogaryov_wikisource": 7,
+        "herzen_publicistic": 6
+      },
+      "n_chunks": 13
+    }
+  ],
+  "failure_modes": [
+    "work_macro_recall_below_0_80"
+  ],
+  "data": {
+    "unit": "work",
+    "centroid_weighting": "chunk_weighted_legacy",
+    "language": "ru",
+    "feature_sets": [
+      "fw_fixed"
+    ],
+    "required_gates": [
+      "feasibility_gate"
+    ],
+    "candidate_panel": [
+      {
+        "id": "herzen_publicistic",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/kolokol_herzen_ogaryov/herzen_publicistic"
+        ],
+        "exclude": [],
+        "label": null
+      },
+      {
+        "id": "ogaryov_wikisource",
+        "role": "candidate",
+        "paths": [
+          "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/kolokol_herzen_ogaryov/ogaryov_wikisource"
+        ],
+        "exclude": [],
+        "label": null
+      }
+    ],
+    "target": "/home/dmake/code/private/authorship/docs/cases/autoscreen/specs/../../../../input_cases/kolokol_herzen_ogaryov/herzen_kolokol",
+    "sources": [
+      "Local Kolokol Herzen/Ogaryov case data."
+    ],
+    "n_candidate_works": 19,
+    "n_candidate_chunks": 169,
+    "works_per_author": {
+      "herzen_publicistic": 5,
+      "ogaryov_wikisource": 14
+    },
+    "target_chunks": 13
+  },
+  "provenance": {},
+  "notes": "Uses larger Ogaryov Wikisource corpus rather than the two-work Ogaryov publicistic folder."
+}

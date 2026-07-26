@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Local release-safety gate. Runs BEFORE objects are uploaded, unlike the CI push
+# trigger which fires after. Enable once with:
+#   git config core.hooksPath .githooks
+#
+# Git feeds one line per ref being pushed on stdin:
+#   <local ref> SP <local sha> SP <remote ref> SP <remote sha>
+# We check EVERY pushed local sha (not just HEAD): a `git push origin priv:priv`
+# publishes a branch that is not the checked-out one. Deletions (all-zero local
+# sha) are skipped; a ref that does not resolve to a commit (tree/blob tag) is
+# refused because it would still publish objects.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "${local_sha:-}" ] && continue
+    # branch/tag deletion: an all-zero sha of any width (40 for SHA-1, 64 for SHA-256)
+    case "$local_sha" in *[!0]*) : ;; *) continue ;; esac
+    if ! python3 "$repo_root/scripts/check_release_hygiene.py" --publish-ref "$local_sha" --ref-only; then
+        echo "pre-push blocked: ${local_ref:-<sha>} would publish private corpus paths or is not a commit" >&2
+        status=1
+    fi
+done
+
+exit "$status"

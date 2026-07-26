@@ -1,0 +1,22 @@
+# Stylo LOBO validation v1 evidence
+
+This directory preserves the exact executable sources and independent verification record for the
+completed A0/A4/A1 per-book LOBO artifact. It is evidence, not the current implementation tree.
+
+The original basenames under `source/` intentionally reproduce the paths attested by the v1
+`RUN.json` and recovery audit. Canonical maintained code uses purpose-based names elsewhere.
+
+| Executed role | Original attested path | Preserved source | SHA-256 |
+|---|---|---|---|
+| validation runner | `scripts/run_b4_true_lobo.py` | `source/scripts/run_b4_true_lobo.py` | `01ddcd6d1d1c659ff80fd789abd286d608ecb9008595d8eaf04377bbd7ffa054` |
+| fold/checkpoint evaluator | `src/stylo/eval/b4_true_lobo.py` | `source/src/stylo/eval/b4_true_lobo.py` | `f0165e6966d54fec77b751c8e2a5e1a8ed64866d84881c7846526e6fe264cc3a` |
+| interrupted-run recovery bridge | `scripts/run_b4_true_lobo_kernel_compat.py` | `source/scripts/run_b4_true_lobo_kernel_compat.py` | `f4cb6863e17ce65166754d0c51e51cce254236586acfd3665037a30d3d674187` |
+
+The exploratory helper `src/stylo/eval/b4_pilot.py` is recoverable byte-for-byte from attested Git
+commit `2f6c3dc3`; its SHA-256 is
+`0d978894babf28d1e03d543f36888df4216b4e77afcd996df3a86904db4b39a7`. The other 80 files in the
+83-file code fingerprint are likewise bound by the run identity and recoverable from that commit.
+
+Generated evidence remains ignored under `docs/exploratory/work_balanced/` and is not duplicated
+here. [`SHA256SUMS`](SHA256SUMS) binds those generated files and the preserved source snapshot.
+See [`independent_audit.md`](independent_audit.md) for the recomputation results.

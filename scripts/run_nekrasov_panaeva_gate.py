@@ -12,6 +12,7 @@ Make-or-break: делится ли СОЛО-проза Некрасова и П�
 """
 from __future__ import annotations
 
+import argparse
 import json
 import pathlib
 import re
@@ -22,11 +23,21 @@ import numpy as np
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
-from _gate_metrics import leave_one_work_out, both_metrics, work_permutation_p  # noqa: E402
+from _gate_metrics import (  # noqa: E402
+    both_metrics,
+    leave_one_work_out,
+    work_balanced_centroid,
+    work_permutation_p,
+)
 
 CASE = ROOT / "input_cases" / "nekrasov_panaeva"
-OUT = ROOT / "docs" / "cases" / "nekrasov_panaeva.json"
+HISTORICAL_OUT = ROOT / "docs" / "cases" / "nekrasov_panaeva.json"
+DEFAULT_OUT = (
+    ROOT / "docs" / "cases" / "work_balanced_audit" / "custom"
+    / "nekrasov_panaeva.work_balanced.json"
+)
 DIRS = {"nekrasov": [CASE / "nekrasov_solo"], "panaeva": [CASE / "panaeva_solo"]}
 WORD = r"[а-яёА-ЯЁ]+"
 WIN = 600
@@ -123,7 +134,10 @@ def evaluate(use_char3):
     # (10 Некрасов + 2 Панаева -> C(12,2)=66, пол p=1/66≈0.015).
     perm_p, perm_method, perm_floor = work_permutation_p(data, lambda a: a, authors)
 
-    full_cent = {a: centroid([v for au, _, v in data if au == a]) for a in authors}
+    full_cent = {
+        a: work_balanced_centroid((work, v) for au, work, v in data if au == a)
+        for a in authors
+    }
     cross_cos = round(float(np.dot(full_cent["nekrasov"], full_cent["panaeva"])), 4)
 
     return {
@@ -136,13 +150,40 @@ def evaluate(use_char3):
         "permutation_method": perm_method,                 # exact_N или random_N
         "permutation_exact_floor": perm_floor,             # минимально достижимое точное p = 1/C(W,n1)
         "cross_author_centroid_cos": cross_cos,
+        "train_centroid_weighting": "equal_work_direction_after_within_work_chunk_mean_l2",
         "confusion": confusion,
         "chunks": {a: len(byauthor[a]) for a in authors},
         "works": {a: works[a] for a in authors},
     }
 
 
-def main():
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", type=pathlib.Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--overwrite-historical",
+        action="store_true",
+        help="allow --out to replace the preserved legacy report",
+    )
+    args = parser.parse_args(argv)
+    if (
+        args.out.expanduser().resolve() == HISTORICAL_OUT.resolve()
+        and not args.overwrite_historical
+    ):
+        parser.error(
+            "refusing to overwrite the historical report without "
+            "--overwrite-historical"
+        )
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    out = args.out.expanduser()
+    try:
+        shown = out.resolve().relative_to(ROOT)
+    except ValueError:
+        shown = out.resolve()
     fw_only = evaluate(use_char3=False)
     fw_char3 = evaluate(use_char3=True)
     # «Разделяет» = НАДЁЖНО (work_macro_recall>=0.80) И ЗНАЧИМО (перестановка ярлыков работ <=0.05).
@@ -219,11 +260,19 @@ def main():
                      "— материал поглавной калибровки (раздел труда документирован мемуарами Панаевой)",
              "url": "http://az.lib.ru/n/nekrasow_n_a/"},
         ],
-        "analysis_command": "PYTHONPATH=src python3 scripts/run_nekrasov_panaeva_gate.py",
+        "status": "exploratory_adversarial_rerun",
+        "lineage": {
+            "historical_report": str(HISTORICAL_OUT.relative_to(ROOT)),
+            "historical_report_status": "superseded_for_scientific_interpretation",
+        },
+        "analysis_command": (
+            "PYTHONPATH=src python3 scripts/run_nekrasov_panaeva_gate.py "
+            f"--out {shown}"
+        ),
     }
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"записано {OUT.relative_to(ROOT)}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"записано {shown}")
     for tag, r in (("fw_only", fw_only), ("fw_char3", fw_char3)):
         print(f"  [{tag}] work-recall {r['per_author_recall']} macro {r['macro_recall']} | chunk_weighted "
               f"{r['chunk_weighted_recall']} | balanced {r['within_work_chunk_accuracy']} | perm_p "

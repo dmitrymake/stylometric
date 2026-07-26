@@ -11,7 +11,7 @@ const TA = CASES.tolstoyAn;
 const C = CASES;
 // значимость — все числа из генератора, не литералы
 const BOW_M = MODELS.find((m) => m.id === "bow_lr");
-const MF1_CI = fmtRange(HEADLINE.macroF1CI[0], HEADLINE.macroF1CI[1]);
+// author-clustered CI macro-F1 ОТОЗВАН (HEADLINE.macroF1CI === null) — показываем точку.
 // доверительный интервал точности считаем по выборкам КНИГ (author-clustered) — единообразно
 // с macro-F1 CI и с WhyBlock «единица оценки — книга»; более узкий чанк-интервал не берём.
 const ACC_CI = fmtRange(HEADLINE.accCIAuthor[0], HEADLINE.accCIAuthor[1]);
@@ -130,6 +130,12 @@ export default function Method() {
             ({fmtScore(LOBO_STRICT.proxyTop1, 3)}). Числа близкие, но считаются по-разному
             и на разных наборах авторов. Поэтому между собой их не сравнивают.
           </p>
+          {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+            <p className="mono muted" style={{ fontSize: 12 }}>
+              Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+              один голос» ещё впереди — заголовочная цифра может немного сдвинуться.
+            </p>
+          )}
         </div>
 
         {/* Протокол без подсматривания */}
@@ -159,7 +165,7 @@ export default function Method() {
                 и точкой отсчёта «всегда самый частый автор».
               </p>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — Точность по авторам (macro-F1 — средняя по всем авторам поровну, чтобы авторы с большим числом книг не перетягивали среднее) держится в диапазоне [{MF1_CI}], медиана многих пересборок {fmtScore(HEADLINE.macroF1BootstrapMedian)}.
+                — Точность по авторам (macro-F1 — средняя по всем авторам поровну, чтобы авторы с большим числом книг не перетягивали среднее) — единая оценка {fmtScore(HEADLINE.macroF1)}. Разброс по авторам не приводим: пересборка по авторам меняет набор учитываемых авторов, поэтому такой интервал для macro-F1 недействителен и отозван.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
                 — Доверительный интервал точности по книгам [{ACC_CI}] — из повторных пересчётов на случайных выборках книг.
@@ -475,6 +481,12 @@ export default function Method() {
                   Деление на 5 частей ({fmtScore(LOBO_STRICT.proxyTop1, 3)}) сходится с ней в пределах шума. Голый посимвольный
                   косинус без обучаемого словаря даёт строгую нижнюю границу на одном признаке — {fmtScore(LOBO_STRICT.trueLoboTop1, 3)}.
                 </p>
+                {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
+                  <p className="mono muted" style={{ fontSize: 12, marginTop: 8, maxWidth: "54ch" }}>
+                    Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
+                    один голос» ещё впереди — заголовочная цифра может немного сдвинуться.
+                  </p>
+                )}
               </div>
               <div>
                 <div className="mono muted" style={{ fontSize: 11, margin: "0 0 10px" }}>

@@ -20,6 +20,7 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
 
 CASE = ROOT / "input_cases" / "nekrasov_panaeva"
@@ -152,7 +153,7 @@ def main():
         },
         "verdict": _verdict(novels_out, agree_total, total_ch, kappa, switches_c3, switches_fw),
     }
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
     for name, n in novels_out.items():
         print(f"  {name}: {n['chapters']} глав | char3 {n['char3_split']} переключений {n['switches_char3']} | "

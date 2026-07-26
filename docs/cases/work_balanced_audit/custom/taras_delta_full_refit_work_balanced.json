@@ -1,0 +1,438 @@
+{
+  "case_id": "taras_bulba_1842_additions",
+  "status": "exploratory_adversarial_rerun",
+  "lineage": {
+    "historical_report": "docs/cases/taras_hardened/reports/delta_replication.json",
+    "historical_report_status": "superseded_for_scientific_interpretation",
+    "historical_report_superseded_by": "docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json",
+    "supersession_reason": "equal-work train centroids and full-refit work-label permutation null"
+  },
+  "protocol": {
+    "unit": "work",
+    "chunk_words": 1500,
+    "gate_threshold": 0.8,
+    "permutation": "random_2000",
+    "seed": 42,
+    "permutation_unit": "work",
+    "permutation_alpha": 0.05,
+    "permutation_refit": "full_loo_cached_label_independent_transform",
+    "train_centroid_weighting": "equal_work_after_within_work_chunk_mean",
+    "masked_inputs": true
+  },
+  "panels": {
+    "suspects": {
+      "composition": {
+        "gogol": 10,
+        "annenkov_1840s": 5,
+        "pushkin": 6,
+        "turgenev": 12,
+        "dostoevsky": 10
+      },
+      "modes": {
+        "delta_fw": {
+          "gate": {
+            "work_macro_recall": 0.95,
+            "gate_pass": true,
+            "work_recall": {
+              "annenkov_1840s": "5/5",
+              "dostoevsky": "10/10",
+              "gogol": "10/10",
+              "pushkin": "6/6",
+              "turgenev": "9/12"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 16
+              },
+              "n_chunks": 16,
+              "winner_share": 1.0,
+              "mean_distances": {
+                "gogol": 1.303988,
+                "turgenev": 1.384008,
+                "pushkin": 1.38459,
+                "dostoevsky": 1.45769,
+                "annenkov_1840s": 1.478881
+              },
+              "margin": 0.08002,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 17
+              },
+              "n_chunks": 17,
+              "winner_share": 1.0,
+              "mean_distances": {
+                "gogol": 1.330272,
+                "pushkin": 1.404396,
+                "turgenev": 1.405206,
+                "dostoevsky": 1.477693,
+                "annenkov_1840s": 1.502607
+              },
+              "margin": 0.074124,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 13,
+                "pushkin": 1
+              },
+              "n_chunks": 14,
+              "winner_share": 0.929,
+              "mean_distances": {
+                "gogol": 1.187855,
+                "pushkin": 1.285112,
+                "turgenev": 1.294785,
+                "annenkov_1840s": 1.359627,
+                "dostoevsky": 1.359801
+              },
+              "margin": 0.097257,
+              "interpreted": true
+            }
+          }
+        },
+        "delta_mfw": {
+          "gate": {
+            "work_macro_recall": 0.9467,
+            "gate_pass": true,
+            "work_recall": {
+              "annenkov_1840s": "5/5",
+              "dostoevsky": "10/10",
+              "gogol": "9/10",
+              "pushkin": "5/6",
+              "turgenev": "12/12"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 10,
+                "pushkin": 6
+              },
+              "n_chunks": 16,
+              "winner_share": 0.625,
+              "mean_distances": {
+                "gogol": 1.480457,
+                "pushkin": 1.51038,
+                "turgenev": 1.564107,
+                "annenkov_1840s": 1.601295,
+                "dostoevsky": 1.66537
+              },
+              "margin": 0.029923,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 12,
+                "pushkin": 5
+              },
+              "n_chunks": 17,
+              "winner_share": 0.706,
+              "mean_distances": {
+                "gogol": 1.501224,
+                "pushkin": 1.523961,
+                "turgenev": 1.579168,
+                "annenkov_1840s": 1.618632,
+                "dostoevsky": 1.678989
+              },
+              "margin": 0.022737,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 11,
+                "pushkin": 3
+              },
+              "n_chunks": 14,
+              "winner_share": 0.786,
+              "mean_distances": {
+                "gogol": 1.409283,
+                "pushkin": 1.479085,
+                "turgenev": 1.535359,
+                "annenkov_1840s": 1.539651,
+                "dostoevsky": 1.625955
+              },
+              "margin": 0.069802,
+              "interpreted": true
+            }
+          }
+        }
+      }
+    },
+    "somov_binary": {
+      "composition": {
+        "gogol": 10,
+        "somov": 20
+      },
+      "modes": {
+        "delta_fw": {
+          "gate": {
+            "work_macro_recall": 0.95,
+            "gate_pass": true,
+            "work_recall": {
+              "gogol": "9/10",
+              "somov": "16/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 13,
+                "somov": 3
+              },
+              "n_chunks": 16,
+              "winner_share": 0.812,
+              "mean_distances": {
+                "gogol": 277.41207,
+                "somov": 277.443553
+              },
+              "margin": 0.031483,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 14,
+                "somov": 3
+              },
+              "n_chunks": 17,
+              "winner_share": 0.824,
+              "mean_distances": {
+                "gogol": 237.058291,
+                "somov": 237.087992
+              },
+              "margin": 0.029701,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 14
+              },
+              "n_chunks": 14,
+              "winner_share": 1.0,
+              "mean_distances": {
+                "gogol": 1.07026,
+                "somov": 1.133211
+              },
+              "margin": 0.062952,
+              "interpreted": true
+            }
+          }
+        },
+        "delta_mfw": {
+          "gate": {
+            "work_macro_recall": 0.9,
+            "gate_pass": true,
+            "work_recall": {
+              "gogol": "8/10",
+              "somov": "16/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "somov",
+              "per_chunk_winners": {
+                "gogol": 7,
+                "somov": 9
+              },
+              "n_chunks": 16,
+              "winner_share": 0.562,
+              "mean_distances": {
+                "somov": 1.422812,
+                "gogol": 1.435275
+              },
+              "margin": 0.012463,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "somov",
+              "per_chunk_winners": {
+                "somov": 9,
+                "gogol": 8
+              },
+              "n_chunks": 17,
+              "winner_share": 0.529,
+              "mean_distances": {
+                "somov": 1.44615,
+                "gogol": 1.456334
+              },
+              "margin": 0.010183,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 12,
+                "somov": 2
+              },
+              "n_chunks": 14,
+              "winner_share": 0.857,
+              "mean_distances": {
+                "gogol": 1.368041,
+                "somov": 1.409804
+              },
+              "margin": 0.041764,
+              "interpreted": true
+            }
+          }
+        }
+      }
+    },
+    "topic": {
+      "composition": {
+        "gogol": 10,
+        "somov": 20,
+        "narezhny": 4,
+        "grebenka": 10
+      },
+      "modes": {
+        "delta_fw": {
+          "gate": {
+            "work_macro_recall": 0.7312,
+            "gate_pass": false,
+            "work_recall": {
+              "gogol": "9/10",
+              "grebenka": "9/10",
+              "narezhny": "1/4",
+              "somov": "14/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 13,
+                "somov": 3
+              },
+              "n_chunks": 16,
+              "winner_share": 0.812,
+              "mean_distances": {
+                "gogol": 277.383968,
+                "somov": 277.418141,
+                "grebenka": 277.433747,
+                "narezhny": 277.570024
+              },
+              "margin": 0.034173,
+              "interpreted": false
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 15,
+                "somov": 2
+              },
+              "n_chunks": 17,
+              "winner_share": 0.882,
+              "mean_distances": {
+                "gogol": 237.02539,
+                "somov": 237.057553,
+                "grebenka": 237.071655,
+                "narezhny": 237.2107
+              },
+              "margin": 0.032164,
+              "interpreted": false
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 14
+              },
+              "n_chunks": 14,
+              "winner_share": 1.0,
+              "mean_distances": {
+                "gogol": 1.043611,
+                "somov": 1.110162,
+                "grebenka": 1.133192,
+                "narezhny": 1.244712
+              },
+              "margin": 0.066551,
+              "interpreted": false
+            }
+          }
+        },
+        "delta_mfw": {
+          "gate": {
+            "work_macro_recall": 0.9344,
+            "gate_pass": true,
+            "work_recall": {
+              "gogol": "9/10",
+              "grebenka": "9/10",
+              "narezhny": "4/4",
+              "somov": "15/16"
+            },
+            "permutation_p": 0.0005
+          },
+          "targets": {
+            "strict_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 11,
+                "somov": 4,
+                "grebenka": 1
+              },
+              "n_chunks": 16,
+              "winner_share": 0.688,
+              "mean_distances": {
+                "gogol": 1.357331,
+                "somov": 1.371479,
+                "grebenka": 1.417268,
+                "narezhny": 1.515773
+              },
+              "margin": 0.014148,
+              "interpreted": true
+            },
+            "loose_additions": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 11,
+                "somov": 6
+              },
+              "n_chunks": 17,
+              "winner_share": 0.647,
+              "mean_distances": {
+                "gogol": 1.375888,
+                "somov": 1.390633,
+                "grebenka": 1.433525,
+                "narezhny": 1.532707
+              },
+              "margin": 0.014745,
+              "interpreted": true
+            },
+            "gogol1835_base_control": {
+              "top": "gogol",
+              "per_chunk_winners": {
+                "gogol": 12,
+                "somov": 2
+              },
+              "n_chunks": 14,
+              "winner_share": 0.857,
+              "mean_distances": {
+                "gogol": 1.305054,
+                "somov": 1.370846,
+                "grebenka": 1.442496,
+                "narezhny": 1.47049
+              },
+              "margin": 0.065792,
+              "interpreted": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

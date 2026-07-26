@@ -36,8 +36,8 @@ docs/*
 !docs/.gitkeep
 # предрегистрация кампании: публичное обязательство до прогонов
 !docs/prereg_2026Q3.md
-# внутренние рабочие материалы: НЕ для публичного репо
-TODO.md
+# внутренние рабочие материалы и process-history: НЕ для публичного репо
+research/local/
 docs/cases/HANDOFF.md
 docs/cases/autoscreen/
 docs/cases/autoscreen2/
@@ -49,6 +49,10 @@ docs/cases/taras_hardened/reports/ranking.json
 # результаты LOBO-прогона: per-book отчёт + форматированная таблица (воспроизводимость/инспекция)
 !docs/lobo_books.txt
 !docs/final_comparison.txt
+# CI-sign erratum: corrected .txt/leaderboard derivatives are part of the release inventory
+!docs/final_comparison.v2.txt
+!docs/ruaa_bench_leaderboard.md
+!docs/ruaa_bench_leaderboard_v1.0.1.md
 
 # Belt-and-suspenders: never commit pickled models / numpy dumps anywhere.
 *.pkl
@@ -87,9 +91,9 @@ site/dist/
 # скретч/temp (не для публикации)
 .codegraph/
 scripts/_fetch_tmp/
+/paired-audit-control-plane*.bundle
 
 # внутренние рабочие файлы — не для публичного релиза
-PUBLICATION_READINESS_PROMPT.md
 docs/tomsk_codebase_dossier.json
 docs/breakthrough_leads.md
 
@@ -103,7 +107,6 @@ docs/royal_register_fr.json
 docs/institutional_register.json
 docs/court_register_mechanism.json
 docs/cases/chekhonte_bilibin_hardening.json
-src/stylo/eval/certificates.py
 
 # статейные материалы — локально, не для публичной репы
 PAPER.md
@@ -112,3 +115,5 @@ docs/case_discovery_backlog.md
 docs/popular_article_outline.md
 scripts/gen-paper.mjs
 scripts/check-paper-numbers.mjs
+
+# локальные планы и handoff-история живут только под purpose-based research/local/

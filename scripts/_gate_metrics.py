@@ -8,6 +8,10 @@
   голосами — это меняет вес работ и эффективный размер выборки; в этих кейсах даёт более низкую долю. НЕ
   work-level; приводится только как диагностика.
 
+Во всех train-side центроидах сначала усредняются куски КАЖДОЙ работы, затем профили работ усредняются
+с равным весом. Поэтому `chunk_weighted_recall` означает только способ подсчёта test-side ошибок; длинная
+работа не получает больший вес при обучении центроида.
+
 Перестановка ярлыков на уровне работ: при малом числе работ берётся ТОЧНОЕ перечисление всех
 расстановок, сохраняющих размеры классов (для 2 классов — C(W, n1)); иначе случайная выборка с
 plus-one. Точный пол p при n1/n2 работах = 1 / C(W, n1) (например, 1/66 ≈ 0.015 при 10/2).
@@ -31,6 +35,22 @@ def _cent(vs):
     return _unit(np.mean(vs, axis=0))
 
 
+def work_balanced_centroid(work_vectors):
+    """Единичный центроид, в котором каждая работа имеет равный train-side вес.
+
+    ``work_vectors`` — iterable пар ``(work_id, vector)``. Куски сначала
+    усредняются внутри работы, каждое среднее L2-нормируется, затем направления
+    работ усредняются между собой и итог снова L2-нормируется.
+    """
+    by_work = {}
+    for work, vector in work_vectors:
+        by_work.setdefault(work, []).append(np.asarray(vector, dtype=float))
+    if not by_work:
+        raise ValueError("work-balanced centroid requires at least one work")
+    work_means = [_unit(np.mean(vectors, axis=0)) for vectors in by_work.values()]
+    return _cent(work_means)
+
+
 def leave_one_work_out(data, authors):
     """data: [(author, work, vec)]. Для каждой работы — предсказания её кусков; центроид класса при
     тесте работы исключает ВСЕ её куски. Возвращает [(author, work, [pred,...])] + confusion + works."""
@@ -41,11 +61,15 @@ def leave_one_work_out(data, authors):
             test = [v for au, wk, v in data if au == a and wk == w]
             cents, ok = {}, True
             for b in authors:
-                pool = [v for au, wk, v in data if au == b and not (b == a and wk == w)]
+                pool = [
+                    (wk, v)
+                    for au, wk, v in data
+                    if au == b and not (b == a and wk == w)
+                ]
                 if not pool:
                     ok = False
                     break
-                cents[b] = _cent(pool)
+                cents[b] = work_balanced_centroid(pool)
             if not ok:
                 continue
             preds = [max(authors, key=lambda b: float(np.dot(_unit(v), cents[b]))) for v in test]
@@ -77,33 +101,33 @@ def both_metrics(wcp, authors):
     }
 
 
-def _precompute_work_sums(by_work):
-    """Фолд-НЕЗАВИСИМые агрегаты по работам: сумма кусков, число кусков, юнит-нормированные куски.
+def _precompute_work_means(by_work):
+    """Фолд-НЕЗАВИСИМые средние работ и юнит-нормированные test-куски.
+
     Считаются ОДИН раз на кейс; дальше центроид класса под любой расстановкой ярлыков получается
-    вычитанием суммы удержанной работы из суммы класса — без пересборки пула на каждой из тысяч
-    перестановок (главный ускоритель work_permutation_p)."""
+    вычитанием среднего удержанной работы из суммы средних работ класса — без пересборки пула на каждой
+    из тысяч перестановок (главный ускоритель work_permutation_p)."""
     work_ids = list(by_work.keys())
-    wsum = {w: np.sum(np.asarray(by_work[w], dtype=float), axis=0) for w in work_ids}
-    wcount = {w: len(by_work[w]) for w in work_ids}
+    wmean = {
+        w: _unit(np.mean(np.asarray(by_work[w], dtype=float), axis=0))
+        for w in work_ids
+    }
     uchunks = {w: [_unit(np.asarray(v, dtype=float)) for v in by_work[w]] for w in work_ids}
-    return work_ids, wsum, wcount, uchunks
+    return work_ids, wmean, uchunks
 
 
-def _workmacro_from_sums(work_ids, wsum, wcount, uchunks, label_of_work, authors):
+def _workmacro_from_work_means(work_ids, wmean, uchunks, label_of_work, authors):
     """work-level macro под расстановкой ярлыков label_of_work, из предподсчитанных сумм.
 
-    Центроид класса b при тесте работы w = unit((Σ сумм работ класса b − сумма w, если w в b) /
-    (число кусков класса b − число кусков w)). Математически совпадает с _unit(np.mean(pool)), но
-    без пересборки пула — O(работ) на перестановку вместо O(всех кусков). Замена flat-суммы на
-    (сумма_класса − сумма_работы) меняет ПОРЯДОК суммирования float, поэтому результат эквивалентен
-    исходному с точностью до ~1e-13 (в почти-ничьей теоретически возможен флип; проверяется прогоном
-    гейтов на бит-в-бит diff)."""
+    Центроид класса b при тесте работы w = unit(Σ средних работ класса b − среднее w, если w в b).
+    Деление на число работ не меняет направление после unit-нормировки. Это математически совпадает с
+    ``work_balanced_centroid`` без пересборки пула — O(работ) на перестановку вместо O(всех кусков)."""
     tot_sum = {b: None for b in authors}
     tot_count = {b: 0 for b in authors}
     for w in work_ids:
         b = label_of_work[w]
-        tot_sum[b] = wsum[w].copy() if tot_sum[b] is None else tot_sum[b] + wsum[w]
-        tot_count[b] += wcount[w]
+        tot_sum[b] = wmean[w].copy() if tot_sum[b] is None else tot_sum[b] + wmean[w]
+        tot_count[b] += 1
     wl_c = {a: 0 for a in authors}
     wl_t = {a: 0 for a in authors}
     for w in work_ids:
@@ -111,11 +135,11 @@ def _workmacro_from_sums(work_ids, wsum, wcount, uchunks, label_of_work, authors
         cents, ok = {}, True
         for b in authors:
             same = label_of_work[w] == b
-            pc = tot_count[b] - (wcount[w] if same else 0)
+            pc = tot_count[b] - (1 if same else 0)
             if pc <= 0:                       # пул класса b (без w) пуст — как ok=False в исходнике
                 ok = False
                 break
-            ps = (tot_sum[b] - wsum[w]) if same else tot_sum[b]
+            ps = (tot_sum[b] - wmean[w]) if same else tot_sum[b]
             cents[b] = _unit(ps / pc)
         if not ok:
             continue
@@ -126,9 +150,11 @@ def _workmacro_from_sums(work_ids, wsum, wcount, uchunks, label_of_work, authors
 
 
 def _workmacro_under(by_work, label_of_work, authors):
-    """Совместимость: work-macro под расстановкой ярлыков (делегирует в _workmacro_from_sums с
+    """Совместимость: work-macro под расстановкой ярлыков (делегирует в work-mean estimator с
     предподсчётом сумм). На горячем пути work_permutation_p предподсчёт вынесен наружу."""
-    return _workmacro_from_sums(*_precompute_work_sums(by_work), label_of_work, authors)
+    return _workmacro_from_work_means(
+        *_precompute_work_means(by_work), label_of_work, authors
+    )
 
 
 def work_permutation_p(data, label_of, authors,
@@ -141,23 +167,27 @@ def work_permutation_p(data, label_of, authors,
     (без округления). Округлённое значение отчёта здесь НЕ используется: round(wl,4) вверх делал бы
     истинную метку < observed, и даже она не проходила бы `>=` — отсюда невозможное p=0.0 при
     exact-floor > 0."""
-    # уникальные работы и их истинная метка-класс (через label_of автора)
+    # Уникальный ключ работы включает исходного автора: одинаковые basename у
+    # разных авторов не должны сливаться в один permutation unit.
     seen, works, truth = set(), [], []
     for a, w, _v in data:
-        if w not in seen:
-            seen.add(w)
-            works.append(w)
+        work_key = (a, w)
+        if work_key not in seen:
+            seen.add(work_key)
+            works.append(work_key)
             truth.append(label_of(a))
     by_work = {}
     for a, w, v in data:
-        by_work.setdefault(w, []).append(v)
+        by_work.setdefault((a, w), []).append(v)
 
     # предподсчёт по-работных сумм ОДИН раз: центроиды под каждой перестановкой считаются вычитанием
-    work_ids, wsum, wcount, uchunks = _precompute_work_sums(by_work)
+    work_ids, wmean, uchunks = _precompute_work_means(by_work)
 
     # СЫРОЙ observed той же функцией, что и null-перестановки (см. docstring) — гарантирует p >= floor
     true_lab = {works[i]: truth[i] for i in range(len(works))}
-    observed = _workmacro_from_sums(work_ids, wsum, wcount, uchunks, true_lab, authors)
+    observed = _workmacro_from_work_means(
+        work_ids, wmean, uchunks, true_lab, authors
+    )
 
     labels = sorted(set(truth))
     counts = Counter(truth)
@@ -177,7 +207,9 @@ def work_permutation_p(data, label_of, authors,
         cores = os.cpu_count() or 4
         workers = max(1, cores - 2) if n_jobs in (-1, None) else max(1, int(n_jobs))
         workers = min(workers, 16, len(labs))
-        _wm = lambda lab: _workmacro_from_sums(work_ids, wsum, wcount, uchunks, lab, authors)
+        _wm = lambda lab: _workmacro_from_work_means(
+            work_ids, wmean, uchunks, lab, authors
+        )
         if workers <= 1 or len(labs) < _PAR_MIN:
             return int(sum(1 for lab in labs if _wm(lab) >= observed - 1e-9))
         with ThreadPoolExecutor(max_workers=workers) as ex:

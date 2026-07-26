@@ -1,0 +1,115 @@
+schema_version: "1.0"
+status: intake_not_ground_truth
+created: "2026-07-10"
+
+cases:
+  - case_id: yastrzhembsky_dead_souls_spoof
+    benchmark_role: public_development_gold_not_blind
+    local_material:
+      status: transcription_staging_ready_double_key_pending
+      spec: research/yastrzhembsky_spoof_v1.yaml
+      staging_manifest: research/yastrzhembsky_transcription_staging_manifest_v1.json
+    proposed_tasks: [spoof]
+    ground_truth:
+      level: document_binary
+      status: strong_non_gogol_high_responsible_author
+      supported: >-
+        The 1872 "new fragments" were not written by Gogol; Yastrzhembsky
+        acknowledged composing them and the journal reported checking his
+        manuscript and an 1861 letter.
+      unsupported: >-
+        Every sentence is wholly original Yastrzhembsky text rather than a
+        derivative rewrite of copied Gogol material.
+    evidence_candidates:
+      - https://commons.wikimedia.org/wiki/File:1872,_Russkaya_starina,_Vol_5._№1-6.pdf
+      - https://commons.wikimedia.org/wiki/File:1873,_Russkaya_starina,_Vol_8._№7-12_and_table_of_contents_vol._7,8.pdf
+      - https://viewer.rusneb.ru/000199_000009_013629853?page=336
+      - https://www.ndu.edu.ua/images/stories/polissya/p_67.pdf
+    blockers:
+      - diplomatic_transcription_double_key_review
+      - reconciled_normalised_text_and_manifest_hash
+      - source_matched_genuine_gogol_controls
+      - derivative_passage_audit_before_named_author_claim
+      - excluded_from_external_blind_endpoint_case_identity_already_public
+
+  - case_id: vyrubova_fake_diary
+    local_material:
+      target: input_cases/vyrubova/vyrubova_diary_fake.txt
+      genuine_control: input_cases/vyrubova/vyrubova_memoir_real.txt
+      creator_anchor: input_cases/vyrubova/cand_shchegolev
+    proposed_tasks: [spoof]
+    ground_truth:
+      level: document_binary
+      status: provisional_strong
+      supported: "The published diary is fabricated rather than Vyrubova's diary."
+      unsupported: "A unique span-level or single-creator attribution."
+    evidence_candidates:
+      - https://lavkapisateley.spb.ru/enciklopediya/csh/cshjogolev--565
+    blockers:
+      - primary_archive_or_critical_edition_citation
+      - separate_creator_contributions_unknown
+
+  - case_id: cherubina_de_gabriak
+    local_material:
+      target: input_cases/cherubina/cherubina_poems.txt
+      dmitrieva_anchor: input_cases/cherubina/dmitrieva_poems.txt
+      voloshin_anchor: input_cases/cherubina/voloshin_poems.txt
+    proposed_tasks: [spoof, idio_shift]
+    ground_truth:
+      level: persona_identity
+      status: provisional_strong
+      supported: "Cherubina is the literary persona of Elizaveta Dmitrieva."
+      unsupported: "Every poem is free of Voloshin's co-creative intervention."
+    evidence_candidates:
+      - https://ru.wikisource.org/wiki/История_Черубины_(Волошин)
+    blockers:
+      - critical_edition_work_level_provenance
+      - voloshin_intervention_audit
+
+  - case_id: kozma_prutkov_hands
+    local_material:
+      panel: input_cases/prutkov_hands
+    proposed_tasks: [spoof, mixed_authorship]
+    ground_truth:
+      level: collective_pseudonym
+      status: collective_only
+      supported: "The pseudonym represents Tolstoy and the Zhemchuzhnikov brothers."
+      unsupported: "Current local files provide gold labels for each individual work."
+    evidence_candidates:
+      - https://feb-web.ru/feb/litenc/encyclop/le5/le5-3731.htm?cmd=p&istext=1
+      - https://bigenc.ru/c/koz-ma-prutkov-ad2a3d
+    blockers:
+      - critical_edition_work_allocations
+      - poetry_specific_evaluation
+
+  - case_id: nekrasov_panaeva_novels
+    local_material:
+      target: input_cases/nekrasov_panaeva/coauthored
+      nekrasov_anchor: input_cases/nekrasov_panaeva/nekrasov_solo
+      panaeva_anchor: input_cases/nekrasov_panaeva/panaeva_solo
+    proposed_tasks: [mixed_authorship]
+    ground_truth:
+      level: document_coauthorship
+      status: boundaries_disputed
+      supported: "The novels are collaborative works."
+      unsupported: "Chapter-level labels are settled archival truth."
+    evidence_candidates:
+      - https://www.mdpi.com/1298510
+      - https://ru.wikisource.org/wiki/Мертвое_озеро_(Часть_первая)_(Некрасов)
+    blockers:
+      - independent_textological_boundary_adjudication
+      - third_possible_contributor
+
+  - case_id: gogol_taras_editions
+    local_material:
+      manifest: docs/cases/taras_hardened/target_manifest.json
+    proposed_tasks: [idio_shift]
+    ground_truth:
+      level: edition_identity
+      status: strong
+      supported: "The 1835 and 1842 editions are Gogol's authorial versions."
+      unsupported: "Their difference is a pure digitisation/source effect."
+    evidence_candidates:
+      - https://rvb.ru/gogol/03articles/vol_01_editorial.htm
+    blockers:
+      - exact_revision_and_token_alignment_for_benchmark

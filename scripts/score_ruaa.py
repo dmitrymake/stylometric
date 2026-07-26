@@ -18,6 +18,9 @@ import sys
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dumps_strict  # noqa: E402
+
 SEED = 42
 ITERS = 1000
 LEVEL = 0.95
@@ -95,6 +98,9 @@ def main() -> int:
 
     report = {
         "benchmark": f"{bench['name']} v{bench['version']}",
+        "claim_status": bench.get("claim_status", "exploratory_internal"),
+        "benchmark_role": bench.get("benchmark_role", "reproducible_cv_legacy_not_blind"),
+        "training_weighting": bench.get("training_weighting", "chunk_weighted_training_legacy"),
         "n_books": len(books), "n_authors": len(authors),
         "accuracy": round(acc, 4),
         "accuracy_ci95_book_bootstrap": [round(acc_ci[0], 4), round(acc_ci[1], 4)],
@@ -109,7 +115,7 @@ def main() -> int:
             order = sorted(probs[b], key=probs[b].get, reverse=True)[:2]
             top2 += int(y_true[i] in order)
         report["top2"] = round(top2 / len(books), 4)
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    print(dumps_strict(report, indent=2))
     return 0
 
 

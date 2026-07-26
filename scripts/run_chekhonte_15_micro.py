@@ -20,12 +20,16 @@ from collections import Counter
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "src"))
+from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 rd_spec = importlib.util.spec_from_file_location("rd", ROOT / "scripts" / "run_chekhonte_dubia_oskolki.py")
 rd = importlib.util.module_from_spec(rd_spec)
 rd_spec.loader.exec_module(rd)
 al_spec = importlib.util.spec_from_file_location("al", ROOT / "scripts" / "run_chekhonte_dubia_alloskolki.py")
 al = importlib.util.module_from_spec(al_spec)
 al_spec.loader.exec_module(al)
+from _gate_metrics import both_metrics, leave_one_work_out  # noqa: E402
 
 CASE = ROOT / "input_cases" / "chekhonte_dubia"
 OUT = ROOT / "docs" / "cases" / "chekhonte_15_micro.json"
@@ -59,7 +63,7 @@ def main() -> None:
                   for label, pat in SEGMENTS if (m := re.search(pat, raw))]
     whole = " ".join(b for _, b in seg_bodies)
     vec, docvecs, cents = rd.make_model([whole], cands, use_char3=False)
-    arr = {n: np.array(docvecs[n]) for n in docvecs}
+    arr = {n: rd.work_centroids(docvecs[n]) for n in docvecs}
     mean_cent = _u(np.mean([cents[n] for n in cents], axis=0))
 
     def attribute(text):
@@ -78,25 +82,21 @@ def main() -> None:
             "distinctiveness": round(float(np.dot(tv, cents[sims[0][0]]) - np.dot(tv, mean_cent)), 4),
         }
 
-    # per-class recall гейта (различает ли панель самих авторов)
+    # Work-LOO positive control with equal-direction work centroids.
     names = list(docvecs)
-    per_class = {}
-    for name in names:
-        dv = docvecs[name]
-        ok = sum(max({o: float(np.dot(_u(v), _u(np.mean([x for j, x in enumerate(docvecs[o])
-                  if not (o == name and j == i)], axis=0)))) for o in names}.items(),
-                  key=lambda kv: kv[1])[0] == name for i, v in enumerate(dv))
-        per_class[name] = f"{ok}/{len(dv)}"
+    gate_data = [
+        (name, work, vector)
+        for name in names
+        for work, vector in zip(docvecs[name].work_ids, docvecs[name])
+    ]
+    wcp, _chunk_confusion, _works = leave_one_work_out(gate_data, names)
+    gate_metrics = both_metrics(wcp, names)
+    per_class = gate_metrics["work_recall"]
 
-    # №5 negative controls: куда уходят документы кандидатов при поочерёдном исключении (confusion)
+    # №5 negative controls: work-majority confusion under whole-work exclusion.
     confusion = {n: Counter() for n in names}
-    for name in names:
-        for i, v in enumerate(docvecs[name]):
-            nv = _u(v)
-            pred = max({o: float(np.dot(nv, _u(np.mean([x for j, x in enumerate(docvecs[o])
-                       if not (o == name and j == i)], axis=0)))) for o in names}.items(),
-                       key=lambda kv: kv[1])[0]
-            confusion[name][pred] += 1
+    for name, _work, predictions in wcp:
+        confusion[name][Counter(predictions).most_common(1)[0][0]] += 1
 
     # №5 альтернативный признак: char-3gram (целиком 15) — держится ли Билибин на другом признаке
     vec_c3, _, cents_c3 = rd.make_model([whole], cands, use_char3=True)
@@ -152,6 +152,9 @@ def main() -> None:
                 "вместо служебных слов"),
         },
         "positive_control": {"per_class_recall": per_class,
+                             "work_macro_recall": gate_metrics["work_macro_recall"],
+                             "train_centroid_weighting":
+                                 "equal_work_direction_after_within_work_chunk_mean_l2",
                              "note": ("набор образцов должен узнавать самих авторов «Осколков» по их текстам; "
                                       "почерк Чехова узнаётся примерно в половине случаев — различающая "
                                       "способность слабая, поэтому вердикт осторожный")},
@@ -208,7 +211,7 @@ def main() -> None:
         ],
         "analysis_command": "PYTHONPATH=src python3 scripts/run_chekhonte_15_micro.py",
     }
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    OUT.write_text(dumps_strict(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"записано {OUT.relative_to(ROOT)}")
     print("per_class:", per_class)
     print(f"ЦЕЛИКОМ -> {whole_attr['winner_ru']} (Билибин {whole_attr['p_bilibin']}, Чехов {whole_attr['p_chehov']}, отличимость {whole_attr['distinctiveness']})")

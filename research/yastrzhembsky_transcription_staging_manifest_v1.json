@@ -1,0 +1,484 @@
+{
+  "benchmark_role": "public_development_gold_not_blind",
+  "case_id": "yastrzhembsky_dead_souls_spoof",
+  "generator": {
+    "path": "scripts/stage_yastrzhembsky_transcription.py",
+    "pdftoppm": "pdftoppm version 26.06.0",
+    "pdftotext": "pdftotext version 26.06.0",
+    "render_dpi": 300,
+    "render_mode": "grayscale_full_page_no_crop",
+    "version": "1.2"
+  },
+  "roles": [
+    {
+      "anchors": {
+        "first_text_anchor": "Что же дѣлалось потомъ до самаго ужина",
+        "start_anchor": "ГЛАВА I",
+        "stop_before_anchor": "Сообщ. М. М. Богоявленский"
+      },
+      "derived_scan": {
+        "bytes": 4671413,
+        "path": "data/yastrzhembsky_spoof_v1/derived/yastrzhembsky_spoof_scan_pages_095_123.pdf",
+        "sha256": "de45cf9e453cfe2b456219fdc688faa4223f11cb6934700a0664a0980e9ee06f"
+      },
+      "embedded_text_layer": {
+        "non_whitespace_characters": 0,
+        "usable": false,
+        "utf8_bytes_including_page_breaks": 29
+      },
+      "printed_page_range": [
+        89,
+        117
+      ],
+      "raw_scan": {
+        "bytes": 69715977,
+        "path": "data/yastrzhembsky_spoof_v1/raw/russkaya_starina_1872_v5.pdf",
+        "sha256": "53aadb87879b5b5d79f946d26e0cb6ed260b9c17d667d8d67a9a62af0c79279f"
+      },
+      "renders": [
+        {
+          "bytes": 296918,
+          "derived_page_index": 1,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-095.png",
+          "printed_page": 89,
+          "sha256": "399f38477d6aff1a1e2418c8e3e20ce001ef43e64ca37af0ca4d050cbe075c37",
+          "source_pdf_page": 95,
+          "width_px": 1772
+        },
+        {
+          "bytes": 319685,
+          "derived_page_index": 2,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-096.png",
+          "printed_page": 90,
+          "sha256": "d2c5d36be88bcda37f4f77643a1c603d816bc2bb363e7db65e3a79df8fb8ec88",
+          "source_pdf_page": 96,
+          "width_px": 1772
+        },
+        {
+          "bytes": 314653,
+          "derived_page_index": 3,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-097.png",
+          "printed_page": 91,
+          "sha256": "d9812d18cdeb63b620e421b85809b51b113cc83354ce1ddc58fcfe0809a49172",
+          "source_pdf_page": 97,
+          "width_px": 1772
+        },
+        {
+          "bytes": 276257,
+          "derived_page_index": 4,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-098.png",
+          "printed_page": 92,
+          "sha256": "c4ceaca654752a69576df4562dcf67b638f58904feca8e7a29fc3971e12fbcd9",
+          "source_pdf_page": 98,
+          "width_px": 1772
+        },
+        {
+          "bytes": 307904,
+          "derived_page_index": 5,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-099.png",
+          "printed_page": 93,
+          "sha256": "66aceb766830b7c35ca7ac40a0d314f425da59955ee69e7d416b80f511e9236d",
+          "source_pdf_page": 99,
+          "width_px": 1772
+        },
+        {
+          "bytes": 290069,
+          "derived_page_index": 6,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-100.png",
+          "printed_page": 94,
+          "sha256": "15dd9f899eff359ca8643010b6fc9c3545de4c167481fc72d04e51d0c6bad79c",
+          "source_pdf_page": 100,
+          "width_px": 1772
+        },
+        {
+          "bytes": 284033,
+          "derived_page_index": 7,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-101.png",
+          "printed_page": 95,
+          "sha256": "610526478f42fcd6f376ca61a68006dd72d59768f6fe20e3cd7c33ebc30b4ec2",
+          "source_pdf_page": 101,
+          "width_px": 1772
+        },
+        {
+          "bytes": 315852,
+          "derived_page_index": 8,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-102.png",
+          "printed_page": 96,
+          "sha256": "09805cbf5c0aa77b54064b9800a84726eab1f49337190c942f1e93e846b0759e",
+          "source_pdf_page": 102,
+          "width_px": 1772
+        },
+        {
+          "bytes": 294872,
+          "derived_page_index": 9,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-103.png",
+          "printed_page": 97,
+          "sha256": "0f30406f1679ae30b678ccd9ac8606343fbbd0927bb86c2a8214bff57561ccf3",
+          "source_pdf_page": 103,
+          "width_px": 1772
+        },
+        {
+          "bytes": 305268,
+          "derived_page_index": 10,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-104.png",
+          "printed_page": 98,
+          "sha256": "d08de0d7e711484bd999c7c894dc3c76e10f00678376807faa7a1832a47908ee",
+          "source_pdf_page": 104,
+          "width_px": 1772
+        },
+        {
+          "bytes": 307942,
+          "derived_page_index": 11,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-105.png",
+          "printed_page": 99,
+          "sha256": "ff42b09e144e7c0f51d103e4247f3b08fd1ff963f3fd7be08565fe1ebadaa102",
+          "source_pdf_page": 105,
+          "width_px": 1772
+        },
+        {
+          "bytes": 292652,
+          "derived_page_index": 12,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-106.png",
+          "printed_page": 100,
+          "sha256": "a966f8b6989faba01ad81888e2f0a0fb0551d4b0671229524ff4a1e9bdc26279",
+          "source_pdf_page": 106,
+          "width_px": 1772
+        },
+        {
+          "bytes": 275718,
+          "derived_page_index": 13,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-107.png",
+          "printed_page": 101,
+          "sha256": "bc1e2211f0735d9c9f9337cff02483ee29b45c99f8d03fae620d421b8ad025e1",
+          "source_pdf_page": 107,
+          "width_px": 1772
+        },
+        {
+          "bytes": 264934,
+          "derived_page_index": 14,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-108.png",
+          "printed_page": 102,
+          "sha256": "41fa05bcd8823858e41d67a48db483758c991c04f1896cb9524bf7ec40efb6a6",
+          "source_pdf_page": 108,
+          "width_px": 1772
+        },
+        {
+          "bytes": 270904,
+          "derived_page_index": 15,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-109.png",
+          "printed_page": 103,
+          "sha256": "4930c6394a7777ce97008bb19859607ea63bcbf49a400fb1fb9a88428c0ab26c",
+          "source_pdf_page": 109,
+          "width_px": 1772
+        },
+        {
+          "bytes": 263198,
+          "derived_page_index": 16,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-110.png",
+          "printed_page": 104,
+          "sha256": "33a8759b2f78d78cf9ec3147e0a1ce1b249d787eb824d536c58ac36ff687bddd",
+          "source_pdf_page": 110,
+          "width_px": 1772
+        },
+        {
+          "bytes": 299743,
+          "derived_page_index": 17,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-111.png",
+          "printed_page": 105,
+          "sha256": "72086aaeff6f857f7e9f16d8a489a9dd85a298fef5f2767ee8c82948c133780b",
+          "source_pdf_page": 111,
+          "width_px": 1772
+        },
+        {
+          "bytes": 451831,
+          "derived_page_index": 18,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-112.png",
+          "printed_page": 106,
+          "sha256": "5d8e5b93cb4f980bc8f7f1d9a56acf8ce90cf04dfa2fe2d26fec3ec6161275ae",
+          "source_pdf_page": 112,
+          "width_px": 1772
+        },
+        {
+          "bytes": 276002,
+          "derived_page_index": 19,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-113.png",
+          "printed_page": 107,
+          "sha256": "b57ac900aa086c43aad36cd2c598e409ed36cc073f0d436f154bf9b4efe8a4da",
+          "source_pdf_page": 113,
+          "width_px": 1772
+        },
+        {
+          "bytes": 287360,
+          "derived_page_index": 20,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-114.png",
+          "printed_page": 108,
+          "sha256": "87c5a7d49ae16ec9245638a220aa0f63f177a7e054d1f9b4090353ee85185723",
+          "source_pdf_page": 114,
+          "width_px": 1772
+        },
+        {
+          "bytes": 258050,
+          "derived_page_index": 21,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-115.png",
+          "printed_page": 109,
+          "sha256": "3cbe2ec4b9c4b5b2efe399665f53fccb4658031f375e64b3210d4d232b1c796d",
+          "source_pdf_page": 115,
+          "width_px": 1772
+        },
+        {
+          "bytes": 252054,
+          "derived_page_index": 22,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-116.png",
+          "printed_page": 110,
+          "sha256": "9fccab76395b50b2c83a85f1073e3a0d96010d2e64b3f4f60276e091d860abf8",
+          "source_pdf_page": 116,
+          "width_px": 1772
+        },
+        {
+          "bytes": 248103,
+          "derived_page_index": 23,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-117.png",
+          "printed_page": 111,
+          "sha256": "1afa8c30fa6d5939070bf3dab0be9b9aeb2e9340b9f008159e4b5245626e475e",
+          "source_pdf_page": 117,
+          "width_px": 1772
+        },
+        {
+          "bytes": 264818,
+          "derived_page_index": 24,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-118.png",
+          "printed_page": 112,
+          "sha256": "0f6b0411777e31d9cb301db6efcba5d575bc0d6454ec160fa6e69aaf0c0174cb",
+          "source_pdf_page": 118,
+          "width_px": 1772
+        },
+        {
+          "bytes": 290385,
+          "derived_page_index": 25,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-119.png",
+          "printed_page": 113,
+          "sha256": "af936996d4c63c3e08f96b9208342fe87ac4629dee3853e7d3cc2f0c9038969b",
+          "source_pdf_page": 119,
+          "width_px": 1772
+        },
+        {
+          "bytes": 280960,
+          "derived_page_index": 26,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-120.png",
+          "printed_page": 114,
+          "sha256": "ecb42bfa48b34c4ef543a087a845dac0df3b7263103665122fe30d854a31d9ea",
+          "source_pdf_page": 120,
+          "width_px": 1772
+        },
+        {
+          "bytes": 251346,
+          "derived_page_index": 27,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-121.png",
+          "printed_page": 115,
+          "sha256": "439f6280d1c948afe5fb29245174faa5ec6e9ee7cf55026bfd1e6cf31c259581",
+          "source_pdf_page": 121,
+          "width_px": 1772
+        },
+        {
+          "bytes": 280798,
+          "derived_page_index": 28,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-122.png",
+          "printed_page": 116,
+          "sha256": "b5a09c367c9520092023a85d54c393c3b9c53c34049c11460e0ad45e833217dc",
+          "source_pdf_page": 122,
+          "width_px": 1772
+        },
+        {
+          "bytes": 117254,
+          "derived_page_index": 29,
+          "height_px": 2798,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/spoof/page-123.png",
+          "printed_page": 117,
+          "sha256": "8d72e8241ed44fff9a8d68f0e43b4f7452fef1aade8f1bcff36db10b3b5834ff",
+          "source_pdf_page": 123,
+          "width_px": 1772
+        }
+      ],
+      "role": "spoof",
+      "source_pdf_page_range": [
+        95,
+        123
+      ]
+    },
+    {
+      "anchors": {
+        "title_anchor": "Подделка подъ Гоголя"
+      },
+      "derived_scan": {
+        "bytes": 1649231,
+        "path": "data/yastrzhembsky_spoof_v1/derived/yastrzhembsky_evidence_scan_pages_251_259.pdf",
+        "sha256": "e355f79cc0bd238dd86105e6e6ed10c9633e882fd9b4bb456e82f994898b958f"
+      },
+      "embedded_text_layer": {
+        "non_whitespace_characters": 0,
+        "usable": false,
+        "utf8_bytes_including_page_breaks": 9
+      },
+      "printed_page_range": [
+        244,
+        252
+      ],
+      "raw_scan": {
+        "bytes": 64381823,
+        "path": "data/yastrzhembsky_spoof_v1/raw/russkaya_starina_1873_v8.pdf",
+        "sha256": "642a2aff21a6d11eb2f6c0b3ea8df76ad70ce55e7913115e782cfeb5d2ae390e"
+      },
+      "renders": [
+        {
+          "bytes": 279727,
+          "derived_page_index": 1,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-251.png",
+          "printed_page": 244,
+          "sha256": "06648e0310c538dae358c20c59b86f4f81fe7c3eabea2e03c8d05918bf9beb04",
+          "source_pdf_page": 251,
+          "width_px": 1659
+        },
+        {
+          "bytes": 315871,
+          "derived_page_index": 2,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-252.png",
+          "printed_page": 245,
+          "sha256": "bbe0e95765850e1487bee252c94eca8b9ccd638398e780d998fd36e6b86cf79b",
+          "source_pdf_page": 252,
+          "width_px": 1659
+        },
+        {
+          "bytes": 327945,
+          "derived_page_index": 3,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-253.png",
+          "printed_page": 246,
+          "sha256": "128ae4c3d85417032a6821a8b0706a2ce49e7f0c328631467ba5a23f01505719",
+          "source_pdf_page": 253,
+          "width_px": 1659
+        },
+        {
+          "bytes": 311066,
+          "derived_page_index": 4,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-254.png",
+          "printed_page": 247,
+          "sha256": "d1789353bb556d483471870572663f752a891b27529521067aacd501896a186f",
+          "source_pdf_page": 254,
+          "width_px": 1659
+        },
+        {
+          "bytes": 334333,
+          "derived_page_index": 5,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-255.png",
+          "printed_page": 248,
+          "sha256": "902fef386c866980c706b747968aabf85371305a2b7781ebb7712f09a7044eb1",
+          "source_pdf_page": 255,
+          "width_px": 1659
+        },
+        {
+          "bytes": 327739,
+          "derived_page_index": 6,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-256.png",
+          "printed_page": 249,
+          "sha256": "55bf5d8e04e75bce3967d7227cc02742a93313fa8735dd8561e1acf278c6cc03",
+          "source_pdf_page": 256,
+          "width_px": 1659
+        },
+        {
+          "bytes": 336095,
+          "derived_page_index": 7,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-257.png",
+          "printed_page": 250,
+          "sha256": "ec4442b2b5c73efc029a89da2a7e2e9a2547f080d8cee322af68ae5753427031",
+          "source_pdf_page": 257,
+          "width_px": 1659
+        },
+        {
+          "bytes": 328766,
+          "derived_page_index": 8,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-258.png",
+          "printed_page": 251,
+          "sha256": "9da490b4ed1c16952ca84dbfde9f2e68a61c2f62580c1bc8dcc8c9d051115b62",
+          "source_pdf_page": 258,
+          "width_px": 1659
+        },
+        {
+          "bytes": 159275,
+          "derived_page_index": 9,
+          "height_px": 2646,
+          "path": "data/yastrzhembsky_spoof_v1/transcription_staging/renders/evidence/page-259.png",
+          "printed_page": 252,
+          "sha256": "3ef1feb7f54eb15d53d640f535f21073f047f858b9ec9ffab3618181d36177e2",
+          "source_pdf_page": 259,
+          "width_px": 1659
+        }
+      ],
+      "role": "evidence",
+      "source_pdf_page_range": [
+        251,
+        259
+      ]
+    }
+  ],
+  "schema_version": "1.0",
+  "spec": {
+    "bytes": 4414,
+    "path": "research/yastrzhembsky_spoof_v1.yaml",
+    "sha256": "18cf2b0164c10490ddcbaca5f131d23aafa2d36628c81821177a0667dfe6f56e"
+  },
+  "status": "transcription_staging_only_not_scoring_text",
+  "transcription_gate": {
+    "key_a": "pending",
+    "key_b": "pending",
+    "mixed_boundaries": "not_claimed_not_inferred",
+    "normalised_copy": "pending",
+    "ocr_policy": "navigation_and_discrepancy_triage_only",
+    "reconciliation": "pending",
+    "scorer_status": "blocked_pending_reconciled_double_key_text",
+    "third_review": "pending"
+  },
+  "transcription_layout": {
+    "editorial_regions": "transcribe_then_tag; exclude only after human source adjudication",
+    "key_a_pattern": "data/yastrzhembsky_spoof_v1/transcription_staging/keys/key_a/page-NNN.txt",
+    "key_b_pattern": "data/yastrzhembsky_spoof_v1/transcription_staging/keys/key_b/page-NNN.txt",
+    "normalised_output": "data/yastrzhembsky_spoof_v1/transcription_staging/normalised/target.txt",
+    "page_markers": "metadata_only_outside_scored_text",
+    "page_unit": "one_utf8_file_per_source_pdf_page",
+    "reconciled_pattern": "data/yastrzhembsky_spoof_v1/transcription_staging/keys/reconciled/page-NNN.txt"
+  }
+}

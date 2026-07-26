@@ -84,42 +84,16 @@ def _isnum(s):
 
 
 def main():
-    stylo_f1, slo, shi, smed, n = stylo_authoritative()
-    print(f"stylo (per-book LOBO): macro-F1={stylo_f1:.4f} author-CI=[{slo:.4f},{shi:.4f}] медиана={smed:.4f} n={n}", flush=True)
-
-    rows_in = list(csv.DictReader((ROOT / "docs/final_comparison.csv").read_text(encoding="utf-8").splitlines()))
-    fields = list(rows_in[0].keys())
-    stylo_raw = float(next(r for r in rows_in if r["model"] == "stylo")["macro_f1"])
-    already = abs(stylo_raw - stylo_f1) < 0.005
-    print(f"final_comparison.csv stylo macro-F1={stylo_raw:.4f} -> {'значения уже корректны' if already else 'пересчёт'}", flush=True)
-
-    out_rows = []
-    for r in rows_in:
-        raw = float(r["macro_f1"])
-        corr = raw if already else (stylo_f1 if r["model"] == "stylo" else raw * FACTOR)
-        r2 = dict(r); r2["macro_f1"] = round(corr, 4)
-        out_rows.append(r2)
-
-    # CSV: lineterminator='\n', без trailing-whitespace (всегда чистый формат)
-    buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=fields, lineterminator="\n"); w.writeheader(); w.writerows(out_rows)
-    csv_text = buf.getvalue().rstrip("\n") + "\n"
-    (ROOT / "docs/final_comparison.csv").write_text(csv_text, encoding="utf-8")
-    # TXT: из тех же строк
-    write_txt(out_rows, ROOT / "docs/final_comparison.txt")
-    print("✓ docs/final_comparison.csv (\\n, без trailing-whitespace) + docs/final_comparison.txt (синхронно)", flush=True)
-
-    (ROOT / "docs/stylo_lobo_authorci.json").write_text(json.dumps({
-        "method": "author-clustered bootstrap macro-F1 (ресэмпл АВТОРОВ) из persisted per-book stylo-LR LOBO (docs/lobo_books.txt); по тестированным классам",
-        "source": "docs/lobo_books.txt (LOBO, 260 книг, 43 тестированных автора)",
-        "n_books": int(n), "n_authors_tested": N_TESTED, "n_authors_dataset": N_AUTHORS_DATASET,
-        "macro_f1_point": round(float(stylo_f1), 4),
-        "macro_f1_authorclustered_CI": [round(slo, 4), round(shi, 4)],
-        "macro_f1_bootstrap_median": round(smed, 4),
-        "n_boot": N_BOOT,
-        "note": "канонический headline stylo-LR LOBO: macro-F1 + author-clustered 95% CI",
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("✓ docs/stylo_lobo_authorci.json", flush=True)
+    # SUPERSEDED / DISABLED. This script multiplied macro-F1 by a class-count "convention" FACTOR and
+    # overwrote the FROZEN docs/final_comparison.* + wrote docs/stylo_lobo_authorci.json with the old
+    # (non-withdrawn) macro-F1 CI array. Both are now handled correctly elsewhere and must not be
+    # regenerated here: the CI-sign correction is the versioned CI-sign erratum
+    # (scripts/apply_ci_sign_erratum.py → docs/final_comparison.v2.*), and the macro-F1
+    # author-clustered CI is WITHDRAWN (docs/stylo_lobo_authorci.json → macro_f1_authorclustered_CI=null,
+    # docs/macro_f1_ci_withdrawal.json). Fail closed before touching any frozen artifact.
+    from stylo.eval.ci_erratum import assert_publish_target_not_frozen
+    assert_publish_target_not_frozen(ROOT / "docs" / "final_comparison.csv")   # raises (frozen docs/ path)
+    raise SystemExit("superseded: see scripts/apply_ci_sign_erratum.py and docs/macro_f1_ci_withdrawal.json")
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ class LengthDistBlock(FeatureBlock):
     def __init__(self, max_word_len: int = 16):
         self.max_word_len = max_word_len
 
-    def fit(self, texts, reps):
+    def fit(self, texts, reps, groups=None):
         return self
 
     def _row(self, rep) -> List[float]:

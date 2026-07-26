@@ -18,6 +18,17 @@ from typing import Callable
 import numpy as np
 from scipy.stats import binomtest
 
+from .metric_contract import (
+    confidence_level,
+    exact_nonnegative_int,
+    exact_positive_int,
+    finite_statistic,
+    group_vector,
+    metric_callable,
+    paired_boolean_vectors,
+    random_seed,
+)
+
 
 @dataclass
 class McNemarResult:
@@ -34,8 +45,7 @@ def mcnemar(correct_a: np.ndarray, correct_b: np.ndarray) -> McNemarResult:
 
     Единица — книга; при коррелированных книгах внутри автора p антиконсервативен и
     читается как ГРАНИЦА. Кластер-робастная значимость — paired_bootstrap_diff_clustered."""
-    a = np.asarray(correct_a, dtype=bool)
-    b = np.asarray(correct_b, dtype=bool)
+    a, b = paired_boolean_vectors(correct_a, correct_b)
     disc_b = int(np.sum(a & ~b))   # A прав, B нет
     disc_c = int(np.sum(~a & b))   # B прав, A нет
     n = disc_b + disc_c
@@ -66,15 +76,35 @@ def paired_bootstrap_diff(
     seed: int = 42,
 ) -> DiffCI:
     """CI для (metric_a - metric_b) ресэмплингом ОДНИХ И ТЕХ ЖЕ книг для обоих."""
+    metric_a = metric_callable(metric_a, name="metric_a")
+    metric_b = metric_callable(metric_b, name="metric_b")
+    n_units = exact_nonnegative_int(n_units, name="n_units")
+    iters = exact_positive_int(iters, name="iters")
+    level = confidence_level(level)
+    seed = random_seed(seed)
     if n_units == 0:
         return DiffCI(0.0, 0.0, 0.0, False)
     rng = np.random.default_rng(seed)
     full = np.arange(n_units)
-    point = metric_a(full) - metric_b(full)
+    point = finite_statistic(
+        finite_statistic(metric_a(full), name="metric_a(full)")
+        - finite_statistic(metric_b(full), name="metric_b(full)"),
+        name="metric difference(full)",
+    )
     boot = np.empty(iters)
     for i in range(iters):
         idx = rng.integers(0, n_units, size=n_units)
-        boot[i] = metric_a(idx) - metric_b(idx)
+        boot[i] = finite_statistic(
+            finite_statistic(
+                metric_a(idx),
+                name=f"metric_a(bootstrap[{i}])",
+            )
+            - finite_statistic(
+                metric_b(idx),
+                name=f"metric_b(bootstrap[{i}])",
+            ),
+            name=f"metric difference(bootstrap[{i}])",
+        )
     alpha = (1 - level) / 2
     lo, hi = np.percentile(boot, [100 * alpha, 100 * (1 - alpha)])
     sig = not (lo <= 0.0 <= hi)
@@ -96,20 +126,39 @@ def paired_bootstrap_diff_clustered(
 
     groups: массив длины n_units с идентификатором группы (автором) каждой книги;
     metric_a/metric_b принимают массив ИНДЕКСОВ книг и возвращают скалярную метрику."""
-    groups = np.asarray(groups)
+    metric_a = metric_callable(metric_a, name="metric_a")
+    metric_b = metric_callable(metric_b, name="metric_b")
+    groups = group_vector(groups)
+    iters = exact_positive_int(iters, name="iters")
+    level = confidence_level(level)
+    seed = random_seed(seed)
     uniq = np.unique(groups)
     n_units = len(groups)
     if n_units == 0 or len(uniq) == 0:
         return DiffCI(0.0, 0.0, 0.0, False)
     full = np.arange(n_units)
-    point = metric_a(full) - metric_b(full)
+    point = finite_statistic(
+        finite_statistic(metric_a(full), name="metric_a(full)")
+        - finite_statistic(metric_b(full), name="metric_b(full)"),
+        name="metric difference(full)",
+    )
     by_group = {g: np.where(groups == g)[0] for g in uniq}
     rng = np.random.default_rng(seed)
     boot = np.empty(iters)
     for i in range(iters):
         pick = rng.choice(uniq, size=len(uniq), replace=True)
         idx = np.concatenate([by_group[g] for g in pick])
-        boot[i] = metric_a(idx) - metric_b(idx)
+        boot[i] = finite_statistic(
+            finite_statistic(
+                metric_a(idx),
+                name=f"metric_a(bootstrap[{i}])",
+            )
+            - finite_statistic(
+                metric_b(idx),
+                name=f"metric_b(bootstrap[{i}])",
+            ),
+            name=f"metric difference(bootstrap[{i}])",
+        )
     alpha = (1 - level) / 2
     lo, hi = np.percentile(boot, [100 * alpha, 100 * (1 - alpha)])
     sig = not (lo <= 0.0 <= hi)

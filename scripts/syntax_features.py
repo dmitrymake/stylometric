@@ -9,8 +9,8 @@ from scipy.sparse import csr_matrix, hstack
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
-from experemental.approved.semantic_alignment import calculate_alignment_metrics
-from experemental.approved.vowel_rhythm import calculate_vowel_rhythm_entropy
+from experimental.semantic_alignment import calculate_alignment_metrics
+from experimental.vowel_rhythm import calculate_vowel_rhythm_entropy
 from meta.meta import FUNCTION_WORDS, POS_REPLACEMENTS as CFG_POS_REPLACEMENTS
 from scripts.nlp import get_stylometry_nlp
 

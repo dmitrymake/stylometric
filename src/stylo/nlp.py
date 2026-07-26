@@ -12,14 +12,26 @@
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
+import importlib.metadata
 import logging
 import os
 import pathlib
+import tempfile
+import threading
+from contextlib import contextmanager
 from typing import Dict, List, Optional, Sequence
 
 import spacy
 from spacy.tokens import Doc, DocBin
+
+from .jsonio import dumps_strict
+
+try:  # Linux is the canonical bound-run platform; keep import portable.
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX fallback is process-local only
+    fcntl = None
 
 log = logging.getLogger("stylo.nlp")
 
@@ -29,13 +41,140 @@ _DOCBIN_ATTRS = ["ORTH", "SPACY", "LEMMA", "POS", "TAG", "MORPH", "DEP", "HEAD",
 # Компоненты, не нужные для стилометрии (NER замаскирован на этапе clean_text).
 _DISABLE = ["ner"]
 
-_NLP_CACHE: Dict[str, "spacy.Language"] = {}
+@dataclasses.dataclass(frozen=True)
+class ResolvedNLPIdentity:
+    """Identity of the pipeline that actually produced cached annotations."""
+
+    requested_model: str
+    resolved_model: str
+    fallback_used: bool
+    package_version: str
+    package_record_sha256: str
+    spacy_version: str
+    disabled_pipes: tuple[str, ...]
+    active_pipes: tuple[str, ...]
+    max_length: int
+    identity_sha256: str
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+_NLP_CACHE: Dict[tuple, "spacy.Language"] = {}
+_NLP_IDENTITIES: Dict[int, ResolvedNLPIdentity] = {}
 
 # Процесс-глобальный кеш РАЗОБРАННЫХ Doc (после десериализации из DocBin).
 # Ключ — text-key. Устраняет повторную десериализацию одних и тех же чанков
 # при многократных transform внутри LOBO/sweep (главный фактор скорости eval).
 _MEM_DOCS: Dict[str, Doc] = {}
 _MEM_CAP = 60_000  # мягкий предел числа Doc в памяти на процесс
+_MEM_DOCS_LOCK = threading.RLock()
+_DOC_WRITE_LOCK = threading.RLock()
+
+
+def _fsync_directory(path: pathlib.Path) -> None:
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    fd = os.open(path, flags)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+@contextmanager
+def _exclusive_cache_key(lock_path: pathlib.Path):
+    """Serialize one cache-key publication across threads and POSIX processes."""
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    with _DOC_WRITE_LOCK:
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | nofollow, 0o600)
+        try:
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+
+
+def _mem_doc_get(key: str) -> Optional[Doc]:
+    with _MEM_DOCS_LOCK:
+        return _MEM_DOCS.get(key)
+
+
+def _mem_doc_put(key: str, doc: Doc) -> None:
+    with _MEM_DOCS_LOCK:
+        if len(_MEM_DOCS) < _MEM_CAP:
+            _MEM_DOCS[key] = doc
+
+
+def _installed_package_identity(name: str, nlp) -> tuple[str, str]:
+    """Return installed version and a digest of the package RECORD/metadata.
+
+    Wheel ``RECORD`` binds the installed model files by their recorded hashes.
+    Editable/fake packages may not expose it; in that case the exact spaCy
+    metadata is hashed and explicitly remains part of the runtime identity.
+    """
+
+    try:
+        distribution = importlib.metadata.distribution(name)
+        version = distribution.version
+        record = distribution.read_text("RECORD")
+    except importlib.metadata.PackageNotFoundError:
+        distribution = None
+        version = str(nlp.meta.get("version", "unknown"))
+        record = None
+    material = (
+        record
+        if record is not None
+        else dumps_strict(nlp.meta, sort_keys=True, separators=(",", ":"))
+    )
+    return version, hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _build_nlp_identity(
+    *,
+    requested: str,
+    resolved: str,
+    nlp,
+    max_length: int,
+) -> ResolvedNLPIdentity:
+    version, record_sha = _installed_package_identity(resolved, nlp)
+    payload = {
+        "requested_model": requested,
+        "resolved_model": resolved,
+        "fallback_used": resolved != requested,
+        "package_version": version,
+        "package_record_sha256": record_sha,
+        "spacy_version": spacy.__version__,
+        "disabled_pipes": sorted(_DISABLE),
+        "active_pipes": list(nlp.pipe_names),
+        "max_length": max_length,
+    }
+    digest = hashlib.sha256(
+        dumps_strict(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return ResolvedNLPIdentity(
+        requested_model=requested,
+        resolved_model=resolved,
+        fallback_used=resolved != requested,
+        package_version=version,
+        package_record_sha256=record_sha,
+        spacy_version=spacy.__version__,
+        disabled_pipes=tuple(sorted(_DISABLE)),
+        active_pipes=tuple(nlp.pipe_names),
+        max_length=max_length,
+        identity_sha256=digest,
+    )
+
+
+def resolved_nlp_identity(nlp) -> ResolvedNLPIdentity:
+    try:
+        return _NLP_IDENTITIES[id(nlp)]
+    except KeyError as exc:
+        raise RuntimeError("spaCy pipeline was not loaded through stylo.load_nlp") from exc
 
 
 def load_nlp(model: str, fallback: Optional[str] = None, max_length: int = 5_000_000):
@@ -44,22 +183,41 @@ def load_nlp(model: str, fallback: Optional[str] = None, max_length: int = 5_000
     Оставляет tagger/morphologizer/parser/lemmatizer (нужны для POS/dep/morph/sents),
     отключает NER. Падает на fallback-модель, если основная не установлена.
     """
-    if model in _NLP_CACHE:
-        return _NLP_CACHE[model]
+    if type(model) is not str or not model:
+        raise ValueError("spaCy model must be a nonempty string")
+    if fallback is not None and (type(fallback) is not str or not fallback):
+        raise ValueError("spaCy fallback must be None or a nonempty string")
+    if type(max_length) is not int or max_length <= 0:
+        raise ValueError("spaCy max_length must be a positive exact integer")
+    cache_key = ("full", model, fallback, max_length, tuple(_DISABLE))
+    if cache_key in _NLP_CACHE:
+        return _NLP_CACHE[cache_key]
+    resolved = model
     try:
         nlp = spacy.load(model, disable=_DISABLE)
     except OSError:
         if fallback:
             log.warning("Модель %s не найдена, использую fallback %s", model, fallback)
             nlp = spacy.load(fallback, disable=_DISABLE)
+            resolved = fallback
         else:
             raise
     if "senter" not in nlp.pipe_names and "parser" not in nlp.pipe_names \
             and "sentencizer" not in nlp.pipe_names:
         nlp.add_pipe("sentencizer")
     nlp.max_length = max_length
-    _NLP_CACHE[model] = nlp
-    log.info("spaCy %s загружена (pipes: %s)", nlp.meta.get("name"), nlp.pipe_names)
+    identity = _build_nlp_identity(
+        requested=model, resolved=resolved, nlp=nlp, max_length=max_length
+    )
+    _NLP_CACHE[cache_key] = nlp
+    _NLP_IDENTITIES[id(nlp)] = identity
+    log.info(
+        "spaCy %s загружена как %s (identity=%s, pipes: %s)",
+        model,
+        resolved,
+        identity.identity_sha256[:12],
+        nlp.pipe_names,
+    )
     return nlp
 
 
@@ -68,7 +226,7 @@ def load_sentencizer(lang: str = "ru"):
 
     Использует blank-модель + rule-based sentencizer — быстро и без тяжёлой lg.
     """
-    key = f"__sent__{lang}"
+    key = ("sentencizer", lang, spacy.__version__, 5_000_000)
     if key in _NLP_CACHE:
         return _NLP_CACHE[key]
     nlp = spacy.blank(lang)
@@ -80,11 +238,11 @@ def load_sentencizer(lang: str = "ru"):
 
 def load_ner(model: str, fallback: Optional[str] = None):
     """Модель только с NER (для маскировки имён на этапе очистки)."""
-    key = f"__ner__{model}"
-    if key in _NLP_CACHE:
-        return _NLP_CACHE[key]
     disable = ["parser", "tagger", "attribute_ruler", "lemmatizer",
                "morphologizer", "sentencizer", "textcat"]
+    key = ("ner", model, fallback, 5_000_000, tuple(disable))
+    if key in _NLP_CACHE:
+        return _NLP_CACHE[key]
     try:
         nlp = spacy.load(model, disable=disable)
     except OSError:
@@ -97,9 +255,9 @@ def load_ner(model: str, fallback: Optional[str] = None):
     return nlp
 
 
-def _text_key(text: str, model: str, version: str) -> str:
+def _text_key(text: str, identity_sha256: str, version: str) -> str:
     h = hashlib.sha1()
-    h.update(model.encode("utf-8"))
+    h.update(identity_sha256.encode("utf-8"))
     h.update(b"\x00")
     h.update(version.encode("utf-8"))
     h.update(b"\x00")
@@ -111,8 +269,9 @@ class DocCache:
     """Дисковый кеш разобранных spaCy Doc.
 
     get_docs(texts) возвращает Doc в порядке texts; промахи разбираются батчем и
-    дописываются в кеш. Запись атомарная (через tmp+rename) — безопасно при
-    последовательном прогреве перед параллельным LOBO (в фолдах только чтение).
+    дописываются в кеш. Каждая запись публикуется под per-key lock через
+    уникальный same-directory temp + fsync + atomic replace; конкурентный warm
+    и авария до replace не повреждают уже опубликованный DocBin.
     """
 
     def __init__(self, cache_dir: pathlib.Path | str, model: str, version: str,
@@ -124,12 +283,42 @@ class DocCache:
         self.lang = lang
         self._nlp = None        # полная модель — только для разбора промахов
         self._recon_vocab = None  # лёгкий vocab для реконструкции из DocBin
+        self._identity: ResolvedNLPIdentity | None = None
+
+    def __getstate__(self):
+        """Do not serialize process-local spaCy/vocab objects.
+
+        A restored estimator resolves the runtime pipeline again and compares
+        it with the persisted scientific identity before touching cache rows.
+        """
+
+        state = dict(self.__dict__)
+        state["_nlp"] = None
+        state["_recon_vocab"] = None
+        return state
 
     @property
     def nlp(self):
         if self._nlp is None:
-            self._nlp = load_nlp(self.model, self.fallback)
+            loaded = load_nlp(self.model, self.fallback)
+            observed = resolved_nlp_identity(loaded)
+            recorded = getattr(self, "_identity", None)
+            if recorded is not None and recorded != observed:
+                raise RuntimeError(
+                    "resolved spaCy identity changed across estimator serialization"
+                )
+            self._identity = observed
+            self._nlp = loaded
         return self._nlp
+
+    @property
+    def identity(self) -> ResolvedNLPIdentity:
+        _nlp = self.nlp
+        identity = getattr(self, "_identity", None)
+        if identity is None:
+            identity = resolved_nlp_identity(_nlp)
+            self._identity = identity
+        return identity
 
     @property
     def recon_vocab(self):
@@ -144,16 +333,26 @@ class DocCache:
         return self._recon_vocab
 
     def _path_for(self, key: str) -> pathlib.Path:
-        return self.cache_dir / self.model / key[:2] / f"{key}.spacy"
+        return (
+            self.cache_dir
+            / self.identity.identity_sha256
+            / key[:2]
+            / f"{key}.spacy"
+        )
 
-    def _load_one(self, key: str) -> Optional[Doc]:
+    def _load_one(self, key: str, expected_text: str) -> Optional[Doc]:
         p = self._path_for(key)
         if not p.exists():
+            return None
+        if p.is_symlink() or not p.is_file():
+            log.warning("Небезопасный кеш %s — переразбор", p)
             return None
         try:
             db = DocBin().from_disk(p)
             docs = list(db.get_docs(self.recon_vocab))
-            return docs[0] if docs else None
+            if len(docs) != 1 or docs[0].text != expected_text:
+                raise ValueError("DocBin payload text/count does not match its cache key")
+            return docs[0]
         except Exception as exc:  # pragma: no cover - повреждённый кеш
             log.warning("Битый кеш %s (%s) — переразбор", p, exc)
             return None
@@ -161,20 +360,44 @@ class DocCache:
     def _store_one(self, key: str, doc: Doc) -> None:
         p = self._path_for(key)
         p.parent.mkdir(parents=True, exist_ok=True)
-        db = DocBin(attrs=_DOCBIN_ATTRS, store_user_data=False)
-        db.add(doc)
-        tmp = p.with_suffix(".spacy.tmp")
-        db.to_disk(tmp)
-        os.replace(tmp, p)
+        lock_path = p.parent / f".{key}.lock"
+        with _exclusive_cache_key(lock_path):
+            # Another writer may have completed while this process parsed.
+            if self._load_one(key, doc.text) is not None:
+                return
+            db = DocBin(attrs=_DOCBIN_ATTRS, store_user_data=False)
+            db.add(doc)
+            fd, tmp_name = tempfile.mkstemp(
+                dir=p.parent,
+                prefix=f".{key}.",
+                suffix=".spacy.tmp",
+            )
+            os.close(fd)
+            tmp = pathlib.Path(tmp_name)
+            try:
+                db.to_disk(tmp)
+                with tmp.open("rb") as handle:
+                    os.fsync(handle.fileno())
+                os.replace(tmp, p)
+                _fsync_directory(p.parent)
+            except BaseException:
+                try:
+                    tmp.unlink()
+                except FileNotFoundError:
+                    pass
+                raise
 
     def get_docs(self, texts: Sequence[str], batch_size: int = 32) -> List[Doc]:
         """Вернуть Doc для каждого текста (из кеша или разобрав промахи)."""
-        keys = [_text_key(t, self.model, self.version) for t in texts]
+        keys = [
+            _text_key(t, self.identity.identity_sha256, self.version)
+            for t in texts
+        ]
         result: List[Optional[Doc]] = [None] * len(texts)
 
         disk_idx: List[int] = []
         for i, key in enumerate(keys):
-            doc = _MEM_DOCS.get(key)          # 1) память
+            doc = _mem_doc_get(key)          # 1) память
             if doc is not None:
                 result[i] = doc
             else:
@@ -182,22 +405,22 @@ class DocCache:
 
         miss_idx: List[int] = []
         for i in disk_idx:
-            doc = self._load_one(keys[i])     # 2) диск (DocBin)
+            doc = self._load_one(keys[i], texts[i])     # 2) диск (DocBin)
             if doc is None:
                 miss_idx.append(i)
             else:
                 result[i] = doc
-                if len(_MEM_DOCS) < _MEM_CAP:
-                    _MEM_DOCS[keys[i]] = doc
+                _mem_doc_put(keys[i], doc)
 
         if miss_idx:                          # 3) разбор spaCy
             miss_texts = [texts[i] for i in miss_idx]
             log.info("DocCache: %d/%d промахов — разбираю spaCy", len(miss_idx), len(texts))
             for j, doc in zip(miss_idx, self.nlp.pipe(miss_texts, batch_size=batch_size)):
+                if doc.text != texts[j]:
+                    raise RuntimeError("spaCy pipeline changed input text during parsing")
                 self._store_one(keys[j], doc)
                 result[j] = doc
-                if len(_MEM_DOCS) < _MEM_CAP:
-                    _MEM_DOCS[keys[j]] = doc
+                _mem_doc_put(keys[j], doc)
 
         return [d for d in result]  # type: ignore[return-value]
 
@@ -208,8 +431,19 @@ class DocCache:
         одно-процессный lg-разбор всего корпуса занимает ~час, на 4-8 ядрах — кратно
         быстрее). Память: каждый воркер держит копию lg-модели (~0.6 ГБ).
         """
-        keys = [_text_key(t, self.model, self.version) for t in texts]
-        miss = [(k, t) for k, t in zip(keys, texts) if not self._path_for(k).exists()]
+        keys = [
+            _text_key(t, self.identity.identity_sha256, self.version)
+            for t in texts
+        ]
+        miss = []
+        for key, text in zip(keys, texts, strict=True):
+            doc = _mem_doc_get(key)
+            if doc is None:
+                doc = self._load_one(key, text)
+            if doc is None:
+                miss.append((key, text))
+            else:
+                _mem_doc_put(key, doc)
         if not miss:
             log.info("DocCache.warm: всё уже в кеше (%d текстов)", len(texts))
             return 0

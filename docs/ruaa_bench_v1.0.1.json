@@ -1,0 +1,102 @@
+{
+  "benchmark": "RuAA-Bench v1.0.1",
+  "claim_status": "exploratory_internal",
+  "benchmark_role": "reproducible_cv_legacy_not_blind",
+  "training_weighting": "chunk_weighted_training_legacy",
+  "note": "Датированный воспроизводимый CV-срез на публичном корпусе; это не blind-лидерборд и не научный default. Идентификаторы раскрывают истину. Слепой пакет и work-balanced пересчёт — в v2. null в ece/vs_stylo_mcnemar_p означает неприменимость метрики (модель без вероятностей / сравнение модели с собой).",
+  "n_authors": 22,
+  "n_books": 137,
+  "protocol": "leak-free LOBO book-level (см. data/ruaa_bench_v1/protocol.md)",
+  "prereg": "docs/prereg_2026Q3.md",
+  "leaderboard": [
+    {
+      "model": "stylo",
+      "accuracy": 0.927007299270073,
+      "acc_ci": "[0.876,0.964]",
+      "macro_f1": 0.9205453930837563,
+      "top2": 0.948905109489051,
+      "ece": 0.2232332890332835,
+      "vs_stylo_dacc": 0.0,
+      "vs_stylo_mcnemar_p": null,
+      "vs_stylo_dacc_authorclustered_ci": "",
+      "vs_stylo_dacc_authorclustered_sig": ""
+    },
+    {
+      "model": "stylo_stack",
+      "accuracy": 0.8029197080291971,
+      "acc_ci": "[0.730,0.869]",
+      "macro_f1": 0.7102471327809071,
+      "top2": 0.8540145985401459,
+      "ece": 0.09827645981731478,
+      "vs_stylo_dacc": -0.12408759124087587,
+      "vs_stylo_mcnemar_p": 0.0015137195587158203,
+      "vs_stylo_dacc_authorclustered_ci": "[-0.238,-0.035]",
+      "vs_stylo_dacc_authorclustered_sig": true
+    },
+    {
+      "model": "delta:300",
+      "accuracy": 0.27007299270072993,
+      "acc_ci": "[0.197,0.343]",
+      "macro_f1": 0.2445014448602965,
+      "top2": 0.43795620437956206,
+      "ece": null,
+      "vs_stylo_dacc": -0.656934306569343,
+      "vs_stylo_mcnemar_p": 3.75624008630037e-26,
+      "vs_stylo_dacc_authorclustered_ci": "[-0.792,-0.484]",
+      "vs_stylo_dacc_authorclustered_sig": true
+    },
+    {
+      "model": "delta_cos:500",
+      "accuracy": 0.8029197080291971,
+      "acc_ci": "[0.730,0.869]",
+      "macro_f1": 0.7895610850824754,
+      "top2": 0.8759124087591241,
+      "ece": null,
+      "vs_stylo_dacc": -0.12408759124087587,
+      "vs_stylo_mcnemar_p": 0.00048828125,
+      "vs_stylo_dacc_authorclustered_ci": "[-0.200,-0.053]",
+      "vs_stylo_dacc_authorclustered_sig": true
+    },
+    {
+      "model": "char_cos",
+      "accuracy": 0.7226277372262774,
+      "acc_ci": "[0.650,0.796]",
+      "macro_f1": 0.6926058715497218,
+      "top2": 0.781021897810219,
+      "ece": null,
+      "vs_stylo_dacc": -0.2043795620437956,
+      "vs_stylo_mcnemar_p": 7.450580596923828e-09,
+      "vs_stylo_dacc_authorclustered_ci": "[-0.301,-0.121]",
+      "vs_stylo_dacc_authorclustered_sig": true
+    },
+    {
+      "model": "bow_lr",
+      "accuracy": 0.7883211678832117,
+      "acc_ci": "[0.722,0.854]",
+      "macro_f1": 0.7357711806909669,
+      "top2": 0.8905109489051095,
+      "ece": null,
+      "vs_stylo_dacc": -0.13868613138686126,
+      "vs_stylo_mcnemar_p": 2.09808349609375e-05,
+      "vs_stylo_dacc_authorclustered_ci": "[-0.252,-0.044]",
+      "vs_stylo_dacc_authorclustered_sig": true
+    },
+    {
+      "model": "majority",
+      "accuracy": 0.058394160583941604,
+      "acc_ci": "[0.022,0.102]",
+      "macro_f1": 0.005015673981191223,
+      "top2": 0.058394160583941604,
+      "ece": null,
+      "vs_stylo_dacc": -0.8686131386861313,
+      "vs_stylo_mcnemar_p": 3.009265538105056e-36,
+      "vs_stylo_dacc_authorclustered_ci": "[-0.954,-0.737]",
+      "vs_stylo_dacc_authorclustered_sig": true
+    }
+  ],
+  "supersedes": {
+    "file": "ruaa_bench_v1.json",
+    "sha256": "c7228c5019e211afe6c3ee323bcf82ec3dd7a71c472e84ef0cd3bf51fb83ffc6",
+    "reason": "author-clustered CI sign erratum"
+  }
+}

@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import importlib.resources
 import logging
 import pathlib
 import re
@@ -247,17 +248,23 @@ def _slug(title: str) -> str:
     return s[:60] or "work"
 
 
+def load_classics_manifest(manifest: str | pathlib.Path | None = None) -> list[dict]:
+    """Load the packaged default manifest or an explicit filesystem override."""
+    if manifest is None:
+        source = importlib.resources.files("stylo.resources").joinpath("classics.yaml")
+        with source.open("r", encoding="utf-8") as fh:
+            return yaml.safe_load(fh) or []
+    path = pathlib.Path(manifest)
+    if not path.is_file():
+        raise FileNotFoundError(f"classics manifest not found: {path}")
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or []
+
+
 def run(cfg=None, manifest: str | None = None, min_words: int = 1500,
         delay: float = 1.0) -> dict:
     from ..config import load_config
     cfg = cfg or load_config()
-    root = pathlib.Path(__file__).resolve().parents[3]
-    man_path = pathlib.Path(manifest) if manifest else root / "configs" / "classics.yaml"
-    if not man_path.exists():
-        log.error("Нет манифеста %s", man_path)
-        return {"downloaded": 0}
-
-    entries = yaml.safe_load(man_path.read_text(encoding="utf-8")) or []
+    entries = load_classics_manifest(manifest)
     input_root = pathlib.Path(cfg.get_path("paths.input_raw", "input"))
     stats = {"downloaded": 0, "skipped": 0, "refused": 0, "failed": 0}
 

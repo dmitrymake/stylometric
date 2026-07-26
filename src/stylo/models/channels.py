@@ -7,54 +7,92 @@
 """
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+import numpy as np
+from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import HashingVectorizer, TfidfTransformer
 from sklearn.preprocessing import MaxAbsScaler
 
+from ..features.work_vectorizer import validate_work_ids
 from ..vectorizer import StyloVectorizer
 
-ChannelFn = Callable[[List[str], List[str]], Tuple[object, object]]
+# (train_texts, test_texts, train_groups=None) -> (Xtr, Xte). ``train_groups=None`` is the legacy
+# chunk-level fit (byte-identical); a work-id per train chunk routes work-balanced feature fitting.
+ChannelFn = Callable[[List[str], List[str], Optional[Sequence]], Tuple[object, object]]
 
 _ALL_BLOCKS = ["char_ngrams", "function_words", "syntax", "pos_ngrams",
                "punctuation_ngrams", "dependency", "morphology", "length_dist",
                "embeddings"]
 
 
-def ch_char(tr: List[str], te: List[str]):
-    hv = HashingVectorizer(analyzer="char_wb", ngram_range=(2, 5), n_features=2**18,
-                           alternate_sign=False, norm=None)
-    tf = TfidfTransformer(sublinear_tf=True)
-    return tf.fit_transform(hv.transform(tr)), tf.transform(hv.transform(te))
+def _work_sum_matrix(groups: Sequence) -> csr_matrix:
+    """0/1 aggregation matrix G (n_works x n_chunks), one row per train work (first-seen order)."""
+    index: Dict = {}
+    rows = []
+    for g in groups:
+        if g not in index:
+            index[g] = len(index)
+        rows.append(index[g])
+    cols = np.arange(len(rows))
+    data = np.ones(len(rows))
+    return csr_matrix((data, (np.asarray(rows), cols)), shape=(len(index), len(rows)))
 
 
-def ch_word(tr: List[str], te: List[str]):
-    hv = HashingVectorizer(analyzer="word", ngram_range=(1, 2), n_features=2**19,
-                           alternate_sign=False, norm=None)
-    tf = TfidfTransformer(sublinear_tf=True)
-    return tf.fit_transform(hv.transform(tr)), tf.transform(hv.transform(te))
+def _hashing_channel(hv: HashingVectorizer):
+    def f(tr, te, tr_groups=None):
+        tr = list(tr)
+        Xtr = hv.transform(tr)                             # stateless chunk counts
+        tf = TfidfTransformer(sublinear_tf=True)
+        if tr_groups is None:
+            Xtr_out = tf.fit_transform(Xtr)                # legacy: chunk-level document frequency
+        else:
+            tr_groups = validate_work_ids(tr_groups, len(tr))   # fail closed: no bare str/dict/int
+            tf.fit(_work_sum_matrix(tr_groups) @ Xtr)      # work-balanced: IDF from work-level DF
+            Xtr_out = tf.transform(Xtr)                    # per-chunk rows, frozen work-IDF
+        return Xtr_out, tf.transform(hv.transform(list(te)))
+    return f
 
 
-def block_channel(cfg, blocks: List[str]) -> ChannelFn:
-    def f(tr, te):
+def ch_char(tr: List[str], te: List[str], tr_groups=None):
+    return _hashing_channel(HashingVectorizer(
+        analyzer="char_wb", ngram_range=(2, 5), n_features=2**18,
+        alternate_sign=False, norm=None))(tr, te, tr_groups)
+
+
+def ch_word(tr: List[str], te: List[str], tr_groups=None):
+    return _hashing_channel(HashingVectorizer(
+        analyzer="word", ngram_range=(1, 2), n_features=2**19,
+        alternate_sign=False, norm=None))(tr, te, tr_groups)
+
+
+def block_channel(cfg, blocks: List[str], relative_fw: bool | None = None) -> ChannelFn:
+    def f(tr, te, tr_groups=None):
         ov = {k: False for k in _ALL_BLOCKS}
         for b in blocks:
             ov[b] = True
-        vec = StyloVectorizer.from_config(cfg, enabled_override=ov)
-        Xtr = vec.fit_transform(list(tr))
+        vec = StyloVectorizer.from_config(cfg, enabled_override=ov, relative_fw=relative_fw)
+        # groups=None -> legacy pooled-chunk fit; groups -> work-level feature fitting
+        Xtr = vec.fit_transform(list(tr)) if tr_groups is None \
+            else vec.fit_transform(list(tr), groups=tr_groups)
         Xte = vec.transform(list(te))
         mas = MaxAbsScaler().fit(Xtr)
         return mas.transform(Xtr), mas.transform(Xte)
     return f
 
 
-def make_channels(cfg) -> Dict[str, ChannelFn]:
-    """Канальный набор бенчмарка (без DSP): идентичен scripts/run_benchmark.py."""
+def make_channels(cfg, relative_fw: bool | None = None) -> Dict[str, ChannelFn]:
+    """Канальный набор бенчмарка (без DSP): идентичен scripts/run_benchmark.py.
+
+    ``relative_fw`` is the FunctionWord R-axis policy; it is threaded ONLY into the
+    ``function_words`` channel (the sole FW consumer). ``None`` keeps the legacy corner coupling
+    (byte-exact A0/A4); an explicit bool selects A2 (raw) / A3 (relative) independently of the F axis.
+    Every other channel is R-agnostic and unchanged."""
     return {
         "char (2-5)": ch_char,
         "word (1-2)": ch_word,
         "syntax (dep+pos+syn)": block_channel(cfg, ["dependency", "pos_ngrams", "syntax"]),
         "dependency": block_channel(cfg, ["dependency"]),
-        "function_words": block_channel(cfg, ["function_words"]),
+        "function_words": block_channel(cfg, ["function_words"], relative_fw=relative_fw),
         "morphology": block_channel(cfg, ["morphology"]),
     }

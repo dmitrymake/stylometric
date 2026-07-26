@@ -1,0 +1,1571 @@
+{
+  "panel": "screening_panel_v1",
+  "algorithm": "rotating_round_robin_per_author",
+  "k_folds": 5,
+  "seed": 42,
+  "n_authors": 43,
+  "n_works": 251,
+  "authors": [
+    "akunun",
+    "andreev",
+    "babel",
+    "bulgakov",
+    "bunin",
+    "chehov",
+    "dostoevsky",
+    "elizarov",
+    "furmanov",
+    "garshin",
+    "gazdanov",
+    "gogol",
+    "gorky",
+    "grin",
+    "gumilev",
+    "kataev",
+    "korolenko",
+    "krukov",
+    "kumov",
+    "kuprin",
+    "leskov",
+    "mamleev",
+    "nabokov",
+    "novikov_priboy",
+    "olesha",
+    "pilnyak",
+    "platonov",
+    "prokhanov",
+    "prutkov",
+    "pushkin",
+    "radov",
+    "saltykov",
+    "sasha_sokolov",
+    "serafimovich",
+    "sevsky",
+    "sorokin",
+    "tolstoy",
+    "tolstoy_an",
+    "turgenev",
+    "uspensky",
+    "victor_erofeev",
+    "volcheck",
+    "zoshenko"
+  ],
+  "parent_dataset_digest": "b4886a7cd723c04515b43f042467bc372af0aeaf28c47f517f0b2aa9d46b8c92",
+  "config_hash": "f9eb9edc66ef7db7e7b31b6128420949b5763a23bb8083eba603f79872d616a8",
+  "fold_sizes": [
+    49,
+    48,
+    52,
+    51,
+    51
+  ],
+  "works": [
+    {
+      "work_id": "akunun/azazel",
+      "author": "akunun",
+      "label": 0,
+      "fold": 0
+    },
+    {
+      "work_id": "akunun/devyatniy_spas",
+      "author": "akunun",
+      "label": 0,
+      "fold": 1
+    },
+    {
+      "work_id": "akunun/leviafan",
+      "author": "akunun",
+      "label": 0,
+      "fold": 2
+    },
+    {
+      "work_id": "akunun/statskiy_sovetnik",
+      "author": "akunun",
+      "label": 0,
+      "fold": 3
+    },
+    {
+      "work_id": "akunun/tam",
+      "author": "akunun",
+      "label": 0,
+      "fold": 4
+    },
+    {
+      "work_id": "andreev/бездна",
+      "author": "andreev",
+      "label": 1,
+      "fold": 1
+    },
+    {
+      "work_id": "andreev/жизнь_василия_фивейского",
+      "author": "andreev",
+      "label": 1,
+      "fold": 2
+    },
+    {
+      "work_id": "andreev/иуда_искариот",
+      "author": "andreev",
+      "label": 1,
+      "fold": 3
+    },
+    {
+      "work_id": "andreev/красный_смех",
+      "author": "andreev",
+      "label": 1,
+      "fold": 4
+    },
+    {
+      "work_id": "andreev/рассказ_о_семи_повешенных",
+      "author": "andreev",
+      "label": 1,
+      "fold": 0
+    },
+    {
+      "work_id": "babel/conarmiya",
+      "author": "babel",
+      "label": 2,
+      "fold": 2
+    },
+    {
+      "work_id": "babel/odesskie_rasskazi",
+      "author": "babel",
+      "label": 2,
+      "fold": 3
+    },
+    {
+      "work_id": "bulgakov/belaya_gvardiya",
+      "author": "bulgakov",
+      "label": 3,
+      "fold": 3
+    },
+    {
+      "work_id": "bulgakov/diavoliada",
+      "author": "bulgakov",
+      "label": 3,
+      "fold": 4
+    },
+    {
+      "work_id": "bulgakov/master_i_margarita",
+      "author": "bulgakov",
+      "label": 3,
+      "fold": 0
+    },
+    {
+      "work_id": "bulgakov/rokovie_yaytca",
+      "author": "bulgakov",
+      "label": 3,
+      "fold": 1
+    },
+    {
+      "work_id": "bulgakov/sobache_serdce",
+      "author": "bulgakov",
+      "label": 3,
+      "fold": 2
+    },
+    {
+      "work_id": "bunin/gospodin_iz_san_francisco",
+      "author": "bunin",
+      "label": 4,
+      "fold": 4
+    },
+    {
+      "work_id": "bunin/mitina_lubov",
+      "author": "bunin",
+      "label": 4,
+      "fold": 0
+    },
+    {
+      "work_id": "bunin/na_dache",
+      "author": "bunin",
+      "label": 4,
+      "fold": 1
+    },
+    {
+      "work_id": "bunin/noviy_god",
+      "author": "bunin",
+      "label": 4,
+      "fold": 2
+    },
+    {
+      "work_id": "bunin/okayannie_dni",
+      "author": "bunin",
+      "label": 4,
+      "fold": 3
+    },
+    {
+      "work_id": "bunin/pustinya_diavola",
+      "author": "bunin",
+      "label": 4,
+      "fold": 4
+    },
+    {
+      "work_id": "bunin/ten_ptici",
+      "author": "bunin",
+      "label": 4,
+      "fold": 0
+    },
+    {
+      "work_id": "bunin/zhizn_arseneva",
+      "author": "bunin",
+      "label": 4,
+      "fold": 1
+    },
+    {
+      "work_id": "bunin/деревня",
+      "author": "bunin",
+      "label": 4,
+      "fold": 2
+    },
+    {
+      "work_id": "bunin/суходол",
+      "author": "bunin",
+      "label": 4,
+      "fold": 3
+    },
+    {
+      "work_id": "chehov/анна_на_шее",
+      "author": "chehov",
+      "label": 5,
+      "fold": 0
+    },
+    {
+      "work_id": "chehov/дама_с_собачкой",
+      "author": "chehov",
+      "label": 5,
+      "fold": 1
+    },
+    {
+      "work_id": "chehov/дом_с_мезонином",
+      "author": "chehov",
+      "label": 5,
+      "fold": 2
+    },
+    {
+      "work_id": "chehov/душечка",
+      "author": "chehov",
+      "label": 5,
+      "fold": 3
+    },
+    {
+      "work_id": "chehov/дуэль",
+      "author": "chehov",
+      "label": 5,
+      "fold": 4
+    },
+    {
+      "work_id": "chehov/ионыч",
+      "author": "chehov",
+      "label": 5,
+      "fold": 0
+    },
+    {
+      "work_id": "chehov/крыжовник",
+      "author": "chehov",
+      "label": 5,
+      "fold": 1
+    },
+    {
+      "work_id": "chehov/палата_6",
+      "author": "chehov",
+      "label": 5,
+      "fold": 2
+    },
+    {
+      "work_id": "chehov/скрипка_ротшильда",
+      "author": "chehov",
+      "label": 5,
+      "fold": 3
+    },
+    {
+      "work_id": "chehov/скучная_история",
+      "author": "chehov",
+      "label": 5,
+      "fold": 4
+    },
+    {
+      "work_id": "chehov/степь",
+      "author": "chehov",
+      "label": 5,
+      "fold": 0
+    },
+    {
+      "work_id": "chehov/человек_в_футляре",
+      "author": "chehov",
+      "label": 5,
+      "fold": 1
+    },
+    {
+      "work_id": "chehov/чёрный_монах",
+      "author": "chehov",
+      "label": 5,
+      "fold": 2
+    },
+    {
+      "work_id": "dostoevsky/бедные_люди",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 1
+    },
+    {
+      "work_id": "dostoevsky/белые_ночи",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 2
+    },
+    {
+      "work_id": "dostoevsky/бесы",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 3
+    },
+    {
+      "work_id": "dostoevsky/братья_карамазовы",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 4
+    },
+    {
+      "work_id": "dostoevsky/записки_из_подполья",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 0
+    },
+    {
+      "work_id": "dostoevsky/игрок",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 1
+    },
+    {
+      "work_id": "dostoevsky/идиот",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 2
+    },
+    {
+      "work_id": "dostoevsky/преступление_и_наказание",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 3
+    },
+    {
+      "work_id": "dostoevsky/сон_смешного_человека",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 4
+    },
+    {
+      "work_id": "dostoevsky/униженные_и_оскорблённые",
+      "author": "dostoevsky",
+      "label": 6,
+      "fold": 0
+    },
+    {
+      "work_id": "elizarov/bibliotekar",
+      "author": "elizarov",
+      "label": 7,
+      "fold": 2
+    },
+    {
+      "work_id": "elizarov/burattini",
+      "author": "elizarov",
+      "label": 7,
+      "fold": 3
+    },
+    {
+      "work_id": "elizarov/multiki",
+      "author": "elizarov",
+      "label": 7,
+      "fold": 4
+    },
+    {
+      "work_id": "elizarov/zemlya",
+      "author": "elizarov",
+      "label": 7,
+      "fold": 0
+    },
+    {
+      "work_id": "furmanov/в_восемнадцатом_году",
+      "author": "furmanov",
+      "label": 8,
+      "fold": 3
+    },
+    {
+      "work_id": "furmanov/красный_десант",
+      "author": "furmanov",
+      "label": 8,
+      "fold": 4
+    },
+    {
+      "work_id": "furmanov/мятеж",
+      "author": "furmanov",
+      "label": 8,
+      "fold": 0
+    },
+    {
+      "work_id": "furmanov/чапаев",
+      "author": "furmanov",
+      "label": 8,
+      "fold": 1
+    },
+    {
+      "work_id": "garshin/attalea_princeps",
+      "author": "garshin",
+      "label": 9,
+      "fold": 4
+    },
+    {
+      "work_id": "garshin/денщик_и_офицер",
+      "author": "garshin",
+      "label": 9,
+      "fold": 0
+    },
+    {
+      "work_id": "garshin/из_воспоминаний_рядового_иванова",
+      "author": "garshin",
+      "label": 9,
+      "fold": 1
+    },
+    {
+      "work_id": "garshin/красный_цветок",
+      "author": "garshin",
+      "label": 9,
+      "fold": 2
+    },
+    {
+      "work_id": "garshin/медведи",
+      "author": "garshin",
+      "label": 9,
+      "fold": 3
+    },
+    {
+      "work_id": "garshin/надежда_николаевна",
+      "author": "garshin",
+      "label": 9,
+      "fold": 4
+    },
+    {
+      "work_id": "garshin/сигнал",
+      "author": "garshin",
+      "label": 9,
+      "fold": 0
+    },
+    {
+      "work_id": "garshin/трус",
+      "author": "garshin",
+      "label": 9,
+      "fold": 1
+    },
+    {
+      "work_id": "garshin/художники",
+      "author": "garshin",
+      "label": 9,
+      "fold": 2
+    },
+    {
+      "work_id": "garshin/четыре_дня",
+      "author": "garshin",
+      "label": 9,
+      "fold": 3
+    },
+    {
+      "work_id": "gazdanov/nochnie_dorogi",
+      "author": "gazdanov",
+      "label": 10,
+      "fold": 0
+    },
+    {
+      "work_id": "gazdanov/prizrak_alexandra_wolfa",
+      "author": "gazdanov",
+      "label": 10,
+      "fold": 1
+    },
+    {
+      "work_id": "gazdanov/vecher_u_kler",
+      "author": "gazdanov",
+      "label": 10,
+      "fold": 2
+    },
+    {
+      "work_id": "gogol/вий",
+      "author": "gogol",
+      "label": 11,
+      "fold": 1
+    },
+    {
+      "work_id": "gogol/записки_сумасшедшего",
+      "author": "gogol",
+      "label": 11,
+      "fold": 2
+    },
+    {
+      "work_id": "gogol/коляска",
+      "author": "gogol",
+      "label": 11,
+      "fold": 3
+    },
+    {
+      "work_id": "gogol/майская_ночь",
+      "author": "gogol",
+      "label": 11,
+      "fold": 4
+    },
+    {
+      "work_id": "gogol/мёртвые_души",
+      "author": "gogol",
+      "label": 11,
+      "fold": 0
+    },
+    {
+      "work_id": "gogol/невский_проспект",
+      "author": "gogol",
+      "label": 11,
+      "fold": 1
+    },
+    {
+      "work_id": "gogol/ночь_перед_рождеством",
+      "author": "gogol",
+      "label": 11,
+      "fold": 2
+    },
+    {
+      "work_id": "gogol/портрет",
+      "author": "gogol",
+      "label": 11,
+      "fold": 3
+    },
+    {
+      "work_id": "gogol/старосветские_помещики",
+      "author": "gogol",
+      "label": 11,
+      "fold": 4
+    },
+    {
+      "work_id": "gogol/тарас_бульба",
+      "author": "gogol",
+      "label": 11,
+      "fold": 0
+    },
+    {
+      "work_id": "gogol/шинель",
+      "author": "gogol",
+      "label": 11,
+      "fold": 1
+    },
+    {
+      "work_id": "gorky/delo_artamonovih",
+      "author": "gorky",
+      "label": 12,
+      "fold": 2
+    },
+    {
+      "work_id": "gorky/detstrvo",
+      "author": "gorky",
+      "label": 12,
+      "fold": 3
+    },
+    {
+      "work_id": "gorky/moi_universiteti",
+      "author": "gorky",
+      "label": 12,
+      "fold": 4
+    },
+    {
+      "work_id": "gorky/tovarischi",
+      "author": "gorky",
+      "label": 12,
+      "fold": 0
+    },
+    {
+      "work_id": "gorky/zhizn_klima_samgina_1",
+      "author": "gorky",
+      "label": 12,
+      "fold": 1
+    },
+    {
+      "work_id": "gorky/zhizn_klima_samgina_2",
+      "author": "gorky",
+      "label": 12,
+      "fold": 2
+    },
+    {
+      "work_id": "grin/алые_паруса",
+      "author": "grin",
+      "label": 13,
+      "fold": 3
+    },
+    {
+      "work_id": "grin/бегущая_по_волнам",
+      "author": "grin",
+      "label": 13,
+      "fold": 4
+    },
+    {
+      "work_id": "grin/блистающий_мир",
+      "author": "grin",
+      "label": 13,
+      "fold": 0
+    },
+    {
+      "work_id": "grin/джесси_и_моргиана",
+      "author": "grin",
+      "label": 13,
+      "fold": 1
+    },
+    {
+      "work_id": "grin/дорога_никуда",
+      "author": "grin",
+      "label": 13,
+      "fold": 2
+    },
+    {
+      "work_id": "grin/золотая_цепь",
+      "author": "grin",
+      "label": 13,
+      "fold": 3
+    },
+    {
+      "work_id": "gumilev/гибели_обречённые",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 4
+    },
+    {
+      "work_id": "gumilev/записки_кавалериста",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 0
+    },
+    {
+      "work_id": "gumilev/золотой_рыцарь",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 1
+    },
+    {
+      "work_id": "gumilev/лесной_дьявол",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 2
+    },
+    {
+      "work_id": "gumilev/последний_придворный_поэт",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 3
+    },
+    {
+      "work_id": "gumilev/принцесса_зара",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 4
+    },
+    {
+      "work_id": "gumilev/путешествие_в_страну_эфира",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 0
+    },
+    {
+      "work_id": "gumilev/радости_земной_любви",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 1
+    },
+    {
+      "work_id": "gumilev/скрипка_страдивариуса",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 2
+    },
+    {
+      "work_id": "gumilev/чёрный_генерал",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 3
+    },
+    {
+      "work_id": "gumilev/чёрный_дик",
+      "author": "gumilev",
+      "label": 14,
+      "fold": 4
+    },
+    {
+      "work_id": "kataev/o_dolgom_yashike",
+      "author": "kataev",
+      "label": 15,
+      "fold": 0
+    },
+    {
+      "work_id": "kataev/poveliteli_zheleza",
+      "author": "kataev",
+      "label": 15,
+      "fold": 1
+    },
+    {
+      "work_id": "kataev/vremya_vpered",
+      "author": "kataev",
+      "label": 15,
+      "fold": 2
+    },
+    {
+      "work_id": "korolenko/без_языка",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 1
+    },
+    {
+      "work_id": "korolenko/дети_подземелья",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 2
+    },
+    {
+      "work_id": "korolenko/мгновение",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 3
+    },
+    {
+      "work_id": "korolenko/река_играет",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 4
+    },
+    {
+      "work_id": "korolenko/слепой_музыкант",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 0
+    },
+    {
+      "work_id": "korolenko/соколинец",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 1
+    },
+    {
+      "work_id": "korolenko/сон_макара",
+      "author": "korolenko",
+      "label": 16,
+      "fold": 2
+    },
+    {
+      "work_id": "krukov/na_tihom_donu",
+      "author": "krukov",
+      "label": 17,
+      "fold": 2
+    },
+    {
+      "work_id": "krukov/oficersha",
+      "author": "krukov",
+      "label": 17,
+      "fold": 3
+    },
+    {
+      "work_id": "krukov/v_glubine",
+      "author": "krukov",
+      "label": 17,
+      "fold": 4
+    },
+    {
+      "work_id": "krukov/v_rodnih_mestah",
+      "author": "krukov",
+      "label": 17,
+      "fold": 0
+    },
+    {
+      "work_id": "kumov/бессмертники",
+      "author": "kumov",
+      "label": 18,
+      "fold": 3
+    },
+    {
+      "work_id": "kumov/в_глуши",
+      "author": "kumov",
+      "label": 18,
+      "fold": 4
+    },
+    {
+      "work_id": "kumov/мужики",
+      "author": "kumov",
+      "label": 18,
+      "fold": 0
+    },
+    {
+      "work_id": "kumov/отец_георгий",
+      "author": "kumov",
+      "label": 18,
+      "fold": 1
+    },
+    {
+      "work_id": "kumov/степной_батюшка",
+      "author": "kumov",
+      "label": 18,
+      "fold": 2
+    },
+    {
+      "work_id": "kumov/стояние",
+      "author": "kumov",
+      "label": 18,
+      "fold": 3
+    },
+    {
+      "work_id": "kumov/учительница",
+      "author": "kumov",
+      "label": 18,
+      "fold": 4
+    },
+    {
+      "work_id": "kuprin/гамбринус",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 4
+    },
+    {
+      "work_id": "kuprin/гранатовый_браслет",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 0
+    },
+    {
+      "work_id": "kuprin/молох",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 1
+    },
+    {
+      "work_id": "kuprin/олеся",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 2
+    },
+    {
+      "work_id": "kuprin/поединок",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 3
+    },
+    {
+      "work_id": "kuprin/суламифь",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 4
+    },
+    {
+      "work_id": "kuprin/яма",
+      "author": "kuprin",
+      "label": 19,
+      "fold": 0
+    },
+    {
+      "work_id": "leskov/левша",
+      "author": "leskov",
+      "label": 20,
+      "fold": 0
+    },
+    {
+      "work_id": "leskov/леди_макбет_мценского_уезда",
+      "author": "leskov",
+      "label": 20,
+      "fold": 1
+    },
+    {
+      "work_id": "leskov/тупейный_художник",
+      "author": "leskov",
+      "label": 20,
+      "fold": 2
+    },
+    {
+      "work_id": "mamleev/krilya_uzhasa",
+      "author": "mamleev",
+      "label": 21,
+      "fold": 1
+    },
+    {
+      "work_id": "mamleev/poslednyaya_komedia",
+      "author": "mamleev",
+      "label": 21,
+      "fold": 2
+    },
+    {
+      "work_id": "mamleev/shatuny",
+      "author": "mamleev",
+      "label": 21,
+      "fold": 3
+    },
+    {
+      "work_id": "nabokov/korol_dama_valet",
+      "author": "nabokov",
+      "label": 22,
+      "fold": 2
+    },
+    {
+      "work_id": "nabokov/mashenka",
+      "author": "nabokov",
+      "label": 22,
+      "fold": 3
+    },
+    {
+      "work_id": "nabokov/otchayanie",
+      "author": "nabokov",
+      "label": 22,
+      "fold": 4
+    },
+    {
+      "work_id": "nabokov/zaschita_luzhina",
+      "author": "nabokov",
+      "label": 22,
+      "fold": 0
+    },
+    {
+      "work_id": "novikov_priboy/женщина_в_море",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 3
+    },
+    {
+      "work_id": "novikov_priboy/лишний",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 4
+    },
+    {
+      "work_id": "novikov_priboy/море_зовёт",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 0
+    },
+    {
+      "work_id": "novikov_priboy/по_тёмному",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 1
+    },
+    {
+      "work_id": "novikov_priboy/подводники",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 2
+    },
+    {
+      "work_id": "novikov_priboy/солёная_купель",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 3
+    },
+    {
+      "work_id": "novikov_priboy/ухабы",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 4
+    },
+    {
+      "work_id": "novikov_priboy/цусима",
+      "author": "novikov_priboy",
+      "label": 23,
+      "fold": 0
+    },
+    {
+      "work_id": "olesha/ni_dnya_bez_strochki",
+      "author": "olesha",
+      "label": 24,
+      "fold": 4
+    },
+    {
+      "work_id": "olesha/zavist",
+      "author": "olesha",
+      "label": 24,
+      "fold": 0
+    },
+    {
+      "work_id": "pilnyak/заволочье",
+      "author": "pilnyak",
+      "label": 25,
+      "fold": 0
+    },
+    {
+      "work_id": "pilnyak/повесть_непогашенной_луны",
+      "author": "pilnyak",
+      "label": 25,
+      "fold": 1
+    },
+    {
+      "work_id": "platonov/chevengur",
+      "author": "platonov",
+      "label": 26,
+      "fold": 1
+    },
+    {
+      "work_id": "platonov/kotlovan",
+      "author": "platonov",
+      "label": 26,
+      "fold": 2
+    },
+    {
+      "work_id": "platonov/reka_potudan",
+      "author": "platonov",
+      "label": 26,
+      "fold": 3
+    },
+    {
+      "work_id": "platonov/uvenilnoe_more",
+      "author": "platonov",
+      "label": 26,
+      "fold": 4
+    },
+    {
+      "work_id": "prokhanov/posledniy_soldat_imperii",
+      "author": "prokhanov",
+      "label": 27,
+      "fold": 2
+    },
+    {
+      "work_id": "prokhanov/russkiy",
+      "author": "prokhanov",
+      "label": 27,
+      "fold": 3
+    },
+    {
+      "work_id": "prokhanov/vrmya_polden",
+      "author": "prokhanov",
+      "label": 27,
+      "fold": 4
+    },
+    {
+      "work_id": "prutkov/выдержки_из_записок_деда",
+      "author": "prutkov",
+      "label": 28,
+      "fold": 3
+    },
+    {
+      "work_id": "prutkov/плоды_раздумья",
+      "author": "prutkov",
+      "label": 28,
+      "fold": 4
+    },
+    {
+      "work_id": "prutkov/проект_о_введении_единомыслия_в_россии",
+      "author": "prutkov",
+      "label": 28,
+      "fold": 0
+    },
+    {
+      "work_id": "prutkov/фантазия",
+      "author": "prutkov",
+      "label": 28,
+      "fold": 1
+    },
+    {
+      "work_id": "pushkin/арап_петра_великого",
+      "author": "pushkin",
+      "label": 29,
+      "fold": 4
+    },
+    {
+      "work_id": "pushkin/дубровский",
+      "author": "pushkin",
+      "label": 29,
+      "fold": 0
+    },
+    {
+      "work_id": "pushkin/египетские_ночи",
+      "author": "pushkin",
+      "label": 29,
+      "fold": 1
+    },
+    {
+      "work_id": "pushkin/история_пугачёва",
+      "author": "pushkin",
+      "label": 29,
+      "fold": 2
+    },
+    {
+      "work_id": "pushkin/пиковая_дама",
+      "author": "pushkin",
+      "label": 29,
+      "fold": 3
+    },
+    {
+      "work_id": "pushkin/путешествие_в_арзрум",
+      "author": "pushkin",
+      "label": 29,
+      "fold": 4
+    },
+    {
+      "work_id": "radov/69",
+      "author": "radov",
+      "label": 30,
+      "fold": 0
+    },
+    {
+      "work_id": "radov/beskraynyaya_plot",
+      "author": "radov",
+      "label": 30,
+      "fold": 1
+    },
+    {
+      "work_id": "radov/rasskazi",
+      "author": "radov",
+      "label": 30,
+      "fold": 2
+    },
+    {
+      "work_id": "radov/yakutiya",
+      "author": "radov",
+      "label": 30,
+      "fold": 3
+    },
+    {
+      "work_id": "saltykov/господа_головлёвы",
+      "author": "saltykov",
+      "label": 31,
+      "fold": 1
+    },
+    {
+      "work_id": "saltykov/дикий_помещик",
+      "author": "saltykov",
+      "label": 31,
+      "fold": 2
+    },
+    {
+      "work_id": "saltykov/история_одного_города",
+      "author": "saltykov",
+      "label": 31,
+      "fold": 3
+    },
+    {
+      "work_id": "saltykov/премудрый_пискарь",
+      "author": "saltykov",
+      "label": 31,
+      "fold": 4
+    },
+    {
+      "work_id": "sasha_sokolov/esse",
+      "author": "sasha_sokolov",
+      "label": 32,
+      "fold": 2
+    },
+    {
+      "work_id": "sasha_sokolov/mezhdu_sobakoi_i_volkom",
+      "author": "sasha_sokolov",
+      "label": 32,
+      "fold": 3
+    },
+    {
+      "work_id": "sasha_sokolov/palisandriya",
+      "author": "sasha_sokolov",
+      "label": 32,
+      "fold": 4
+    },
+    {
+      "work_id": "sasha_sokolov/shkola_dlya_durakov",
+      "author": "sasha_sokolov",
+      "label": 32,
+      "fold": 0
+    },
+    {
+      "work_id": "serafimovich/бомбы",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 3
+    },
+    {
+      "work_id": "serafimovich/железный_поток",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 4
+    },
+    {
+      "work_id": "serafimovich/как_он_умер",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 0
+    },
+    {
+      "work_id": "serafimovich/лихорадка",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 1
+    },
+    {
+      "work_id": "serafimovich/на_льдине",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 2
+    },
+    {
+      "work_id": "serafimovich/пески",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 3
+    },
+    {
+      "work_id": "serafimovich/степные_люди",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 4
+    },
+    {
+      "work_id": "serafimovich/стрелочник",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 0
+    },
+    {
+      "work_id": "serafimovich/у_нас_и_у_них",
+      "author": "serafimovich",
+      "label": 33,
+      "fold": 1
+    },
+    {
+      "work_id": "sevsky/без_карболки",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 4
+    },
+    {
+      "work_id": "sevsky/дворянин_гукасов",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 0
+    },
+    {
+      "work_id": "sevsky/дон_на_костылях",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 1
+    },
+    {
+      "work_id": "sevsky/дядино_отопление",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 2
+    },
+    {
+      "work_id": "sevsky/жорж_корсаров",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 3
+    },
+    {
+      "work_id": "sevsky/игнатов_бугор",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 4
+    },
+    {
+      "work_id": "sevsky/пропавшая_грамота",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 0
+    },
+    {
+      "work_id": "sevsky/сквозные_ворота",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 1
+    },
+    {
+      "work_id": "sevsky/степняки",
+      "author": "sevsky",
+      "label": 34,
+      "fold": 2
+    },
+    {
+      "work_id": "sorokin/den_oprichnika",
+      "author": "sorokin",
+      "label": 35,
+      "fold": 0
+    },
+    {
+      "work_id": "sorokin/goluboe_salo",
+      "author": "sorokin",
+      "label": 35,
+      "fold": 1
+    },
+    {
+      "work_id": "sorokin/led",
+      "author": "sorokin",
+      "label": 35,
+      "fold": 2
+    },
+    {
+      "work_id": "sorokin/norma",
+      "author": "sorokin",
+      "label": 35,
+      "fold": 3
+    },
+    {
+      "work_id": "sorokin/ochered",
+      "author": "sorokin",
+      "label": 35,
+      "fold": 4
+    },
+    {
+      "work_id": "tolstoy/анна_каренина",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 1
+    },
+    {
+      "work_id": "tolstoy/война_и_мир",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 2
+    },
+    {
+      "work_id": "tolstoy/воскресение",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 3
+    },
+    {
+      "work_id": "tolstoy/дьявол",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 4
+    },
+    {
+      "work_id": "tolstoy/крейцерова_соната",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 0
+    },
+    {
+      "work_id": "tolstoy/отец_сергий",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 1
+    },
+    {
+      "work_id": "tolstoy/севастополь_в_декабре_месяце",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 2
+    },
+    {
+      "work_id": "tolstoy/севастополь_в_мае",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 3
+    },
+    {
+      "work_id": "tolstoy/смерть_ивана_ильича",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 4
+    },
+    {
+      "work_id": "tolstoy/хаджи_мурат",
+      "author": "tolstoy",
+      "label": 36,
+      "fold": 0
+    },
+    {
+      "work_id": "tolstoy_an/аэлита",
+      "author": "tolstoy_an",
+      "label": 37,
+      "fold": 2
+    },
+    {
+      "work_id": "tolstoy_an/гиперболоид_инженера_гарина",
+      "author": "tolstoy_an",
+      "label": 37,
+      "fold": 3
+    },
+    {
+      "work_id": "tolstoy_an/граф_калиостро",
+      "author": "tolstoy_an",
+      "label": 37,
+      "fold": 4
+    },
+    {
+      "work_id": "tolstoy_an/хромой_барин",
+      "author": "tolstoy_an",
+      "label": 37,
+      "fold": 0
+    },
+    {
+      "work_id": "tolstoy_an/чудаки",
+      "author": "tolstoy_an",
+      "label": 37,
+      "fold": 1
+    },
+    {
+      "work_id": "tolstoy_an/эмигранты",
+      "author": "tolstoy_an",
+      "label": 37,
+      "fold": 2
+    },
+    {
+      "work_id": "turgenev/ася",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 3
+    },
+    {
+      "work_id": "turgenev/бирюк",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 4
+    },
+    {
+      "work_id": "turgenev/вешние_воды",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 0
+    },
+    {
+      "work_id": "turgenev/дворянское_гнездо",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 1
+    },
+    {
+      "work_id": "turgenev/записки_охотника",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 2
+    },
+    {
+      "work_id": "turgenev/муму",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 3
+    },
+    {
+      "work_id": "turgenev/накануне",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 4
+    },
+    {
+      "work_id": "turgenev/отцы_и_дети",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 0
+    },
+    {
+      "work_id": "turgenev/певцы",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 1
+    },
+    {
+      "work_id": "turgenev/первая_любовь",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 2
+    },
+    {
+      "work_id": "turgenev/рудин",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 3
+    },
+    {
+      "work_id": "turgenev/хорь_и_калиныч",
+      "author": "turgenev",
+      "label": 38,
+      "fold": 4
+    },
+    {
+      "work_id": "uspensky/бог_грехам_терпит",
+      "author": "uspensky",
+      "label": 39,
+      "fold": 4
+    },
+    {
+      "work_id": "uspensky/будка",
+      "author": "uspensky",
+      "label": 39,
+      "fold": 0
+    },
+    {
+      "work_id": "uspensky/власть_земли",
+      "author": "uspensky",
+      "label": 39,
+      "fold": 1
+    },
+    {
+      "work_id": "uspensky/нравы_растеряевой_улицы",
+      "author": "uspensky",
+      "label": 39,
+      "fold": 2
+    },
+    {
+      "work_id": "uspensky/разоренье",
+      "author": "uspensky",
+      "label": 39,
+      "fold": 3
+    },
+    {
+      "work_id": "victor_erofeev/mizhchini_tirani_i_podkobluchniki",
+      "author": "victor_erofeev",
+      "label": 40,
+      "fold": 0
+    },
+    {
+      "work_id": "victor_erofeev/pupok",
+      "author": "victor_erofeev",
+      "label": 40,
+      "fold": 1
+    },
+    {
+      "work_id": "victor_erofeev/roskosh",
+      "author": "victor_erofeev",
+      "label": 40,
+      "fold": 2
+    },
+    {
+      "work_id": "victor_erofeev/schel",
+      "author": "victor_erofeev",
+      "label": 40,
+      "fold": 3
+    },
+    {
+      "work_id": "volcheck/93",
+      "author": "volcheck",
+      "label": 41,
+      "fold": 1
+    },
+    {
+      "work_id": "volcheck/kodeks_gibeli",
+      "author": "volcheck",
+      "label": 41,
+      "fold": 2
+    },
+    {
+      "work_id": "volcheck/kulturniy_dnevnik",
+      "author": "volcheck",
+      "label": 41,
+      "fold": 3
+    },
+    {
+      "work_id": "volcheck/vorobei",
+      "author": "volcheck",
+      "label": 41,
+      "fold": 4
+    },
+    {
+      "work_id": "zoshenko/rasskazi",
+      "author": "zoshenko",
+      "label": 42,
+      "fold": 2
+    },
+    {
+      "work_id": "zoshenko/satira",
+      "author": "zoshenko",
+      "label": 42,
+      "fold": 3
+    },
+    {
+      "work_id": "zoshenko/vozvrashennaya_molodost",
+      "author": "zoshenko",
+      "label": 42,
+      "fold": 4
+    }
+  ],
+  "self_hash": "e881d4905652ff613e89670c204ab4dbb5eb8915fe35aa1249879ee3d13ba0bb"
+}

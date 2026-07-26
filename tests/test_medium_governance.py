@@ -1,0 +1,471 @@
+from __future__ import annotations
+
+import ast
+import hashlib
+import json
+import pathlib
+import subprocess
+import sys
+
+import pytest
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+GOVERNANCE = ROOT / "research" / "governance"
+HEX64 = set("0123456789abcdef")
+
+
+def _strict_json(path: pathlib.Path):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError(f"duplicate key {key!r} in {path}")
+            value[key] = item
+        return value
+
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique)
+
+
+def _sha256(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _symbols(path: pathlib.Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found.add(node.name)
+        elif isinstance(node, ast.Assign):
+            found.update(
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            )
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            found.add(node.target.id)
+    return found
+
+
+def _assert_binding(binding: dict, *, require_hash: bool) -> None:
+    expected = {"path", "symbol", *(["sha256"] if require_hash else [])}
+    assert set(binding) == expected
+    path = ROOT / binding["path"]
+    assert path.is_file()
+    assert binding["symbol"] in _symbols(path)
+    if require_hash:
+        assert len(binding["sha256"]) == 64
+        assert set(binding["sha256"]) <= HEX64
+        assert _sha256(path) == binding["sha256"]
+
+
+def test_normative_status_ledger_is_symbol_and_byte_bound():
+    ledger = _strict_json(GOVERNANCE / "status_ledger.json")
+    assert set(ledger) == {
+        "schema", "as_of", "authority", "paired_audit", "historical_records"
+    }
+    assert ledger["schema"] == "stylo.governance.status_ledger.v1"
+    assert ledger["as_of"] == "2026-07-26"
+    expected_states = {
+        "control_plane": "implemented_synthetic",
+        "preparation": "implemented_local_candidate_preparation_only",
+        "manifest_freeze": "candidate_unapproved",
+        "production_evaluator": "blocked_unregistered",
+        "confirmatory_execution": "hard_disabled",
+        "headline": "not_authorized",
+    }
+    assert {
+        key: value["status"] for key, value in ledger["paired_audit"].items()
+    } == expected_states
+    for state in ledger["paired_audit"].values():
+        assert set(state) in ({"status", "claim"}, {"status", "claim", "bindings"})
+        for binding in state.get("bindings", []):
+            _assert_binding(binding, require_hash=True)
+    for record in ledger["historical_records"]:
+        assert set(record) == {"path", "status", "sha256"}
+        assert _sha256(ROOT / record["path"]) == record["sha256"]
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "research/ROADMAP.md",
+        "research/work_balanced/model_routing.md",
+        "research/work_balanced/estimand.md",
+        "research/work_balanced/paired_audit_protocol.md",
+        "research/work_balanced/paired_audit_review_provenance.md",
+    ],
+)
+def test_current_research_documents_defer_to_the_ledger(relative):
+    text = (ROOT / relative).read_text(encoding="utf-8")
+    assert "governance/status_ledger.json" in text
+
+
+def test_stale_paired_audit_status_claims_are_not_current_prose():
+    roadmap = (ROOT / "research" / "ROADMAP.md").read_text(encoding="utf-8")
+    routing = (
+        ROOT / "research" / "work_balanced" / "model_routing.md"
+    ).read_text(encoding="utf-8")
+    protocol = (
+        ROOT / "research" / "work_balanced" / "paired_audit_protocol.md"
+    ).read_text(encoding="utf-8")
+    assert "Still required beyond the narrow stylo validation" not in roadmap
+    assert "paired audit has not yet been implemented" not in routing
+    assert "No confirmatory audit-corpus builder, paired-audit runner" not in protocol
+
+
+def test_normative_protocol_matches_the_single_canonical_environment_lock():
+    protocol = (
+        ROOT / "research" / "work_balanced" / "paired_audit_protocol.md"
+    ).read_text(encoding="utf-8")
+    assert "SHA-256 of the tracked `requirements.lock` only" in protocol
+    assert "ignored local `uv.lock` is explicitly outside the run identity" in protocol
+    assert "`requirements.lock`/`uv.lock` fingerprint" not in protocol
+
+
+def _provenance_registry(generator: bytes, source: bytes, output: bytes) -> dict:
+    digest = lambda value: hashlib.sha256(value).hexdigest()
+    return {
+        "schema": "stylo.site_generation_provenance.v1",
+        "generator": {
+            "path": "scripts/gen-site-data.mjs",
+            "sha256": digest(generator),
+        },
+        "sources": [{"path": "docs/source.json", "sha256": digest(source)}],
+        "outputs": [{
+            "path": "site/src/generated/site-data.json",
+            "sha256": digest(output),
+        }],
+        "entries": [],
+    }
+
+
+def _run_checker(root: pathlib.Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            "node",
+            str(ROOT / "scripts" / "check-provenance.mjs"),
+            "--root",
+            str(root),
+            "--skip-tracked",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+
+def test_typed_site_provenance_detects_source_and_output_mutation(tmp_path):
+    generator = b"// synthetic generator\n"
+    source = b'{"value": 1}\n'
+    output = b'{"rendered": 1}\n'
+    paths = {
+        "generator": tmp_path / "scripts" / "gen-site-data.mjs",
+        "source": tmp_path / "docs" / "source.json",
+        "output": tmp_path / "site" / "src" / "generated" / "site-data.json",
+        "manifest": tmp_path / "site" / "src" / "generated" / "manifest.json",
+    }
+    for path in paths.values():
+        path.parent.mkdir(parents=True, exist_ok=True)
+    paths["generator"].write_bytes(generator)
+    paths["source"].write_bytes(source)
+    paths["output"].write_bytes(output)
+    paths["manifest"].write_text(
+        json.dumps(_provenance_registry(generator, source, output)) + "\n",
+        encoding="utf-8",
+    )
+    assert _run_checker(tmp_path).returncode == 0
+
+    paths["source"].write_bytes(b'{"value": 2}\n')
+    source_failure = _run_checker(tmp_path)
+    assert source_failure.returncode == 1
+    assert "digest mismatch" in source_failure.stderr
+
+    paths["source"].write_bytes(source)
+    paths["output"].write_bytes(b'{"rendered": 2}\n')
+    output_failure = _run_checker(tmp_path)
+    assert output_failure.returncode == 1
+    assert "digest mismatch" in output_failure.stderr
+
+
+def test_real_site_registry_and_pages_workflow_are_reproducible():
+    checked = subprocess.run(
+        ["node", str(ROOT / "scripts" / "check-provenance.mjs")],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert checked.returncode == 0, checked.stderr
+    workflow = (ROOT / ".github" / "workflows" / "deploy-pages.yml").read_text(
+        encoding="utf-8"
+    )
+    for trigger in (
+        '"docs/**"',
+        '"scripts/gen-site-data.mjs"',
+        '"scripts/check-provenance.mjs"',
+        '"site/**"',
+    ):
+        assert trigger in workflow
+    assert "npm ci --no-audit --no-fund" in workflow
+    assert "npm run gen" in workflow
+    assert "node ../scripts/check-provenance.mjs" in workflow
+    assert "git -C .. diff --exit-code -- site/src/generated" in workflow
+    assert "npm install" not in workflow
+
+
+def _all_registered_nodeids() -> tuple[set[str], list[str]]:
+    requirements = _strict_json(GOVERNANCE / "requirements.json")
+    runners = _strict_json(GOVERNANCE / "runner_catalog.json")
+    requested = {
+        nodeid
+        for requirement in requirements["requirements"]
+        for nodeid in requirement["tests"]
+    }
+    requested.update(
+        nodeid
+        for runner in runners["runners"]
+        for nodeid in runner["required_nodeids"]
+    )
+    return requested, sorted({nodeid.split("::", 1)[0] for nodeid in requested})
+
+
+def _missing_nodeids(collected: set[str], requested: set[str]) -> set[str]:
+    return requested - collected
+
+
+def test_requirement_bindings_and_nodeids_are_executable():
+    requirements = _strict_json(GOVERNANCE / "requirements.json")
+    assert set(requirements) == {
+        "schema", "source", "collection_command", "requirements"
+    }
+    assert requirements["schema"] == "stylo.governance.requirements.v1"
+    ids = [item["id"] for item in requirements["requirements"]]
+    assert len(ids) == len(set(ids))
+    for item in requirements["requirements"]:
+        assert set(item) == {"id", "description", "code", "tests"}
+        assert item["code"] and item["tests"]
+        for binding in item["code"]:
+            _assert_binding(binding, require_hash=False)
+
+    requested, files = _all_registered_nodeids()
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "-o",
+            "addopts=",
+            "-p",
+            "no:cacheprovider",
+            *files,
+        ],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    collected = {
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.startswith("tests/") and "::" in line
+    }
+    assert not _missing_nodeids(collected, requested)
+
+
+def test_missing_nodeid_comparison_fails_closed():
+    assert _missing_nodeids({"tests/x.py::test_a"}, {
+        "tests/x.py::test_a", "tests/x.py::test_removed"
+    }) == {"tests/x.py::test_removed"}
+
+
+def test_runner_catalog_covers_the_evaluation_directory_exactly():
+    catalog = _strict_json(GOVERNANCE / "runner_catalog.json")
+    assert set(catalog) == {"schema", "directory", "runners"}
+    assert catalog["schema"] == "stylo.governance.runner_catalog.v1"
+    discovered = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / catalog["directory"]).glob("*.py")
+    }
+    registered = {runner["path"] for runner in catalog["runners"]}
+    assert registered == discovered
+    for runner in catalog["runners"]:
+        assert set(runner) == {
+            "path", "status", "claim_scope", "output_contract",
+            "identity_bindings", "required_nodeids",
+        }
+        assert runner["identity_bindings"]
+        assert runner["required_nodeids"]
+
+
+def test_topology_has_one_owner_per_output_and_distinct_eval_roles():
+    topology = _strict_json(GOVERNANCE / "topology.json")
+    assert set(topology) == {
+        "schema", "historical_evidence", "discovery_contract",
+        "directories", "entries", "output_owners"
+    }
+    assert topology["schema"] == "stylo.governance.topology.v1"
+    paths = [entry["path"] for entry in topology["entries"]]
+    assert len(paths) == len(set(paths))
+    assert all((ROOT / path).is_file() for path in paths)
+    discovery = topology["discovery_contract"]
+    assert set(discovery) == {
+        "canonical_paths", "legacy_script_basenames", "contract"
+    }
+    discovered_legacy = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "scripts").rglob("*.py")
+        if path.name in set(discovery["legacy_script_basenames"])
+    }
+    assert set(paths) == set(discovery["canonical_paths"]) | discovered_legacy
+    statuses = {entry["path"]: entry["status"] for entry in topology["entries"]}
+    assert statuses["scripts/report.py"] == "compatibility_entrypoint"
+    assert all(
+        statuses[path].startswith("retired_hard_disabled")
+        for path in discovered_legacy - {"scripts/report.py"}
+    )
+    namespaces = [item["namespace"] for item in topology["output_owners"]]
+    assert len(namespaces) == len(set(namespaces))
+    for item in topology["output_owners"]:
+        if item["owner"] is None:
+            assert item["contract"] in {
+                "retired_output_disabled",
+                "frozen_historical_output_no_live_writer",
+            }
+        else:
+            assert item["owner"] in paths
+    owners = {
+        item["namespace"]: (item["owner"], item["contract"])
+        for item in topology["output_owners"]
+    }
+    assert owners["<paths.input_clean>"] == (
+        "src/stylo/pipeline/clean.py",
+        "atomic_complete_clean_snapshot",
+    )
+    assert owners[
+        "<paths.data>/deployment/chunk_weighted_legacy/versions/<bundle-token>"
+    ][0] == "src/stylo/pipeline/train.py"
+    assert owners[
+        "<paths.docs>/{prediction.txt,prediction.evidence.json}"
+    ][0] == "src/stylo/report/evidence.py"
+    assert owners[
+        "<paths.docs>/{corpus_validation.txt,corpus_validation.json,corpus_validation.evidence.json}"
+    ][0] == "src/stylo/report/evidence.py"
+    assert owners["docs/final_comparison.csv"] == (
+        None,
+        "frozen_historical_output_no_live_writer",
+    )
+    assert owners[
+        "<paths.docs>/exploratory/{legacy_recompute,work_balanced}/**/final_comparison.{txt,csv}"
+    ][0] == "src/stylo/cli.py"
+    clean_source = (ROOT / "src/stylo/pipeline/clean.py").read_text(encoding="utf-8")
+    train_source = (ROOT / "src/stylo/pipeline/train.py").read_text(encoding="utf-8")
+    evidence_source = (ROOT / "src/stylo/report/evidence.py").read_text(encoding="utf-8")
+    assert '"paths.input_clean"' in clean_source
+    assert '"deployment" / CHUNK_WEIGHTED_LEGACY' in train_source
+    for filename in (
+        "prediction.txt",
+        "corpus_validation.txt",
+        "corpus_validation.json",
+    ):
+        assert filename in evidence_source
+    assert 'f"{section}.evidence.json"' in evidence_source
+    roles = {
+        entry["path"]: entry["responsibility"] for entry in topology["entries"]
+    }
+    assert roles["src/stylo/eval/segment.py"] != roles["src/stylo/eval/segmentation.py"]
+    assert (ROOT / "scripts" / "experimental").is_dir()
+    assert not (ROOT / "scripts" / "experemental").exists()
+    evidence = _strict_json(ROOT / topology["historical_evidence"]["path"])
+    historical_hashes = evidence["artifacts"]["sha256"]
+    for path in (
+        "scripts/ablation.py",
+        "scripts/clean_text.py",
+        "scripts/clustering.py",
+        "scripts/lobo_cv.py",
+        "scripts/train.py",
+        "scripts/predict.py",
+        "scripts/experiments.py",
+        "scripts/split.py",
+        "scripts/statistic/anomaly_stats.py",
+        "scripts/statistic/consistency.py",
+        "scripts/umap_vis.py",
+        "scripts/validate_books.py",
+        "scripts/experemental/core_dependency.py",
+    ):
+        assert len(historical_hashes[path]) == 64
+        assert set(historical_hashes[path]) <= HEX64
+
+
+@pytest.mark.parametrize(
+    ("relative", "message"),
+    [
+        ("scripts/ablation.py", "retired"),
+        ("scripts/clean_text.py", "retired"),
+        ("scripts/clustering.py", "retired"),
+        ("scripts/lobo_cv.py", "retired"),
+        ("scripts/train.py", "retired"),
+        ("scripts/predict.py", "retired"),
+        ("scripts/experiments.py", "retired historical source"),
+        ("scripts/split.py", "retired"),
+        ("scripts/statistic/anomaly_stats.py", "retired"),
+        ("scripts/statistic/consistency.py", "retired"),
+        ("scripts/umap_vis.py", "retired"),
+        ("scripts/validate_books.py", "retired"),
+    ],
+)
+def test_retired_root_scripts_exit_before_writing(relative, message, tmp_path):
+    before = set(tmp_path.iterdir())
+    result = subprocess.run(
+        [sys.executable, str(ROOT / relative)],
+        cwd=tmp_path,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert message in (result.stdout + result.stderr)
+    assert set(tmp_path.iterdir()) == before
+
+
+def test_active_taras_masking_consumer_imports_without_running_retired_cleaner():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import scripts.mask_taras_case_texts",
+        ],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("relative", "expected"),
+    [
+        ("src/stylo/eval/final.py", "exploratory_model_comparison_compatibility_module"),
+        ("src/stylo/eval/segment.py", "rolling_attribution_diagnostic"),
+        ("src/stylo/eval/segmentation.py", "mixed_authorship_evaluation"),
+    ],
+)
+def test_ambiguous_eval_modules_declare_distinct_topology_roles(relative, expected):
+    tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
+    assignments = {
+        node.targets[0].id: ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "TOPOLOGY_ROLE"
+    }
+    assert assignments["TOPOLOGY_ROLE"] == expected

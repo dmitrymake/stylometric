@@ -13,18 +13,16 @@
 from __future__ import annotations
 
 import copy
+import importlib.resources
 import pathlib
 from typing import Any, Dict, Mapping, Optional
 
 import yaml
 
 
-def _project_root() -> pathlib.Path:
-    # src/stylo/config.py -> подняться к корню репозитория
-    return pathlib.Path(__file__).resolve().parents[2]
-
-
-DEFAULT_CONFIG_PATH = _project_root() / "configs" / "default.yaml"
+# The default is package data, not a repository-relative file. This keeps
+# ``load_config()`` usable from wheels, sdists and git archives alike.
+DEFAULT_CONFIG_PATH = importlib.resources.files("stylo.resources").joinpath("default.yaml")
 
 
 class ConfigNode(Mapping):
@@ -82,6 +80,19 @@ class ConfigNode(Mapping):
         return f"ConfigNode({list(self._d.keys())})"
 
 
+def with_overrides(cfg: "ConfigNode", dotted_overrides: Dict[str, Any]) -> "ConfigNode":
+    """Return a cfg-clone with dotted-path overrides — the sanctioned way to build a trusted
+    cfg with explicitly-allowed root/policy (e.g. the RuAA full-corpus benchmark contract)."""
+    raw = cfg.to_dict()
+    for k, v in dotted_overrides.items():
+        node = raw
+        parts = k.split(".")
+        for p in parts[:-1]:
+            node = node.setdefault(p, {})
+        node[parts[-1]] = v
+    return ConfigNode(raw)
+
+
 def _set_dotted(d: Dict[str, Any], dotted: str, value: Any) -> None:
     parts = dotted.split(".")
     node = d
@@ -119,8 +130,8 @@ def load_config(
     overrides: {"features.char_ngrams.bleach": False, ...}
                значения-строки приводятся к типам (для CLI --set k=v).
     """
-    cfg_path = pathlib.Path(path) if path else DEFAULT_CONFIG_PATH
-    with open(cfg_path, encoding="utf-8") as fh:
+    cfg_path = pathlib.Path(path) if path is not None else DEFAULT_CONFIG_PATH
+    with cfg_path.open("r", encoding="utf-8") as fh:
         raw: Dict[str, Any] = yaml.safe_load(fh)
 
     if overrides:
