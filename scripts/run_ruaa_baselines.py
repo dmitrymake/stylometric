@@ -34,6 +34,7 @@ from stylo.config import load_config  # noqa: E402
 from stylo.corpus import load_dataset, Dataset  # noqa: E402
 from stylo.eval.final import run_final, format_final  # noqa: E402
 from stylo.jsonio import dump_strict  # noqa: E402
+from stylo.pipeline.split import resolve_fragment_snapshot  # noqa: E402
 
 RUAA_V1_NOTE = (
     "Датированный воспроизводимый CV-срез на публичном корпусе; это не blind-"
@@ -100,7 +101,7 @@ def main() -> int:
 
     bench = json.loads(BENCH_DOC.read_text("utf-8"))
     cfg = load_config()
-    full = load_dataset(ROOT / "data" / "frags_train")
+    full = load_dataset(resolve_fragment_snapshot(ROOT / "data").train_root)
     ds, missing = bench_subset(full, bench, args.max_authors)
     print(f"RuAA-срез: авторов={ds.n_authors} книг={len(set(ds.groups.tolist()))} "
           f"чанков={len(ds)}")
@@ -122,9 +123,10 @@ def main() -> int:
         REF_CSV = expl / "reference_submission_stylo.csv"
         print(f"РЕЖИМ: exploratory (quick={quick}, missing={len(missing)}) → {expl.relative_to(ROOT)}")
     else:
-        # docs/ruaa_bench_v1.json is a FROZEN P0 snapshot (its author-clustered CI sign is corrected
-        # only via the versioned docs/ruaa_bench_v1.0.1.json — see scripts/apply_ci_sign_erratum.py).
-        # A canonical re-run must not overwrite the frozen v1 paths; publish a new benchmark version.
+        # docs/ruaa_bench_v1.json is a FROZEN legacy benchmark artifact (its author-clustered CI sign
+        # is corrected only via versioned docs/ruaa_bench_v1.0.1.json — see
+        # scripts/apply_ci_sign_erratum.py). A canonical re-run must not overwrite the frozen v1
+        # paths; publish a new benchmark version.
         from stylo.eval.ci_erratum import assert_publish_target_not_frozen
         assert_publish_target_not_frozen(OUT_JSON)
         assert_publish_target_not_frozen(OUT_MD)

@@ -10,7 +10,7 @@ import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-# frozen CI artifacts (immutable P0 baseline + CI-sign-erratum sources), by canonical docs/ basename
+# frozen CI artifacts (immutable baseline and CI-sign-erratum sources), by canonical docs/ basename
 FROZEN = {"final_comparison.csv", "final_comparison.txt", "ruaa_bench_v1.json", "ruaa_bench_leaderboard.md"}
 HEADLINE_JSON = "stylo_lobo_authorci.json"
 GUARD = "assert_publish_target_not_frozen"

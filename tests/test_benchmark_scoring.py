@@ -8,6 +8,7 @@ from stylo.benchmarks import (
     ScoringFormatError,
     load_submission,
     load_truth,
+    score_files,
     score_submission,
     validate_manifest,
 )
@@ -15,14 +16,17 @@ from stylo.benchmarks import (
 
 DOC1 = "doc_0000000000000001"
 DOC2 = "doc_0000000000000002"
-DIGEST = "a" * 64
+DIGESTS = {
+    DOC1: "a" * 64,
+    DOC2: "b" * 64,
+}
 
 
 def _manifest():
     documents = []
-    for doc_id, task, work in [
-        (DOC1, "spoof", "work_1"),
-        (DOC2, "mixed_authorship", "work_2"),
+    for doc_id, task in [
+        (DOC1, "spoof"),
+        (DOC2, "mixed_authorship"),
     ]:
         documents.append(
             {
@@ -31,12 +35,11 @@ def _manifest():
                     "source_id": "sealed",
                     "provenance": f"sealed:{doc_id}",
                     "revision": "v1",
-                    "sha256": DIGEST,
+                    "sha256": DIGESTS[doc_id],
                 },
                 "split": "blind",
                 "task_types": [task],
                 "text_path": f"texts/{doc_id}.txt",
-                "work": work,
                 "spans": [],
             }
         )
@@ -104,7 +107,11 @@ def _write_files(tmp_path, manifest_digest: str):
     submission_path = tmp_path / "submission.json"
     truth_path.write_text(json.dumps(truth), encoding="utf-8")
     submission_path.write_text(json.dumps(submission), encoding="utf-8")
-    return load_truth(truth_path), load_submission(submission_path)
+    escrow_sha256 = hashlib.sha256(truth_path.read_bytes()).hexdigest()
+    return (
+        load_truth(truth_path, expected_sha256=escrow_sha256),
+        load_submission(submission_path),
+    )
 
 
 def test_blind_truth_is_hash_bound_and_scores_classification_and_spans(tmp_path):
@@ -118,6 +125,8 @@ def test_blind_truth_is_hash_bound_and_scores_classification_and_spans(tmp_path)
         manifest_sha256=manifest_digest,
         bootstrap_iters=20,
         seed=3,
+        segmentation_bootstrap_unit="document",
+        synthetic_integration_only=True,
     )
 
     assert score.authorship.accuracy == 1.0
@@ -148,6 +157,7 @@ def test_truth_offsets_can_be_bound_to_verified_document_lengths(tmp_path):
             manifest_sha256=manifest_digest,
             document_lengths={DOC1: 10, DOC2: 10},
             bootstrap_iters=5,
+            synthetic_integration_only=True,
         )
 
 
@@ -155,7 +165,8 @@ def test_scoring_rejects_wrong_manifest_hash_and_missing_blind_id(tmp_path):
     truth, submission = _write_files(tmp_path, "b" * 64)
     with pytest.raises(ScoringFormatError, match="manifest_sha256"):
         score_submission(
-            _manifest(), truth, submission, manifest_sha256="c" * 64, bootstrap_iters=5
+            _manifest(), truth, submission, manifest_sha256="c" * 64,
+            bootstrap_iters=5, synthetic_integration_only=True,
         )
 
     incomplete = dataclasses.replace(
@@ -163,7 +174,8 @@ def test_scoring_rejects_wrong_manifest_hash_and_missing_blind_id(tmp_path):
     )
     with pytest.raises(ScoringFormatError, match="prediction ids"):
         score_submission(
-            _manifest(), truth, incomplete, manifest_sha256="b" * 64, bootstrap_iters=5
+            _manifest(), truth, incomplete, manifest_sha256="b" * 64,
+            bootstrap_iters=5, synthetic_integration_only=True,
         )
 
 
@@ -174,17 +186,124 @@ def test_truth_requires_evidence_and_submission_forbids_it(tmp_path):
     del raw["records"][0]["author_evidence"]
     (tmp_path / "truth.json").write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ScoringFormatError, match="author_evidence"):
-        load_truth(tmp_path / "truth.json")
+        load_truth(
+            tmp_path / "truth.json",
+            expected_sha256=hashlib.sha256(
+                (tmp_path / "truth.json").read_bytes()
+            ).hexdigest(),
+        )
 
     raw = json.loads((tmp_path / "truth.json").read_text())
     raw["records"][0]["author_evidence"] = "archive:author-a"
     del raw["records"][0]["document_evidence"]
     (tmp_path / "truth.json").write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ScoringFormatError, match="document_evidence"):
-        load_truth(tmp_path / "truth.json")
+        load_truth(
+            tmp_path / "truth.json",
+            expected_sha256=hashlib.sha256(
+                (tmp_path / "truth.json").read_bytes()
+            ).hexdigest(),
+        )
 
     prediction_raw = json.loads((tmp_path / "submission.json").read_text())
     prediction_raw["predictions"][1]["spans"][0]["evidence"] = "leaked"
     (tmp_path / "submission.json").write_text(json.dumps(prediction_raw), encoding="utf-8")
     with pytest.raises(ScoringFormatError, match="unknown field"):
         load_submission(tmp_path / "submission.json")
+
+
+def test_segmentation_requires_explicit_unit_and_rejects_character_v1(tmp_path):
+    manifest_digest = hashlib.sha256(b"public manifest bytes").hexdigest()
+    truth, submission = _write_files(tmp_path, manifest_digest)
+
+    with pytest.raises(ScoringFormatError, match="segmentation_bootstrap_unit"):
+        score_submission(
+            _manifest(),
+            truth,
+            submission,
+            manifest_sha256=manifest_digest,
+            bootstrap_iters=5,
+            synthetic_integration_only=True,
+        )
+    with pytest.raises(ScoringFormatError, match="work identity"):
+        score_submission(
+            _manifest(),
+            truth,
+            submission,
+            manifest_sha256=manifest_digest,
+            bootstrap_iters=5,
+            segmentation_bootstrap_unit="work",
+            synthetic_integration_only=True,
+        )
+
+    character_manifest = dataclasses.replace(
+        _manifest(),
+        dataset=dataclasses.replace(
+            _manifest().dataset, offset_unit="character", tokenizer=None
+        ),
+    )
+    with pytest.raises(ScoringFormatError, match="character-offset"):
+        score_submission(
+            character_manifest,
+            truth,
+            submission,
+            manifest_sha256=manifest_digest,
+            bootstrap_iters=5,
+            segmentation_bootstrap_unit="document",
+            synthetic_integration_only=True,
+        )
+
+
+def test_scoring_uses_task_registered_endpoints_and_exact_manifest_bytes(tmp_path):
+    manifest = _manifest()
+    manifest_digest = hashlib.sha256(b"public manifest bytes").hexdigest()
+    truth, submission = _write_files(tmp_path, manifest_digest)
+    spoof_with_spans = dataclasses.replace(
+        truth,
+        records=(
+            dataclasses.replace(
+                truth.records[0],
+                spans=(truth.records[1].spans[0],),
+            ),
+            truth.records[1],
+        ),
+    )
+    with pytest.raises(ScoringFormatError, match="not registered"):
+        score_submission(
+            manifest,
+            spoof_with_spans,
+            submission,
+            manifest_sha256=manifest_digest,
+            bootstrap_iters=5,
+            segmentation_bootstrap_unit="document",
+            synthetic_integration_only=True,
+        )
+
+    def without_none(value):
+        if isinstance(value, dict):
+            return {
+                key: without_none(item)
+                for key, item in value.items()
+                if item is not None
+            }
+        if isinstance(value, (list, tuple)):
+            return [without_none(item) for item in value]
+        return value
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(without_none(dataclasses.asdict(manifest))),
+        encoding="utf-8",
+    )
+    different_object = dataclasses.replace(
+        manifest,
+        dataset=dataclasses.replace(manifest.dataset, description="different semantics"),
+    )
+    with pytest.raises(ScoringFormatError, match="does not equal the exact bytes"):
+        score_files(
+            different_object,
+            manifest_path,
+            tmp_path / "truth.json",
+            tmp_path / "submission.json",
+            synthetic_integration_only=True,
+        )

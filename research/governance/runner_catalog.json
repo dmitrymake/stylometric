@@ -1,0 +1,54 @@
+{
+  "schema": "stylo.governance.runner_catalog.v1",
+  "directory": "scripts/evaluation",
+  "runners": [
+    {
+      "path": "scripts/evaluation/prepare_paired_audit_inputs.py",
+      "status": "preparation_only_unapproved",
+      "claim_scope": "Build and verify an immutable audit-corpus and freeze candidate; no estimator, headline, or publication.",
+      "output_contract": "Content-addressed audit corpus plus an unapproved freeze-candidate directory with exact payload hashes.",
+      "identity_bindings": ["git_commit", "protocol_sha256", "builder_sha256", "source_dataset_digest", "fold_manifest_self_hashes"],
+      "required_nodeids": [
+        "tests/test_paired_audit_preparation.py::test_candidate_reuse_revalidates_every_payload",
+        "tests/test_paired_audit_preparation.py::test_ruaa_drift_exception_is_exact_not_blanket",
+        "tests/test_paired_audit_runner.py::test_confirmatory_execution_is_disabled_until_reviewed_freeze_is_pinned"
+      ]
+    },
+    {
+      "path": "scripts/evaluation/run_stack_class_coverage_repair_smoke.py",
+      "status": "exploratory_smoke",
+      "claim_scope": "Five-fold mechanism smoke for the stack class-coverage repair; never confirmatory.",
+      "output_contract": "Ignored exploratory JSON below the smoke namespace; confirmatory namespaces are rejected.",
+      "identity_bindings": ["repair_commit", "audit_corpus_digest", "fold_manifest_self_hash", "representation_receipt", "source_hashes"],
+      "required_nodeids": [
+        "tests/test_repair_smoke_source_reconstruction.py::test_preserved_repair_smoke_sources_reconstruct_and_compile",
+        "tests/test_repair_smoke_source_reconstruction.py::test_optional_original_inputs_match_the_preserved_bindings",
+        "tests/test_stack_class_coverage.py::test_incomplete_meta_cv_hard_fails_before_meta_lr_and_passport"
+      ]
+    },
+    {
+      "path": "scripts/evaluation/run_stylo_lobo_validation.py",
+      "status": "bounded_exploratory_validation",
+      "claim_scope": "A0/A4/A1 true-LOBO validation with frozen folds and references; not the paired confirmatory audit.",
+      "output_contract": "Ignored versioned exploratory JSON with resumable checkpoints and exact runtime/source identity.",
+      "identity_bindings": ["dataset_digest", "fold_inventory", "a0_reference_sha256", "code_hashes", "runtime_ledger"],
+      "required_nodeids": [
+        "tests/test_stylo_lobo_validation.py::test_reference_is_hashed_before_strict_parse_and_binds_exact_order",
+        "tests/test_stylo_lobo_validation.py::test_a0_reference_mismatch_blocks_all_a4_a1_scheduling",
+        "tests/test_stylo_lobo_validation.py::test_checkpoint_rejects_rehashed_semantic_tamper_extra_and_metadata_mismatch"
+      ]
+    },
+    {
+      "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
+      "status": "bounded_exploratory_screen",
+      "claim_scope": "Frozen-panel W/F/R mechanism screen; it cannot select a confirmatory dataset or headline.",
+      "output_contract": "Ignored exploratory JSON below the work-balanced screen namespace; resume requires byte-identical identity.",
+      "identity_bindings": ["dataset_digest", "screening_panel_self_hash", "fold_inventory", "code_hashes", "runtime_fingerprint"],
+      "required_nodeids": [
+        "tests/test_work_balanced_ablation_screen.py::test_resume_is_byte_stable_and_rejects_changed_inputs_before_eval",
+        "tests/test_work_balanced_ablation_screen.py::test_complete_matrix_uses_one_exact_ordered_fold_inventory",
+        "tests/test_work_balanced_ablation_screen.py::test_controlled_fresh_runs_are_deterministic_and_share_work_inventory"
+      ]
+    }
+  ]
+}

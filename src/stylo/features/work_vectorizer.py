@@ -1,4 +1,4 @@
-"""Work-level sparse vectorizer (P1 B1, design v3 §3).
+"""Work-level sparse vectorizer for equal-work feature fitting.
 
 A plain ``TfidfVectorizer`` on concatenated work documents is not enough: ``max_features``
 ranks by raw corpus term frequency, so a long work keeps dominating, and concatenation
@@ -36,7 +36,7 @@ MODE_RELATIVE = "relative"
 MODE_COUNT = "count"
 _MODES = frozenset({MODE_TFIDF, MODE_RELATIVE, MODE_COUNT})
 
-# Shared work-balanced document-frequency threshold (design v3 D1-a): a feature must occur
+# Shared work-balanced document-frequency threshold: a feature must occur
 # in at least this many distinct works to survive. Fixed, not a public knob, so it cannot be
 # silently corrupted (bool/0/-1/NaN) into a different signed estimand.
 MIN_DF_WORKS = 2
@@ -63,7 +63,7 @@ def relative_by_events(Xc: csr_matrix, events: np.ndarray) -> csr_matrix:
 
 
 def validate_work_ids(groups: Sequence, n_expected: Optional[int] = None) -> list[str]:
-    """The single B0 work-balanced groups contract, checked before any use.
+    """The canonical work-balanced identity contract, checked before any use.
 
     A valid ``groups`` is a **non-empty, ordered 1-D container with positional chunk→work
     semantics** — a ``Sequence`` (list/tuple/range) or a 1-D ``ndarray``, as produced by

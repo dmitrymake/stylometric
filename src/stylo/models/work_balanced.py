@@ -1,4 +1,4 @@
-"""B2 work-balanced runtime adapters (design §§3-4).
+"""Work-balanced runtime adapters.
 
 Three sklearn-compatible pieces that carry the work-balanced estimand into the fit path without
 touching ``run_fold``:
@@ -12,12 +12,12 @@ touching ``run_fold``:
   so both ambient routing modes yield the identical estimand.
 
 Audit-only wrappers for the paired-audit off-diagonal cells (loss/feature axes decoupled):
-* ``WeightsOnly{Stylo,Bow}Pipeline`` (B4-B inc 2, A1) — the work-balanced loss on a legacy feature side;
-* ``{FeatureState,RelativeFw}StyloPipeline`` / ``FeatureStateBowPipeline`` (B4-B inc 3, A2/A3) — the
-  feature-state (F) and/or relative-FW (R) axis on the UNCHANGED A0 loss (canonical ``class_weight``
-  frozen against ``set_params``/clone tampering).
+* ``WeightsOnly{Stylo,Bow}Pipeline`` (A1) — the work-balanced loss on a legacy feature side;
+* ``{FeatureState,RelativeFw}StyloPipeline`` / ``FeatureStateBowPipeline`` (A2/A3) — the feature-state
+  (F) and/or relative-FW (R) axis on the UNCHANGED A0 loss (canonical ``class_weight`` frozen against
+  ``set_params``/clone tampering).
 
-All estimand math is delegated to already-signed B1 code — nothing new is fitted here.
+All estimand math is delegated to the shared work-weighting and work-vectorization primitives.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ import sklearn
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 
-from ..eval.work_weighting import work_sample_weights
+from ..domain.work_weighting import work_sample_weights
 from ..features.work_vectorizer import (MODE_COUNT, WorkLevelVectorizer,
                                         validate_work_ids)
 
@@ -100,7 +100,7 @@ class WorkBalancedBowPipeline(_WorkBalancedPipeline):
 
 
 def build_bow_lr_work_balanced() -> "WorkBalancedBowPipeline":
-    """B-full work-balanced BoW: work-level count vocab + class_weight=None + fold-local weights."""
+    """Full work-balanced BoW: work-level count vocab + class_weight=None + fold-local weights."""
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import MaxAbsScaler
     return WorkBalancedBowPipeline([
@@ -113,7 +113,7 @@ def build_bow_lr_work_balanced() -> "WorkBalancedBowPipeline":
     ])
 
 
-# ── B4-B increment 2: weights-only A1 (work-balanced LOSS, strictly legacy A0 feature state) ──
+# ── Weights-only A1: work-balanced loss, strictly legacy A0 feature state ──
 class _WeightsOnlyPipeline(Pipeline):
     """Audit-only base: the work-balanced training loss on top of an unchanged legacy (A0) feature side.
 
@@ -179,7 +179,7 @@ def build_bow_lr_weights_only() -> "WeightsOnlyBowPipeline":
     ])
 
 
-# ── B4-B increment 3: feature-state A2 / relative-FW A3 (F/R axis, UNCHANGED A0 loss) ──
+# ── Feature-state A2 / relative-FW A3: F/R axes with the unchanged A0 loss ──
 def _cw_token(v):
     """Canonicalize a class_weight to a comparison-safe token built ONLY from exact-type primitives —
     never invoking a user ``__eq__``. Recognizes exactly ``None`` / a plain ``str`` / a plain ``dict``

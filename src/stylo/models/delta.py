@@ -1,8 +1,9 @@
-"""Burrows's Delta (классический стилометрический baseline).
+"""Frozen legacy selected-mass Delta compatibility estimator.
 
-Delta считается КАК В КЛАССИКЕ:
+The public ``delta:N`` identifier is immutable because historical artifacts and
+the A0 protocol bind it.  It is *not* branded as canonical Burrows's Delta:
   1. N самых частотных слов (MFW) корпуса;
-  2. относительная частота каждого MFW в тексте;
+  2. relative frequency divides by the selected-MFW mass, not all tokens;
   3. z-нормировка по статистикам TRAIN (Burrows z-scores);
   4. профиль автора = средний z по его текстам;
   5. Delta(text, author) = средняя |z_text - z_author| (Manhattan) — меньше = ближе.
@@ -20,7 +21,7 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_distances, manhattan_distances
 
-from ..eval.work_weighting import (AblationConfig, CHUNK_WEIGHTED_LEGACY,
+from ..domain.work_weighting import (AblationConfig, CHUNK_WEIGHTED_LEGACY,
                                    SUPPORTED_TRAINING_WEIGHTINGS, WORK_BALANCED,
                                    resolve_training_weighting)
 from ..features.work_vectorizer import (MODE_COUNT, MODE_RELATIVE, WorkLevelVectorizer, _group_indicator,
@@ -31,8 +32,12 @@ _ANALYZER = {"analyzer": "word", "token_pattern": _TOKEN_PATTERN, "lowercase": T
 
 
 class BurrowsDelta:
+    """Compatibility class for the frozen ``delta:N`` selected-mass family."""
+
     needs_groups = True
-    # v3 (B4-B increment 3) adds the audit-only ``_ablation`` for the A2/A3 F×R grid; v2 added
+    PUBLIC_DISPLAY_NAME = "Frozen legacy selected-mass Delta"
+    FREQUENCY_DENOMINATOR = "sum_selected_mfw_counts"
+    # v3 adds the audit-only ``_ablation`` for the A2/A3 F×R grid; v2 added
     # training_weighting/_wv; a versionless pickle is v1. A0/A4 external state is byte-identical.
     ARTIFACT_SCHEMA_VERSION = 3
 
@@ -80,7 +85,7 @@ class BurrowsDelta:
     def ablation_(self):
         """Exact authoritative F×R provenance (W already-in-legacy). A2/A3 carry their explicit cell;
         the production corners derive it from the weighting (A4 == full-WB, else A0 legacy)."""
-        from ..eval.work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION
+        from ..domain.work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION
         self._validate_state(check_fitted=True)              # re-check on every provenance read
         ab = getattr(self, "_ablation", None)
         if ab is not None:
@@ -155,9 +160,10 @@ class BurrowsDelta:
 
     # -- per-chunk PREDICT frequency (R axis) --------------------------------
     def _rel_freq(self, texts) -> np.ndarray:
+        """Compatibility transform; A0 deliberately uses selected-MFW mass."""
         if getattr(self, "_ablation", None) is not None:   # A2/A3 explicit F×R
             return self._grid_rel_freq(texts)
-        if getattr(self, "_wv", None) is not None:   # getattr: pre-B2 pickles have no _wv
+        if getattr(self, "_wv", None) is not None:   # getattr: legacy pickles may have no _wv
             # work_balanced (A4): per-chunk count/ALL-tokens over the work-selected vocab
             return self._wv.transform(list(texts)).toarray().astype(np.float64)
         counts = self._vec.transform(list(texts)).toarray().astype(np.float64)

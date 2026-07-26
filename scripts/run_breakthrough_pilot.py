@@ -146,6 +146,8 @@ def run(package: pathlib.Path, bootstrap_iters: int = 100) -> dict:
         package / "truth.synthetic-public.json",
         package / "submission.reference.json",
         artifact_root=package,
+        synthetic_integration_only=True,
+        segmentation_bootstrap_unit="document",
         bootstrap_iters=bootstrap_iters,
         seed=42,
     )

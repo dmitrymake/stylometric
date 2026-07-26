@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 import pytest
 
@@ -113,6 +115,18 @@ def test_author_source_confounding_is_detected_as_impossible_closed_set_split():
     source = report.factors["source"]
     assert source.possible_split_coverage == 0.0
     assert source.unconfounded_split_coverage == 0.0
+    assert source.overall.accuracy.point is None
+    assert source.worst_group_accuracy is None
+    assert all(row.metrics.accuracy.point is None for row in source.slices)
+
+    with pytest.raises(ValueError, match="forbidden for impossible"):
+        align_split_predictions(
+            plan,
+            {
+                split.level: y[split.test_idx]
+                for split in plan.splits
+            },
+        )
 
 
 def test_test_only_predictions_can_be_aligned_without_train_predictions():
@@ -178,3 +192,58 @@ def test_purged_factor_work_splits_share_neither_factor_nor_work_with_train():
         assert set(split.purged_idx).isdisjoint(split.test_idx)
         predictions[(split.level, split.group)] = y[split.test_idx]
     assert np.array_equal(align_purged_predictions(plan, predictions), y)
+
+
+def test_metric_label_universe_is_complete_unique_and_frozen():
+    meta = _crossed_metadata()
+    y = np.asarray(meta["author"], dtype=object)
+    pred = y.copy()
+
+    with pytest.raises(ValueError, match="omits observed truth"):
+        evaluate_predictions(
+            y, pred, meta, factors=("source",), labels=["a"], bootstrap_iters=0
+        )
+    with pytest.raises(ValueError, match="duplicate-free"):
+        evaluate_predictions(
+            y,
+            pred,
+            meta,
+            factors=("source",),
+            labels=["a", "b", "b"],
+            bootstrap_iters=0,
+        )
+
+    report = evaluate_predictions(
+        y,
+        pred,
+        meta,
+        factors=("source",),
+        labels=["a", "b", "registered_absent"],
+        bootstrap_iters=0,
+    )
+    assert report.overall.n_labels == 3
+    assert report.overall.macro_f1.point == pytest.approx(2 / 3)
+    assert all(row.metrics.n_labels == 3 for row in report.factors["source"].slices)
+
+
+def test_supplied_plan_must_match_current_metadata_and_truth():
+    meta = _crossed_metadata()
+    y = np.asarray(meta["author"], dtype=object)
+    plan = build_leave_one_factor_level_out(meta, "source", y)
+    first = plan.splits[0]
+    forged = dataclasses.replace(
+        plan,
+        splits=(
+            dataclasses.replace(first, test_idx=first.test_idx[::-1]),
+            *plan.splits[1:],
+        ),
+    )
+    with pytest.raises(ValueError, match="does not match"):
+        evaluate_predictions(
+            y,
+            y.copy(),
+            meta,
+            factors=("source",),
+            plans={"source": forged},
+            bootstrap_iters=0,
+        )

@@ -1,167 +1,546 @@
-[
-  {
-    "key": "corpus.research",
-    "source": "docs/corpus_validation.json",
-    "note": "summary"
+{
+  "schema": "stylo.site_generation_provenance.v1",
+  "generator": {
+    "path": "scripts/gen-site-data.mjs",
+    "sha256": "67e27535b63c6156f1e91887836bb2fc1ee47b9e652aceacd1eb7fc1e6ca3e92"
   },
-  {
-    "key": "corpus.benchmark",
-    "source": "docs/validation.json",
-    "note": "n_authors/n_books/n_chunks"
-  },
-  {
-    "key": "corpus.pd",
-    "source": "docs/validation_pd.json",
-    "note": "channels['АНСАМБЛЬ (равновес.)'].top1/macro_f1 + macro_f1_authorclustered_CI"
-  },
-  {
-    "key": "models",
-    "source": "docs/final_comparison.csv",
-    "note": "stylo/bow_lr/char_cos/delta/majority 1:1"
-  },
-  {
-    "key": "headline",
-    "source": "docs/final_comparison.csv (stylo-LR LOBO) + docs/stylo_lobo_authorci.json",
-    "note": "канонический headline; ensemble* — диагностика SVM+GKF5"
-  },
-  {
-    "key": "models",
-    "source": "docs/final_comparison.csv",
-    "note": "stylo/bow_lr/char_cos/delta/majority 1:1"
-  },
-  {
-    "key": "channels",
-    "source": "docs/validation.json",
-    "note": "channels{} без ансамбля"
-  },
-  {
-    "key": "authorRecall",
-    "source": "docs/model_recall.json",
-    "note": "per_author_recall"
-  },
-  {
-    "key": "confusions",
-    "source": "docs/model_recall.json",
-    "note": "top_confusions"
-  },
-  {
-    "key": "segment",
-    "source": "docs/segment_recall.json",
-    "note": "recall_dissimilar/similar_ceiling/fpr/admixture + minDetectedAdmixPct + доля шва в парах"
-  },
-  {
-    "key": "loboStrict",
-    "source": "docs/lobo_fast.json + final_comparison.csv + model_recall.json",
-    "note": "char-Delta LOBO-пол + полный stylo LOBO + GKF-прокси"
-  },
-  {
-    "key": "ccat50",
-    "source": "docs/ccat50.json",
-    "note": "ensemble_top1 + channels"
-  },
-  {
-    "key": "prozaBench",
-    "source": "docs/proza_compare.json",
-    "note": "char-SVM / word / равновесный / нейро / reliability^6-ансамбль"
-  },
-  {
-    "key": "disputed.podnyataya",
-    "source": "docs/sholokhov_attrib.json",
-    "note": "share_full/share_topic; margin=Шолохов−Крюков формулой"
-  },
-  {
-    "key": "tomsk",
-    "source": "docs/tomsk_final.json + tomsk_full.json",
-    "note": "ref_literary + char_S10000 + by_K leak premium"
-  },
-  {
-    "key": "benchPd",
-    "source": "docs/validation_pd.json",
-    "note": "PD ансамбль + каналы + худший по узнаваемости автор (id/recall/книги, динамически)"
-  },
-  {
-    "key": "dynastyPanel",
-    "source": "docs/royal_register.json",
-    "note": "per_author кластеризация монарх/писатель + perm_p"
-  },
-  {
-    "key": "scribe",
-    "source": "docs/nikolai_scribe.json",
-    "note": "внутри-авторская vs Николай-Александр vs между писателями"
-  },
-  {
-    "key": "nikolaiCrossreg",
-    "source": "docs/nikolai_crossreg.json",
-    "note": "size-matched дневник-письма Николая, русский оригинал"
-  },
-  {
-    "key": "accession",
-    "source": "docs/nikolai_accession.json",
-    "note": "d(до воцарения, после) vs внутри-блоковая baseline"
-  },
-  {
-    "key": "ilfHeterogeneity",
-    "source": "docs/ilfpetrov_heterogeneity.json",
-    "note": "силуэт k=2 цели + контроли + z"
-  },
-  {
-    "key": "sholokhovThematic",
-    "source": "docs/sholokhov_thematic.json",
-    "note": "ТД/ПЦ/Донские рассказы"
-  },
-  {
-    "key": "sholokhovManuscript",
-    "source": "docs/sholokhov_manuscript.json",
-    "note": "глубина правки Шолохов vs Толстой/Достоевский/Пушкин"
-  },
-  {
-    "key": "consistency",
-    "source": "docs/consistency.json",
-    "note": "within-author силуэт + per_author панель"
-  },
-  {
-    "key": "multihands",
-    "source": "docs/multiple_hands.json + hidden_positive.json + sholokhov_multihand.json",
-    "note": "отделимость книг + спайк-кривая скрытого позитива + runNoise + pairwise-AV z=−5.26"
-  },
-  {
-    "key": "ilfPetrov",
-    "source": "docs/ilf_vs_petrov.json + ilfpetrov_timeline.json + disputed_ilfpetrov.json",
-    "note": "соло-AUC + проекция + open-set таймлайн обеих книг дилогии + закрытое сравнение 4 подозреваемых"
-  },
-  {
-    "key": "cases",
-    "source": "docs/cases_attribution.json + more_cases.json + grin_control.json + hyp_tests.json",
-    "note": "казусы на dependency: Булгаков/АНТолстой/Чапаев/Прутков/Серафимович/Платонов/донская школа"
-  },
-  {
-    "key": "rigor",
-    "source": "docs/sholokhov_rigor3/5/6/7/8/9/10/11/12 + homogeneity/downsample/clean_attribution/td_candidates/dsp/feature_audit2/genre_matched_lr/hyp_tests2/embedding_robustness/audit_genre_crossauthor + sholokhov_lobo/openset/verify/attrib.json",
-    "note": "агрегат ригор-прогонов Шолохова + нециркулярный disputed-TD LOBO + открытый режим/верификация/таблица атрибуции"
-  },
-  {
-    "key": "nikolaiCase",
-    "source": "docs/nikolas2_authorship.json + crossgenre_recall.json",
-    "note": "вспомог. тесты Николая (часть значений якорным regex) + crossGenre-перенос"
-  },
-  {
-    "key": "nikolaiCats",
-    "source": "docs/nikolai_cats.json",
-    "note": "доля окон одиозных записей + p близости к письмам"
-  },
-  {
-    "key": "limits",
-    "source": "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference,work_balanced_audit/{summary.json,custom/{kolokol_herzen_ogaryov,sovremennik,nekrasov_panaeva}.work_balanced.json}}",
-    "note": "post-audit метрический урок + карта режимов честного протокола"
-  },
-  {
-    "key": "tarasCase",
-    "source": "docs/cases/{taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json},work_balanced_audit/{summary.json,custom/taras_delta_full_refit_work_balanced.json}}",
-    "note": "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits"
-  },
-  {
-    "key": "repro",
-    "source": "docs/repro_gates.json",
-    "note": "перепрогон gate-кейсов бит-в-бит + самый долгий gate"
-  }
-]
+  "sources": [
+    {
+      "path": "docs/attrib_downsample.json",
+      "sha256": "e70a2fdf3d333773d1d41722e17a9d23815c5f0bf25dbdc3beb65948c4fa66cf"
+    },
+    {
+      "path": "docs/audit_genre_crossauthor.json",
+      "sha256": "a62925f5814c3427698cd005c63db9ca7cd80d178d3593e1d8ce8a6e5957f86a"
+    },
+    {
+      "path": "docs/cases/calibration_reference.json",
+      "sha256": "8b340a34ba619976b4587325f355b377c0c0bc40e5082b51bfff65a1808a661d"
+    },
+    {
+      "path": "docs/cases/chekhonte_15_micro.json",
+      "sha256": "e2990963ac8b273374525521b76a8a6b22df3ea9d6897adc656a2ec29dd1503a"
+    },
+    {
+      "path": "docs/cases/dostoevsky_petersburg_chronicle.json",
+      "sha256": "4250eff6d3b8110ad6a2ae3c399645e30cf3f973896d3f427fb7244323f1fe5b"
+    },
+    {
+      "path": "docs/cases/kolokol_herzen_ogaryov.json",
+      "sha256": "38e9b9aacefec081b09340f26e762965dbfdeda7d6452cbc5c090924f06aa168"
+    },
+    {
+      "path": "docs/cases/nekrasov_panaeva.json",
+      "sha256": "a161c6f8cae0971ffc2b0ca1c61fe056a2af689168f6868011db588a4e1caade"
+    },
+    {
+      "path": "docs/cases/nekrasov_panaeva_chapters.json",
+      "sha256": "d23032f6a5cc826510222208a671922e985da4e1b3417ef4bfd10acdde513e7e"
+    },
+    {
+      "path": "docs/cases/sovremennik.json",
+      "sha256": "a68d6da5958dc4f029a8031f6030c2ab5fef620540285cec42f364921acac717"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_extended_fw_2000.passport.json",
+      "sha256": "7d54e927de1bc87e041e8eb44ee5a4ac1570b802a3b9d16cc3eecd5512167f36"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_fw_2000.passport.json",
+      "sha256": "101c02fef4c7dc6a0183d471e110e3f2207cf04c2e66060c845f802d968a89b5"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_sameperiod_fw_2000.passport.json",
+      "sha256": "821e44a1e3504901cceb744cd272218a69e3da9d4c2f0277ccaf4ca7386c7ce0"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_suspects_v2_fw_2000.passport.json",
+      "sha256": "b86ea93e6452ebdd32a2a5927c353fc8310676fe61f31af214b1e4788b2657a3"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_annenkov_binary_fw_2000.passport.json",
+      "sha256": "402d83615e078da2e08752661db62dea1ddbd8f67a42b734ef47344278f21024"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_extended_fw_2000.passport.json",
+      "sha256": "21aa38bd12f46817034453d5de24121735da615f205f94937f8c3a23a8b8b4ce"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json",
+      "sha256": "c8a41d8b43136cbddc644c7b1c8b56bf676e9235f094f78c97169394dbed62de"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json",
+      "sha256": "69d7147897ff14ce932a3d2fa4ba5b6c72bf9c67d0571257f3294e3e3b4ad6ec"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_sameperiod_fw_2000.passport.json",
+      "sha256": "8cb1e678a68a638ba697901d9083b714138621a3e1b39c8bde5fe2793ce46a7d"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_somov_binary_fw_2000.passport.json",
+      "sha256": "2744b1e66b0d244791769254d9b423ae009c33e9133b2a476f65cffff77d09f4"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_suspects_v2_fw_2000.passport.json",
+      "sha256": "bd55e65447425aefcfde70a9821feccf9577f0c3ce03cf15e62e026c70e64d8c"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_topic_cossack_fw_2000.passport.json",
+      "sha256": "4fb32b85c2e3dddf12eedb633b00bb1c7d93276e6ed28d6d589eb18eee1303a7"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json",
+      "sha256": "075ecc3af5445788a00b0a6870fc7f33fe884c0f25e2dceac4cdd66c40376c80"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json",
+      "sha256": "896fda4eb86bf02ae87bf0ee7ac7060ba62b997d3c76ad2399a24195faf51f32"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json",
+      "sha256": "5f080cff5ec8bd74c4d3710dbc2919d081145e640abd1da3a88a2ee0b4325038"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_topic_fw_2000.passport.json",
+      "sha256": "6f94f7eca0c1470cf491cb9e207562254f65b6bf3a15ffa8bb3221fcdf009c09"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_v2_fw_2000.passport.json",
+      "sha256": "eee3f90d864379a5cf2a79df3b65bbedf0399847bd7ae55b28e1db6f30061155"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_shinel_holdout_v2_fw_2000.passport.json",
+      "sha256": "910130abe074073ede559969349b50892477859674e8a6ffdab7cdaa483b6705"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json",
+      "sha256": "f071d5e5fd0a8174025c894faf4c52abaf98710398a9a3416bd9c7effffe89c0"
+    },
+    {
+      "path": "docs/cases/taras_hardened/reports/delta_replication.json",
+      "sha256": "be1d88fdba483acde079d8b7af035d0f35d58c1067c4ddfe3e9abb26058a7d71"
+    },
+    {
+      "path": "docs/cases/taras_hardened/reports/extraction_audit.json",
+      "sha256": "6b9d0041e6548b227cad508127002c0fd7c8fc18987df26b500ea7c08d7a37aa"
+    },
+    {
+      "path": "docs/cases/taras_hardened/target_manifest.json",
+      "sha256": "9d8bee20c6add053d434f56abe51443cb62bdb0da673a8a312b647d3193272da"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/kolokol_herzen_ogaryov.work_balanced.json",
+      "sha256": "7ba080b70c7a162c8d63e7789eb69f24a0f0166d13c9e5e158730f2900b9075c"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/nekrasov_panaeva.work_balanced.json",
+      "sha256": "b1ae0a44b478762e64fc8c5851fdc4271e56f59372d10956ba9a024b2bf47f3c"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/sovremennik.work_balanced.json",
+      "sha256": "dd0fe7acb1617e0fa3af6fda6f4774cae3c53aef006c09e504864f861a3d6db0"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json",
+      "sha256": "10327e3cb9d0e9657a691b8b9a40ba5ca43bef4162da5b205931bc9b1c3534b1"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/summary.json",
+      "sha256": "c6eda554fbfca035ef1ecc2523eb0867b333438450b99d684eea39130f47c048"
+    },
+    {
+      "path": "docs/cases_attribution.json",
+      "sha256": "001ae54957082f03bfaef3a26fab5593868824d7adb6d17423f030216253fdf4"
+    },
+    {
+      "path": "docs/ccat50.json",
+      "sha256": "7982bdaceba76ecf0c14c067e58be340a9f7161bdd125914582c6846a6389b54"
+    },
+    {
+      "path": "docs/clean_attribution.json",
+      "sha256": "5fb8cbe9c4931a3b0d1e0cf0a3f153ecd400cb09875a67fe0ccff609980805de"
+    },
+    {
+      "path": "docs/consistency.json",
+      "sha256": "0a3c0945ba0ca496494138ddddb37af0aba36b0396e912a9cf3d55cfb601452e"
+    },
+    {
+      "path": "docs/corpus_validation.json",
+      "sha256": "f4e41a0d7bdcaae17671d0654b6c63ff123f142eaea3f2457e116a9f2a7a88ea"
+    },
+    {
+      "path": "docs/crossgenre_recall.json",
+      "sha256": "1549029fcded6859d33392febfec9330463850902dbb8e971d0e0dabbd40a0da"
+    },
+    {
+      "path": "docs/disputed_ilfpetrov.json",
+      "sha256": "b46ab843a82ba8b054eb573d1e01bdc653fd3f453a53ea36c5ba7d37ad3b85ed"
+    },
+    {
+      "path": "docs/dsp_attribution.json",
+      "sha256": "865fe0311db49663444dcc77914956c6e200b8d901c1c91fd30ae393bf2745c7"
+    },
+    {
+      "path": "docs/embedding_robustness.json",
+      "sha256": "1d3af4045cf7b4bda5ee52f1e48b8274ae27d83c241a6abcf902e74ea6254cae"
+    },
+    {
+      "path": "docs/feature_audit2.json",
+      "sha256": "a779584a326da4783189b373b2f3781653069f97c18f765a57a190297af5f384"
+    },
+    {
+      "path": "docs/final_comparison.csv",
+      "sha256": "31bba7af930685fc9862fe6b1806b3f2ba5ba21b6726e66757e4dd756a3ded6f"
+    },
+    {
+      "path": "docs/genre_matched_lr.json",
+      "sha256": "87965d4ff75c7ff1bde97f78b00c288ce0253a6c39e736aef5033378a2d7a39e"
+    },
+    {
+      "path": "docs/grin_control.json",
+      "sha256": "6a19ef0cc1c0f09bba4bf477dfea7d8cfb65abf848a00632a419bb6b02917653"
+    },
+    {
+      "path": "docs/hidden_positive.json",
+      "sha256": "048d7a9fb4b69bd9ab4b33d484d3d9e04bad7231416141f58906fcd2b2104deb"
+    },
+    {
+      "path": "docs/hyp_tests.json",
+      "sha256": "33ca3223d2064afd1291745ac513d22c71d040f6da54822ce9db3fdcfc16ec12"
+    },
+    {
+      "path": "docs/hyp_tests2.json",
+      "sha256": "d6d44fed70867b24009decea7d5f7ea152895557e9bca41e8a0d9f6bd8351eb0"
+    },
+    {
+      "path": "docs/ilf_vs_petrov.json",
+      "sha256": "11f8378ce2b8a405582dc799cb39a2f058724516d4bb57ab0f465d5751de640b"
+    },
+    {
+      "path": "docs/ilfpetrov_heterogeneity.json",
+      "sha256": "42561a8336235a6e063a1fc0585567dcf46c104ad07f13565b1ccb7c072d1f87"
+    },
+    {
+      "path": "docs/ilfpetrov_timeline.json",
+      "sha256": "57ec259dd8732c827fe3432e07cfb2695f09a54083735ac0aeb9bc98e95d0986"
+    },
+    {
+      "path": "docs/lobo_fast.json",
+      "sha256": "8e023071d6c104f0c8267199fab381153f612bb45cc7a91bebfebc02576681de"
+    },
+    {
+      "path": "docs/model_recall.json",
+      "sha256": "11d9da1bdc936f111ad3d6653228f9207c6a4f73dd318e6e88a001e3b53b0dd5"
+    },
+    {
+      "path": "docs/more_cases.json",
+      "sha256": "f0f940495f3fb2c7d20095391943349a1fae6f528070e554abfdcb20717eb94e"
+    },
+    {
+      "path": "docs/multiple_hands.json",
+      "sha256": "dcd40f308ef0c8484214bb490f4b80a85f60c7ebd44eb3193243ced5c42dd3ac"
+    },
+    {
+      "path": "docs/nikolai_accession.json",
+      "sha256": "7f14cccae18179bcb4055a735748e9133ab00f78eca731ee6f3996868d160001"
+    },
+    {
+      "path": "docs/nikolai_cats.json",
+      "sha256": "07571f7ec6dbd2be2fe709e598e6ace2c7fd203ced3be791182469cedf080ca5"
+    },
+    {
+      "path": "docs/nikolai_crossreg.json",
+      "sha256": "5c8c390fb2348d10da71a2477db63051fae9e8bd41e1405c9fa5e688780dec4b"
+    },
+    {
+      "path": "docs/nikolai_scribe.json",
+      "sha256": "6daf2dec4e329499fb907c28341e598a6d938b4259cb9f73a77a0c8327c396dd"
+    },
+    {
+      "path": "docs/nikolas2_authorship.json",
+      "sha256": "de49aafc811260ec8a39c772850efaa114908c3c6b93a8d7b2b28ece793f6c85"
+    },
+    {
+      "path": "docs/proza_compare.json",
+      "sha256": "9401a0bae3dfe746a6480ad75c97f610f969f99f3375421194677b2ebe857ce7"
+    },
+    {
+      "path": "docs/repro_gates.json",
+      "sha256": "0a71747708cefc30f44eb8136986d12f2212d90cf89fadffc33a417e0da2b642"
+    },
+    {
+      "path": "docs/royal_register.json",
+      "sha256": "38e275c454c896ef4c8e4267139ca7ea4049052852ea62a3e4e80a47e198b885"
+    },
+    {
+      "path": "docs/segment_recall.json",
+      "sha256": "3ee53530a678109341b2b4957d463a7e64d0202a030351c7b9424b345aef89e7"
+    },
+    {
+      "path": "docs/sholokhov_attrib.json",
+      "sha256": "f07efa9288e26e647dd73aab86d2d65d0f5f7056ffdb51c8ff12f32779b64bdf"
+    },
+    {
+      "path": "docs/sholokhov_homogeneity.json",
+      "sha256": "616cd38c6cdbf1143e7afd138581c7a5f7c631f1fc6c233eabf2e8d8f205ea53"
+    },
+    {
+      "path": "docs/sholokhov_lobo.json",
+      "sha256": "18f9fa776126f36e6053b1b3a106e94e74362a81c45de1738e11cbf187ca4c04"
+    },
+    {
+      "path": "docs/sholokhov_manuscript.json",
+      "sha256": "443ccd2ade83ea43f3112bb13ad9b44bd5aa3ba272c5ab44576b00a5a12ff839"
+    },
+    {
+      "path": "docs/sholokhov_multihand.json",
+      "sha256": "23598202ba407121e0c7cad523fb33f6873e572f541ca144fce3c936bcea42cf"
+    },
+    {
+      "path": "docs/sholokhov_openset.json",
+      "sha256": "83c14f76a7ff345f07458c717626e1f930a3100aed7ebcbf6dbedab267679f3c"
+    },
+    {
+      "path": "docs/sholokhov_rigor10.json",
+      "sha256": "5346c397f7bc4e4dcec3eff88db1d6ca371f3120de22d447412e2a48218c1fd1"
+    },
+    {
+      "path": "docs/sholokhov_rigor11.json",
+      "sha256": "9bc97f9887148dcbc30d1d742eb3c22cf9585ff02555ccd22e3d5d661c60f339"
+    },
+    {
+      "path": "docs/sholokhov_rigor12.json",
+      "sha256": "4761d4a4a593b1a5a99bb0f4d402cf09e087c831d12141cfc0e1132ca35055e2"
+    },
+    {
+      "path": "docs/sholokhov_rigor3.json",
+      "sha256": "ed0b97892b59b66293724103f0675df6bf2df43e730d01a2442b467d51d62b91"
+    },
+    {
+      "path": "docs/sholokhov_rigor5.json",
+      "sha256": "155f4791342c85d7d1cc2a43637797a434a49f785647cf26da1062ef673f193d"
+    },
+    {
+      "path": "docs/sholokhov_rigor6.json",
+      "sha256": "faf6bbb38c110b27e20092df278f7850db0ee2d9627d66e3d3825202af7a8cb1"
+    },
+    {
+      "path": "docs/sholokhov_rigor7.json",
+      "sha256": "8e3016c390ebf8b88cac1c9d44b81dfea361fad3633b6bc45dd5fbdb1d5b8229"
+    },
+    {
+      "path": "docs/sholokhov_rigor8.json",
+      "sha256": "d16396fbfe7ae41671b3f98fe41e2f52811e923e6d67afd42c31651a65b6b736"
+    },
+    {
+      "path": "docs/sholokhov_rigor9.json",
+      "sha256": "7101c8a77f456a7f12af292c38e5143c8936524c6d1dd8aa48d8ce843e89dcb5"
+    },
+    {
+      "path": "docs/sholokhov_thematic.json",
+      "sha256": "1c130a11c5a036e41c4b304ec7661f29beefcb6188da20a7fda2d012cca2aa3d"
+    },
+    {
+      "path": "docs/sholokhov_verify.json",
+      "sha256": "5c59531b585ee0a7ae18902604b99e0791962f963d55e215bb25edffef29e931"
+    },
+    {
+      "path": "docs/stylo_lobo_authorci.json",
+      "sha256": "d3ad562f6502d7d793e1b41f3e5adfb47fb4ce53a5c24af2ffe45f4cd1d18be0"
+    },
+    {
+      "path": "docs/td_candidates.json",
+      "sha256": "89eb9e993c7b895e09792a9f0a3454aed6f391db4d9276c45a915d0a0564b0cb"
+    },
+    {
+      "path": "docs/tomsk_final.json",
+      "sha256": "ebc212acdad5abdccb1cc9767680e43590b853c93818b22878d9ed2cf04d4aa5"
+    },
+    {
+      "path": "docs/tomsk_full.json",
+      "sha256": "e8b772975dfc928f1674d771830556acd4180c86ea522e7cd9a7556ac43b731b"
+    },
+    {
+      "path": "docs/validation.json",
+      "sha256": "ffca343750c1fd8d84a8ea9b4e39ab3f8dc95eb04e87924ea79522c8fc632986"
+    },
+    {
+      "path": "docs/validation_pd.json",
+      "sha256": "a615b2ec0c1b926415cf9e5ca2bd5616c930e463689dd1458632ea8b7157ceb9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "site/src/generated/site-data.json",
+      "sha256": "02ce968e3380d18391c06d45df33d559a1203018329fda816c97b0147ca1bb0d"
+    }
+  ],
+  "entries": [
+    {
+      "key": "corpus.research",
+      "source": "docs/corpus_validation.json",
+      "note": "summary"
+    },
+    {
+      "key": "corpus.benchmark",
+      "source": "docs/validation.json",
+      "note": "n_authors/n_books/n_chunks"
+    },
+    {
+      "key": "corpus.pd",
+      "source": "docs/validation_pd.json",
+      "note": "channels['АНСАМБЛЬ (равновес.)'].top1/macro_f1 + macro_f1_authorclustered_CI"
+    },
+    {
+      "key": "models",
+      "source": "docs/final_comparison.csv",
+      "note": "stylo/bow_lr/char_cos/delta/majority 1:1"
+    },
+    {
+      "key": "headline",
+      "source": "docs/final_comparison.csv (stylo-LR LOBO) + docs/stylo_lobo_authorci.json",
+      "note": "канонический headline; ensemble* — диагностика SVM+GKF5"
+    },
+    {
+      "key": "models",
+      "source": "docs/final_comparison.csv",
+      "note": "stylo/bow_lr/char_cos/delta/majority 1:1"
+    },
+    {
+      "key": "channels",
+      "source": "docs/validation.json",
+      "note": "channels{} без ансамбля"
+    },
+    {
+      "key": "authorRecall",
+      "source": "docs/model_recall.json",
+      "note": "per_author_recall"
+    },
+    {
+      "key": "confusions",
+      "source": "docs/model_recall.json",
+      "note": "top_confusions"
+    },
+    {
+      "key": "segment",
+      "source": "docs/segment_recall.json",
+      "note": "recall_dissimilar/similar_ceiling/fpr/admixture + minDetectedAdmixPct + доля шва в парах"
+    },
+    {
+      "key": "loboStrict",
+      "source": "docs/lobo_fast.json + final_comparison.csv + model_recall.json",
+      "note": "char-Delta LOBO-пол + полный stylo LOBO + GKF-прокси"
+    },
+    {
+      "key": "ccat50",
+      "source": "docs/ccat50.json",
+      "note": "ensemble_top1 + channels"
+    },
+    {
+      "key": "prozaBench",
+      "source": "docs/proza_compare.json",
+      "note": "char-SVM / word / равновесный / нейро / reliability^6-ансамбль"
+    },
+    {
+      "key": "disputed.podnyataya",
+      "source": "docs/sholokhov_attrib.json",
+      "note": "share_full/share_topic; margin=Шолохов−Крюков формулой"
+    },
+    {
+      "key": "tomsk",
+      "source": "docs/tomsk_final.json + tomsk_full.json",
+      "note": "ref_literary + char_S10000 + by_K leak premium"
+    },
+    {
+      "key": "benchPd",
+      "source": "docs/validation_pd.json",
+      "note": "PD ансамбль + каналы + худший по узнаваемости автор (id/recall/книги, динамически)"
+    },
+    {
+      "key": "dynastyPanel",
+      "source": "docs/royal_register.json",
+      "note": "per_author кластеризация монарх/писатель + perm_p"
+    },
+    {
+      "key": "scribe",
+      "source": "docs/nikolai_scribe.json",
+      "note": "внутри-авторская vs Николай-Александр vs между писателями"
+    },
+    {
+      "key": "nikolaiCrossreg",
+      "source": "docs/nikolai_crossreg.json",
+      "note": "size-matched дневник-письма Николая, русский оригинал"
+    },
+    {
+      "key": "accession",
+      "source": "docs/nikolai_accession.json",
+      "note": "d(до воцарения, после) vs внутри-блоковая baseline"
+    },
+    {
+      "key": "ilfHeterogeneity",
+      "source": "docs/ilfpetrov_heterogeneity.json",
+      "note": "силуэт k=2 цели + контроли + z"
+    },
+    {
+      "key": "sholokhovThematic",
+      "source": "docs/sholokhov_thematic.json",
+      "note": "ТД/ПЦ/Донские рассказы"
+    },
+    {
+      "key": "sholokhovManuscript",
+      "source": "docs/sholokhov_manuscript.json",
+      "note": "глубина правки Шолохов vs Толстой/Достоевский/Пушкин"
+    },
+    {
+      "key": "consistency",
+      "source": "docs/consistency.json",
+      "note": "within-author силуэт + per_author панель"
+    },
+    {
+      "key": "multihands",
+      "source": "docs/multiple_hands.json + hidden_positive.json + sholokhov_multihand.json",
+      "note": "отделимость книг + спайк-кривая скрытого позитива + runNoise + pairwise-AV z=−5.26"
+    },
+    {
+      "key": "ilfPetrov",
+      "source": "docs/ilf_vs_petrov.json + ilfpetrov_timeline.json + disputed_ilfpetrov.json",
+      "note": "соло-AUC + проекция + open-set таймлайн обеих книг дилогии + закрытое сравнение 4 подозреваемых"
+    },
+    {
+      "key": "cases",
+      "source": "docs/cases_attribution.json + more_cases.json + grin_control.json + hyp_tests.json",
+      "note": "казусы на dependency: Булгаков/АНТолстой/Чапаев/Прутков/Серафимович/Платонов/донская школа"
+    },
+    {
+      "key": "rigor",
+      "source": "docs/sholokhov_rigor3/5/6/7/8/9/10/11/12 + homogeneity/downsample/clean_attribution/td_candidates/dsp/feature_audit2/genre_matched_lr/hyp_tests2/embedding_robustness/audit_genre_crossauthor + sholokhov_lobo/openset/verify/attrib.json",
+      "note": "агрегат ригор-прогонов Шолохова + нециркулярный disputed-TD LOBO + открытый режим/верификация/таблица атрибуции"
+    },
+    {
+      "key": "nikolaiCase",
+      "source": "docs/nikolas2_authorship.json + crossgenre_recall.json",
+      "note": "вспомог. тесты Николая (часть значений якорным regex) + crossGenre-перенос"
+    },
+    {
+      "key": "nikolaiCats",
+      "source": "docs/nikolai_cats.json",
+      "note": "доля окон одиозных записей + p близости к письмам"
+    },
+    {
+      "key": "limits",
+      "source": "docs/cases/{kolokol,sovremennik,nekrasov_panaeva,nekrasov_panaeva_chapters,dostoevsky_petersburg_chronicle,chekhonte_15_micro,calibration_reference,work_balanced_audit/{summary.json,custom/{kolokol_herzen_ogaryov,sovremennik,nekrasov_panaeva}.work_balanced.json}}",
+      "note": "post-audit метрический урок + карта режимов честного протокола"
+    },
+    {
+      "key": "tarasCase",
+      "source": "docs/cases/{taras_hardened/{passports/*.json,target_manifest.json,reports/{delta_replication,extraction_audit}.json},work_balanced_audit/{summary.json,custom/taras_delta_full_refit_work_balanced.json}}",
+      "note": "Taras: historical hardened artifacts plus 2026-07-11 work-balanced and Delta full-refit adversarial audits"
+    },
+    {
+      "key": "repro",
+      "source": "docs/repro_gates.json",
+      "note": "перепрогон gate-кейсов бит-в-бит + самый долгий gate"
+    }
+  ]
+}

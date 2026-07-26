@@ -11,6 +11,7 @@
 //  Падает с кодом 1, если обязательный источник отсутствует или поле пустое.
 // ════════════════════════════════════════════════════════════════════
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -19,14 +20,67 @@ const DOCS = join(ROOT, "docs");
 const OUT = join(ROOT, "site", "src", "generated");
 
 const manifest = []; // провенанс: какой ключ из какого файла/поля
+const consumedSources = new Set();
 function track(key, file, note) { manifest.push({ key, source: file, note: note || "" }); }
+function sha256(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
+
+function parseStrictJson(raw, label) {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`${label}: invalid strict JSON (${error.message})`);
+  }
+}
+
+function finiteCsvNumber(raw, label, { required = true } = {}) {
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    if (required) throw new Error(`${label}: required finite number is blank`);
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value)) throw new Error(`${label}: expected a finite number`);
+  return value;
+}
+
+function finiteCsvInterval(raw, label) {
+  if (raw === undefined || String(raw).trim() === "") {
+    throw new Error(`${label}: required finite interval is blank`);
+  }
+  const values = raw.replace(/[[\]]/g, "").split(",").map(
+    (value, index) => finiteCsvNumber(value, `${label}[${index}]`)
+  );
+  if (values.length !== 2 || values[0] > values[1]) {
+    throw new Error(`${label}: expected an ordered two-number interval`);
+  }
+  return values;
+}
+
+if (process.argv.includes("--self-test")) {
+  const assert = (condition, message) => {
+    if (!condition) throw new Error(`site generator self-test failed: ${message}`);
+  };
+  assert(parseStrictJson('{"note":"NaN"}', "fixture").note === "NaN", "prose was mutated");
+  for (const malformed of ['{"x":NaN}', '{"x":Infinity}', '{"x":-Infinity}']) {
+    let rejected = false;
+    try { parseStrictJson(malformed, "fixture"); } catch { rejected = true; }
+    assert(rejected, `accepted ${malformed}`);
+  }
+  for (const malformed of ["", "bogus", "Infinity", "NaN"]) {
+    let rejected = false;
+    try { finiteCsvNumber(malformed, "metric"); } catch { rejected = true; }
+    assert(rejected, `accepted required metric ${JSON.stringify(malformed)}`);
+  }
+  assert(finiteCsvNumber("", "optional", { required: false }) === null, "optional blank");
+  assert(finiteCsvNumber("0.5", "metric") === 0.5, "finite metric");
+  console.log("site generator strict-input self-test: OK");
+  process.exit(0);
+}
 
 function load(name) {
   const p = join(DOCS, name);
   if (!existsSync(p)) { console.error(`ОТСУТСТВУЕТ обязательный источник: docs/${name}`); process.exit(1); }
-  // часть прогонов пишет NaN/Infinity (непосчитанные ячейки) — Python терпит, JSON.parse нет → null
-  const raw = readFileSync(p, "utf-8").replace(/\bNaN\b/g, "null").replace(/-?\bInfinity\b/g, "null");
-  return JSON.parse(raw);
+  consumedSources.add(`docs/${name}`);
+  return parseStrictJson(readFileSync(p, "utf-8"), `docs/${name}`);
 }
 
 // final_comparison.csv: model,accuracy,acc_ci,macro_f1,top2,ece,vs_stylo_dacc,vs_stylo_mcnemar_p
@@ -34,22 +88,23 @@ function load(name) {
 function loadModelsCsv() {
   const p = join(DOCS, "final_comparison.csv");
   if (!existsSync(p)) { console.error("ОТСУТСТВУЕТ docs/final_comparison.csv"); process.exit(1); }
+  consumedSources.add("docs/final_comparison.csv");
   const lines = readFileSync(p, "utf-8").trim().split("\n");
   const rows = [];
-  for (const line of lines.slice(1)) {
+  for (const [rowIndex, line] of lines.slice(1).entries()) {
     // сплит по запятым ВНЕ кавычек
-    const cells = line.match(/("[^"]*"|[^,]*)/g).filter((_, i, a) => i < a.length).filter(c => c !== "");
     const c = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(s => s.replace(/^"|"$/g, "").trim());
     const [model, accuracy, acc_ci, macro_f1, top2, ece, dacc, p_mc] = c;
-    const ci = acc_ci ? acc_ci.replace(/[[\]]/g, "").split(",").map(Number) : null;
+    if (!model) throw new Error(`docs/final_comparison.csv row ${rowIndex + 2}: model is blank`);
+    const prefix = `docs/final_comparison.csv row ${rowIndex + 2}`;
     rows.push({
       id: model,
-      acc: accuracy === "" ? null : Number(accuracy),
-      ci,
-      f1: macro_f1 === "" ? null : Number(macro_f1),
-      top2: top2 === "" ? null : Number(top2),
-      ece: ece === "" ? null : Number(ece),
-      p: p_mc === "" || p_mc === undefined ? null : Number(p_mc),
+      acc: finiteCsvNumber(accuracy, `${prefix}.accuracy`),
+      ci: finiteCsvInterval(acc_ci, `${prefix}.acc_ci`),
+      f1: finiteCsvNumber(macro_f1, `${prefix}.macro_f1`),
+      top2: finiteCsvNumber(top2, `${prefix}.top2`),
+      ece: finiteCsvNumber(ece, `${prefix}.ece`, { required: false }),
+      p: finiteCsvNumber(p_mc, `${prefix}.p`, { required: false }),
     });
   }
   track("models", "docs/final_comparison.csv", "stylo/bow_lr/char_cos/delta/majority 1:1");
@@ -844,12 +899,41 @@ const holes = [];
   if (Array.isArray(o)) return o.forEach((x, i) => scan(x, `${path}[${i}]`));
   if (typeof o === "object") return Object.entries(o).forEach(([k, v]) => scan(v, `${path}.${k}`));
 })(data, "");
-const ALLOW = ["models", "tomsk.headroom", "headline.macroF1CI"]; // p может быть null (stylo), headroom k20 может отсутствовать, macroF1CI ОТОЗВАН (null — не мера разброса)
-const realHoles = holes.filter(h => !ALLOW.some(a => h.includes(a)));
+const NULLABLE_PATHS = new Set([
+  ".headline.macroF1CI",
+  ".tomsk.headroom[0].acc",
+  ".tomsk.headroom[1].acc",
+]);
+models.forEach((model, index) => {
+  // The stylo reference has no comparison p-value; historical non-stylo
+  // baselines did not record calibration ECE.  No subtree is exempted.
+  NULLABLE_PATHS.add(
+    model.id === "stylo" ? `.models[${index}].p` : `.models[${index}].ece`
+  );
+});
+const realHoles = holes.filter(h => !NULLABLE_PATHS.has(h));
 if (realHoles.length) { console.error("COVERAGE-ГЕЙТ: пустые числа без источника:\n  " + realHoles.join("\n  ")); process.exit(1); }
 
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
-writeFileSync(join(OUT, "site-data.json"), JSON.stringify(data, null, 2) + "\n", "utf-8");
-writeFileSync(join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf-8");
+const siteDataBytes = Buffer.from(JSON.stringify(data, null, 2) + "\n", "utf-8");
+writeFileSync(join(OUT, "site-data.json"), siteDataBytes);
+const generatorPath = "scripts/gen-site-data.mjs";
+const provenance = {
+  schema: "stylo.site_generation_provenance.v1",
+  generator: {
+    path: generatorPath,
+    sha256: sha256(readFileSync(join(ROOT, generatorPath))),
+  },
+  sources: [...consumedSources].sort().map((source) => ({
+    path: source,
+    sha256: sha256(readFileSync(join(ROOT, source))),
+  })),
+  outputs: [{
+    path: "site/src/generated/site-data.json",
+    sha256: sha256(siteDataBytes),
+  }],
+  entries: manifest,
+};
+writeFileSync(join(OUT, "manifest.json"), JSON.stringify(provenance, null, 2) + "\n", "utf-8");
 console.log(`✓ site/src/generated/site-data.json (${manifest.length} ключей, источники в manifest.json)`);
 console.log(`  headline stylo=${headline.accuracy} ансамбль=${headline.ensembleTop1} | корпус ${corpus.research.authors}/${corpus.research.books} | бенчмарк ${corpus.benchmark.authors}/${corpus.benchmark.books} | CCAT50 ${ccat50.ensembleTop1}`);

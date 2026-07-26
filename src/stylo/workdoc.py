@@ -1,4 +1,4 @@
-"""Canonical WorkDocument, chunk manifest and the single manifest-driven loader (P1 B0).
+"""Canonical WorkDocument, chunk manifest and the single manifest-driven loader.
 
 The work-balanced estimand needs one canonical, verified view of the training data so the
 gate and the model never diverge. Every work folder carries a strict-JSON ``manifest.json``
@@ -13,9 +13,9 @@ closed. :func:`load_work_balanced_dataset` is the ONLY loader the ``work_balance
 uses — it returns exactly the validated manifest texts, in manifest order, so a nested /
 stray / symlinked / non-UTF-8 / whitespace-only file can never be trained on while the gate
 reports clean. ``chunk_weighted_legacy`` keeps using :func:`corpus.load_dataset`; both read
-the same stripped text, so P0 is byte-reproducible.
+the same stripped text, so the legacy loader remains byte-reproducible.
 
-Contract scope (design v3 §1 + B0 audits): ordinal-only spans, valid only at
+Manifest contract scope: ordinal-only spans, valid only at
 ``overlap == 0`` (non-zero fails closed). Provenance is mandatory. Symlinks are rejected at
 every author/work/source/chunk component and paths must resolve inside the corpus root.
 The chunker-config hash binds a single frozen typed config extractor (shared with the
@@ -35,6 +35,12 @@ from typing import Any, Iterable, Sequence
 
 import spacy
 
+from .domain.corpus_identity import (
+    WORK_BALANCED_MANIFEST,
+    CorpusPolicyProvenance,
+    RowIdentity,
+    build_provenance,
+)
 from .jsonio import dumps_strict, load_strict
 
 CHUNKER_ALGORITHM = "stylo.sent_chunks/v1"
@@ -461,8 +467,6 @@ def load_work_balanced_dataset(
         raise ManifestError(f"need >=2 authors, found {authors}")
     auth2idx = {a: i for i, a in enumerate(authors)}
 
-    from .eval.provenance import RowIdentity
-
     texts: list[str] = []
     y: list[int] = []
     groups: list[str] = []
@@ -503,8 +507,6 @@ def load_work_balanced_dataset(
     if set(y_arr.tolist()) != set(range(len(authors))):
         raise ManifestError("every author must contribute at least one observation")
 
-    from .eval.provenance import (WORK_BALANCED_MANIFEST, CorpusPolicyProvenance,
-                                  build_provenance)
     manifest_hash = hashlib.sha256(
         b"".join(f"{r.work_id}\x00{r.provenance_sha256}\x00".encode() for r in row_ids)
     ).hexdigest()
@@ -525,22 +527,3 @@ def load_work_balanced_dataset(
     )
     dataset._manifest_paths = tuple(used_paths)  # type: ignore[attr-defined]
     return dataset
-
-
-def resolve_dataset(
-    cfg,
-    training_weighting: str,
-    frags_root: str | pathlib.Path,
-    *,
-    exclude_authors: Iterable[str] = (),
-    unknown_name: str = "unknown",
-):
-    """Single dataset dispatcher: canonical loader for ``work_balanced``, legacy otherwise."""
-    from .corpus import load_dataset
-    from .eval.work_weighting import WORK_BALANCED, resolve_training_weighting
-
-    if resolve_training_weighting(training_weighting) == WORK_BALANCED:
-        return load_work_balanced_dataset(
-            frags_root, cfg=cfg, exclude_authors=exclude_authors, unknown_name=unknown_name,
-        )
-    return load_dataset(frags_root, exclude_authors=exclude_authors, unknown_name=unknown_name)

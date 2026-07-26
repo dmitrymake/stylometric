@@ -12,7 +12,7 @@ from typing import Sequence
 
 import numpy as np
 
-from ..eval.segmentation import LabeledSpan
+from ..domain.segmentation import LabeledSpan
 
 
 @dataclasses.dataclass(frozen=True)

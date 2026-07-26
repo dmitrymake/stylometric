@@ -17,6 +17,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 from ..corpus import Dataset
 from .dispatch import fit_estimator, frozen_run_contract
 from .lobo import _align_proba, _validate_proba, make_factory
+from .prediction_contract import stable_top1_and_worst_tie_rank
 from .provenance import verify_dataset_against_disk
 from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
 
@@ -91,9 +92,12 @@ def _gkf_run(cfg, dataset, spec, enabled_override, k, weighting, panel=None):
 
     for g, full in prob_by_book.items():
         true_label = book_author[g]
-        order = np.argsort(-full, kind="stable")  # равные → меньший индекс (как argmax/predict), без смещения к старшему
-        top1 = int(order[0])
-        rank = int((full >= full[true_label]).sum())  # tie-aware худший ранг: классы с prob >= p_true (включая сам класс); при вырожденных скорах (majority: нули) ничья не даёт ложного «2-го места»
+        decision = stable_top1_and_worst_tie_rank(
+            full, true_label=true_label, expected_width=n_authors
+        )
+        order = decision.order
+        top1 = decision.top1
+        rank = decision.true_rank
         author_id, book_id = g.split("/", 1)
         rows.append({
             "test_author": author_id, "test_book": book_id,
@@ -214,9 +218,12 @@ def evaluate_frozen_panel_factory(
     for g in sorted(prob_by_work):                       # sorted → deterministic, manifest-aligned
         full = prob_by_work[g]
         true_label = book_label[g]
-        order = np.argsort(-full, kind="stable")
-        top1 = int(order[0])
-        rank = int((full >= full[true_label]).sum())
+        decision = stable_top1_and_worst_tie_rank(
+            full, true_label=true_label, expected_width=n_authors
+        )
+        order = decision.order
+        top1 = decision.top1
+        rank = decision.true_rank
         author_id, book_id = g.split("/", 1)
         rows.append({
             "test_author": author_id, "test_book": book_id,

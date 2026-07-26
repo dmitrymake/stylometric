@@ -16,6 +16,10 @@ import pandas as pd
 from ..claims import ClaimStatus
 from ..corpus import Dataset
 from ..lang import display_name
+from ..models.registry import (
+    CALIBRATION_MODEL_SPECS,
+    DEFAULT_EXPLORATORY_SPECS,
+)
 from .dispatch import frozen_run_contract
 from .lobo import _lobo_run, make_factory
 from .metrics import (accuracy, expected_calibration_error, macro_f1,
@@ -27,14 +31,14 @@ from .work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
 
 log = logging.getLogger("stylo.eval.final")
+TOPOLOGY_ROLE = "exploratory_model_comparison_compatibility_module"
 
-DEFAULT_SPECS = ["stylo", "delta:150", "delta:300", "delta:500",
-                 "delta_cos:150", "delta_cos:300", "delta_cos:500",
-                 "char_cos", "bow_lr", "majority"]
+DEFAULT_SPECS = list(DEFAULT_EXPLORATORY_SPECS)
 
-# stylo_stack is intentionally explicit-only: it is a slow calibration/channel
-# fusion experiment, not the default headline model.
-ECE_SPECS = {"stylo", "stylo_stack"}
+# Both channel-fusion estimators are intentionally explicit-only, not default
+# headline models. The legacy stack remains listed so historical runs retain
+# their ECE contract; its class-coverage preflight now fails closed.
+ECE_SPECS = set(CALIBRATION_MODEL_SPECS)
 
 
 def _fold_manifest(df: pd.DataFrame):
@@ -57,7 +61,8 @@ def _variant_role(spec: str, weighting: str) -> str:
         return VariantRole.NOT_APPLICABLE.value
     if spec == "bow_lr_ref_legacy":
         return VariantRole.REFERENCE.value
-    return VariantRole.PRIMARY.value       # stylo_stack is fully wired under work_balanced (B2a+B3)
+    # stylo_stack is fully routed for work-balanced training and group-aware calibration.
+    return VariantRole.PRIMARY.value
 
 
 def _estimator_weighting(spec: str, weighting: str) -> str:

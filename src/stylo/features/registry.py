@@ -33,9 +33,9 @@ def _build_one(name: str, fb, cfg, topic_strict: bool = False,
     (закрытый класс, без частотных СОДЕРЖАТЕЛЬНЫХ слов) + глушение жанро-несущих субблоков
     синтаксиса (pos_ratios, lexical_richness). Применяется к тематически-инвариантному набору.
 
-    relative_fw: R-axis policy for the FunctionWord block only (B4-B increment 3). ``None`` keeps the
-    legacy corner coupling (byte-exact A0/A4); an explicit bool selects the A2 (raw) / A3 (relative)
-    transform independently of F. Every other block ignores R.
+    relative_fw: R-axis policy for the FunctionWord block only. ``None`` keeps the legacy corner
+    coupling (byte-exact A0/A4); an explicit bool selects the A2 (raw) / A3 (relative) transform
+    independently of F. Every other block ignores R.
     """
     lang = cfg.get_path("language.code", "ru")
     if name == "char_ngrams":

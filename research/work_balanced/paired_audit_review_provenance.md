@@ -1,5 +1,9 @@
 # Paired-audit review provenance
 
+This is a historical review record, including explicitly withdrawn rounds. Normative current status
+is [`../governance/status_ledger.json`](../governance/status_ledger.json); that ledger overrides
+round labels, future-tense prose, commit labels, and line references here.
+
 This artifact binds the paired-audit control-plane commit to the mandatory-check results and to the
 independent-review verdict. A review verdict is an engineering judgement recorded here — it is **not** a
 cryptographic signature, and it does not authorize any real-corpus execution (protocol §11–14 stay

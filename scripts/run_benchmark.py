@@ -10,12 +10,16 @@
 
 Запуск:  python scripts/run_benchmark.py            (все каналы)
          python scripts/run_benchmark.py --fast    (без DSP, быстрее)
-Требует:  собранный корпус data/frags_train/<author>/<book>/*.txt (см. README: fetch → clean → chunk).
+Требует: опубликованный `stylo split` fragment snapshot (см. README: fetch → clean → split).
 """
 from __future__ import annotations
 import sys, os, json, time, math, argparse, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
+from stylo.domain.prediction_contract import (  # noqa: E402
+    validate_class_indices,
+    validate_score_matrix,
+)
 import numpy as np
 from collections import defaultdict, Counter
 from scipy.special import softmax
@@ -26,6 +30,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import f1_score
 import warnings; warnings.filterwarnings("ignore")
 from stylo.config import load_config
+from stylo.dataset import resolve_fragment_roots
 from stylo.features.reps import make_rep_cache
 from stylo.vectorizer import StyloVectorizer
 from stylo.corpus_tools.fetch_classics import PUBLIC_DOMAIN_CLEAR  # единый источник истины по юр-чистому PD (минус реабилитационные продления)
@@ -38,15 +43,19 @@ MIN_BOOKS = 2      # мин. книг у автора (иначе LOBO/GroupKFol
 EXCLUDE = {"ilf-petrov", "nikolas2", "sholohov"}  # sholohov исключён из headline: авторство ОСПАРИВАЕТСЯ — держать спорного автора нормальным классом некорректно (см. кейс Шолохова отдельно)
 # PD-only подмножество для ПУБЛИКУЕМОГО/воспроизводимого числа (умершие >70 лет; см. fetch_classics.PUBLIC_DOMAIN)
 PD_ONLY = "--pd-only" in sys.argv
-DATA = pathlib.Path(__file__).resolve().parents[1] / "data" / "frags_train"
 DOCS = pathlib.Path(__file__).resolve().parents[1] / "docs"
 RNG = np.random.RandomState(SEED)
 
 def log(*a): print(*a, flush=True)
 
-def load_corpus():
+def resolve_benchmark_data(cfg) -> pathlib.Path:
+    """Resolve and validate the one current fragment generation."""
+    return resolve_fragment_roots(cfg).train_root
+
+
+def load_corpus(data_root: pathlib.Path):
     authors = {}
-    for adir in sorted(p for p in DATA.iterdir() if p.is_dir()):
+    for adir in sorted(p for p in data_root.iterdir() if p.is_dir()):
         a = adir.name
         if a in EXCLUDE:
             continue
@@ -71,9 +80,28 @@ SUF = sorted(["ость","ение","ание","ние","тель","ник","н�
              key=len, reverse=True)
 _DSP_NLP = [None]
 def dsp_matrix(texts):
-    import spacy, hashlib, pickle
-    cf = pathlib.Path(__file__).resolve().parents[1] / "data" / "dsp_bench_cache.pkl"
-    cache = pickle.loads(cf.read_bytes()) if cf.exists() else {}
+    import spacy, hashlib
+    from stylo.jsonio import dump_strict, load_strict
+    cf = pathlib.Path(__file__).resolve().parents[1] / "data" / "dsp_bench_cache.json"
+    cache = load_strict(cf) if cf.exists() else {}
+    if type(cache) is not dict:
+        raise ValueError("DSP cache must be a strict JSON object")
+    expected_width = len(SUF) + 2
+    for key, values in cache.items():
+        if (
+            type(key) is not str
+            or len(key) != 40
+            or any(ch not in "0123456789abcdef" for ch in key)
+            or type(values) is not list
+            or len(values) != expected_width
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+                for value in values
+            )
+        ):
+            raise ValueError("DSP cache contains a malformed entry")
     h = lambda s: hashlib.sha1(s.encode()).hexdigest()
     todo = [t for t in texts if h(t) not in cache]
     if todo:
@@ -88,9 +116,9 @@ def dsp_matrix(texts):
                         prof[s] += 1; m += 1; break
             N = len(types) + 1; c = np.array([prof[s] for s in SUF], float)
             pp = c / (c.sum() + 1); ent = -sum(x*math.log2(x) for x in pp if x > 0) / math.log2(len(SUF))
-            cache[h(txt)] = np.concatenate([c / N, [m / N, ent]])
-        cf.write_bytes(pickle.dumps(cache))
-    return np.array([cache[h(t)] for t in texts])
+            cache[h(txt)] = np.concatenate([c / N, [m / N, ent]]).tolist()
+        dump_strict(cache, cf, sort_keys=True)
+    return np.asarray([cache[h(t)] for t in texts], dtype=np.float64)
 
 def main():
     ap = argparse.ArgumentParser()
@@ -99,7 +127,10 @@ def main():
     args = ap.parse_args()
     log(f"режим корпуса: {'PD-only (публикуемое)' if PD_ONLY else 'полный исследовательский (вкл. копирайтных, локально)'}")
 
-    authors = load_corpus()
+    cfg = load_config()
+    data_root = resolve_benchmark_data(cfg)
+    log(f"fragment snapshot: {data_root}")
+    authors = load_corpus(data_root)
     A = sorted(authors); aidx = {a: i for i, a in enumerate(A)}
     items = [(a, b, ch) for a in A for b, ch in authors[a].items()]
     texts = [t for _, _, ch in items for t in ch]
@@ -112,7 +143,6 @@ def main():
         book_chunks.append(list(range(off, off + len(ch)))); off += len(ch)
     log(f"корпус: авторов={len(A)} книг={len(items)} чанков={len(texts)}")
 
-    cfg = load_config()
     t = time.time(); make_rep_cache(cfg).warm(texts, n_process=cfg.get_path("language.parse_n_process", 4))
     log(f"rep-кэш прогрет {time.time()-t:.0f}s")
 
@@ -137,14 +167,35 @@ def main():
             Xtr, Xte = chan_fn(tr_txt, te_txt)
             clf = LinearSVC(C=1.0, class_weight="balanced", max_iter=3000, random_state=SEED).fit(Xtr, ychunk[tr_i])
             df = clf.decision_function(Xte); pres = clf.classes_
+            validate_class_indices(
+                pres, len(A), name="benchmark fold classifier.classes_"
+            )
             if df.ndim == 1:
                 dfc[te_i, pres[1]] = df; dfc[te_i, pres[0]] = -df
             else:
-                for j, c in enumerate(pres): dfc[te_i, c] = df[:, j]
-        bs = np.full((len(items), len(A)), -1e9)
+                dfc[te_i] = validate_score_matrix(
+                    df,
+                    rows=len(te_i),
+                    n_classes=len(A),
+                    name="benchmark fold decision_function",
+                )
+        validate_score_matrix(
+            dfc,
+            rows=len(ychunk),
+            n_classes=len(A),
+            name="benchmark complete OOF scores",
+        )
+        bs = np.empty((len(items), len(A)), dtype=np.float64)
         for k, ii in enumerate(book_chunks):
-            m = np.nanmean(dfc[np.array(ii)], axis=0); bs[k] = np.where(np.isnan(m), -1e9, m)
-        return bs
+            if not ii:
+                raise ValueError(f"book {k} has no chunks")
+            bs[k] = dfc[np.asarray(ii)].mean(axis=0)
+        return validate_score_matrix(
+            bs,
+            rows=len(items),
+            n_classes=len(A),
+            name="benchmark book scores",
+        )
 
     def metrics(scores):
         pred = scores.argmax(1)
@@ -163,7 +214,7 @@ def main():
     # ── ансамбль: равновесный + reliability-взвешенный (вес ∝ (OOF-acc − chance)^p) ──
     from stylo.eval.ensemble import reliability_weighted
     chance0 = 1.0 / len(A)
-    ens = sum(softmax(np.where(bs < -1e8, -30, bs), axis=1) for bs in chan_scores.values()) / len(chan_scores)
+    ens = sum(softmax(bs, axis=1) for bs in chan_scores.values()) / len(chan_scores)
     t1, t3, mf, _ = metrics(ens)
     res["АНСАМБЛЬ (равновес.)"] = {"top1": round(t1, 3), "top3": round(t3, 3), "macro_f1": round(mf, 3)}
     log("%-24s %8.3f %8.3f %9.3f" % ("АНСАМБЛЬ (равновес.)", t1, t3, mf))

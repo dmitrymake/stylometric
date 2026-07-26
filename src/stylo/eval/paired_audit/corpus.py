@@ -23,10 +23,18 @@ from typing import Dict, Iterable, Optional, Sequence
 
 from ...jsonio import dump_strict, dumps_strict, load_strict
 from ...pipeline.bundle import (_real_within, _safe_name, _sha256_file, _verify_real_dir_chain)
-from ...workdoc import (MANIFEST_NAME, chunker_config_hash, load_work_manifest)
+from ...workdoc import (MANIFEST_NAME, ManifestError, build_work_manifest,
+                        canonical_chunk_text, chunker_config_hash,
+                        frozen_chunker_config, load_work_manifest,
+                        source_provenance_sha256)
 from ..provenance import WORK_BALANCED_MANIFEST
-from .semantic_parity import (assert_semantic_parity, dataset_semantic_digest,
-                              verify_legacy_anchor, LEGACY_ANCHOR)
+from .semantic_parity import (
+    LEGACY_ANCHOR,
+    SemanticParityError,
+    assert_semantic_parity,
+    dataset_semantic_digest,
+    verify_legacy_anchor,
+)
 
 FRAGS_SUBDIR = "frags"
 INPUT_CLEAN_SUBDIR = "input_clean"
@@ -67,6 +75,14 @@ def verify_audit_dataset(dataset) -> str:
     )
     if recomputed != prov.rows_digest:
         raise AuditCorpusError("audit dataset rows_digest mismatch — mutated, relabeled or forged")
+    from ...domain.corpus_identity import (
+        ContentIsolationError,
+        assert_cross_work_content_isolation,
+    )
+    try:
+        assert_cross_work_content_isolation(dataset.texts, dataset.groups)
+    except ContentIsolationError as exc:
+        raise AuditCorpusError(str(exc)) from exc
     return dataset_semantic_digest(dataset)
 
 
@@ -135,17 +151,66 @@ def _validate_selection(work_ids: Iterable[str], available: Sequence[str]) -> li
 
 # ── copy one work into the staging root, proving byte/filename equality ──────
 def _copy_work(source_frags_root: pathlib.Path, input_clean_root: pathlib.Path,
-               work_id: str, expected_chash: str, staging: pathlib.Path) -> Dict:
+               work_id: str, expected_chash: str, chunker, replay_nlp,
+               staging: pathlib.Path) -> Dict:
     author, book = work_id.split("/", 1)
     src_wdir = source_frags_root / author / book
-    manifest, _texts = load_work_manifest(
-        src_wdir, input_clean_root=input_clean_root, expected_chunker_config_hash=expected_chash,
-    )  # validates structure, provenance, byte hashes, ordinals BEFORE any copy
+    src_clean = input_clean_root / author / f"{book}.txt"
+    if src_wdir.is_symlink() or not src_wdir.is_dir():
+        raise AuditCorpusError(f"{work_id}: source work directory missing or a symlink")
+    if src_clean.is_symlink() or not src_clean.is_file():
+        raise AuditCorpusError(f"{work_id}: cleaned source missing or a symlink")
+
+    # Synthetic/already-migrated sources may carry a validated work manifest.  The real legacy
+    # corpus deliberately does not: laying 255 files into data/frags_train would not be atomic.
+    # In that case mint the manifest from the frozen legacy chunk bytes *inside staging only*.
+    # The subsequent independent legacy-vs-WB row comparison is what certifies the generated view.
+    src_manifest = src_wdir / MANIFEST_NAME
+    generated = not src_manifest.is_file()
+    if generated:
+        entries = sorted(src_wdir.iterdir(), key=lambda p: p.name)
+        if any(p.is_symlink() or not p.is_file() for p in entries):
+            raise AuditCorpusError(f"{work_id}: source work contains a symlink or nested entry")
+        chunk_files = [p for p in entries if p.suffix == ".txt"]
+        if len(chunk_files) != len(entries) or not chunk_files:
+            raise AuditCorpusError(f"{work_id}: legacy work must contain only non-empty .txt chunks")
+        chunk_texts = [canonical_chunk_text(p.read_text(encoding="utf-8")) for p in chunk_files]
+        if replay_nlp is None:
+            raise AuditCorpusError(f"{work_id}: manifest-free source requires live chunker replay")
+        from ...chunking import CombinedDoc, make_sent_chunks, sentences_for_text
+
+        clean_text = src_clean.read_text(encoding="utf-8").strip()
+        replayed = make_sent_chunks(
+            CombinedDoc(sentences_for_text(clean_text, replay_nlp)),
+            chunker.chunk_size, chunker.min_words, chunker.overlap,
+        )
+        expected_names = [f"{book}_{index:05d}.txt" for index in range(len(replayed))]
+        actual_names = [p.name for p in chunk_files]
+        if actual_names != expected_names:
+            raise AuditCorpusError(
+                f"{work_id}: legacy chunk filenames differ from a live registered-chunker replay"
+            )
+        if chunk_texts != replayed:
+            raise AuditCorpusError(
+                f"{work_id}: legacy chunk texts differ from a live registered-chunker replay"
+            )
+        manifest = build_work_manifest(
+            work_id, author, replayed, expected_names,
+            provenance_sha256=source_provenance_sha256(src_clean),
+            chunker_config_hash=expected_chash, overlap=chunker.overlap,
+        )
+    else:
+        manifest, _texts = load_work_manifest(
+            src_wdir, input_clean_root=input_clean_root, expected_chunker_config_hash=expected_chash,
+        )  # validates structure, provenance, byte hashes, ordinals BEFORE any copy
 
     dest_wdir = staging / FRAGS_SUBDIR / author / book
     dest_wdir.mkdir(parents=True, exist_ok=False)
-    # copy the exact manifest bytes (keep it byte-identical to the source)
-    shutil.copyfile(src_wdir / MANIFEST_NAME, dest_wdir / MANIFEST_NAME)
+    if generated:
+        dump_strict(manifest.to_dict(), dest_wdir / MANIFEST_NAME, trailing_newline=False)
+    else:
+        # Existing audited manifests remain byte-identical.
+        shutil.copyfile(src_manifest, dest_wdir / MANIFEST_NAME)
     for entry in manifest.chunks:
         src_chunk = src_wdir / entry.path
         if src_chunk.is_symlink():
@@ -155,14 +220,16 @@ def _copy_work(source_frags_root: pathlib.Path, input_clean_root: pathlib.Path,
         if _sha256_file(src_chunk) != _sha256_file(dst_chunk):
             raise AuditCorpusError(f"{work_id}: chunk byte copy mismatch for {entry.path}")
 
-    src_clean = input_clean_root / author / f"{book}.txt"
     dst_clean = staging / INPUT_CLEAN_SUBDIR / author / f"{book}.txt"
     dst_clean.parent.mkdir(parents=True, exist_ok=True)
-    if src_clean.is_symlink():
-        raise AuditCorpusError(f"{work_id}: cleaned source is a symlink")
     shutil.copyfile(src_clean, dst_clean)
     if _sha256_file(src_clean) != _sha256_file(dst_clean):
         raise AuditCorpusError(f"{work_id}: cleaned-source byte copy mismatch")
+
+    # Validate the newly staged manifest through the production loader before it can contribute to
+    # the immutable root.  This catches filename/hash/provenance/config drift immediately.
+    load_work_manifest(dest_wdir, input_clean_root=staging / INPUT_CLEAN_SUBDIR,
+                       expected_chunker_config_hash=expected_chash)
 
     return {
         "work_id": work_id,
@@ -258,24 +325,54 @@ def build_audit_corpus(
     same-name-different-content root is fatal), then re-loads and re-proves parity + per-chunk byte
     equality from the published root. ``data/frags_train`` is never mutated.
     """
-    from ...corpus import load_dataset
+    from ...corpus import CorpusLoadError, load_dataset
     from ...workdoc import load_work_balanced_dataset
 
     source_frags_root = pathlib.Path(source_frags_root)
     input_clean_root = pathlib.Path(input_clean_root)
     audit_parent = pathlib.Path(audit_parent)
+    if source_frags_root.is_symlink() or input_clean_root.is_symlink():
+        raise AuditCorpusError("source_frags_root/input_clean_root must be real directories, not symlinks")
+    if not source_frags_root.is_dir() or not input_clean_root.is_dir():
+        raise AuditCorpusError("source_frags_root/input_clean_root must both exist as directories")
+    _verify_real_dir_chain(source_frags_root)
+    _verify_real_dir_chain(input_clean_root)
+    source_real = source_frags_root.resolve()
+    clean_real = input_clean_root.resolve()
+    audit_real = audit_parent.resolve()
+    if (audit_real == source_real or audit_real.is_relative_to(source_real)
+            or audit_real == clean_real or audit_real.is_relative_to(clean_real)):
+        raise AuditCorpusError(
+            "audit_parent must be outside both immutable input trees; refusing to publish into source"
+        )
     expected_chash = chunker_config_hash(cfg)
+    chunker = frozen_chunker_config(cfg)
 
-    # 1. legacy load of the source; 2. anchor pin; 3. WB load; 4. semantic parity (whole source)
-    legacy_full = load_dataset(source_frags_root, exclude_authors=exclude_authors,
-                               unknown_name=unknown_name)
+    # 1. legacy load of the source; 2. anchor pin.  The real legacy corpus intentionally has no
+    # per-work manifests, so the WB view may only become loadable after the atomic staging copy.
+    try:
+        legacy_full = load_dataset(
+            source_frags_root,
+            exclude_authors=exclude_authors,
+            unknown_name=unknown_name,
+        )
+    except CorpusLoadError as exc:
+        raise SemanticParityError(
+            f"legacy source inventory drifted before anchor verification: {exc}"
+        ) from exc
     verify_legacy_anchor(legacy_full, expected=legacy_anchor)
-    wb_full = load_work_balanced_dataset(source_frags_root, cfg=cfg,
-                                         input_clean_root=input_clean_root,
-                                         exclude_authors=exclude_authors, unknown_name=unknown_name)
-    semantic_digest = assert_semantic_parity(legacy_full, wb_full)
+    try:
+        wb_full = load_work_balanced_dataset(source_frags_root, cfg=cfg,
+                                             input_clean_root=input_clean_root,
+                                             exclude_authors=exclude_authors, unknown_name=unknown_name)
+    except ManifestError:
+        wb_full = None
+    replay_nlp = None
+    if wb_full is None:
+        from ...nlp import load_sentencizer
+        replay_nlp = load_sentencizer(chunker.language)
 
-    available = sorted({str(g) for g in wb_full.groups})
+    available = sorted({str(g) for g in legacy_full.groups})
     selected = _validate_selection(work_ids, available) if work_ids is not None else available
     is_full = set(selected) == set(available)
     if expected_n_works is not None and len(selected) != expected_n_works:
@@ -294,9 +391,21 @@ def build_audit_corpus(
         (staging / FRAGS_SUBDIR).mkdir()
         (staging / INPUT_CLEAN_SUBDIR).mkdir()
         work_records = [
-            _copy_work(source_frags_root, input_clean_root, w, expected_chash, staging)
+            _copy_work(source_frags_root, input_clean_root, w, expected_chash,
+                       chunker, replay_nlp, staging)
             for w in selected
         ]
+        if wb_full is None:
+            if not is_full:
+                raise AuditCorpusError(
+                    "a manifest-free legacy source can only be certified through a full-universe "
+                    "staging build; prepare the full audit corpus before deriving subsets"
+                )
+            wb_full = load_work_balanced_dataset(
+                staging / FRAGS_SUBDIR, cfg=cfg, input_clean_root=staging / INPUT_CLEAN_SUBDIR,
+                exclude_authors=exclude_authors, unknown_name=unknown_name,
+            )
+        semantic_digest = assert_semantic_parity(legacy_full, wb_full)
         digest = _tree_content_digest(staging, _CONTENT_SUBDIRS)
 
         body = {
@@ -375,9 +484,16 @@ def _reverify_published_root(published_root: pathlib.Path, cfg, legacy_anchor: O
         dst_wdir = root_frags / author / book
         manifest, _ = load_work_manifest(dst_wdir, input_clean_root=root_clean,
                                          expected_chunker_config_hash=expected_chash)
-        src_names = {c.path for c in load_work_manifest(
-            src_wdir, input_clean_root=input_clean_root,
-            expected_chunker_config_hash=expected_chash)[0].chunks}
+        src_manifest = src_wdir / MANIFEST_NAME
+        if src_manifest.is_file() and not src_manifest.is_symlink():
+            src_names = {c.path for c in load_work_manifest(
+                src_wdir, input_clean_root=input_clean_root,
+                expected_chunker_config_hash=expected_chash)[0].chunks}
+        else:
+            source_entries = sorted(src_wdir.iterdir(), key=lambda p: p.name)
+            if any(p.is_symlink() or not p.is_file() or p.suffix != ".txt" for p in source_entries):
+                raise AuditCorpusError(f"{work_id}: legacy source contains an unsafe/non-chunk entry")
+            src_names = {p.name for p in source_entries}
         if {c.path for c in manifest.chunks} != src_names:
             raise AuditCorpusError(f"{work_id}: published chunk filenames differ from source")
         for entry in manifest.chunks:

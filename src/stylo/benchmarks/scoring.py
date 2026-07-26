@@ -8,22 +8,41 @@ document ids and predictions.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import hmac
+import importlib.metadata
 import json
+import os
 import pathlib
+import platform
 import re
+import stat
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 
+from ..jsonio import artifact_self_hash
 from ..eval.segmentation import (
     CorpusSegmentationReport,
     LabeledSpan,
     SegmentationDocument,
     evaluate_corpus,
 )
-from .artifacts import file_sha256, verify_manifest_artifacts
-from .schema import BenchmarkManifest, DOC_ID_PATTERN, MANIFEST_SCHEMA_VERSION, SHA256_PATTERN
+from .artifacts import verify_manifest_artifacts
+from .loader import loads_manifest
+from .schema import (
+    BenchmarkManifest,
+    DOC_ID_PATTERN,
+    MANIFEST_SCHEMA_VERSION,
+    SHA256_PATTERN,
+    TASK_ENDPOINT_MATRIX,
+)
+
+_VERIFIED_FILE_FLOW = object()
+_ABSTAIN = object()
+_RESERVED_ABSTENTION_LABELS = frozenset({"__abstain__"})
+SCORE_SCHEMA_VERSION = "stylo.benchmark.score.v2"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -50,6 +69,8 @@ class PredictionRecord:
     author_label: str | None
     document_label: str | None
     spans: tuple[ScoringSpan, ...]
+    author_label_present: bool = True
+    document_label_present: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -59,6 +80,8 @@ class BenchmarkTruth:
     dataset_version: str
     manifest_sha256: str
     records: tuple[TruthRecord, ...]
+    truth_sha256: str
+    escrow_committed: bool
 
     def by_id(self) -> dict[str, TruthRecord]:
         return {record.doc_id: record for record in self.records}
@@ -70,6 +93,7 @@ class BenchmarkSubmission:
     dataset_name: str
     dataset_version: str
     predictions: tuple[PredictionRecord, ...]
+    submission_sha256: str
 
     def by_id(self) -> dict[str, PredictionRecord]:
         return {record.doc_id: record for record in self.predictions}
@@ -86,20 +110,35 @@ class ClassificationScore:
 
 @dataclasses.dataclass(frozen=True)
 class BenchmarkScore:
+    schema_version: str
     dataset_name: str
     dataset_version: str
+    input_bindings: dict[str, str]
+    artifact_verification: dict[str, object]
+    scoring_parameters: dict[str, object]
+    protocol_binding: dict[str, object]
+    code_binding: dict[str, str]
+    runtime_binding: dict[str, str]
     authorship: ClassificationScore | None
     document_classification: ClassificationScore | None
     segmentation: CorpusSegmentationReport | None
+    self_hash: str
 
     def to_dict(self) -> dict:
-        return dataclasses.asdict(self)
+        value = dataclasses.asdict(self)
+        if value["self_hash"] != artifact_self_hash(value):
+            raise RuntimeError("benchmark score envelope self_hash mismatch")
+        return value
 
 
 class ScoringFormatError(ValueError):
     def __init__(self, errors: Sequence[str]):
         self.errors = tuple(errors)
         super().__init__("invalid scoring file:\n" + "\n".join(f"- {e}" for e in errors))
+
+
+class BlindBenchmarkMigrationRequired(ScoringFormatError):
+    """The legacy single public manifest cannot support a scientific blind score."""
 
 
 def _no_duplicate_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -115,16 +154,42 @@ def _reject_constant(value: str):
     raise ValueError(f"non-finite number {value!r}")
 
 
-def _load_json(path: str | pathlib.Path) -> object:
+def _read_regular_bytes(path: str | pathlib.Path, *, label: str) -> bytes:
     p = pathlib.Path(path)
+    if p.is_symlink():
+        raise ScoringFormatError([f"$: {label} path must not be a symlink: {p}"])
     try:
-        return json.loads(
-            p.read_text(encoding="utf-8"),
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(p, flags)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode):
+                raise OSError("not a regular file")
+            blocks: list[bytes] = []
+            while True:
+                block = os.read(fd, 1 << 20)
+                if not block:
+                    break
+                blocks.append(block)
+            return b"".join(blocks)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise ScoringFormatError([f"$: cannot read {label} bytes from {p}: {exc}"]) from exc
+
+
+def _load_json(path: str | pathlib.Path) -> tuple[object, str]:
+    p = pathlib.Path(path)
+    payload = _read_regular_bytes(p, label="JSON")
+    try:
+        loaded = json.loads(
+            payload.decode("utf-8"),
             object_pairs_hook=_no_duplicate_object,
             parse_constant=_reject_constant,
         )
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise ScoringFormatError([f"$: cannot load strict JSON from {p}: {exc}"]) from exc
+    return loaded, hashlib.sha256(payload).hexdigest()
 
 
 def _mapping(value: object, path: str, errors: list[str]) -> Mapping[str, object] | None:
@@ -160,6 +225,23 @@ def _string(raw: Mapping[str, object], key: str, path: str, errors: list[str], *
     return value
 
 
+def _nullable_prediction_string(
+    raw: Mapping[str, object],
+    key: str,
+    path: str,
+    errors: list[str],
+) -> str | None:
+    """Parse a prediction label whose only abstention encoding is JSON null."""
+
+    if key not in raw or raw[key] is None:
+        return None
+    value = raw[key]
+    if type(value) is not str or not value:
+        errors.append(f"{path}.{key}: expected non-empty string or null")
+        return None
+    return value
+
+
 def _spans(value: object, path: str, errors: list[str], *, truth: bool) -> tuple[ScoringSpan, ...]:
     raw_spans = _array(value, path, errors)
     if raw_spans is None:
@@ -176,6 +258,10 @@ def _spans(value: object, path: str, errors: list[str], *, truth: bool) -> tuple
         _check_keys(raw, required, allowed, item_path, errors)
         start, end = raw.get("start"), raw.get("end")
         label = _string(raw, "label", item_path, errors)
+        if label in _RESERVED_ABSTENTION_LABELS:
+            errors.append(
+                f"{item_path}.label: reserved abstention label is forbidden"
+            )
         evidence = _string(raw, "evidence", item_path, errors, required=truth)
         if type(start) is not int:
             errors.append(f"{item_path}.start: expected integer")
@@ -227,13 +313,31 @@ def _parse_records(
             allowed = {"doc_id", "author_label", "document_label", "spans"}
         _check_keys(raw, {"doc_id", "spans"}, allowed, item_path, errors)
         doc_id = _string(raw, "doc_id", item_path, errors)
-        author = _string(raw, "author_label", item_path, errors, required=False)
+        author = (
+            _string(raw, "author_label", item_path, errors, required=False)
+            if truth
+            else _nullable_prediction_string(
+                raw, "author_label", item_path, errors
+            )
+        )
         author_evidence = (
             _string(raw, "author_evidence", item_path, errors, required=False) if truth else None
         )
-        document_label = _string(
-            raw, "document_label", item_path, errors, required=False
+        document_label = (
+            _string(raw, "document_label", item_path, errors, required=False)
+            if truth
+            else _nullable_prediction_string(
+                raw, "document_label", item_path, errors
+            )
         )
+        if author in _RESERVED_ABSTENTION_LABELS:
+            errors.append(
+                f"{item_path}.author_label: reserved abstention label is forbidden"
+            )
+        if document_label in _RESERVED_ABSTENTION_LABELS:
+            errors.append(
+                f"{item_path}.document_label: reserved abstention label is forbidden"
+            )
         document_evidence = (
             _string(raw, "document_evidence", item_path, errors, required=False)
             if truth
@@ -266,13 +370,68 @@ def _parse_records(
                     )
                 )
             else:
-                result.append(PredictionRecord(doc_id, author, document_label, spans))
+                result.append(
+                    PredictionRecord(
+                        doc_id,
+                        author,
+                        document_label,
+                        spans,
+                        author_label_present="author_label" in raw,
+                        document_label_present="document_label" in raw,
+                    )
+                )
     return tuple(result)
 
 
-def load_truth(path: str | pathlib.Path) -> BenchmarkTruth:
+def load_truth(
+    path: str | pathlib.Path,
+    *,
+    expected_sha256: str | None = None,
+    synthetic_integration_only: bool = False,
+) -> BenchmarkTruth:
+    """Load truth only after checking a pre-scoring byte commitment.
+
+    The narrowly named synthetic bypass exists for generated integration
+    controls that cannot make a blind claim.  Scientific/CLI scoring must pass
+    an independently published SHA-256.
+    """
+
+    if type(synthetic_integration_only) is not bool:
+        raise TypeError("synthetic_integration_only must be an exact bool")
+    if expected_sha256 is None and not synthetic_integration_only:
+        raise ScoringFormatError(
+            ["$: expected truth SHA-256 escrow commitment is required before parsing"]
+        )
+    if expected_sha256 is not None and (
+        type(expected_sha256) is not str
+        or re.fullmatch(SHA256_PATTERN, expected_sha256) is None
+    ):
+        raise ScoringFormatError(["$: expected truth SHA-256 is malformed"])
+    truth_path = pathlib.Path(path)
+    payload = _read_regular_bytes(truth_path, label="truth")
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if expected_sha256 is not None and not hmac.compare_digest(
+        actual_sha256, expected_sha256
+    ):
+        raise ScoringFormatError(
+            [
+                "$: truth bytes do not match the pre-scoring escrow commitment "
+                f"(expected {expected_sha256}, actual {actual_sha256})"
+            ]
+        )
+    try:
+        decoded = payload.decode("utf-8")
+        loaded = json.loads(
+            decoded,
+            object_pairs_hook=_no_duplicate_object,
+            parse_constant=_reject_constant,
+        )
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ScoringFormatError(
+            [f"$: cannot load strict JSON from committed truth bytes: {exc}"]
+        ) from exc
     errors: list[str] = []
-    raw = _mapping(_load_json(path), "$", errors)
+    raw = _mapping(loaded, "$", errors)
     if raw is None:
         raise ScoringFormatError(errors)
     required = {"schema_version", "dataset_name", "dataset_version", "manifest_sha256", "records"}
@@ -285,12 +444,21 @@ def load_truth(path: str | pathlib.Path) -> BenchmarkTruth:
     if errors:
         raise ScoringFormatError(errors)
     assert schema and name and version and digest
-    return BenchmarkTruth(schema, name, version, digest, tuple(records))  # type: ignore[arg-type]
+    return BenchmarkTruth(
+        schema,
+        name,
+        version,
+        digest,
+        tuple(records),  # type: ignore[arg-type]
+        actual_sha256,
+        expected_sha256 is not None,
+    )
 
 
 def load_submission(path: str | pathlib.Path) -> BenchmarkSubmission:
     errors: list[str] = []
-    raw = _mapping(_load_json(path), "$", errors)
+    loaded, submission_sha256 = _load_json(path)
+    raw = _mapping(loaded, "$", errors)
     if raw is None:
         raise ScoringFormatError(errors)
     required = {"schema_version", "dataset_name", "dataset_version", "predictions"}
@@ -300,7 +468,13 @@ def load_submission(path: str | pathlib.Path) -> BenchmarkSubmission:
     if errors:
         raise ScoringFormatError(errors)
     assert schema and name and version
-    return BenchmarkSubmission(schema, name, version, tuple(records))  # type: ignore[arg-type]
+    return BenchmarkSubmission(
+        schema,
+        name,
+        version,
+        tuple(records),  # type: ignore[arg-type]
+        submission_sha256,
+    )
 
 
 def validate_scoring_bundle(
@@ -331,20 +505,112 @@ def validate_scoring_bundle(
             f"prediction ids do not equal blind ids: missing={sorted(set(blind)-prediction_ids)}, "
             f"extra={sorted(prediction_ids-set(blind))}"
         )
+    predictions = submission.by_id()
+    blind_tasks = {
+        task for document in blind.values() for task in document.task_types
+    }
+    missing_blind_tasks = sorted(set(manifest.task_types) - blind_tasks)
+    if missing_blind_tasks:
+        errors.append(
+            "declared benchmark tasks have no blind scoring observations: "
+            f"{missing_blind_tasks!r}"
+        )
+    for field in ("author_label", "document_label"):
+        allowed_labels = {
+            getattr(record, field)
+            for record in truth.records
+            if getattr(record, field) is not None
+        }
+        for doc_id, prediction in predictions.items():
+            label = getattr(prediction, field)
+            if label is not None and label not in allowed_labels:
+                errors.append(
+                    f"{doc_id}: {field} {label!r} is outside the registered truth universe"
+                )
+    allowed_span_labels = {
+        span.label for record in truth.records for span in record.spans
+    }
+    for doc_id, prediction in predictions.items():
+        for index, span in enumerate(prediction.spans):
+            if span.label not in allowed_span_labels:
+                errors.append(
+                    f"{doc_id}: span {index} label {span.label!r} is outside "
+                    "the registered truth universe"
+                )
     for doc_id, record in truth.by_id().items():
         document = blind.get(doc_id)
         if document is None:
             continue
-        if "mixed_authorship" in document.task_types and not record.spans:
-            errors.append(f"{doc_id}: mixed_authorship truth requires spans")
-        if (
-            not record.spans
-            and record.author_label is None
-            and record.document_label is None
-        ):
-            errors.append(
-                f"{doc_id}: truth has neither author_label, document_label, nor spans"
+        truth_fields = {
+            field
+            for field, present in (
+                ("author_label", record.author_label is not None),
+                ("document_label", record.document_label is not None),
+                ("spans", bool(record.spans)),
             )
+            if present
+        }
+        prediction = predictions.get(doc_id)
+        prediction_fields = (
+            set()
+            if prediction is None
+            else {
+                field
+                for field, present in (
+                    ("author_label", prediction.author_label is not None),
+                    ("document_label", prediction.document_label is not None),
+                    ("spans", bool(prediction.spans)),
+                )
+                if present
+            }
+        )
+        contracts = [
+            TASK_ENDPOINT_MATRIX[task]
+            for task in document.task_types
+            if task in TASK_ENDPOINT_MATRIX
+        ]
+        allowed = set().union(
+            *(contract["allowed_truth_fields"] for contract in contracts)
+        )
+        disallowed_truth = sorted(truth_fields - allowed)
+        if disallowed_truth:
+            errors.append(
+                f"{doc_id}: truth fields {disallowed_truth!r} are not registered "
+                f"for tasks {list(document.task_types)!r}"
+            )
+        disallowed_prediction = sorted(prediction_fields - allowed)
+        if disallowed_prediction:
+            errors.append(
+                f"{doc_id}: prediction fields {disallowed_prediction!r} are not "
+                f"registered for tasks {list(document.task_types)!r}"
+            )
+        if prediction is not None:
+            for field in ("author_label", "document_label"):
+                if (
+                    field in truth_fields
+                    and not getattr(prediction, f"{field}_present")
+                ):
+                    errors.append(
+                        f"{doc_id}: classification prediction field {field!r} "
+                        "must be present as a registered label or explicit JSON null"
+                    )
+        for task in document.task_types:
+            contract = TASK_ENDPOINT_MATRIX.get(task)
+            if contract is None:
+                continue
+            missing = sorted(
+                set(contract.get("required_all", ())) - truth_fields
+            )
+            if missing:
+                errors.append(
+                    f"{doc_id}: task {task!r} requires truth fields {missing!r}"
+                )
+            for alternatives in contract.get("required_any", ()):
+                if not (set(alternatives) & truth_fields):
+                    errors.append(
+                        f"{doc_id}: task {task!r} requires at least one of "
+                        f"{sorted(alternatives)!r} in truth"
+                    )
     if errors:
         raise ScoringFormatError(errors)
 
@@ -388,28 +654,158 @@ def _classification_score(
     rows = [record for record in truth if getattr(record, field) is not None]
     if not rows:
         return None
-    y_true = np.asarray([getattr(record, field) for record in rows], dtype=object)
+    y_true = [getattr(record, field) for record in rows]
     raw_pred = [getattr(predictions[record.doc_id], field) for record in rows]
     n_predicted = sum(label is not None for label in raw_pred)
-    y_pred = np.asarray(
-        [label if label is not None else "__abstain__" for label in raw_pred], dtype=object
-    )
+    y_pred: list[object] = [
+        label if label is not None else _ABSTAIN for label in raw_pred
+    ]
     # The estimand is macro-F1 over registered truth classes.  Abstention is a
     # false negative for its true class, not an extra pseudo-author class.
-    labels = sorted(set(y_true.tolist()))
+    labels = sorted(set(y_true))
     f1 = []
     for label in labels:
-        tp = int(np.sum((y_true == label) & (y_pred == label)))
-        fp = int(np.sum((y_true != label) & (y_pred == label)))
-        fn = int(np.sum((y_true == label) & (y_pred != label)))
+        tp = sum(truth_label == label and pred_label == label
+                 for truth_label, pred_label in zip(y_true, y_pred, strict=True))
+        fp = sum(truth_label != label and pred_label == label
+                 for truth_label, pred_label in zip(y_true, y_pred, strict=True))
+        fn = sum(truth_label == label and pred_label != label
+                 for truth_label, pred_label in zip(y_true, y_pred, strict=True))
         denominator = 2 * tp + fp + fn
         f1.append(2 * tp / denominator if denominator else 0.0)
     return ClassificationScore(
         n_documents=len(rows),
         n_predicted=n_predicted,
         coverage=n_predicted / len(rows),
-        accuracy=float(np.mean(y_true == y_pred)),
+        accuracy=(
+            sum(
+                pred_label is not _ABSTAIN and truth_label == pred_label
+                for truth_label, pred_label in zip(y_true, y_pred, strict=True)
+            )
+            / len(rows)
+        ),
         macro_f1=float(np.mean(f1)),
+    )
+
+
+def _package_version(name: str) -> str:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return "not-installed"
+
+
+def _score_code_binding() -> dict[str, str]:
+    stylo_root = pathlib.Path(__file__).resolve().parents[1]
+    paths = (
+        pathlib.Path(__file__).resolve(),
+        pathlib.Path(__file__).resolve().with_name("artifacts.py"),
+        pathlib.Path(__file__).resolve().with_name("loader.py"),
+        pathlib.Path(__file__).resolve().with_name("schema.py"),
+        pathlib.Path(__file__).resolve().with_name("validator.py"),
+        stylo_root / "domain" / "segmentation.py",
+        stylo_root / "jsonio.py",
+        stylo_root / "eval" / "segmentation.py",
+    )
+    binding: dict[str, str] = {}
+    for path in paths:
+        payload = _read_regular_bytes(path, label="scoring code")
+        binding[path.relative_to(stylo_root).as_posix()] = hashlib.sha256(payload).hexdigest()
+    return binding
+
+
+def _build_score_envelope(
+    *,
+    manifest: BenchmarkManifest,
+    manifest_sha256: str,
+    truth: BenchmarkTruth,
+    submission: BenchmarkSubmission,
+    artifact_report_sha256: str | None,
+    artifact_verified: bool,
+    boundary_tolerance: int,
+    segment_iou_threshold: float,
+    bootstrap_iters: int,
+    seed: int,
+    authorship: ClassificationScore | None,
+    document_classification: ClassificationScore | None,
+    segmentation: CorpusSegmentationReport | None,
+    segmentation_bootstrap_unit: str | None,
+    synthetic_integration_only: bool,
+) -> BenchmarkScore:
+    fields: dict[str, object] = {
+        "schema_version": SCORE_SCHEMA_VERSION,
+        "dataset_name": manifest.dataset.name,
+        "dataset_version": manifest.dataset.version,
+        "input_bindings": {
+            "manifest_sha256": manifest_sha256,
+            "truth_sha256": truth.truth_sha256,
+            "submission_sha256": submission.submission_sha256,
+        },
+        "artifact_verification": {
+            "verified": artifact_verified,
+            "report_sha256": artifact_report_sha256,
+            "mode": (
+                "synthetic_integration_only"
+                if synthetic_integration_only
+                else "scientific_verified"
+            ),
+        },
+        "scoring_parameters": {
+            "boundary_tolerance": boundary_tolerance,
+            "segment_iou_threshold": float(segment_iou_threshold),
+            "bootstrap_iters": bootstrap_iters,
+            "seed": seed,
+        },
+        "protocol_binding": {
+            "manifest_schema_version": manifest.schema_version,
+            "score_schema_version": SCORE_SCHEMA_VERSION,
+            "offset_unit": manifest.dataset.offset_unit,
+            "tokenizer": manifest.dataset.tokenizer,
+            "segmentation_permutation_safe": False,
+            "bootstrap_unit": segmentation_bootstrap_unit,
+            "endpoint_counts": {
+                task: sum(
+                    task in document.task_types and document.split == "blind"
+                    for document in manifest.documents
+                )
+                for task in manifest.task_types
+            },
+        },
+        "code_binding": _score_code_binding(),
+        "runtime_binding": {
+            "python": platform.python_version(),
+            "python_implementation": platform.python_implementation(),
+            "numpy": np.__version__,
+            "scipy": _package_version("scipy"),
+            "scikit_learn": _package_version("scikit-learn"),
+        },
+        "authorship": (
+            None if authorship is None else dataclasses.asdict(authorship)
+        ),
+        "document_classification": (
+            None
+            if document_classification is None
+            else dataclasses.asdict(document_classification)
+        ),
+        "segmentation": (
+            None if segmentation is None else dataclasses.asdict(segmentation)
+        ),
+    }
+    fields["self_hash"] = artifact_self_hash(fields)
+    return BenchmarkScore(
+        schema_version=SCORE_SCHEMA_VERSION,
+        dataset_name=manifest.dataset.name,
+        dataset_version=manifest.dataset.version,
+        input_bindings=fields["input_bindings"],  # type: ignore[arg-type]
+        artifact_verification=fields["artifact_verification"],  # type: ignore[arg-type]
+        scoring_parameters=fields["scoring_parameters"],  # type: ignore[arg-type]
+        protocol_binding=fields["protocol_binding"],  # type: ignore[arg-type]
+        code_binding=fields["code_binding"],  # type: ignore[arg-type]
+        runtime_binding=fields["runtime_binding"],  # type: ignore[arg-type]
+        authorship=authorship,
+        document_classification=document_classification,
+        segmentation=segmentation,
+        self_hash=fields["self_hash"],  # type: ignore[arg-type]
     )
 
 
@@ -424,12 +820,61 @@ def score_submission(
     bootstrap_iters: int = 1000,
     seed: int = 42,
     document_lengths: Mapping[str, int] | None = None,
+    artifact_report_sha256: str | None = None,
+    artifact_verified: bool = False,
+    segmentation_bootstrap_unit: str | None = None,
+    synthetic_integration_only: bool = False,
+    _verified_file_flow: object | None = None,
 ) -> BenchmarkScore:
+    if type(boundary_tolerance) is not int or boundary_tolerance < 0:
+        raise ScoringFormatError(["boundary_tolerance must be an exact nonnegative integer"])
+    if (
+        isinstance(segment_iou_threshold, bool)
+        or not isinstance(segment_iou_threshold, (int, float))
+        or not np.isfinite(segment_iou_threshold)
+        or not 0.0 <= float(segment_iou_threshold) <= 1.0
+    ):
+        raise ScoringFormatError(["segment_iou_threshold must be finite within [0, 1]"])
+    if type(bootstrap_iters) is not int or bootstrap_iters <= 0:
+        raise ScoringFormatError(["bootstrap_iters must be a positive exact integer"])
+    if type(seed) is not int:
+        raise ScoringFormatError(["seed must be an exact integer"])
+    if type(artifact_verified) is not bool:
+        raise ScoringFormatError(["artifact_verified must be an exact bool"])
+    if not synthetic_integration_only and _verified_file_flow is not _VERIFIED_FILE_FLOW:
+        raise ScoringFormatError(
+            [
+                "in-memory score_submission is integration-only; scientific scoring "
+                "must use the sealed file-based scorer"
+            ]
+        )
+    if not truth.escrow_committed and not synthetic_integration_only:
+        raise ScoringFormatError(
+            ["truth object is not bound to a pre-scoring escrow commitment"]
+        )
+    if not synthetic_integration_only and (
+        not artifact_verified
+        or document_lengths is None
+        or type(artifact_report_sha256) is not str
+        or re.fullmatch(SHA256_PATTERN, artifact_report_sha256) is None
+    ):
+        raise ScoringFormatError(
+            ["scientific scoring requires a digest-bound artifact verification receipt"]
+        )
+    if document_lengths is not None:
+        validate_truth_offsets(manifest, truth, document_lengths)
     validate_scoring_bundle(
         manifest, truth, submission, manifest_sha256=manifest_sha256
     )
-    if document_lengths is not None:
-        validate_truth_offsets(manifest, truth, document_lengths)
+    if manifest.dataset.offset_unit == "character" and any(
+        record.spans for record in truth.records
+    ):
+        raise ScoringFormatError(
+            [
+                "schema v1 character-offset segmentation is not scoreable: "
+                "token-named metrics cannot represent that estimand"
+            ]
+        )
     predictions = submission.by_id()
     authorship = _classification_score(
         truth.records, predictions, field="author_label"
@@ -455,25 +900,59 @@ def score_submission(
                 predicted=tuple(LabeledSpan(s.start, s.end, s.label) for s in predicted.spans),
             )
         )
+    if segment_documents:
+        if segmentation_bootstrap_unit not in {"work", "document"}:
+            raise ScoringFormatError(
+                [
+                    "segmentation_bootstrap_unit must explicitly register "
+                    "'work' or 'document' when segmentation is scored"
+                ]
+            )
+        if segmentation_bootstrap_unit == "work" and any(
+            document.work is None
+            for document in blind_by_id.values()
+            if set(document.task_types) & {"idio_shift", "mixed_authorship"}
+        ):
+            raise ScoringFormatError(
+                ["work bootstrap requires a registered work identity for every segmentation document"]
+            )
+        if segmentation_bootstrap_unit == "document" and not synthetic_integration_only:
+            raise ScoringFormatError(
+                ["scientific segmentation requires the registered work bootstrap unit"]
+            )
+    elif segmentation_bootstrap_unit is not None:
+        raise ScoringFormatError(
+            ["segmentation_bootstrap_unit was supplied but no segmentation endpoint is registered"]
+        )
     segmentation = (
         evaluate_corpus(
             segment_documents,
             boundary_tolerance=boundary_tolerance,
             segment_iou_threshold=segment_iou_threshold,
             permutation_safe=False,
-            bootstrap_unit="auto",
+            bootstrap_unit=segmentation_bootstrap_unit,
             bootstrap_iters=bootstrap_iters,
             seed=seed,
         )
         if segment_documents
         else None
     )
-    return BenchmarkScore(
-        dataset_name=manifest.dataset.name,
-        dataset_version=manifest.dataset.version,
+    return _build_score_envelope(
+        manifest=manifest,
+        manifest_sha256=manifest_sha256,
+        truth=truth,
+        submission=submission,
+        artifact_report_sha256=artifact_report_sha256,
+        artifact_verified=artifact_verified,
+        boundary_tolerance=boundary_tolerance,
+        segment_iou_threshold=segment_iou_threshold,
+        bootstrap_iters=bootstrap_iters,
+        seed=seed,
         authorship=authorship,
         document_classification=document_classification,
         segmentation=segmentation,
+        segmentation_bootstrap_unit=segmentation_bootstrap_unit,
+        synthetic_integration_only=synthetic_integration_only,
     )
 
 
@@ -483,20 +962,65 @@ def score_files(
     truth_path: str | pathlib.Path,
     submission_path: str | pathlib.Path,
     artifact_root: str | pathlib.Path | None = None,
+    *,
+    expected_truth_sha256: str | None = None,
+    synthetic_integration_only: bool = False,
     **kwargs,
 ) -> BenchmarkScore:
+    if type(synthetic_integration_only) is not bool:
+        raise TypeError("synthetic_integration_only must be an exact bool")
+    manifest_payload = _read_regular_bytes(manifest_path, label="manifest")
+    try:
+        parsed_manifest = loads_manifest(manifest_payload.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise ScoringFormatError(
+            [f"manifest bytes cannot be parsed under the strict schema: {exc}"]
+        ) from exc
+    if parsed_manifest != manifest:
+        raise ScoringFormatError(
+            ["manifest object does not equal the exact bytes supplied to score_files"]
+        )
+    manifest_sha256 = hashlib.sha256(manifest_payload).hexdigest()
+
     document_lengths = None
+    artifact_report_sha256 = None
+    artifact_verified = False
     if artifact_root is not None:
         artifact_report = verify_manifest_artifacts(manifest, artifact_root)
         document_lengths = {
             document.doc_id: document.n_offset_units for document in artifact_report.documents
         }
+        artifact_report_sha256 = artifact_report.receipt_sha256()
+        artifact_verified = True
+    elif not synthetic_integration_only:
+        raise ScoringFormatError(
+            ["scientific score_files requires artifact_root; unverified offsets are forbidden"]
+        )
+
+    if not synthetic_integration_only and any(
+        document.split == "blind" for document in manifest.documents
+    ):
+        raise BlindBenchmarkMigrationRequired(
+            [
+                "benchmark manifest schema 1.0 has no custodian full-provenance "
+                "binding for redacted blind rows; scientific blind scoring is "
+                "blocked until the versioned dual-manifest migration"
+            ]
+        )
     return score_submission(
         manifest,
-        load_truth(truth_path),
+        load_truth(
+            truth_path,
+            expected_sha256=expected_truth_sha256,
+            synthetic_integration_only=synthetic_integration_only,
+        ),
         load_submission(submission_path),
-        manifest_sha256=file_sha256(manifest_path),
+        manifest_sha256=manifest_sha256,
         document_lengths=document_lengths,
+        artifact_report_sha256=artifact_report_sha256,
+        artifact_verified=artifact_verified,
+        synthetic_integration_only=synthetic_integration_only,
+        _verified_file_flow=_VERIFIED_FILE_FLOW,
         **kwargs,
     )
 
@@ -505,6 +1029,7 @@ __all__ = [
     "BenchmarkScore",
     "BenchmarkSubmission",
     "BenchmarkTruth",
+    "BlindBenchmarkMigrationRequired",
     "ClassificationScore",
     "PredictionRecord",
     "ScoringFormatError",

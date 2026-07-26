@@ -21,11 +21,12 @@ import math
 import re
 from typing import Iterable
 
+from ...models.registry import CONFIRMATORY_MODEL_SPECS
 from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
                               LEGACY_ABLATION, RELATIVE_FW_ONLY_ABLATION,
                               WEIGHTS_ONLY_ABLATION)
 
-MODELS = ("stylo", "stylo_stack", "bow_lr", "delta_cos:500", "char_cos", "majority")
+MODELS = CONFIRMATORY_MODEL_SPECS
 CELLS = ("A0", "A1", "A2", "A3", "A4")
 STATUSES = frozenset({"applied", "not_applicable", "equivalent_to"})   # the literal §4.1 status values
 AXIS_STATES = frozenset({"applied", "not_applicable", "already_in_legacy"})   # §4.1 effective_axes values

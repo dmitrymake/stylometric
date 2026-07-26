@@ -1,11 +1,11 @@
-"""B2 dataset provenance — the fail-closed contract binding a Dataset to a weighting arm.
+"""Dataset provenance — the fail-closed contract binding a Dataset to a weighting arm.
 
 A `DatasetProvenance` proves *how* a `Dataset` was built (loader kind, full per-row identity,
 corpus policy, chunker/normalization hash) with a **versioned, length-prefixed canonical digest**
 over `texts + y + groups + authors + row identities`. Length-prefixing removes every field-
 boundary/encoding ambiguity; `authors` is inside the digest because permuting authors reassigns
 every `y`. The guard recomputes the digest over the *current* arrays, so a hand-built or mutated
-Dataset cannot pose as manifest-validated (B0 gate). See research/P1_B2_MODEL_WIRING_DESIGN.md §2.
+Dataset cannot pose as manifest-validated. See research/work_balanced/model_routing.md §2.
 """
 from __future__ import annotations
 
@@ -19,12 +19,18 @@ from typing import Optional, Sequence
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
+from ..domain import corpus_identity as _corpus_identity
 from .work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              resolve_training_weighting)
 
-DIGEST_VERSION = "b2.prov.v2"   # v2: digest now binds loader_kind + chunker_config_hash
-LEGACY_RECURSIVE = "legacy_recursive"
-WORK_BALANCED_MANIFEST = "work_balanced_manifest"
+DIGEST_VERSION = _corpus_identity.DIGEST_VERSION
+LEGACY_RECURSIVE = _corpus_identity.LEGACY_RECURSIVE
+WORK_BALANCED_MANIFEST = _corpus_identity.WORK_BALANCED_MANIFEST
+ProvenanceError = _corpus_identity.ProvenanceError
+CorpusPolicyProvenance = _corpus_identity.CorpusPolicyProvenance
+RowIdentity = _corpus_identity.RowIdentity
+DataContract = _corpus_identity.DataContract
+DatasetProvenance = _corpus_identity.DatasetProvenance
 
 # loader_kind required by each weighting arm (both-sided guard)
 _KIND_FOR_WEIGHTING = {
@@ -42,71 +48,7 @@ class VariantRole(str, enum.Enum):
 
 
 class UnsupportedVariantError(RuntimeError):
-    """Raised by preflight for a requested (spec, weighting) that B2-core will not run."""
-
-
-class ProvenanceError(ValueError):
-    """Fail-closed dataset/weighting contract violation."""
-
-
-@dataclasses.dataclass(frozen=True)
-class CorpusPolicyProvenance:
-    """Immutable corpus policy (NOT a dict) — part of the data contract."""
-    exclude_from_benchmark: tuple[str, ...]      # sorted, de-duplicated
-    unknown_dir_name: str
-
-    @staticmethod
-    def build(exclude_from_benchmark: Sequence[str], unknown_dir_name: str) -> "CorpusPolicyProvenance":
-        # strict types: a bare string exclude would silently become a set of letters; a non-str
-        # unknown_dir_name would load a bogus author directory.
-        if isinstance(exclude_from_benchmark, (str, bytes)):
-            raise ProvenanceError("exclude_from_benchmark must be a list of author ids, not a string")
-        excl = list(exclude_from_benchmark or ())
-        if not all(isinstance(a, str) for a in excl):
-            raise ProvenanceError("exclude_from_benchmark entries must all be str")
-        if not isinstance(unknown_dir_name, str):
-            raise ProvenanceError("unknown_dir_name must be str")
-        return CorpusPolicyProvenance(tuple(sorted(set(excl))), unknown_dir_name)
-
-
-@dataclasses.dataclass(frozen=True)
-class RowIdentity:
-    """Per-row identity. WB rows carry the full B0 identity chain; legacy rows carry a subset."""
-    group: str
-    ordinal: int
-    text_sha256: str
-    work_id: Optional[str] = None
-    provenance_sha256: Optional[str] = None
-    chunker_config_hash: Optional[str] = None
-
-
-@dataclasses.dataclass(frozen=True)
-class DataContract:
-    """The data-side contract compared at run entry (NOT the full model-config: ablation-safe)."""
-    frags_root: str                              # resolved absolute path string
-    corpus_policy: CorpusPolicyProvenance
-    chunker_config_hash: Optional[str]           # None for the legacy recursive loader
-    canonical_digest: Optional[str] = None       # WB only: digest independently recomputed from disk
-
-
-@dataclasses.dataclass(frozen=True)
-class DatasetProvenance:
-    digest_version: str
-    loader_kind: str
-    row_ids: tuple                               # tuple[RowIdentity]
-    authors: tuple                               # tuple[str], index == label
-    n_rows: int
-    chunker_config_hash: Optional[str]
-    corpus_policy: CorpusPolicyProvenance
-    frags_root: str
-    rows_digest: str
-    manifest_hash: Optional[str] = None
-    config_id: Optional[str] = None
-    parent_rows_digest: Optional[str] = None          # subset only: the disk-anchored parent digest
-    selection_manifest_digest: Optional[str] = None   # subset only: sha256 of ordered selected ids
-
-    def contract(self) -> DataContract:
-        return DataContract(self.frags_root, self.corpus_policy, self.chunker_config_hash)
+    """Raised when model-routing preflight rejects a requested (spec, weighting)."""
 
 
 # ── canonical digest ──────────────────────────────────────────────────────────
@@ -356,6 +298,29 @@ def build_provenance(
     )
 
 
+# Compatibility facade: corpus loaders now depend only on the inward domain
+# contract.  Keep the historical evaluation import path, but make every
+# exported type/function the exact same object rather than a duplicate class.
+DIGEST_VERSION = _corpus_identity.DIGEST_VERSION
+LEGACY_RECURSIVE = _corpus_identity.LEGACY_RECURSIVE
+WORK_BALANCED_MANIFEST = _corpus_identity.WORK_BALANCED_MANIFEST
+ProvenanceError = _corpus_identity.ProvenanceError
+CorpusPolicyProvenance = _corpus_identity.CorpusPolicyProvenance
+RowIdentity = _corpus_identity.RowIdentity
+DataContract = _corpus_identity.DataContract
+DatasetProvenance = _corpus_identity.DatasetProvenance
+canonical_digest = _corpus_identity.canonical_digest
+build_provenance = _corpus_identity.build_provenance
+_canonical_ri = _corpus_identity._canonical_ri
+_validate_provenance_schema = _corpus_identity._validate_provenance_schema
+_author_of_group = _corpus_identity._author_of_group
+_validate_semantics = _corpus_identity._validate_semantics
+_validate_self_consistency = _corpus_identity._validate_self_consistency
+_verify_stored_provenance = _corpus_identity._verify_stored_provenance
+_selection_digest = _corpus_identity._selection_digest
+_require_subsequence = _corpus_identity._require_subsequence
+
+
 # NOTE: the caller-supplied-contract guard was removed — a Dataset's provenance is authoritative
 # ONLY after verify_dataset_against_disk re-derives the anchor from the actual on-disk corpus
 # (see below). No self-anchored DataContract is ever trusted by the runtime engines.
@@ -438,7 +403,7 @@ def derive_dataset(parent, indices: Sequence[int]):
     if not isinstance(prov, DatasetProvenance):
         raise ProvenanceError("derive_dataset requires a parent with DatasetProvenance")
     if prov.loader_kind == WORK_BALANCED_MANIFEST:
-        # a WB subset would need its own disk-derived canonical anchor — not supported in B2-core
+        # A WB subset would need its own disk-derived canonical anchor, which this contract lacks.
         raise ProvenanceError("work_balanced subsetting is not supported (needs a disk-derived anchor)")
     # FULL stored-provenance re-verification of the parent (not just self-consistency) — a mutated
     # parent with a stale stored digest must not launder a child.
@@ -558,53 +523,336 @@ def safe_write_text(path, text: str) -> None:
         _os.close(dfd)
 
 
-def safe_write_batch(dirpath, name_to_text: dict) -> None:
-    """All-or-nothing generation of a set of outputs in one dir: every temp is written first (a
-    write failure aborts before ANY output is replaced), then all are atomically swapped in — so a
-    failure on the second file never leaves a new file beside stale siblings."""
+_BATCH_MANIFEST_SCHEMA = "stylo.atomic-batch-manifest.v1"
+_BATCH_POINTER_SCHEMA = "stylo.atomic-batch-pointer.v1"
+
+
+def _batch_publication_id(names) -> str:
+    """Derive a stable namespace from the exact output-name set."""
+    from ..jsonio import canonical_hash
+
+    return "batch-" + canonical_hash(sorted(names))[:16]
+
+
+def _safe_publication_id(value: str) -> str:
+    if (
+        type(value) is not str
+        or not value
+        or value in {".", ".."}
+        or re.fullmatch(r"[0-9A-Za-z_.-]+", value) is None
+    ):
+        raise ProvenanceError(f"unsafe batch publication id: {value!r}")
+    return value
+
+
+def _fsync_dir(path) -> None:
+    import os as _os
+
+    fd = _os.open(path, _os.O_RDONLY | getattr(_os, "O_DIRECTORY", 0))
+    try:
+        _os.fsync(fd)
+    finally:
+        _os.close(fd)
+
+
+def _remove_private_tree(path, *, _staging_root: bool = True) -> None:
+    """Remove only a writer-owned hidden staging tree."""
+    import pathlib as _pl
+
+    path = _pl.Path(path)
+    if _staging_root and not path.name.startswith(".staging-"):
+        raise ProvenanceError(f"refusing to clean non-staging path: {path}")
+    if path.is_symlink():
+        path.unlink()
+        return
+    if not path.exists():
+        return
+    for child in path.iterdir():
+        if child.is_dir() and not child.is_symlink():
+            _remove_private_tree(child, _staging_root=False)
+        else:
+            child.unlink()
+    path.rmdir()
+
+
+def _validate_batch_generation(generation, *, publication_id: str) -> dict:
+    import hashlib as _hashlib
+    import pathlib as _pl
+
+    from ..jsonio import artifact_self_hash, load_strict
+
+    generation = _pl.Path(generation)
+    if generation.is_symlink() or not generation.is_dir():
+        raise ProvenanceError(f"batch generation is missing/symlinked: {generation}")
+    manifest_path = generation / "MANIFEST.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ProvenanceError(f"batch manifest is missing/symlinked: {manifest_path}")
+    manifest = load_strict(manifest_path)
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != _BATCH_MANIFEST_SCHEMA
+        or manifest.get("publication_id") != publication_id
+        or manifest.get("generation_id") != generation.name
+        or manifest.get("self_hash") != artifact_self_hash(manifest)
+        or not isinstance(manifest.get("files"), dict)
+        or not manifest["files"]
+    ):
+        raise ProvenanceError("batch generation manifest is invalid")
+    allowed = {"MANIFEST.json", *manifest["files"]}
+    observed = {path.name for path in generation.iterdir()}
+    if observed != allowed:
+        raise ProvenanceError(
+            f"batch generation file inventory mismatch: {sorted(observed)} != "
+            f"{sorted(allowed)}"
+        )
+    for name, binding in manifest["files"].items():
+        if (
+            "/" in name
+            or name in {"", ".", "..", "MANIFEST.json"}
+            or not isinstance(binding, dict)
+            or set(binding) != {"sha256", "size_bytes"}
+            or type(binding["sha256"]) is not str
+            or len(binding["sha256"]) != 64
+            or type(binding["size_bytes"]) is not int
+            or binding["size_bytes"] < 0
+        ):
+            raise ProvenanceError(f"invalid batch file binding for {name!r}")
+        path = generation / name
+        if path.is_symlink() or not path.is_file():
+            raise ProvenanceError(f"batch member is missing/symlinked: {name!r}")
+        payload = path.read_bytes()
+        if (
+            len(payload) != binding["size_bytes"]
+            or _hashlib.sha256(payload).hexdigest() != binding["sha256"]
+        ):
+            raise ProvenanceError(f"batch member digest mismatch: {name!r}")
+    return manifest
+
+
+def resolve_published_batch(
+    dirpath,
+    *,
+    publication_id: str,
+    expected_names=None,
+) -> dict:
+    """Resolve one complete generation through its single atomic pointer."""
+    import pathlib as _pl
+
+    from ..jsonio import artifact_self_hash, load_strict
+
+    publication_id = _safe_publication_id(publication_id)
+    root = _pl.Path(dirpath) / ".stylo-batches" / publication_id
+    pointer_path = root / "CURRENT.json"
+    if pointer_path.is_symlink() or not pointer_path.is_file():
+        raise ProvenanceError(f"batch pointer is missing/symlinked: {pointer_path}")
+    pointer = load_strict(pointer_path)
+    if (
+        not isinstance(pointer, dict)
+        or pointer.get("schema_version") != _BATCH_POINTER_SCHEMA
+        or pointer.get("publication_id") != publication_id
+        or type(pointer.get("generation_id")) is not str
+        or re.fullmatch(r"[0-9a-f]{64}", pointer["generation_id"]) is None
+        or pointer.get("self_hash") != artifact_self_hash(pointer)
+    ):
+        raise ProvenanceError("batch pointer is invalid")
+    generation = root / "generations" / pointer["generation_id"]
+    manifest = _validate_batch_generation(
+        generation,
+        publication_id=publication_id,
+    )
+    if pointer.get("manifest_self_hash") != manifest["self_hash"]:
+        raise ProvenanceError("batch pointer/manifest binding mismatch")
+    names = set(manifest["files"])
+    if expected_names is not None and names != set(expected_names):
+        raise ProvenanceError(
+            f"resolved batch names {sorted(names)} != expected {sorted(expected_names)}"
+        )
+    return {name: generation / name for name in sorted(names)}
+
+
+def safe_write_batch(
+    dirpath,
+    name_to_text: dict,
+    *,
+    publication_id: str | None = None,
+) -> dict:
+    """Publish a complete immutable generation behind one atomic pointer.
+
+    Individual sibling replacement cannot be a filesystem transaction.  This
+    API therefore writes and fsyncs a content-addressed generation first, then
+    commits it with exactly one atomic ``CURRENT.json`` replacement.  A failure
+    or crash before that replacement leaves the prior generation resolvable;
+    an orphan generation is harmless and can be reused by a retry.
+    """
+    import hashlib as _hashlib
     import os as _os
     import pathlib as _pl
     import secrets as _secrets
     import stat as _stat
+
+    from ..jsonio import artifact_self_hash, canonical_hash, dumps_strict
+
+    if not isinstance(name_to_text, dict) or not name_to_text:
+        raise ProvenanceError("batch outputs must be a non-empty mapping")
+    names = list(name_to_text)
+    if len(set(names)) != len(names):
+        raise ProvenanceError("batch output names must be unique")
+    for name, text in name_to_text.items():
+        if (
+            type(name) is not str
+            or "/" in name
+            or name in ("", ".", "..", "MANIFEST.json")
+        ):
+            raise ProvenanceError(f"unsafe output filename: {name!r}")
+        if type(text) is not str:
+            raise ProvenanceError(f"batch output {name!r} must be text")
+    publication_id = _safe_publication_id(
+        publication_id or _batch_publication_id(names)
+    )
+
     dirpath = _pl.Path(dirpath)
     nofollow = getattr(_os, "O_NOFOLLOW", 0)
-    dfd = _os.open(dirpath, _os.O_RDONLY | _os.O_DIRECTORY | nofollow)
-    tmps: list[tuple[str, str]] = []          # (tmpname, finalname)
+    dfd = _os.open(
+        dirpath,
+        _os.O_RDONLY | getattr(_os, "O_DIRECTORY", 0) | nofollow,
+    )
     try:
-        for name, text in name_to_text.items():
-            if "/" in name or name in ("", ".", ".."):
-                raise ProvenanceError(f"unsafe output filename: {name!r}")
+        # Preserve the old symlink/non-regular preflight: a stable-name alias
+        # must not coexist with a published generation and mislead consumers.
+        for name in names:
             try:
                 st = _os.lstat(name, dir_fd=dfd)
                 if not _stat.S_ISREG(st.st_mode):
-                    raise ProvenanceError(f"refusing to overwrite symlink/non-regular: {name!r}")
+                    raise ProvenanceError(
+                        f"refusing batch publication beside symlink/non-regular: {name!r}"
+                    )
             except FileNotFoundError:
                 pass
-            fd = None
-            for _ in range(64):
-                cand = f".w_{_secrets.token_hex(8)}"
-                try:
-                    fd = _os.open(cand, _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY | nofollow, 0o600, dir_fd=dfd)
-                    break
-                except FileExistsError:
-                    continue
-            if fd is None:
-                raise ProvenanceError("could not create a unique temp output file")
-            with _os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(text)
-                fh.flush()
-                _os.fsync(fh.fileno())
-            tmps.append((cand, name))
-        for tmpname, name in tmps:            # phase 2: swap all in (all temps already written)
-            _os.replace(tmpname, name, src_dir_fd=dfd, dst_dir_fd=dfd)
-        tmps = []
     finally:
-        for tmpname, _ in tmps:               # a failure before phase 2 completes -> clean up temps
-            try:
-                _os.unlink(tmpname, dir_fd=dfd)
-            except OSError:
-                pass
         _os.close(dfd)
+
+    batch_root = dirpath / ".stylo-batches"
+    publication_root = batch_root / publication_id
+    generations = publication_root / "generations"
+    for path in (batch_root, publication_root, generations):
+        existed = path.exists()
+        if path.exists() and (path.is_symlink() or not path.is_dir()):
+            raise ProvenanceError(f"batch publication path is unsafe: {path}")
+        path.mkdir(exist_ok=True)
+        if not existed:
+            _fsync_dir(path.parent)
+
+    payloads = {
+        name: text.encode("utf-8")
+        for name, text in sorted(name_to_text.items())
+    }
+    bindings = {
+        name: {
+            "sha256": _hashlib.sha256(payload).hexdigest(),
+            "size_bytes": len(payload),
+        }
+        for name, payload in payloads.items()
+    }
+    generation_body = {
+        "schema_version": _BATCH_MANIFEST_SCHEMA,
+        "publication_id": publication_id,
+        "files": bindings,
+    }
+    generation_id = canonical_hash(generation_body)
+    manifest = {
+        **generation_body,
+        "generation_id": generation_id,
+    }
+    manifest["self_hash"] = artifact_self_hash(manifest)
+    generation = generations / generation_id
+
+    if not generation.exists():
+        staging = generations / f".staging-{_secrets.token_hex(16)}"
+        staging.mkdir(mode=0o700)
+        try:
+            for name, payload in payloads.items():
+                fd = _os.open(
+                    staging / name,
+                    _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY | nofollow,
+                    0o600,
+                )
+                with _os.fdopen(fd, "wb") as handle:
+                    handle.write(payload)
+                    handle.flush()
+                    _os.fsync(handle.fileno())
+            manifest_payload = (
+                dumps_strict(
+                    manifest,
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+            fd = _os.open(
+                staging / "MANIFEST.json",
+                _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY | nofollow,
+                0o600,
+            )
+            with _os.fdopen(fd, "wb") as handle:
+                handle.write(manifest_payload)
+                handle.flush()
+                _os.fsync(handle.fileno())
+            _fsync_dir(staging)
+            try:
+                _os.rename(staging, generation)
+                _fsync_dir(generations)
+            except OSError:
+                if not generation.is_dir():
+                    raise
+                _remove_private_tree(staging)
+        except BaseException:
+            if staging.exists():
+                _remove_private_tree(staging)
+            raise
+    published_manifest = _validate_batch_generation(
+        generation,
+        publication_id=publication_id,
+    )
+    if published_manifest != manifest:
+        raise ProvenanceError(
+            f"content-addressed batch generation conflict: {generation_id}"
+        )
+
+    pointer = {
+        "schema_version": _BATCH_POINTER_SCHEMA,
+        "publication_id": publication_id,
+        "generation_id": generation_id,
+        "manifest_self_hash": manifest["self_hash"],
+    }
+    pointer["self_hash"] = artifact_self_hash(pointer)
+    pointer_payload = (
+        dumps_strict(pointer, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    tmp = publication_root / f".CURRENT.{_secrets.token_hex(16)}.tmp"
+    fd = _os.open(
+        tmp,
+        _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY | nofollow,
+        0o600,
+    )
+    try:
+        with _os.fdopen(fd, "wb") as handle:
+            handle.write(pointer_payload)
+            handle.flush()
+            _os.fsync(handle.fileno())
+        _os.replace(tmp, publication_root / "CURRENT.json")
+        _fsync_dir(publication_root)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+    return resolve_published_batch(
+        dirpath,
+        publication_id=publication_id,
+        expected_names=names,
+    )
 
 
 # ── headline-output guard ─────────────────────────────────────────────────────

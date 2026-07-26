@@ -14,6 +14,7 @@ libc and the numerical stack (Python / NumPy / SciPy / scikit-learn / spaCy / BL
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import inspect
 import math
 import os
@@ -21,10 +22,13 @@ import pathlib
 import platform
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Callable, Optional
 
 from ...jsonio import dumps_strict
+from ..prediction_contract import PREDICTION_CONTRACT_VERSION
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -51,6 +55,25 @@ FROZEN_TOLERANCES = {
     "ci_endpoint": {"atol": 1e-9, "rtol": 0.0, "dtype": "float64"},
 }
 
+CANONICAL_ENVIRONMENT_SCHEMA = "stylo.canonical-environment.v1"
+# Exact versions of the portable core/dev execution surface are read from the
+# canonical constraints file.  GPU/model/viz packages in the same constraints
+# file do not become installed requirements merely by being constrained.
+CANONICAL_BOUND_DISTRIBUTIONS = (
+    "click",
+    "joblib",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pyyaml",
+    "requests",
+    "scikit-learn",
+    "scipy",
+    "seaborn",
+    "spacy",
+    "threadpoolctl",
+)
+
 
 def class_order_digest(order) -> str:
     """The single canonical producer for a class-order digest (shared by the RunPlan, the fold
@@ -61,8 +84,8 @@ def class_order_digest(order) -> str:
     """
     return hashlib.sha256(dumps_strict(list(order), sort_keys=True).encode("utf-8")).hexdigest()
 
-AUDIT_VERSION = "work_balanced_paired_audit_v1"
-_RUN_PLAN_VERSION = "paired_audit.run_plan.v1"
+AUDIT_VERSION = "work_balanced_paired_audit_v2"
+_RUN_PLAN_VERSION = "paired_audit.run_plan.v2"
 
 # Stat settings are frozen by the protocol (§3.3/§3.5): author-cluster bootstrap B=10000, seed=42,
 # two-sided 95% CI, noninferiority margin δ=0.02, family α=0.05.
@@ -82,10 +105,11 @@ class RunPlanError(ValueError):
 
 
 # ── production evaluator identity (§4.2) ─────────────────────────────────────
-# A confirmatory run may only execute a REGISTERED evaluator (by name); its source bytes, import
-# identity, estimator config and mechanism passport are all folded into the run_id. A smoke/dummy
-# evaluator is never in this allowlist, so it can never be run confirmatorily.
-REGISTERED_CONFIRMATORY_EVALUATORS = frozenset({"work_balanced_ablation_factory"})
+# A confirmatory run may only execute an exact object from the immutable canonical registry.  The
+# registry intentionally remains empty until a production evaluator with the runner's actual
+# per-fold signature and evidence contract has been implemented and independently reviewed.  A
+# familiar name is not authority: while the registry is empty every confirmatory evaluator/plan is a
+# hard failure.
 _EVALUATOR_IDENTITY_KEYS = ("name", "import_module", "import_qualname", "source_digest",
                             "estimator_config_digest", "mechanism_passport_digest")
 
@@ -101,11 +125,14 @@ class EvaluatorSpec:
     mechanism_passport: dict
 
 
-def evaluator_identity(spec, *, confirmatory: bool) -> dict:
-    """Resolve the run_id-binding identity of an :class:`EvaluatorSpec`: recompute the source-byte
-    digest (so a changed factory re-keys the run), bind the import module+qualname, and hash the
-    estimator config + mechanism passport. A confirmatory evaluator MUST be registered by name; a bare
-    callable (no spec) is rejected outright."""
+CONFIRMATORY_EVALUATOR_REGISTRY = MappingProxyType({})
+REGISTERED_CONFIRMATORY_EVALUATORS = frozenset(
+    CONFIRMATORY_EVALUATOR_REGISTRY
+)
+
+
+def _evaluator_identity_fields(spec) -> dict:
+    """Validate and derive an evaluator identity without granting confirmatory authority."""
     if not isinstance(spec, EvaluatorSpec):
         raise RunPlanError("evaluator must be a registered EvaluatorSpec, not a bare callable")
     fn = spec.fn
@@ -125,10 +152,6 @@ def evaluator_identity(spec, *, confirmatory: bool) -> dict:
         raise RunPlanError("EvaluatorSpec.estimator_config must be a non-empty dict")
     if not isinstance(spec.mechanism_passport, dict) or not spec.mechanism_passport:
         raise RunPlanError("EvaluatorSpec.mechanism_passport must be a non-empty dict")
-    if confirmatory and spec.name not in REGISTERED_CONFIRMATORY_EVALUATORS:
-        raise RunPlanError(
-            f"evaluator {spec.name!r} is not a registered confirmatory evaluator "
-            f"{sorted(REGISTERED_CONFIRMATORY_EVALUATORS)}")
     return {
         "name": spec.name,
         "import_module": module,
@@ -139,6 +162,31 @@ def evaluator_identity(spec, *, confirmatory: bool) -> dict:
         "mechanism_passport_digest": hashlib.sha256(
             dumps_strict(spec.mechanism_passport, sort_keys=True).encode("utf-8")).hexdigest(),
     }
+
+
+def resolve_evaluator_spec(spec, *, confirmatory: bool) -> EvaluatorSpec:
+    """Return the exact canonical evaluator object, or hard-block confirmatory execution."""
+    identity = _evaluator_identity_fields(spec)
+    if not confirmatory:
+        return spec
+    canonical = CONFIRMATORY_EVALUATOR_REGISTRY.get(spec.name)
+    if canonical is None:
+        raise RunPlanError(
+            "confirmatory execution is disabled: no reviewed canonical production "
+            f"evaluator is registered for {spec.name!r}"
+        )
+    canonical_identity = _evaluator_identity_fields(canonical)
+    if spec.fn is not canonical.fn or identity != canonical_identity:
+        raise RunPlanError(
+            f"evaluator {spec.name!r} is not the exact canonical registry entry"
+        )
+    return canonical
+
+
+def evaluator_identity(spec, *, confirmatory: bool) -> dict:
+    """Derive identity and, for confirmatory use, authenticate the exact registry object."""
+    resolved = resolve_evaluator_spec(spec, confirmatory=confirmatory)
+    return _evaluator_identity_fields(resolved)
 
 
 def _repo_root() -> pathlib.Path:
@@ -213,22 +261,138 @@ def _sha256_bytes(data: bytes) -> str:
 
 
 def env_lock_sha256(repo_root: Optional[pathlib.Path] = None) -> str:
-    """sha256 over the environment lock files (requirements.lock and/or uv.lock). At least one must
-    exist — an unlockable environment fails closed."""
+    """Hash only the canonical tracked ``requirements.lock``.
+
+    ``uv.lock`` is intentionally invisible to this identity: it is ignored,
+    local state and its presence, absence, or bytes must never re-key a
+    confirmatory run.
+    """
     repo_root = pathlib.Path(repo_root) if repo_root is not None else _repo_root()
+    name = "requirements.lock"
+    p = repo_root / name
+    if p.is_symlink():
+        raise RunPlanError(f"environment lock file is a symlink (rejected): {name}")
+    if not p.is_file():
+        raise RunPlanError(f"canonical environment lock file is missing: {name}")
     h = hashlib.sha256()
-    found = False
-    for name in ("requirements.lock", "uv.lock"):
-        p = repo_root / name
-        if p.is_symlink():
-            raise RunPlanError(f"environment lock file is a symlink (rejected): {name}")
-        if p.is_file():
-            found = True
-            h.update(len(name).to_bytes(8, "big") + name.encode("utf-8"))
-            h.update(p.read_bytes())
-    if not found:
-        raise RunPlanError("no environment lock file found (requirements.lock / uv.lock)")
+    h.update(len(name).to_bytes(8, "big") + name.encode("utf-8"))
+    h.update(p.read_bytes())
     return h.hexdigest()
+
+
+def _normalise_distribution_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def canonical_environment_contract(
+    repo_root: Optional[pathlib.Path] = None,
+) -> dict:
+    """Return the path-free supported-environment contract.
+
+    ``requirements.lock`` is used as a constraints file, so unrelated optional
+    CUDA/model pins do not force installation.  The bound scientific surface is
+    the exact portable core distribution set below plus the canonical CPython
+    major/minor from ``.python-version``.  Absolute checkout paths, virtualenv
+    paths, host names and kernel strings are deliberately absent.
+    """
+
+    root = pathlib.Path(repo_root) if repo_root is not None else _repo_root()
+    lock = root / "requirements.lock"
+    python_file = root / ".python-version"
+    if lock.is_symlink() or not lock.is_file():
+        raise RunPlanError("canonical requirements.lock is missing or symlinked")
+    if python_file.is_symlink() or not python_file.is_file():
+        raise RunPlanError("canonical .python-version is missing or symlinked")
+    python_major_minor = python_file.read_text(encoding="utf-8").strip()
+    if not re.fullmatch(r"\d+\.\d+", python_major_minor):
+        raise RunPlanError(".python-version must contain an exact major.minor")
+
+    wanted = {_normalise_distribution_name(name) for name in CANONICAL_BOUND_DISTRIBUTIONS}
+    versions: dict[str, str] = {}
+    for line_number, raw in enumerate(lock.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#") or " @ " in line:
+            continue
+        match = re.fullmatch(r"([A-Za-z0-9_.-]+)==([^\s;]+)(?:\s*;.*)?", line)
+        if match is None:
+            continue
+        name = _normalise_distribution_name(match.group(1))
+        if name not in wanted:
+            continue
+        if name in versions:
+            raise RunPlanError(
+                f"duplicate canonical distribution {name!r} in requirements.lock "
+                f"at line {line_number}"
+            )
+        versions[name] = match.group(2)
+    missing = sorted(wanted - set(versions))
+    if missing:
+        raise RunPlanError(
+            f"requirements.lock lacks exact canonical distribution pins: {missing}"
+        )
+    body = {
+        "schema_version": CANONICAL_ENVIRONMENT_SCHEMA,
+        "python_implementation": "CPython",
+        "python_major_minor": python_major_minor,
+        "distributions": dict(sorted(versions.items())),
+        "environment_lock_identity_sha256": env_lock_sha256(root),
+    }
+    body["contract_sha256"] = hashlib.sha256(
+        dumps_strict(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return body
+
+
+def verify_installed_environment(
+    repo_root: Optional[pathlib.Path] = None,
+    *,
+    observed_versions: Optional[dict[str, str]] = None,
+    python_major_minor: Optional[str] = None,
+    python_implementation: Optional[str] = None,
+) -> dict:
+    """Fail unless the installed bound surface matches the canonical contract."""
+
+    contract = canonical_environment_contract(repo_root)
+    observed_python = python_major_minor or f"{sys.version_info.major}.{sys.version_info.minor}"
+    observed_impl = python_implementation or platform.python_implementation()
+    if observed_impl != contract["python_implementation"]:
+        raise RunPlanError(
+            f"Python implementation mismatch: {observed_impl!r} != "
+            f"{contract['python_implementation']!r}"
+        )
+    if observed_python != contract["python_major_minor"]:
+        raise RunPlanError(
+            f"Python major/minor mismatch: {observed_python!r} != "
+            f"{contract['python_major_minor']!r}"
+        )
+    if observed_versions is None:
+        observed_versions = {}
+        for name in contract["distributions"]:
+            try:
+                observed_versions[name] = importlib.metadata.version(name)
+            except importlib.metadata.PackageNotFoundError as exc:
+                raise RunPlanError(
+                    f"canonical distribution is not installed: {name}"
+                ) from exc
+    normalised_observed = {
+        _normalise_distribution_name(name): str(version)
+        for name, version in observed_versions.items()
+    }
+    missing = sorted(set(contract["distributions"]) - set(normalised_observed))
+    mismatches = {
+        name: {
+            "expected": expected,
+            "observed": normalised_observed.get(name),
+        }
+        for name, expected in contract["distributions"].items()
+        if normalised_observed.get(name) != expected
+    }
+    if missing or mismatches:
+        raise RunPlanError(
+            "installed environment does not match canonical constraints: "
+            f"missing={missing}, mismatches={mismatches}"
+        )
+    return contract
 
 
 def execution_source_sha256(src_root: Optional[pathlib.Path] = None) -> str:
@@ -317,12 +481,18 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
                    applicability_matrix_digest: str, a0_reference_shas: dict,
                    tolerances: dict, corpus_chain: dict, golden_fixture_inventory_sha: str,
                    evaluator_identity: dict, lobo: dict, ruaa: dict, stats: Optional[dict] = None,
-                   audit_version: str = AUDIT_VERSION) -> dict:
+                   audit_version: str = AUDIT_VERSION,
+                   prediction_contract_version: str = PREDICTION_CONTRACT_VERSION) -> dict:
     """Assemble the canonical RunPlan binding every §4.2 identity input. Missing bindings fail
     closed; OS/kernel strings are rejected. The plan is strict-JSON canonical (sort_keys)."""
     if run_kind not in REGISTERED_RUN_KINDS:
         raise RunPlanError(f"unknown run_kind {run_kind!r}; allowed {sorted(REGISTERED_RUN_KINDS)}")
     confirmatory = run_kind == "confirmatory"
+    if prediction_contract_version != PREDICTION_CONTRACT_VERSION:
+        raise RunPlanError(
+            "prediction_contract_version must equal the current stable-top1/"
+            "worst-tie-rank contract"
+        )
     if stats is None:
         stats = dict(FROZEN_STATS)
     elif not isinstance(stats, dict):
@@ -378,17 +548,29 @@ def build_run_plan(*, run_kind: str, git_commit: str, git_dirty: bool,
         if corpus_chain.get("legacy_anchor") != LEGACY_ANCHOR:
             raise RunPlanError("confirmatory corpus_chain.legacy_anchor != the pinned LEGACY_ANCHOR")
     _require(evaluator_identity, _EVALUATOR_IDENTITY_KEYS, "evaluator_identity")
-    if confirmatory and evaluator_identity["name"] not in REGISTERED_CONFIRMATORY_EVALUATORS:
-        raise RunPlanError(f"confirmatory evaluator {evaluator_identity['name']!r} is not registered")
     for k in ("source_digest", "estimator_config_digest", "mechanism_passport_digest"):
         if not (isinstance(evaluator_identity.get(k), str) and _HEX64.match(evaluator_identity[k])):
             raise RunPlanError(f"evaluator_identity.{k} must be a sha256 hex digest")
+    if confirmatory:
+        canonical = CONFIRMATORY_EVALUATOR_REGISTRY.get(
+            evaluator_identity["name"]
+        )
+        if canonical is None:
+            raise RunPlanError(
+                "confirmatory plan is disabled: no reviewed canonical production "
+                "evaluator is registered"
+            )
+        if evaluator_identity != _evaluator_identity_fields(canonical):
+            raise RunPlanError(
+                "confirmatory evaluator_identity differs from the canonical registry"
+            )
     if not isinstance(git_dirty, bool):
         raise RunPlanError("git_dirty must be a bool")
 
     plan = {
         "schema": _RUN_PLAN_VERSION,
         "audit_version": audit_version,
+        "prediction_contract_version": prediction_contract_version,
         "run_kind": run_kind,
         "git_commit": git_commit,
         "git_dirty": git_dirty,
@@ -420,7 +602,7 @@ _PLAN_BUILD_KEYS = ("run_kind", "git_commit", "git_dirty", "execution_source_sha
                     "config_id", "runtime_fingerprint", "blas_thread_fingerprint",
                     "applicability_matrix_digest", "a0_reference_shas", "evaluator_identity",
                     "tolerances", "corpus_chain", "golden_fixture_inventory_sha", "stats", "lobo",
-                    "ruaa", "audit_version")
+                    "ruaa", "audit_version", "prediction_contract_version")
 
 
 def assert_wellformed_run_plan(plan: dict) -> None:

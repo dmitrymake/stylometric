@@ -177,7 +177,7 @@ class TestApplicability:
 # ── RunPlan + fingerprints ───────────────────────────────────────────────────
 def _bindings(**over):
     b = dict(
-        run_kind="confirmatory",
+        run_kind="smoke",
         git_commit="a" * 40, git_dirty=False,
         execution_source_sha256="1" * 64, env_lock_sha256="2" * 64, config_id="3" * 64,
         runtime_fingerprint={"python": "3.11.0", "libc": "glibc/2.39", "numpy": "2.0",
@@ -235,6 +235,72 @@ class TestRunPlan:
         a, b = rp.execution_source_sha256(), rp.execution_source_sha256()
         assert a == b and _HEX64.match(a)
 
+    def test_env_identity_ignores_uv_lock_completely(self, tmp_path):
+        (tmp_path / "requirements.lock").write_bytes(b"canonical==1\n")
+        baseline = rp.env_lock_sha256(tmp_path)
+        (tmp_path / "uv.lock").write_bytes(b"local-a")
+        assert rp.env_lock_sha256(tmp_path) == baseline
+        (tmp_path / "uv.lock").write_bytes(b"local-b")
+        assert rp.env_lock_sha256(tmp_path) == baseline
+        (tmp_path / "uv.lock").unlink()
+        assert rp.env_lock_sha256(tmp_path) == baseline
+        (tmp_path / "requirements.lock").write_bytes(b"canonical==2\n")
+        assert rp.env_lock_sha256(tmp_path) != baseline
+
+    def test_env_identity_requires_canonical_requirements_lock(self, tmp_path):
+        (tmp_path / "uv.lock").write_bytes(b"not-canonical")
+        with pytest.raises(rp.RunPlanError, match="requirements.lock"):
+            rp.env_lock_sha256(tmp_path)
+
+    def test_canonical_environment_contract_is_relocation_stable_and_mismatch_fatal(
+            self, tmp_path):
+        versions = {
+            name: f"1.0.{index}"
+            for index, name in enumerate(rp.CANONICAL_BOUND_DISTRIBUTIONS)
+        }
+
+        def materialize(root):
+            root.mkdir()
+            (root / ".python-version").write_text("3.11\n", encoding="utf-8")
+            (root / "requirements.lock").write_text(
+                "".join(f"{name}=={version}\n" for name, version in versions.items()),
+                encoding="utf-8",
+            )
+
+        first = tmp_path / "checkout-a"
+        second = tmp_path / "relocated" / "checkout-b"
+        second.parent.mkdir()
+        materialize(first)
+        materialize(second)
+        contract_a = rp.canonical_environment_contract(first)
+        contract_b = rp.canonical_environment_contract(second)
+        assert contract_a == contract_b
+        assert str(first) not in str(contract_a)
+        assert str(second) not in str(contract_b)
+        assert rp.verify_installed_environment(
+            first,
+            observed_versions=versions,
+            python_major_minor="3.11",
+            python_implementation="CPython",
+        ) == contract_a
+
+        drifted = dict(versions)
+        drifted["numpy"] = "999"
+        with pytest.raises(rp.RunPlanError, match="does not match"):
+            rp.verify_installed_environment(
+                first,
+                observed_versions=drifted,
+                python_major_minor="3.11",
+                python_implementation="CPython",
+            )
+        with pytest.raises(rp.RunPlanError, match="major/minor"):
+            rp.verify_installed_environment(
+                first,
+                observed_versions=versions,
+                python_major_minor="3.12",
+                python_implementation="CPython",
+            )
+
     def test_config_id_and_git_info(self):
         assert _HEX64.match(rp.config_id(load_config()))
         info = rp.git_commit_info()
@@ -246,6 +312,7 @@ class TestRunPlan:
         assert _HEX64.match(rid)
         assert rp.run_id(rp.build_run_plan(**_bindings())) == rid       # deterministic
         assert plan["stats"]["seed"] == 42 and plan["stats"]["bootstrap_B"] == 10000
+        assert plan["prediction_contract_version"] == rp.PREDICTION_CONTRACT_VERSION
 
     def test_run_id_changes_on_any_binding_change(self):
         base = rp.run_id(rp.build_run_plan(**_bindings()))
@@ -288,7 +355,10 @@ class TestRunPlan:
         with pytest.raises(rp.RunPlanError):
             rp.build_run_plan(**_bindings(stats={}))                               # missing keys
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(stats={**rp.FROZEN_STATS, "seed": 43}))  # confirmatory != frozen
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory",
+                stats={**rp.FROZEN_STATS, "seed": 43},
+            ))  # confirmatory != frozen
 
     def test_malformed_fingerprints_rejected(self):
         with pytest.raises(rp.RunPlanError):
@@ -298,25 +368,36 @@ class TestRunPlan:
 
     def test_confirmatory_requires_clean_tree_and_tolerances(self):
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(git_dirty=True))                 # confirmatory + dirty tree
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory", git_dirty=True
+            ))  # confirmatory + dirty tree
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(tolerances={}))                  # empty tolerances
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory", tolerances={}
+            ))  # empty tolerances
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(tolerances={"proba": {"atol": 1e-9}}))  # missing rtol/dtype
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory",
+                tolerances={"proba": {"atol": 1e-9}},
+            ))  # missing rtol/dtype
         assert rp.run_id(rp.build_run_plan(**_bindings(run_kind="smoke", git_dirty=True)))
 
     def test_confirmatory_requires_exactly_the_frozen_tolerances(self):
-        assert rp.run_id(rp.build_run_plan(**_bindings(tolerances=dict(rp.FROZEN_TOLERANCES))))  # ok
+        with pytest.raises(rp.RunPlanError, match="no reviewed canonical"):
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory",
+                tolerances=dict(rp.FROZEN_TOLERANCES),
+            ))
         full = dict(rp.FROZEN_TOLERANCES)
         partial = {q: full[q] for q in list(full)[:-1]}                       # drop one quantity
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(tolerances=partial))
+            rp.build_run_plan(**_bindings(run_kind="confirmatory", tolerances=partial))
         extra = {**full, "bogus": {"atol": 1e-9, "rtol": 0, "dtype": "float64"}}
         with pytest.raises(rp.RunPlanError):                                  # an unregistered quantity
-            rp.build_run_plan(**_bindings(tolerances=extra))
+            rp.build_run_plan(**_bindings(run_kind="confirmatory", tolerances=extra))
         oversized = {**full, "accuracy": {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}}
         with pytest.raises(rp.RunPlanError):                                  # would neuter the auditor
-            rp.build_run_plan(**_bindings(tolerances=oversized))
+            rp.build_run_plan(**_bindings(run_kind="confirmatory", tolerances=oversized))
 
     def test_class_order_digest_deterministic_and_order_sensitive(self):
         a = rp.class_order_digest(["x", "y", "z"])
@@ -332,7 +413,7 @@ class TestRunPlan:
 
     def test_confirmatory_requires_spacy_and_valid_run_kind(self):
         with pytest.raises(rp.RunPlanError):                        # confirmatory without spaCy
-            rp.build_run_plan(**_bindings(runtime_fingerprint={
+            rp.build_run_plan(**_bindings(run_kind="confirmatory", runtime_fingerprint={
                 "python": "3.11", "libc": "glibc/2.39", "numpy": "2.0", "scipy": "1", "sklearn": "1"}))
         with pytest.raises(rp.RunPlanError):                        # unknown run_kind
             rp.build_run_plan(**_bindings(run_kind="whatever"))
@@ -360,13 +441,15 @@ def _spec(name, **over):
 
 class TestEvaluatorIdentity:
     def test_identity_recomputes_source_and_binds_config(self):
-        ident = rp.evaluator_identity(_spec("work_balanced_ablation_factory"), confirmatory=True)
+        ident = rp.evaluator_identity(_spec("smoke_dummy"), confirmatory=False)
         assert set(ident) == set(rp._EVALUATOR_IDENTITY_KEYS)
         assert ident["import_qualname"] == "_fake_factory"
         assert _HEX64.match(ident["source_digest"])
         # a different estimator config re-keys the identity (and thus the run_id)
-        other = rp.evaluator_identity(_spec("work_balanced_ablation_factory",
-                                            estimator_config={"C": 2.0}), confirmatory=True)
+        other = rp.evaluator_identity(
+            _spec("smoke_dummy", estimator_config={"C": 2.0}),
+            confirmatory=False,
+        )
         assert other["estimator_config_digest"] != ident["estimator_config_digest"]
 
     def test_bare_callable_rejected(self):
@@ -382,10 +465,18 @@ class TestEvaluatorIdentity:
     def test_empty_config_or_passport_rejected(self):
         with pytest.raises(rp.RunPlanError):
             rp.evaluator_identity(_spec("work_balanced_ablation_factory", estimator_config={}),
-                                  confirmatory=True)
+                                  confirmatory=False)
         with pytest.raises(rp.RunPlanError):
             rp.evaluator_identity(_spec("work_balanced_ablation_factory", mechanism_passport={}),
-                                  confirmatory=True)
+                                  confirmatory=False)
+
+    def test_same_name_fake_is_rejected_without_a_canonical_production_entry(self):
+        assert not rp.CONFIRMATORY_EVALUATOR_REGISTRY
+        with pytest.raises(rp.RunPlanError, match="no reviewed canonical"):
+            rp.evaluator_identity(
+                _spec("work_balanced_ablation_factory"),
+                confirmatory=True,
+            )
 
     def test_identity_folds_into_run_id(self):
         base = rp.run_id(rp.build_run_plan(**_bindings()))
@@ -395,8 +486,13 @@ class TestEvaluatorIdentity:
 
     def test_confirmatory_plan_rejects_unregistered_evaluator(self):
         with pytest.raises(rp.RunPlanError):
-            rp.build_run_plan(**_bindings(evaluator_identity={
-                **_bindings()["evaluator_identity"], "name": "smoke_dummy"}))
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory",
+                evaluator_identity={
+                    **_bindings()["evaluator_identity"],
+                    "name": "smoke_dummy",
+                },
+            ))
 
     def test_plan_rejects_non_hex_identity_digest(self):
         with pytest.raises(rp.RunPlanError):
@@ -406,15 +502,18 @@ class TestEvaluatorIdentity:
 
 class TestWellformedRunPlan:
     def test_a_built_plan_rebuilds_to_itself(self):
-        rp.assert_wellformed_run_plan(rp.build_run_plan(**_bindings()))          # confirmatory
         rp.assert_wellformed_run_plan(rp.build_run_plan(**_bindings(run_kind="smoke", git_dirty=True)))
 
-    def test_forged_confirmatory_plan_does_not_rebuild(self):
+    def test_forged_plan_does_not_rebuild(self):
         plan = rp.build_run_plan(**_bindings())
-        for over in ({"tolerances": {q: {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}
-                                     for q in rp.REGISTERED_TOLERANCE_QUANTITIES}},
-                     {"stats": {**rp.FROZEN_STATS, "seed": 7}},
-                     {"git_dirty": True}):
+        for over in (
+            {"env_lock_sha256": "nothex"},
+            {"runtime_fingerprint": {
+                **plan["runtime_fingerprint"],
+                "kernel_release": "forbidden",
+            }},
+            {"prediction_contract_version": "obsolete"},
+        ):
             forged = {**plan, **over}
             with pytest.raises(rp.RunPlanError):        # build invariants re-raise on the forged plan
                 rp.assert_wellformed_run_plan(forged)
@@ -426,11 +525,21 @@ class TestWellformedRunPlan:
 
     def test_confirmatory_value_pins_reference_constants(self):
         with pytest.raises(rp.RunPlanError):                        # forged lobo_books SHA
-            rp.build_run_plan(**_bindings(a0_reference_shas={"lobo_books_txt": "0" * 64,
-                                                             "ruaa_reference_submission": rp_ruaa_sha()}))
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory",
+                a0_reference_shas={
+                    "lobo_books_txt": "0" * 64,
+                    "ruaa_reference_submission": rp_ruaa_sha(),
+                },
+            ))
         with pytest.raises(rp.RunPlanError):                        # forged legacy anchor
-            rp.build_run_plan(**_bindings(corpus_chain={"legacy_anchor": "0" * 64,
-                                                        "semantic_parity_digest": "6" * 64}))
+            rp.build_run_plan(**_bindings(
+                run_kind="confirmatory",
+                corpus_chain={
+                    "legacy_anchor": "0" * 64,
+                    "semantic_parity_digest": "6" * 64,
+                },
+            ))
         # a smoke plan is NOT value-pinned (the constants are provisioned only for a confirmatory run)
         assert rp.run_id(rp.build_run_plan(**_bindings(
             run_kind="smoke", a0_reference_shas={"lobo_books_txt": "0" * 64,

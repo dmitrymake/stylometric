@@ -1,8 +1,4 @@
-name: CI (release gate + P0 safety)
-
-# Blocks any push/PR whose published history would carry a private corpus path,
-# and runs the P0 scientific-reset safety tests (strict JSON, claim-status,
-# release hygiene). Full corpus / spaCy model are not needed for these.
+name: CI (release integrity)
 
 on:
   push:
@@ -14,22 +10,121 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHON_VERSION: "3.11"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
 jobs:
-  release-gate:
+  checkout-and-tests:
+    name: Full and focused tests (pinned checkout)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # full reachable history: a push publishes all of it
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install pinned tooling and project
+        run: |
+          python -m pip install --quiet "pip==25.3" "setuptools==80.9.0" "wheel==0.45.1"
+          python -m pip install --quiet --no-build-isolation --constraint requirements.lock -e ".[dev]"
+      - name: Verify canonical portable environment binding
+        run: >-
+          python -c "from stylo.eval.paired_audit.run_plan import
+          verify_installed_environment; verify_installed_environment()"
       - name: Publish-ref hygiene gate
         run: python scripts/check_release_hygiene.py --publish-ref HEAD
-      - name: Install P0 test deps
-        # deps the P0 tests import transitively (stylo.cases.framework); no spaCy/torch.
-        run: python -m pip install --quiet numpy scipy scikit-learn pandas pyyaml pytest
-      - name: P0 safety tests
+      - name: Executable-source inventory gate
+        run: python scripts/check_executable_source_inventory.py
+      - name: Ordinary full suite
+        run: python -m pytest tests -q -p no:cacheprovider
+      - name: Focused scientific and release contracts
+        run: >-
+          python -m pytest
+          tests/test_release_integrity.py
+          tests/test_executable_source_inventory.py
+          tests/test_packaged_resources.py
+          tests/test_repair_smoke_source_reconstruction.py
+          tests/test_paired_audit_references.py
+          tests/test_paired_audit_runner.py
+          tests/test_stack_class_coverage.py
+          tests/test_stylo_lobo_validation.py
+          -q -p no:cacheprovider
+
+  package-wheel:
+    name: Clean wheel install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build with pinned tooling
+        run: |
+          python -m pip install --quiet "pip==25.3" "setuptools==80.9.0" "wheel==0.45.1" "build==1.3.0" "pyproject-hooks==1.2.0"
+          python -m build --no-isolation
+      - name: Install wheel into an empty environment
+        run: |
+          python -m venv /tmp/stylo-wheel
+          /tmp/stylo-wheel/bin/python -m pip install --quiet "pip==25.3"
+          /tmp/stylo-wheel/bin/python -m pip install --quiet --constraint "$GITHUB_WORKSPACE/requirements.lock" dist/stylo-*.whl
+          /tmp/stylo-wheel/bin/python -c "from stylo.eval.paired_audit.run_plan import verify_installed_environment; verify_installed_environment('$GITHUB_WORKSPACE')"
+      - name: Smoke-test installed CLI, resources, and source modules
+        working-directory: /tmp
+        run: |
+          /tmp/stylo-wheel/bin/stylo --help
+          /tmp/stylo-wheel/bin/python - <<'PY'
+          import importlib
+          import importlib.resources
+
+          from stylo.config import load_config
+          from stylo.lang import load_author_meta
+          from stylo.pipeline.train import WorkspaceRequiredError, _require_source_workspace
+
+          assert load_config().chunking.chunk_size == 500
+          assert len(load_author_meta()) > 1
+          for name in ("default.yaml", "authors.json", "classics.yaml"):
+              assert importlib.resources.files("stylo.resources").joinpath(name).is_file()
+          for module in (
+              "stylo.eval.certificates",
+              "stylo.eval.stylo_lobo_validation",
+              "stylo.eval.work_balanced_ablation_screen",
+              "stylo.models.equal_channel_ensemble",
+          ):
+              importlib.import_module(module)
+          try:
+              _require_source_workspace()
+          except WorkspaceRequiredError:
+              pass
+          else:
+              raise AssertionError("wheel training must fail with the workspace-only contract")
+          PY
+
+  source-archive:
+    name: Git-free source archive
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install pinned project test environment
+        run: |
+          python -m pip install --quiet "pip==25.3" "setuptools==80.9.0" "wheel==0.45.1"
+          python -m pip install --quiet --no-build-isolation --constraint requirements.lock -e ".[dev]"
+          python -c "from stylo.eval.paired_audit.run_plan import verify_installed_environment; verify_installed_environment()"
+      - name: Materialize clean Git archive
+        run: |
+          mkdir -p /tmp/stylo-archive
+          git archive HEAD | tar -x -C /tmp/stylo-archive
+      - name: Validate archive inventory without Git metadata
+        working-directory: /tmp/stylo-archive
+        run: python scripts/check_executable_source_inventory.py --archive
+      - name: Run full suite from archive
+        working-directory: /tmp/stylo-archive
         env:
           PYTHONPATH: src
-        run: python -m pytest tests/test_p0_scientific_reset.py -q -p no:cacheprovider
+        run: python -m pytest tests -q -p no:cacheprovider

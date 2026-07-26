@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import os
 import pathlib
 import re
+import stat
 from typing import Sequence
 
 from .schema import BenchmarkDocument, BenchmarkManifest
+from ..jsonio import canonical_hash
 
 
 TOKENIZER_ID = "stylo_unicode_word_punct_v1"
@@ -42,6 +45,14 @@ class ArtifactReport:
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
 
+    def receipt_sha256(self) -> str:
+        return canonical_hash(
+            {
+                "schema_version": "stylo.benchmark.artifact-report.v1",
+                **self.to_dict(),
+            }
+        )
+
 
 class ArtifactValidationError(ValueError):
     def __init__(self, errors: Sequence[str]):
@@ -64,11 +75,37 @@ def _resolve_text_path(root: pathlib.Path, document: BenchmarkDocument) -> pathl
     relative = pathlib.PurePosixPath(document.text_path)
     if relative.is_absolute() or ".." in relative.parts or not relative.parts:
         raise ValueError("text_path must be a safe relative POSIX path")
-    candidate = (root / pathlib.Path(*relative.parts)).resolve()
+    candidate = root / pathlib.Path(*relative.parts)
+    cursor = root
+    if cursor.is_symlink():
+        raise ValueError("benchmark root must not be a symlink")
+    for part in relative.parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ValueError(f"text_path contains a symlink: {document.text_path}")
+    candidate = candidate.resolve()
     resolved_root = root.resolve()
     if not candidate.is_relative_to(resolved_root):
         raise ValueError("text_path escapes benchmark root")
     return candidate
+
+
+def _read_regular_nofollow(path: pathlib.Path) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError(f"not a regular file: {path}")
+        chunks: list[bytes] = []
+        while True:
+            block = os.read(fd, 1 << 20)
+            if not block:
+                break
+            chunks.append(block)
+        return b"".join(chunks)
+    finally:
+        os.close(fd)
 
 
 def _check_span_partition(document: BenchmarkDocument, n_units: int) -> list[str]:
@@ -106,7 +143,7 @@ def verify_manifest_artifacts(
     base = pathlib.Path(root)
     errors: list[str] = []
     checks: list[ArtifactCheck] = []
-    if not base.exists() or not base.is_dir():
+    if base.is_symlink() or not base.exists() or not base.is_dir():
         raise ArtifactValidationError([f"benchmark root is not a directory: {base}"])
 
     for document in manifest.documents:
@@ -120,7 +157,7 @@ def verify_manifest_artifacts(
             errors.append(f"{prefix}: text file does not exist: {document.text_path}")
             continue
         try:
-            payload = path.read_bytes()
+            payload = _read_regular_nofollow(path)
         except OSError as exc:
             errors.append(f"{prefix}: cannot read {document.text_path}: {exc}")
             continue

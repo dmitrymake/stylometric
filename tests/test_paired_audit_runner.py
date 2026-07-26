@@ -34,24 +34,22 @@ _needs_git = pytest.mark.skipif(not _HAS_GIT, reason="runner e2e needs a git rep
 
 
 def _golden_fixture(tmp: pathlib.Path):
-    # committed on HEAD; the owner's working-tree rework deletes it, so fall back to the committed
-    # version via git when the on-disk file is absent.
-    import subprocess
     out = tmp / "b4_goldens_v1.json"
-    disk = pathlib.Path.cwd() / "tests" / "fixtures" / "b4_goldens_v1.json"
-    if disk.is_file():
-        out.write_bytes(disk.read_bytes())
-    else:
-        out.write_bytes(subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"],
-                                                cwd=pathlib.Path.cwd()))
+    disk = rn.refmod.resolve_b4_golden_fixture(pathlib.Path.cwd())
+    out.write_bytes(disk.read_bytes())
     return out
 
 
 def _make_corpus(tmp: pathlib.Path):
     frags, ic = tmp / "frags", tmp / "clean"
-    # 4 multi-work authors (2 works each) + 2 single-work authors (train-only for LOBO)
-    spec = {"aa": ["w1", "w2"], "bb": ["w1", "w2"], "cc": ["w1", "w2"], "dd": ["w1", "w2"],
-            "ss": ["only"], "tt": ["only"]}
+    # Every tested author has five works: after the outer holdout the configured
+    # shuffled 2-fold splitter remains class-complete for every outer fold.
+    spec = {
+        "aa": ["w1", "w2", "w3", "w4", "w5"],
+        "bb": ["w1", "w2", "w3", "w4", "w5"],
+        "cc": ["w1", "w2", "w3", "w4", "w5"],
+        "dd": ["w1", "w2", "w3", "w4", "w5"],
+    }
     for author, books in spec.items():
         for book in books:
             src = ic / author / f"{book}.txt"
@@ -79,14 +77,16 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
     h = int(hashlib.sha256(f"{work_id}:{model}:{cell}".encode()).hexdigest(), 16)
     correct = (h % 4) != 0
     pred_label = true_label if correct else (true_label + 1) % width
-    proba = [0.05] * width
-    proba[pred_label] = 1.0 - 0.05 * (width - 1)
+    proba = [0.0] * width
+    proba[pred_label] = 1.0
+    from stylo.eval.prediction_contract import stable_top1_and_worst_tie_rank
+    decision = stable_top1_and_worst_tie_rank(proba, true_label=true_label)
     # supply the REAL fold-local evidence this applied cell requires (the runner never synthesizes it)
     evidence = {key: hashlib.sha256(f"{key}:{model}:{cell}:{work_id}".encode()).hexdigest()
                 for key in ap.required_evidence_digests(model, cell)}
     for pk in ap.required_evidence_passports(model, cell):
         evidence[pk] = {"calibration_disabled": False, "mode": "sigmoid", "meta": {}}
-    return {"pred_label": pred_label, "correct": correct, "rank": 1 if correct else 2,
+    return {"pred_label": decision.top1, "correct": correct, "rank": decision.true_rank,
             "probabilities": proba, "evidence": evidence}
 
 
@@ -99,6 +99,12 @@ def test_a0_index_resolves_pred_and_rejects_out_of_range():
                    "bb/w1": {"true_author": "bb", "pred": "aa", "correct": False, "rank": 3}}
     with pytest.raises(rn.RunnerError):                            # pred index out of range
         rn._a0_index("lobo", {"works": ["aa/w1"], "correct": [1], "ranks": [1], "preds": [9]}, prob_order)
+
+
+def test_confirmatory_execution_is_disabled_until_reviewed_freeze_is_pinned():
+    assert rn.APPROVED_FREEZE_ROOT_SHA256 is None
+    with pytest.raises(rn.RunnerError, match="no independently reviewed freeze root"):
+        rn.assert_confirmatory_freeze_approved()
 
 
 def test_a0_reference_mismatch_is_fatal():
@@ -142,6 +148,19 @@ def test_independent_auditor_matches_shared_implementation():
                - float(macro_f1(np.array(trues), np.array(preds), midx))) < 1e-12
 
 
+def test_point_metrics_keep_train_only_prediction_as_error_not_macro_class():
+    arrays = {
+        "correct": [0, 1],
+        "ranks": [2, 1],
+        "authors": ["tested-a", "tested-b"],
+        "trues": [0, 2],
+        "preds": [1, 2],  # label 1 belongs to the probability universe only
+    }
+    point = rn._point_metrics(arrays, [0, 2])
+    assert point["accuracy"] == 0.5
+    assert point["macro_f1"] == 0.5
+
+
 def test_fold_evidence_required_and_hex():
     # stylo A1 exercises W -> requires proba_digest + ordered_weight_digest, each sha256-hex
     ok = {"proba_digest": "1" * 64, "ordered_weight_digest": "2" * 64}
@@ -182,7 +201,11 @@ def _built_corpus(tmp_path):
     audit_root = ac.build_audit_corpus(source_frags_root=frags, input_clean_root=ic, cfg=CFG,
                                        audit_parent=tmp_path / "audit", legacy_anchor=anchor)
     lobo_ds = ac.load_audit_dataset(audit_root, CFG)
-    ruaa_work_ids = ["aa/w1", "aa/w2", "bb/w1", "bb/w2"]
+    ruaa_work_ids = [
+        f"{author}/w{index}"
+        for author in ("aa", "bb")
+        for index in range(1, 6)
+    ]
     ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
     lobo_m = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
                                     algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
@@ -250,7 +273,11 @@ def _smoke_kwargs(tmp_path):
     audit_root = ac.build_audit_corpus(source_frags_root=frags, input_clean_root=ic, cfg=CFG,
                                        audit_parent=tmp_path / "audit", legacy_anchor=anchor)
     lobo_ds = ac.load_audit_dataset(audit_root, CFG)
-    ruaa_work_ids = ["aa/w1", "aa/w2", "bb/w1", "bb/w2"]      # a whole-work RuAA subset (2 authors)
+    ruaa_work_ids = [
+        f"{author}/w{index}"
+        for author in ("aa", "bb")
+        for index in range(1, 6)
+    ]  # a whole-work RuAA subset (2 authors)
     ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
     lobo_m = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
                                     algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)
@@ -265,6 +292,55 @@ def _smoke_kwargs(tmp_path):
               tolerances={q: {"atol": 1e-9, "rtol": 0, "dtype": "float64"}
                           for q in rn.rp.REGISTERED_TOLERANCE_QUANTITIES})
     return kw, lobo_m, ruaa_m
+
+
+def test_stack_manifest_preflight_rejects_single_work_train_class():
+    from types import SimpleNamespace
+
+    groups = ["singleton/only", "multi/w1", "multi/w2", "multi/w3"]
+    dataset = SimpleNamespace(
+        groups=groups,
+        y=[0, 1, 1, 1],
+    )
+    manifest = {
+        "probability_class_order": ["singleton", "multi"],
+        "works": [
+            {
+                "work_id": group,
+                "fold_index": index if group.startswith("multi/") else None,
+                "tested": group.startswith("multi/"),
+            }
+            for index, group in enumerate(groups)
+        ],
+    }
+    with pytest.raises(rn.StackManifestFeasibilityError) as caught:
+        rn.assert_stack_manifest_feasible(
+            {"lobo": dataset, "ruaa": dataset},
+            {"lobo": manifest, "ruaa": manifest},
+            CFG,
+        )
+    assert caught.value.report["complete"] is False
+    assert any(
+        "singleton" in failure["insufficient_train_work_authors"]
+        for failure in caught.value.report["failures"]
+    )
+
+
+def test_stack_preflight_runs_before_checkpoint_store_creation(tmp_path, monkeypatch):
+    kw, _lobo, _ruaa = _smoke_kwargs(tmp_path)
+    checkpoint_root = pathlib.Path(kw["checkpoint_root"])
+
+    def stop_before_store(*_args, **_kwargs):
+        assert not checkpoint_root.exists()
+        raise rn.StackManifestFeasibilityError(
+            "synthetic infeasible matrix",
+            report={"complete": False, "failures": [{"reason": "test"}]},
+        )
+
+    monkeypatch.setattr(rn, "assert_stack_manifest_feasible", stop_before_store)
+    with pytest.raises(rn.StackManifestFeasibilityError):
+        rn.run_execution(**kw, run_kind="smoke")
+    assert not checkpoint_root.exists()
 
 
 def _run_smoke(tmp_path):
@@ -349,7 +425,11 @@ def test_runner_resumes_from_checkpoints(tmp_path):
     audit_root = ac.build_audit_corpus(source_frags_root=frags, input_clean_root=ic, cfg=CFG,
                                        audit_parent=tmp_path / "audit", legacy_anchor=anchor)
     lobo_ds = ac.load_audit_dataset(audit_root, CFG)
-    ruaa_work_ids = ["aa/w1", "aa/w2", "bb/w1", "bb/w2"]
+    ruaa_work_ids = [
+        f"{author}/w{index}"
+        for author in ("aa", "bb")
+        for index in range(1, 6)
+    ]
     ruaa_ds = derive_work_subset(lobo_ds, ruaa_work_ids)
     lobo_m = mf.build_fold_manifest("lobo", lobo_ds, parent_dataset_digest=lobo_ds.provenance.rows_digest,
                                     algorithm="leave_one_work_out", seed=42, config_hash="c" * 64)

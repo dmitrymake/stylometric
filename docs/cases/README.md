@@ -1,19 +1,25 @@
 # Case Gate Specs
 
-Новый `stylo case`-слой нужен для первичного строгого просеивания исторических
-гипотез: сначала work-level feasibility gate, потом атрибуция спорного текста,
-затем единый JSON-паспорт.
+`stylo case` выполняет work-level feasibility gate и описательные closed-set
+диагностики. Научная атрибуция target сейчас всегда воздерживается: в проекте
+ещё нет зарегистрированного калиброванного open-set/negative-control gate,
+который мог бы установить применимость панели к спорному тексту.
+
+> **WITHDRAWAL (case-passport v1):** все ранее сохранённые паспорта со статусами
+> `strong`/`moderate` получены до work-level target uncertainty и без
+> обязательного open-set gate. Они остаются историческими артефактами, но их
+> target-вердикты отозваны и не могут ранжироваться/публиковаться текущим CLI.
+> Текущий формат — `stylo.case-passport.v2`.
 
 Текущий handoff по реализованному слою и главному hardened-кейсу:
 `docs/cases/HANDOFF.md`.
 
 Hardened case families:
 
-- `docs/cases/taras_hardened/` - positive public claim: large 1842 additions to
-  «Тарас Бульба» go to Gogol, not to a foreign editorial hand.
-- `docs/cases/petersburg_hardened/` - documented near-miss: `Н.Н.` in
-  «Петербургской летописи» points toward Dostoevsky publicistic prose by centroid
-  but does not reach strong attribution because chunk evidence is unstable.
+- `docs/cases/taras_hardened/` — историческая v1-серия; прежний positive public
+  target claim отозван до появления calibrated open-set gate.
+- `docs/cases/petersburg_hardened/` — исторические v1 closed-set diagnostics,
+  не научные атрибуционные решения.
 
 Минимальный `case.yaml`:
 
@@ -65,19 +71,25 @@ stylo case report docs/cases/*.passport.json --out docs/cases/ranking.md
 stylo case dossier docs/cases/*.passport.json --out docs/cases/dossier.md
 ```
 
-Статус `strong` возможен только если primary feature set проходит gate:
-`work_macro_recall >= 0.80` и work-level permutation `p <= 0.05`. Без этого
-паспорт возвращает отказ и прямо пишет, что атрибуцию давать нельзя.
+Feasibility gate требует `work_macro_recall >= 0.80` и work-level permutation
+`p <= 0.05`, но этот gate проверяет только различимость самой candidate-панели.
+Он не является target p-value и не разрешает атрибуцию. Для target автоматически
+добавляется точное имя `target_open_set_applicability_gate_v1`; пока gate
+зарегистрирован как `unavailable`, паспорт возвращает `status=inconclusive`,
+`top=null`, `abstained=true`. Относительный closed-set победитель сохраняется
+только как `diagnostic_closed_set_top`.
 
 `paths` позволяет собрать один author_id из нескольких папок. `exclude` обязателен,
 если candidate-папка содержит спорный target или другой циркулярный/заражённый текст.
 Если declared candidate не загрузился или после фильтров имеет меньше двух работ,
 gate не запускается на уменьшенной панели.
 
-Если target даёт только один chunk, паспорт может быть диагностическим, но не
-получает `strong`: в failure modes добавляется
-`target_single_chunk_no_strong_verdict`.
+Target-чанки сохраняют parent `work_id`. CI строится только work-cluster
+bootstrap по независимым target works; iid chunk bootstrap запрещён. При менее
+чем двух независимых target works `margin_ci95=null`, а в failure modes
+добавляется `target_lt2_independent_works_ci_unavailable`. Число чанков одного
+work не создаёт новых независимых единиц.
 
-Ограничение v1: старые `docs/cases/*.json` остаются прежними bespoke-отчётами.
-Для ранжирования их нужно пересчитать или вручную мигрировать в passport-формат с
-полями `case_id`, `status`, `verdict`, `confidence`, `evidence_score`, `gates`.
+Старые `docs/cases/*.json` и паспорта без `schema_version=stylo.case-passport.v2`
+сохраняются только для исторической воспроизводимости. `load_passport` отвергает
+их, чтобы старые `strong`/`moderate` вердикты нельзя было смешать с v2.

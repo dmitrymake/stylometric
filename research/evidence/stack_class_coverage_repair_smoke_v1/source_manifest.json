@@ -1,0 +1,82 @@
+{
+  "artifact": {
+    "optional_repository_path": "docs/exploratory/work_balanced/stylo_equal_channels_repair_smoke_v1.json",
+    "self_hash": "43a22d14193d5e094b46b4c52cf16f9c37d4ac2375fae48088ed338f9e81eedd",
+    "sha256": "0d4a78323e3f52fcaace90e22973df5396486ad13b4c07f54666ccd98ce902c3",
+    "status": "passed"
+  },
+  "claim_scope": {
+    "excluded_inferences": [
+      "full-corpus accuracy estimate",
+      "macro-F1",
+      "ECE",
+      "confidence interval",
+      "p-value",
+      "confirmatory claim",
+      "headline decision"
+    ],
+    "kind": "exploratory_real_corpus_smoke",
+    "pass_consequence": "licenses a full exploratory LOBO evaluation only; it does not resume or alter confirmatory execution"
+  },
+  "input_bindings": {
+    "corpus_content_digest": "15d265e0878dbf1acd9224e2558598ff7266fd6fc650585d1433fbd65a717029",
+    "corpus_manifest_self_hash": "8d39132b8b7732af0d39112a4884947caa1125e24adae2281ab8f5f6d4287705",
+    "corpus_semantic_digest": "bd8720e2b4f7f8d4f49b13da02619993da82b528f45360f0da2054d7137246ad",
+    "dataset_rows_digest": "1c17d2c6e9623466bae200e2cfd3bd9c7a1535cc5ac65e9239b32623df124b9e",
+    "fold_manifest_file_sha256": "3bce8103189ba0665189700cee15168082a90511d7f9c7072e8fee2cd392935f",
+    "fold_manifest_self_hash": "358bbfc069c782a33ba5ddee40c36c7005f8a0eed8f8ae38b6db673730932dbc",
+    "probability_class_order_digest": "d944f9f376283f6ee8202ce8bc9928cb3026b8406f134e32c80c67b0ffd2bb89",
+    "representation_cache_file_sha256": "48c8e8494909e71944a52a7c45c3274ee2baca75e5650463929b75b6203d3348",
+    "representation_cache_receipt_self_hash": "558f7b9fefc2e6661fbd264acb9e72f1bbd3471ffecc0a9a251f9bd6319f55b0"
+  },
+  "repair_bundle": {
+    "optional_repository_path": "paired-audit-control-plane.bundle",
+    "sha256": "d4d6eed4652071b9b306b7c69c4258c43c3d13264772abf55fd76bce134741a7"
+  },
+  "repair_commit": "07a8df82c48b62d88dd65bb262dbb3c4931b0500",
+  "schema": "stylo.stack_class_coverage_repair.source_evidence.v1",
+  "selected_folds": [
+    {
+      "fold_index": 0,
+      "work_id": "akunun/azazel"
+    },
+    {
+      "fold_index": 15,
+      "work_id": "bulgakov/rokovie_yaytca"
+    },
+    {
+      "fold_index": 31,
+      "work_id": "chehov/дуэль"
+    },
+    {
+      "fold_index": 46,
+      "work_id": "dostoevsky/идиот"
+    },
+    {
+      "fold_index": 62,
+      "work_id": "garshin/медведи"
+    }
+  ],
+  "source_files": {
+    "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": {
+      "preserved_path": "research/evidence/stack_class_coverage_repair_smoke_v1/source/scripts/evaluation/run_stack_class_coverage_repair_smoke.py",
+      "sha256": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55"
+    },
+    "src/stylo/eval/calibration.py": {
+      "preserved_path": "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/eval/calibration.py",
+      "sha256": "461275cf86f60a490a1572b0d473cfa94de1cc67a6924ed98250b1f485eb7434"
+    },
+    "src/stylo/eval/lobo.py": {
+      "preserved_path": "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/eval/lobo.py",
+      "sha256": "03e685ecf1964bba7f1602fc243c3053e64638ed7fc3e2a71718caa5d1a96cad"
+    },
+    "src/stylo/models/equal_channel_ensemble.py": {
+      "preserved_path": "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/models/equal_channel_ensemble.py",
+      "sha256": "78a2899c2bb9da95b458738cd3bfc507d970e5d181101318a6fbbcc3716669c7"
+    },
+    "src/stylo/models/stacked_clf.py": {
+      "preserved_path": "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/models/stacked_clf.py",
+      "sha256": "c03141e3f7e6b9c9f02bc14a103769d406905a70619020a78a6fa8d73b65534f"
+    }
+  }
+}

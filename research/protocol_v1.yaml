@@ -100,6 +100,13 @@ primary_endpoints:
     - segment_iou
     - single_author_work_false_positive_rate
 
+selective_prediction_contract:
+  abstention_encoding: null_only
+  reserved_label_strings:
+    - "__abstain__"
+  submitted_labels_must_belong_to_registered_truth_universe: true
+  unknown_or_reserved_strings_never_count_as_coverage: true
+
 uncertainty:
   attribution_resampling_unit:
     - author_id

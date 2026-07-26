@@ -22,13 +22,23 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from ..corpus import Dataset
+from ..domain.corpus_identity import assert_cross_work_content_isolation
 from ..lang import display_name
 from ..models.baselines import CharCosineBaseline, MajorityBaseline, build_bow_lr
 from ..models.delta import BurrowsDelta
+from ..models.registry import (
+    ModelRegistryError,
+    assert_model_route,
+    resolve_model_spec,
+)
 from ..features.reps import make_rep_cache
 from ..models.lr import make_full_pipeline, make_logreg, make_scaler
 from ..vectorizer import StyloVectorizer
 from .dispatch import fit_estimator, frozen_run_contract
+from .prediction_contract import (
+    stable_top1_and_worst_tie_rank,
+    validate_probability_matrix,
+)
 from .provenance import UnsupportedVariantError, verify_dataset_against_disk
 from .work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
@@ -39,11 +49,48 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 log = logging.getLogger("stylo.eval.lobo")
+MAX_GENERIC_LOBO_WORKERS = 8
+
+
+def _bounded_lobo_workers(cfg, requested: Optional[int]) -> int:
+    """Resolve joblib workers under an explicit process/memory amplification cap."""
+
+    raw = (
+        cfg.get_path("evaluation.n_jobs", MAX_GENERIC_LOBO_WORKERS)
+        if requested is None
+        else requested
+    )
+    if type(raw) is not int or raw == 0 or raw < -1:
+        raise ValueError("LOBO n_jobs must be -1 or a positive exact integer")
+    configured_cap = cfg.get_path(
+        "evaluation.max_parallel_folds",
+        MAX_GENERIC_LOBO_WORKERS,
+    )
+    if (
+        type(configured_cap) is not int
+        or configured_cap <= 0
+        or configured_cap > MAX_GENERIC_LOBO_WORKERS
+    ):
+        raise ValueError(
+            "evaluation.max_parallel_folds must be a positive exact integer "
+            f"<= {MAX_GENERIC_LOBO_WORKERS}"
+        )
+    cpu_cap = max(1, int(os.cpu_count() or 1))
+    cap = min(configured_cap, MAX_GENERIC_LOBO_WORKERS, cpu_cap)
+    wanted = cap if raw == -1 else raw
+    effective = min(wanted, cap)
+    if wanted != effective:
+        log.warning(
+            "LOBO n_jobs=%s capped to %s (configured/absolute/cpu resource bound)",
+            wanted,
+            effective,
+        )
+    return effective
 
 
 def make_factory_for_ablation(spec: str, cfg, *, ablation,
                               enabled_override: Optional[Dict[str, bool]] = None) -> Callable:
-    """The factory-routing entrypoint for the paired audit (B4-B increments 1-2).
+    """Factory-routing entrypoint for the paired W/F/R audit.
 
     Three runnable ablations:
 
@@ -94,7 +141,7 @@ def _delta_n_or_raise(spec: str) -> int:
 def _make_audit_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]],
                         ablation) -> Callable:
     """Build the audit-only A1 (weights) / A2 (feature-state) / A3 (relative-FW) estimator, or fail
-    closed with the exact typed applicability signal the future runner records.
+    closed with the exact typed applicability signal recorded by the evaluation runner.
 
     Loss/calibration: A1 is work-balanced (W on); A2/A3 keep the exact A0 loss (W off). Feature side:
     A1 is exact legacy A0; A2 routes work-level feature fitting (F); A3 applies the pooled relative-FW
@@ -162,16 +209,31 @@ def _stacked_kwargs(cfg) -> Dict:
     )
 
 
+def _equal_channel_kwargs(cfg) -> Dict:
+    """Only hyperparameters that affect the fixed equal-channel estimator."""
+    st = cfg.get_path("evaluation.stacking", {}) or {}
+    get = st.get if hasattr(st, "get") else (lambda *_: None)
+    return {
+        "svc_c": get("svc_c", 1.0) or 1.0,
+        "seed": cfg.get_path("seed", 42),
+    }
+
+
 def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = None,
                  *, weighting: str) -> Callable:
     """spec + resolved weighting -> фабрика свежего эстиматора (fit/predict_proba/classes_).
 
     The weighting enum (single toggle, resolved once upstream) is passed explicitly; the estimand
-    is baked into the returned estimator. Legacy arm reproduces the pre-B2 estimators exactly.
+    is baked into the returned estimator. The legacy arm reproduces the frozen estimators exactly.
     """
     weighting = require_weighting(weighting)   # strict: None is NOT a silent legacy fallback
     wb = weighting == WORK_BALANCED
-    if spec == "stylo":
+    registration = resolve_model_spec(spec)
+    try:
+        assert_model_route(spec, weighting=weighting)
+    except ModelRegistryError as exc:
+        raise UnsupportedVariantError(str(exc)) from exc
+    if registration.key == "stylo":
         if wb:
             from ..models.work_balanced import WorkBalancedStyloPipeline
             return lambda: WorkBalancedStyloPipeline([
@@ -180,57 +242,47 @@ def make_factory(spec: str, cfg, enabled_override: Optional[Dict[str, bool]] = N
                 ("classifier", make_logreg(cfg, class_weight=None)),
             ])
         return lambda: make_full_pipeline(cfg, StyloVectorizer.from_config(cfg, enabled_override))
-    if spec.startswith("delta:"):
+    if registration.key == "delta":
         n = int(spec.split(":", 1)[1])
         metric = cfg.get_path("delta.metric", "manhattan")
         return lambda: BurrowsDelta(n, metric, training_weighting=weighting)
-    if spec.startswith("delta_cos:"):
+    if registration.key == "delta_cos":
         # Cosine Delta (Smith–Aldridge / Evert et al. 2017): та же MFW-z-механика,
         # угол вместо Manhattan — устойчив к разреженному хвосту MFW на коротких чанках
         n = int(spec.split(":", 1)[1])
         return lambda: BurrowsDelta(n, "cosine", training_weighting=weighting)
-    if spec == "char_cos":
+    if registration.key == "char_cos":
         return lambda: CharCosineBaseline(training_weighting=weighting)
-    if spec == "bow_lr":
+    if registration.key == "bow_lr":
         if wb:
             from ..models.work_balanced import build_bow_lr_work_balanced
             return lambda: build_bow_lr_work_balanced()
         return lambda: build_bow_lr()
-    if spec == "bow_lr_ref_legacy":
+    if registration.key == "bow_lr_ref_legacy":
         # frozen historical reference row — WB-only (forbidden in the legacy arm, where it would
         # duplicate bow_lr and break byte-parity)
         if not wb:
             raise UnsupportedVariantError("bow_lr_ref_legacy is a work_balanced-only reference row")
         return lambda: build_bow_lr()
-    if spec == "majority":
+    if registration.key == "majority":
         return lambda: MajorityBaseline()
-    if spec == "stylo_stack":
-        # B3: work_balanced stack is wired end-to-end (feature+loss=B2a, group-aware calibration=B3).
+    if registration.key == "stylo_stack":
+        # The work-balanced stack wires feature fitting, loss weighting, and group-aware calibration.
         from ..models.stacked_clf import StackedChannelClassifier
         return lambda: StackedChannelClassifier(cfg, **_stacked_kwargs(cfg), training_weighting=weighting)
-    raise ValueError(f"Неизвестная модель: {spec}")
+    if registration.key == "stylo_equal_channels_v1":
+        from ..models.equal_channel_ensemble import EqualChannelEnsembleClassifier
+        return lambda: EqualChannelEnsembleClassifier(
+            cfg, **_equal_channel_kwargs(cfg), training_weighting=weighting,
+        )
+    raise AssertionError(f"registry entry has no factory adapter: {registration.key}")
 
 
 def _validate_proba(proba: np.ndarray, classes_: np.ndarray, n_authors: int, n_rows: int) -> None:
-    """Fail-closed on a malformed probability output (NaN/negative/unnormalised rows, bad classes)."""
-    import numbers
-    proba = np.asarray(proba, dtype=np.float64)
-    classes_ = np.asarray(classes_)
-    if proba.ndim != 2 or proba.shape[0] != n_rows or proba.shape[1] != len(classes_):
-        raise ValueError(f"predict_proba shape {proba.shape} != ({n_rows}, {len(classes_)})")
-    if not np.isfinite(proba).all() or (proba < -1e-9).any():
-        raise ValueError("predict_proba has NaN/inf/negative entries")
-    if not np.allclose(proba.sum(axis=1), 1.0, atol=1e-6):
-        raise ValueError("predict_proba rows do not sum to 1")
-    # classes_ must be a 1-D vector of EXACT non-bool integers, equal (ordered) to range(n_authors)
-    if classes_.ndim != 1 or len(classes_) != n_authors:
-        raise ValueError(f"classes_ must be 1-D of length n_authors={n_authors}, got {classes_.shape}")
-    cl = classes_.tolist()
-    for c in cl:
-        if isinstance(c, bool) or not isinstance(c, numbers.Integral):
-            raise ValueError(f"classes_ must be non-bool integers, got {c!r}")
-    if [int(c) for c in cl] != list(range(n_authors)):
-        raise ValueError(f"classes_ must equal range({n_authors}), got {cl}")
+    """Compatibility wrapper around the one versioned prediction contract."""
+    validate_probability_matrix(
+        proba, classes_, n_classes=n_authors, n_rows=n_rows
+    )
 
 
 def _align_proba(proba: np.ndarray, classes_: np.ndarray, n_authors: int) -> np.ndarray:
@@ -269,9 +321,12 @@ def run_fold(
     _validate_proba(proba, est.classes_, n_authors, int(mask_test.sum()))   # fail-closed
     full = _align_proba(proba, np.asarray(est.classes_), n_authors)
 
-    order = np.argsort(-full, kind="stable")  # равные → меньший индекс (как argmax/predict), без смещения к старшему
-    top1 = int(order[0])
-    rank = int((full >= full[true_label]).sum())  # tie-aware худший ранг: классы с prob >= p_true (включая сам класс); при вырожденных скорах (majority: нули) ничья не даёт ложного «2-го места»
+    decision = stable_top1_and_worst_tie_rank(
+        full, true_label=true_label, expected_width=n_authors
+    )
+    order = decision.order
+    top1 = decision.top1
+    rank = decision.true_rank
     top_candidates = [(authors[int(i)], float(full[int(i)])) for i in order[:top_k]]
 
     author_id, book_id = test_group.split("/", 1)
@@ -306,14 +361,14 @@ def lobo_evaluate(
     (никакого caller-supplied contract — иначе Dataset+rogue-контракт обошли бы cfg-корпус)."""
     weighting = require_weighting(weighting)
     weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
+    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
     return _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting)
 
 
 def _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting):
     """Internal LOBO worker — NO verification (caller must have verified). Not a public API."""
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
-    if n_jobs is None:
-        n_jobs = cfg.get_path("evaluation.n_jobs", -1)
+    n_jobs = _bounded_lobo_workers(cfg, n_jobs)
 
     books = sorted(set(dataset.groups.tolist()))
     if max_books and max_books > 0:
@@ -335,7 +390,9 @@ def _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting
 
     # verbose=10 → joblib печатает прогресс «Done N out of M» (иначе после старта LOBO — тишина до конца;
     # с CalibratedClassifierCV(cv=3) внутри stylo один фолд ~30 CPU-мин, прогон видеть НАДО).
-    res = Parallel(n_jobs=n_jobs, pre_dispatch="2*n_jobs", verbose=10)(
+    # Rep caches can be hundreds of MiB.  Never queue twice the active fold
+    # count: bounded pre-dispatch avoids needless serialization/RSS pressure.
+    res = Parallel(n_jobs=n_jobs, pre_dispatch=n_jobs, verbose=10)(
         delayed(run_fold)(dataset.texts, dataset.y, dataset.groups, dataset.n_authors,
                           dataset.authors, g, factory, top_k)
         for g in books

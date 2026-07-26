@@ -1,4 +1,4 @@
-"""B2 atomic model-bundle publish/load with immutable versions and a hashed sidecar.
+"""Atomic work-balanced model-bundle publish/load with immutable versions and a hashed sidecar.
 
 A work-balanced train run must never replace the legacy production model in-place, must never
 leave a loadable half-written or partial bundle, must never lose the published path to a crash,
@@ -9,23 +9,26 @@ external dir). This module publishes into an **immutable, content+meta-addressed
 chain (root, versions, version dir, pointer, files) is required to be a real, non-symlink object
 contained within the bundle root before any rmtree/replace. The bundle is a strict THREE-file
 contract (model.pkl, delta.pkl, authors.json) with a mandatory attestation schema.
-See research/P1_B2_MODEL_WIRING_DESIGN.md §7.
+See research/work_balanced/model_routing.md §7.
 """
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import os
 import pathlib
 import shutil
+import stat
 import tempfile
 from typing import Callable, Dict
 
 from ..jsonio import dump_strict, dumps_strict, load_strict
 
-BUNDLE_VERSION = "b2.bundle.v1"
+BUNDLE_VERSION = "stylo.deployment.bundle.v2"
 SIDECAR_NAME = "bundle_manifest.json"
 CURRENT_NAME = "current.json"
 VERSIONS_DIR = "versions"
+PUBLISH_LOCK_NAME = ".publish.lock"
 import re as _re
 
 REQUIRED_FILES = ("authors.json", "delta.pkl", "model.pkl")           # exact, not configurable
@@ -53,6 +56,26 @@ def _sha256_file(path: pathlib.Path) -> str:
         for block in iter(lambda: fh.read(1 << 20), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def _read_regular_nofollow(path: pathlib.Path) -> bytes:
+    """Read one immutable candidate through a no-follow descriptor."""
+
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise BundleError(f"bundle payload is not a regular file: {path}")
+        chunks = []
+        while True:
+            block = os.read(fd, 1 << 20)
+            if not block:
+                break
+            chunks.append(block)
+        return b"".join(chunks)
+    finally:
+        os.close(fd)
 
 
 def _verify_real_dir_chain(path) -> None:
@@ -92,10 +115,21 @@ def _validate_meta_schema(meta: Dict) -> None:
     missing = [k for k in REQUIRED_META if meta.get(k) in (None, "")]
     if missing:
         raise BundleError(f"attestation meta missing required non-null keys: {missing}")
-    if meta["training_weighting"] != "work_balanced":
-        raise BundleError("bundle attestation must be for the work_balanced arm")
-    if meta["dataset_contract"] != "work_balanced_manifest":
-        raise BundleError("bundle dataset_contract must be work_balanced_manifest")
+    contracts = {
+        "chunk_weighted_legacy": "legacy_recursive",
+        "work_balanced": "work_balanced_manifest",
+    }
+    weighting = meta["training_weighting"]
+    if weighting not in contracts:
+        raise BundleError(
+            f"unsupported bundle training_weighting {weighting!r}; "
+            f"expected one of {sorted(contracts)}"
+        )
+    if meta["dataset_contract"] != contracts[weighting]:
+        raise BundleError(
+            f"bundle dataset_contract must be {contracts[weighting]!r} "
+            f"for training_weighting={weighting!r}"
+        )
     if type(meta["git_dirty"]) is not bool:
         raise BundleError("git_dirty must be a bool")
     if not (isinstance(meta["git_commit"], str) and meta["git_commit"].strip()):
@@ -158,6 +192,17 @@ def publish_bundle(bundle_root, writers: Dict[str, Callable[[pathlib.Path], None
     if not _real_within(versions, bundle_root, must_dir=True):
         raise BundleError("versions/ escapes the bundle root")
 
+    lock_path = bundle_root / PUBLISH_LOCK_NAME
+    lock_flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        lock_fd = os.open(lock_path, lock_flags, 0o600)
+    except OSError as exc:
+        raise BundleError(f"cannot open safe bundle publication lock: {exc}") from exc
+    if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
+        os.close(lock_fd)
+        raise BundleError("bundle publication lock is not a regular file")
+    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+
     staging = pathlib.Path(tempfile.mkdtemp(dir=versions, prefix=".staging_"))
     try:
         file_hashes: Dict[str, str] = {}
@@ -188,17 +233,40 @@ def publish_bundle(bundle_root, writers: Dict[str, Callable[[pathlib.Path], None
                 shutil.rmtree(versioned)            # corrupt/incomplete prior version — replace
             os.replace(staging, versioned)          # immutable version dir (single atomic rename)
         staging = None
+
+        fd, tmp_name = tempfile.mkstemp(dir=bundle_root, prefix=".current_")
+        os.close(fd)
+        tmp_ptr = pathlib.Path(tmp_name)
+        try:
+            dump_strict(
+                {"bundle_version": BUNDLE_VERSION, "version": token},
+                tmp_ptr,
+                trailing_newline=True,
+            )
+            with open(tmp_ptr, "rb") as pointer_handle:
+                os.fsync(pointer_handle.fileno())
+            os.replace(tmp_ptr, bundle_root / CURRENT_NAME)
+            dir_fd = os.open(bundle_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        finally:
+            if tmp_ptr.exists():
+                tmp_ptr.unlink()
+
+        # The token is intentionally returned out-of-band from the sidecar.  A
+        # deployment must pin it through trusted configuration/CLI before
+        # invoking an executable model deserializer.
+        return {**full_sidecar, "bundle_token": token}
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
-
-    tmp_ptr = pathlib.Path(tempfile.mktemp(dir=bundle_root, prefix=".current_"))
-    dump_strict({"bundle_version": BUNDLE_VERSION, "version": token}, tmp_ptr, trailing_newline=True)
-    os.replace(tmp_ptr, bundle_root / CURRENT_NAME)
-    return full_sidecar
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
 
 
-def load_bundle(bundle_root):
+def load_bundle(bundle_root, *, expected_token: str | None = None):
     """Load the current bundle only if pointer/version/token/allow-list/containment/schema hold,
     no symlinks anywhere, and every sha256 matches."""
     bundle_root = pathlib.Path(bundle_root)
@@ -212,6 +280,13 @@ def load_bundle(bundle_root):
     token = pointer.get("version")
     if not isinstance(token, str) or not _safe_name(token):
         raise BundleError("pointer version is not a safe token")
+    if expected_token is not None:
+        if not isinstance(expected_token, str) or not _safe_name(expected_token):
+            raise BundleError("expected bundle token is malformed")
+        if token != expected_token:
+            raise BundleError(
+                f"current bundle token {token!r} does not match trusted expected token"
+            )
     versions = bundle_root / VERSIONS_DIR
     versioned = versions / token
     if not _real_within(versions, bundle_root, must_dir=True) or not _real_within(versioned, versions, must_dir=True):
@@ -244,3 +319,23 @@ def load_bundle(bundle_root):
             raise BundleError(f"bundle file tampered (hash mismatch): {name}")
         resolved[name] = p
     return meta, resolved
+
+
+def load_bundle_payloads(bundle_root, *, expected_token: str) -> tuple[Dict, Dict[str, bytes]]:
+    """Return digest-verified bytes suitable for executable deserialisation.
+
+    The path-based ``load_bundle`` contract is useful to inspect a bundle, but a
+    consumer that verifies a pathname and later reopens it has a substitution
+    race.  This helper re-reads each payload through ``O_NOFOLLOW``, verifies the
+    bytes against the already token-bound sidecar, and returns those exact bytes
+    to the deserializer.
+    """
+
+    meta, paths = load_bundle(bundle_root, expected_token=expected_token)
+    payloads: Dict[str, bytes] = {}
+    for name, path in paths.items():
+        payload = _read_regular_nofollow(path)
+        if hashlib.sha256(payload).hexdigest() != meta["files"][name]:
+            raise BundleError(f"bundle payload changed during verified read: {name}")
+        payloads[name] = payload
+    return meta, payloads

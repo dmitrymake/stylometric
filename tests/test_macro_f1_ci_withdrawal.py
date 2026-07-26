@@ -3,7 +3,8 @@
 author-clustered bootstrap resamples authors, which changes the class set of the macro-average
 (a dropped-but-predicted author contributes F1=0), so the old interval is not the CI of one fixed
 43-class function. It is withdrawn — not "conservative". This gate fails closed if the interval or
-the "conservative" wording leaks back into the source JSON, the site data, the README or the PAPER.
+the "conservative" wording leaks back into the source JSON, site data, README,
+or any versioned generator. Local-only paper drafts are outside the release.
 """
 from __future__ import annotations
 
@@ -59,8 +60,8 @@ def test_site_data_headline_ci_withdrawn():
     assert h["macroF1CIErratumRef"] == ERRATUM_REF
 
 
-def test_readme_and_paper_do_not_publish_the_withdrawn_interval():
-    for name in ("README.md", "PAPER.md"):
+def test_versioned_readme_does_not_publish_the_withdrawn_interval():
+    for name in ("README.md",):
         text = (ROOT / name).read_text(encoding="utf-8")
         assert BANNED_WORDING not in text, f"{name} reintroduced the 'conservative interval' claim"
         for frag in BANNED_INTERVAL_STRINGS:
@@ -71,7 +72,7 @@ def test_readme_and_paper_do_not_publish_the_withdrawn_interval():
 
 def test_generators_cannot_reintroduce_conservative_wording():
     # the templates themselves must not carry the banned wording (a re-run must stay clean)
-    for gen in ("gen-readme.mjs", "gen-paper.mjs", "gen-site-data.mjs"):
+    for gen in ("gen-readme.mjs", "gen-site-data.mjs"):
         src = (ROOT / "scripts" / gen).read_text(encoding="utf-8")
         assert BANNED_WORDING not in src, f"scripts/{gen} still contains the banned wording"
 

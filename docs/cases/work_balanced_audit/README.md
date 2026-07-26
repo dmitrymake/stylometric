@@ -1,9 +1,15 @@
 # Work-balanced centroid adversarial audit
 
+> **WITHDRAWN TARGET VERDICTS:** this is a frozen pre-v2 audit. The `top`
+> columns below are historical closed-set diagnostics, not authorship
+> attributions. Its passports used iid target-chunk uncertainty and lacked the
+> required calibrated open-set applicability gate. Current case-passport v2
+> abstains on every target until that gate exists.
+
 Paired rerun under identical features, chunks, labels, seeds, and target texts. Only the train-side author centroid changes.
 The registered feasibility threshold is 0.80; a score below it fails even when the permutation p-value is small.
 
-| case | legacy gate | work-balanced gate | delta | legacy p | balanced p | legacy top | balanced top |
+| case | legacy gate | work-balanced gate | delta | legacy p | balanced p | legacy diagnostic top | balanced diagnostic top |
 |---|---:|---:|---:|---:|---:|---|---|
 | kolokol_herzen_ogaryov | 0.7929 | 0.6643 | -0.1286 | 0.0155 | 0.1109 | herzen_publicistic | ogaryov_wikisource |
 | sovremennik_fourway_gate | 0.8875 | 0.9 | 0.0125 | 0.0005 | 0.0005 |  |  |
@@ -22,7 +28,9 @@ The registered feasibility threshold is 0.80; a score below it fails even when t
 | petersburg_fd_1847_06_01_fourway_fw_2000 | 0.881 | 0.8155 | -0.0655 | 0.0005 | 0.0005 | dostoevsky_publicistic | dostoevsky_publicistic |
 | petersburg_fd_1847_06_15_fourway_fw_2000 | 0.881 | 0.8155 | -0.0655 | 0.0005 | 0.0005 | dostoevsky_publicistic | dostoevsky_publicistic |
 
-A failed feasibility gate forbids interpretation of the target even when its top label is unchanged. Historical passports remain available as legacy artifacts.
+All target labels above are withdrawn closed-set diagnostics. A feasibility pass
+does not establish target applicability; historical passports remain only as
+withdrawn legacy artifacts.
 
 The historical bespoke Kolokol panel is audited separately because its corpus and 600-word window differ from the framework spec. Under work-balanced function-word centroids it falls from the historical 0.8667 (p=0.0015) to 0.6857 (p=0.0755), so that feasibility claim is withdrawn. See `custom/kolokol_herzen_ogaryov.work_balanced.json`.
 

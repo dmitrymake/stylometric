@@ -11,8 +11,10 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Dmitry Purtov" }]
 
-# Core dependencies. Exact, reproducible pins live in requirements.lock
-# (generated via `python -m pip freeze`). The spaCy Russian model
+# Core dependency ranges describe package compatibility. The supported
+# reproducible core/dev install uses requirements.lock as an exact constraints
+# file and verifies its path-free distribution fingerprint before bound runs.
+# The spaCy Russian model
 # `ru_core_news_lg==3.8.0` must be installed separately:
 #   python -m spacy download ru_core_news_lg
 dependencies = [
@@ -26,6 +28,7 @@ dependencies = [
     "pyyaml>=6.0",
     "matplotlib>=3.10",
     "seaborn>=0.13",
+    "requests>=2.32,<3",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +55,9 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"stylo.resources" = ["*.json", "*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

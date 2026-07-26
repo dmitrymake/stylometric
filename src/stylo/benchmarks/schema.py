@@ -22,6 +22,26 @@ SUPPORTED_TOKENIZERS: Final = frozenset({"stylo_unicode_word_punct_v1"})
 DOC_ID_PATTERN: Final = r"^doc_[0-9a-f]{16,64}$"
 SHA256_PATTERN: Final = r"^[0-9a-f]{64}$"
 
+# The v1 endpoint registry is intentionally small and explicit.  In
+# particular, spans are not a generic truth field: they belong only to the two
+# registered segmentation tasks.  ``spoof`` may be evaluated either as an
+# author or document classification endpoint, but must expose at least one of
+# those fields in released/private truth.
+TASK_ENDPOINT_MATRIX: Final = {
+    "spoof": {
+        "allowed_truth_fields": frozenset({"author_label", "document_label"}),
+        "required_any": (frozenset({"author_label", "document_label"}),),
+    },
+    "idio_shift": {
+        "allowed_truth_fields": frozenset({"author_label", "spans"}),
+        "required_all": frozenset({"spans"}),
+    },
+    "mixed_authorship": {
+        "allowed_truth_fields": frozenset({"spans"}),
+        "required_all": frozenset({"spans"}),
+    },
+}
+
 
 @dataclass(frozen=True)
 class DatasetMetadata:
@@ -210,6 +230,12 @@ MANIFEST_SCHEMA: Final[dict[str, object]] = {
                             "anyOf": [
                                 {"required": ["author_label"]},
                                 {"required": ["document_label"]},
+                                {"required": ["work"]},
+                                {"required": ["edition"]},
+                                {"required": ["period"]},
+                                {"required": ["genre"]},
+                                {"required": ["topic"]},
+                                {"required": ["register"]},
                             ]
                         },
                         "properties": {"spans": {"maxItems": 0}},

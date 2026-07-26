@@ -15,12 +15,12 @@ from stylo.benchmarks import (
 SHA256 = "a" * 64
 
 
-def _source(revision="2026-07-10"):
+def _source(revision="2026-07-10", sha256=SHA256):
     return {
         "source_id": "archive_primary",
         "provenance": "https://example.test/archive/item",
         "revision": revision,
-        "sha256": SHA256,
+        "sha256": sha256,
     }
 
 
@@ -41,7 +41,7 @@ def _manifest():
                 "doc_id": "doc_0000000000000001",
                 "source": _source(),
                 "split": "train",
-                "task_types": ["spoof"],
+                "task_types": ["spoof", "mixed_authorship"],
                 "text_path": "texts/doc_0000000000000001.txt",
                 "author_label": "author_a",
                 "document_label": "spoof",
@@ -70,7 +70,7 @@ def _manifest():
             },
             {
                 "doc_id": "doc_0000000000000002",
-                "source": _source("git:abc123"),
+                "source": _source("git:abc123", "b" * 64),
                 "split": "validation",
                 "task_types": ["idio_shift"],
                 "spans": [
@@ -85,7 +85,7 @@ def _manifest():
             },
             {
                 "doc_id": "doc_0000000000000003",
-                "source": _source("archive:v2"),
+                "source": _source("archive:v2", "c" * 64),
                 "split": "test",
                 "task_types": ["mixed_authorship"],
                 "spans": [
@@ -107,7 +107,7 @@ def _manifest():
             },
             {
                 "doc_id": "doc_0000000000000004",
-                "source": _source("sealed:v1"),
+                "source": _source("sealed:v1", "d" * 64),
                 "split": "blind",
                 "task_types": ["spoof"],
                 "spans": [],
@@ -300,3 +300,34 @@ def test_strict_loader_rejects_duplicate_json_keys_and_non_finite_numbers():
     non_finite["documents"][0]["spans"][0]["start"] = float("nan")
     with pytest.raises(ManifestValidationError, match="non-finite number"):
         loads_manifest(json.dumps(non_finite))
+
+
+def test_unknown_span_without_evidence_matches_public_schema_contract():
+    raw = _manifest()
+    span = raw["documents"][0]["spans"][0]
+    span["ground_truth_known"] = False
+    span.pop("evidence")
+    parsed = validate_manifest(raw)
+    assert parsed.documents[0].spans[0].ground_truth_known is False
+    assert parsed.documents[0].spans[0].evidence is None
+
+    span["evidence"] = "must-not-be-present"
+    with pytest.raises(ManifestValidationError, match="must be omitted"):
+        validate_manifest(raw)
+
+
+def test_task_endpoint_matrix_rejects_unregistered_or_empty_endpoints():
+    spoof_only_spans = _manifest()
+    spoof_only_spans["documents"][0]["task_types"] = ["spoof"]
+    with pytest.raises(ManifestValidationError, match="not registered"):
+        validate_manifest(spoof_only_spans)
+
+    empty_mixed = _manifest()
+    empty_mixed["documents"][2]["spans"] = []
+    with pytest.raises(ManifestValidationError, match="requires truth fields"):
+        validate_manifest(empty_mixed)
+
+    unused = _manifest()
+    unused["documents"][1]["task_types"] = ["mixed_authorship"]
+    with pytest.raises(ManifestValidationError, match="unused=.*idio_shift"):
+        validate_manifest(unused)

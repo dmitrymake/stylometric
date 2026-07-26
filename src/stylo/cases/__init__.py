@@ -6,12 +6,15 @@ scripts can migrate here incrementally.
 """
 from __future__ import annotations
 
-from .framework import (CasePassport, CaseSpec, dossier_markdown, load_case_spec,
-                        load_passport, passport_markdown, rank_passports, run_case,
-                        write_passport)
+from .framework import (CASE_PASSPORT_SCHEMA, CasePassport,
+                        CasePassportSemanticError, CaseSpec, dossier_markdown,
+                        load_case_spec, load_passport, passport_markdown,
+                        rank_passports, run_case, write_passport)
 
 __all__ = [
+    "CASE_PASSPORT_SCHEMA",
     "CasePassport",
+    "CasePassportSemanticError",
     "CaseSpec",
     "load_case_spec",
     "load_passport",

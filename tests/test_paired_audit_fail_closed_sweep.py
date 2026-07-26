@@ -1,44 +1,10 @@
-"""Consolidated §9 fail-closed coverage sweep for the confirmatory paired-audit control plane.
+"""Gap-fill tests for the confirmatory paired-audit fail-closed sweep.
 
-This module is the single coverage manifest for the protocol §9 fail-closed catalog. Most scenarios
-are proven in the per-module suites; this file both DOCUMENTS the mapping and adds the two remaining
-gap-fill proofs (duplicate chunk identity at the builder, and publisher crash-orphan recovery). No
-test here touches the real closed corpus.
-
-§9 scenario → covering test:
-  - legacy-anchor mismatch .............. test_paired_audit_corpus::test_legacy_anchor_mismatch_aborts_build
-  - semantic parity mismatch ............ test_paired_audit_corpus::test_parity_mismatch_between_different_corpora
-  - row-order parity invariant .......... test_paired_audit_corpus::test_row_order_parity_invariant_catches_reordering
-  - changed text bytes .................. test_paired_audit_corpus::test_wb_manifest_guard_catches_byte_mutation_directly
-  - missing/extra work .................. test_paired_audit_corpus::test_missing_work_selection_fails / TestWorkSubset
-  - missing/extra chunk ................. test_paired_audit_corpus::test_wb_manifest_guard_catches_stray_chunk_directly
-  - duplicate work/chunk identity ....... this::test_duplicate_chunk_identity_aborts_build
-  - bad corpus-manifest self-hash ....... test_paired_audit_corpus::test_corpus_manifest_self_hash_tamper_rejected
-  - partial audit-root .................. test_paired_audit_corpus::test_partial_root_never_valid
-  - conflicting immutable root .......... test_paired_audit_corpus::test_conflicting_immutable_root_is_fatal
-  - wrong selection digest .............. test_paired_audit_corpus::test_forged_selection_digest_rejected_at_disk_verify
-  - wrong parent digest ................. test_paired_audit_corpus::test_forged_parent_digest_rejected_at_disk_verify
-  - incomplete/reordered/non-whole RuAA . test_paired_audit_corpus::TestWorkSubset (missing/extra/duplicate/whole-work)
-  - wrong LOBO/RuAA class order ......... test_paired_audit_manifest::test_bogus_class_order_contents_rejected
-  - RunPlan canonicalization ............ test_paired_audit_control_plane::test_build_run_plan_and_stable_run_id
-  - any binding change → new run_id ..... test_paired_audit_control_plane::test_run_id_changes_on_any_binding_change
-  - no kernel strings in identity ....... test_paired_audit_control_plane::test_runtime_fingerprint_binds_stack_omits_kernel
-  - valid checkpoint resume ............. test_paired_audit_checkpoints::test_valid_resume_skips_present_and_pends_missing
-  - corrupt/conflicting/extra ckpt ...... test_paired_audit_checkpoints::TestFailClosed
-  - missing ckpt pending until COMPLETE . test_paired_audit_checkpoints::test_assert_complete_success_and_incomplete_fatal
-  - incomplete COMPLETE fatal ........... test_paired_audit_checkpoints::test_assert_complete_success_and_incomplete_fatal
-  - path traversal / headline write ..... test_paired_audit_publisher::TestPathGuard
-  - atomic publisher crash/failure ...... test_paired_audit_publisher::test_recovers_from_staging_orphan
-  - content-addressed archive verify .... test_paired_audit_publisher::test_publish_and_load_round_trip
-  - self-hash tampering ................. test_paired_audit_publisher::test_tampered_summary_self_hash_rejected
-  - cluster-p degenerate cases .......... test_paired_audit_inference::TestClusterPValue (rule1/rule2)
-  - constant non-zero cluster effect .... test_paired_audit_inference::test_rule3_constant_nonzero_effect_not_special_cased
-  - fixed 15-comparison Holm family ..... test_paired_audit_inference::test_full_family_runs_with_m15
-  - missing Holm member invalidates ..... test_paired_audit_inference::test_missing_or_extra_member_invalidates_family
-  - headline boundary equality .......... test_paired_audit_headline::test_boundary_equality_is_inconclusive
-  - A0/A4 golden replay ................. tests/test_work_balanced_ablation_goldens.py (+ opt-in live replay,
-                                          WORK_BALANCED_LIVE_GOLDEN_REPLAY=1)
-  - production-default invariants ....... tests/test_work_balanced_ablation_config.py
+The executable requirement-to-nodeid mapping is
+``research/governance/requirements.json`` and is collect-checked by
+``tests/test_medium_governance.py``. This module owns only gap tests that do not
+belong naturally to one component suite; it is not a comment-only coverage map.
+No test here touches the real closed corpus.
 """
 from __future__ import annotations
 

@@ -35,7 +35,7 @@ CURRENT_NAME = "current.json"
 COMPLETE_NAME = "COMPLETE"
 SHA256SUMS_NAME = "SHA256SUMS"
 SUMMARY_IN_VERSION = "summary.json"
-_PUBLISH_SCHEMA = "paired_audit.publish.v1"
+_PUBLISH_SCHEMA = "paired_audit.publish.v2"
 
 # frozen/headline artifacts the publisher must NEVER write (denylist, belt-and-suspenders on top of
 # the allowlist)
@@ -261,7 +261,11 @@ def verify_final_assembly(summary: Mapping, per_work_vectors: Mapping) -> None:
         raise PublisherError("summary.headline decision must be relabel/keep_legacy/inconclusive")
 
     # §8: the candidate must carry the fixed passing result-audit stamp (re-derived below at publish)
-    if summary.get("result_audit") != {"passed": True, "auditor": "independent_recompute_v1"}:
+    from .result_audit import RESULT_AUDITOR_VERSION
+    if summary.get("result_audit") != {
+        "passed": True,
+        "auditor": RESULT_AUDITOR_VERSION,
+    }:
         raise PublisherError("summary.result_audit must be the fixed passing independent-audit stamp")
     # Holm <-> cell verdict consistency across both datasets
     for ds, fam in holm.items():

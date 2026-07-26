@@ -6,7 +6,12 @@ name: Deploy article to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/deploy-pages.yml"]
+    paths:
+      - "docs/**"
+      - "scripts/gen-site-data.mjs"
+      - "scripts/check-provenance.mjs"
+      - "site/**"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -29,8 +34,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+      - run: npm run gen
       - run: npm run build
+      - run: node ../scripts/check-provenance.mjs
+      - run: git -C .. diff --exit-code -- site/src/generated
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/dist

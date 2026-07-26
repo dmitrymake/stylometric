@@ -1,0 +1,25 @@
+{
+  "schema": "stylo.historical_evidence.withdrawn_certificates.v1",
+  "status": "WITHDRAWN_INVALID_UNIT",
+  "reason": "The tensor-product unit assumption and minimum-per-channel combination are invalid for the observed dependent chunk/channel design.",
+  "artifacts": [
+    {
+      "role": "exact_historical_implementation",
+      "original_path": "src/stylo/eval/certificates.py",
+      "preserved_path": "research/evidence/withdrawn_certificates_v1/certificates_historical.py.txt",
+      "sha256": "596cbdb9977b56e12c7b4ca8819100d91102ff20a3a01ede0c49005815d781ea"
+    },
+    {
+      "role": "exact_historical_output",
+      "original_path": "docs/certificates.json",
+      "preserved_path": "research/evidence/withdrawn_certificates_v1/certificates_historical_output.json",
+      "sha256": "17b22d9e4887eaaf66903ffc443dc3af38b195f613461954827e333d7e751189"
+    },
+    {
+      "role": "exact_historical_falsification_record",
+      "original_path": "docs/breakthrough_leads.md",
+      "preserved_path": "research/evidence/withdrawn_certificates_v1/breakthrough_leads_historical.md",
+      "sha256": "60f58853c34a2dacf9f1e12d1e2bca28e5b2eff7dce923e151ddb5a9c042321f"
+    }
+  ]
+}

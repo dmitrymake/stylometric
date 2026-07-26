@@ -43,11 +43,11 @@ class StyloVectorizer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None, groups=None):
         X = list(X)
         if groups is not None:
-            groups = validate_work_ids(groups, len(X))   # single B0 contract, fail-closed, pre-_reps
+            groups = validate_work_ids(groups, len(X))   # canonical work-identity contract, pre-_reps
         reps = self._reps(X)
         for b in self.blocks:
             if groups is None:
-                b.fit(X, reps)                            # exact legacy two-argument call (P0 parity)
+                b.fit(X, reps)                            # exact legacy two-argument call for parity
             else:
                 b.fit(X, reps, groups=groups)
         return self

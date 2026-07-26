@@ -1,30 +1,143 @@
-// Гейт провенанса: КАЖДЫЙ источник, читаемый генераторами (gen-site-data/gen-readme),
-// должен быть в git-индексе — иначе свежий клон не пересоберёт и не проверит числа на сайте/README,
-// а это и есть заявленный дифференциатор (clean-clone reproducibility). Запуск: node scripts/check-provenance.mjs
-// Код выхода 1, если хоть один источник untracked. Безопасно гонять в CI/pre-commit.
+// Verify the typed site-generation registry, every consumed byte, and every generated output.
+// Production: node scripts/check-provenance.mjs
+// Tests may point at a synthetic tree with: --root PATH --skip-tracked
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { dirname, isAbsolute, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const GENS = ["scripts/gen-site-data.mjs", "scripts/gen-readme.mjs"];
+const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const MANIFEST_PATH = "site/src/generated/manifest.json";
+const SCHEMA = "stylo.site_generation_provenance.v1";
+const HEX64 = /^[0-9a-f]{64}$/;
 
-const sources = new Set();
-for (const g of GENS) {
-  const s = readFileSync(resolve(ROOT, g), "utf-8");
-  // load("x.json") / jload("docs/x.json") / load("cases/x.json") — путь может содержать подпапку (cases/)
-  for (const m of s.matchAll(/\b(?:load|jload)\(\s*"(?:docs\/)?([A-Za-z0-9_/]+\.json)"/g)) sources.add("docs/" + m[1]);
-  // CSV-источники (final_comparison.csv и т.п.)
-  for (const m of s.matchAll(/"(?:docs\/)?([A-Za-z0-9_/]+\.csv)"/g)) sources.add("docs/" + m[1]);
-}
-
-const tracked = new Set(execSync("git ls-files docs/", { cwd: ROOT }).toString().trim().split("\n"));
-const missing = [...sources].filter((s) => !tracked.has(s)).sort();
-
-if (missing.length) {
-  console.error("ГЕЙТ ПРОВЕНАНСА: источники генераторов НЕ в git-индексе (свежий клон сломается):\n  " + missing.join("\n  "));
-  console.error("Исправить: git add " + missing.join(" "));
+function fail(message) {
+  console.error(`PROVENANCE GATE: ${message}`);
   process.exit(1);
 }
-console.log(`✓ провенанс: все ${sources.size} источников генераторов в git-индексе`);
+
+function parseArgs(argv) {
+  let root = DEFAULT_ROOT;
+  let checkTracked = true;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === "--root" && i + 1 < argv.length) {
+      root = resolve(argv[++i]);
+    } else if (argv[i] === "--skip-tracked") {
+      checkTracked = false;
+    } else {
+      fail(`unknown or incomplete argument ${JSON.stringify(argv[i])}`);
+    }
+  }
+  return { root, checkTracked };
+}
+
+function exactKeys(value, keys, where) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    fail(`${where} must be an object`);
+  }
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    fail(`${where} keys must be exactly ${expected.join(", ")}`);
+  }
+}
+
+function safeRelativePath(value, where) {
+  if (typeof value !== "string" || value.length === 0 || isAbsolute(value)) {
+    fail(`${where} must be a non-empty repository-relative path`);
+  }
+  const canonical = normalize(value);
+  if (
+    canonical !== value ||
+    value === ".." ||
+    value.startsWith(`..${sep}`) ||
+    value.includes("\\")
+  ) {
+    fail(`${where} is not a canonical repository-relative path: ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
+function digest(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function verifyBinding(root, binding, where) {
+  exactKeys(binding, ["path", "sha256"], where);
+  const path = safeRelativePath(binding.path, `${where}.path`);
+  if (typeof binding.sha256 !== "string" || !HEX64.test(binding.sha256)) {
+    fail(`${where}.sha256 must be lowercase hex64`);
+  }
+  let bytes;
+  try {
+    bytes = readFileSync(resolve(root, path));
+  } catch (error) {
+    fail(`${where} cannot read ${path}: ${error.message}`);
+  }
+  const actual = digest(bytes);
+  if (actual !== binding.sha256) {
+    fail(`${path} digest mismatch: registered=${binding.sha256} actual=${actual}`);
+  }
+  return path;
+}
+
+const { root, checkTracked } = parseArgs(process.argv.slice(2));
+let registry;
+try {
+  registry = JSON.parse(readFileSync(resolve(root, MANIFEST_PATH), "utf-8"));
+} catch (error) {
+  fail(`cannot parse ${MANIFEST_PATH}: ${error.message}`);
+}
+
+exactKeys(registry, ["schema", "generator", "sources", "outputs", "entries"], "registry");
+if (registry.schema !== SCHEMA) fail(`schema must be ${SCHEMA}`);
+if (!Array.isArray(registry.sources) || registry.sources.length === 0) {
+  fail("sources must be a non-empty array");
+}
+if (!Array.isArray(registry.outputs) || registry.outputs.length === 0) {
+  fail("outputs must be a non-empty array");
+}
+if (!Array.isArray(registry.entries)) fail("entries must be an array");
+
+const paths = [];
+paths.push(verifyBinding(root, registry.generator, "generator"));
+for (const [index, binding] of registry.sources.entries()) {
+  paths.push(verifyBinding(root, binding, `sources[${index}]`));
+}
+for (const [index, binding] of registry.outputs.entries()) {
+  paths.push(verifyBinding(root, binding, `outputs[${index}]`));
+}
+
+if (new Set(paths).size !== paths.length) fail("generator/source/output paths must be unique");
+const sourcePaths = registry.sources.map((item) => item.path);
+if (JSON.stringify(sourcePaths) !== JSON.stringify([...sourcePaths].sort())) {
+  fail("sources must be sorted by path");
+}
+if (registry.generator.path !== "scripts/gen-site-data.mjs") {
+  fail("generator path must be scripts/gen-site-data.mjs");
+}
+if (
+  registry.outputs.length !== 1 ||
+  registry.outputs[0].path !== "site/src/generated/site-data.json"
+) {
+  fail("outputs must bind exactly site/src/generated/site-data.json");
+}
+
+if (checkTracked) {
+  for (const path of [...paths, MANIFEST_PATH]) {
+    try {
+      execFileSync("git", ["ls-files", "--error-unmatch", "--", path], {
+        cwd: root,
+        stdio: "ignore",
+      });
+    } catch {
+      fail(`${path} is not tracked; a clean clone cannot reproduce the site`);
+    }
+  }
+}
+
+console.log(
+  `✓ provenance: ${registry.sources.length} source digests and ` +
+  `${registry.outputs.length} output digest verified`,
+);

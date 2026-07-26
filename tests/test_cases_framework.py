@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from stylo.cases import load_case_spec, rank_passports, run_case
 from stylo.cases import framework as case_framework
@@ -42,20 +43,37 @@ target: {target}
     return spec
 
 
-def test_case_spec_and_run_strong(tmp_path):
+def test_case_target_abstains_until_open_set_gate_exists(tmp_path):
     spec_path = _make_case(tmp_path)
     spec = load_case_spec(spec_path)
 
     passport = run_case(spec).to_dict()
 
     assert spec.centroid_weighting == "work_balanced"
+    assert passport["schema_version"] == "stylo.case-passport.v2"
     assert passport["case_id"] == "synthetic_clear"
     assert passport["data"]["centroid_weighting"] == "work_balanced"
-    assert passport["gate_pass"] is True
-    assert passport["status"] == "strong"
+    assert passport["gate_pass"] is False
+    assert passport["status"] == "inconclusive"
     assert passport["gates"][0]["work_macro_recall"] == 1.0
+    assert passport["gates"][0]["gate_pass"] is True
     assert passport["gates"][0]["permutation_p"] > 0
-    assert passport["attributions"][0]["top"] == "author_a"
+    attribution = passport["attributions"][0]
+    assert attribution["top"] is None
+    assert attribution["abstained"] is True
+    assert attribution["diagnostic_closed_set_top"] == "author_a"
+    assert attribution["n_works"] == 1
+    assert attribution["target_work_ids"] == ["target"]
+    assert attribution["margin_ci95"] is None
+    assert attribution["uncertainty_unit"] == "work_id"
+    assert (
+        "required_gate_unavailable:target_open_set_applicability_gate_v1"
+        in passport["failure_modes"]
+    )
+    assert (
+        "target_lt2_independent_works_ci_unavailable"
+        in passport["failure_modes"]
+    )
 
 
 def test_case_gate_refuses_single_work(tmp_path):
@@ -124,9 +142,11 @@ def test_single_chunk_target_is_not_strong(tmp_path):
 
     passport = run_case(load_case_spec(spec_path)).to_dict()
 
-    assert passport["gate_pass"] is True
+    assert passport["gates"][0]["gate_pass"] is True
+    assert passport["gate_pass"] is False
     assert passport["attributions"][0]["n_chunks"] == 1
-    assert passport["status"] != "strong"
+    assert passport["attributions"][0]["margin_ci95"] is None
+    assert passport["status"] == "inconclusive"
 
 
 def test_candidate_paths_and_exclude(tmp_path):
@@ -169,11 +189,21 @@ forbidden_sources:
 
 def test_rank_passports_orders_by_evidence_score():
     rows = rank_passports([
-        {"case_id": "weak", "status": "moderate", "evidence_score": 30},
-        {"case_id": "strong", "status": "strong", "evidence_score": 80},
+        {
+            "schema_version": "stylo.case-passport.v2",
+            "case_id": "weak",
+            "status": "inconclusive",
+            "evidence_score": 30,
+        },
+        {
+            "schema_version": "stylo.case-passport.v2",
+            "case_id": "gate",
+            "status": "gate_only",
+            "evidence_score": 80,
+        },
     ])
 
-    assert [r["case_id"] for r in rows] == ["strong", "weak"]
+    assert [r["case_id"] for r in rows] == ["gate", "weak"]
 
 
 def test_cli_case_run_writes_passport(tmp_path):
@@ -185,7 +215,8 @@ def test_cli_case_run_writes_passport(tmp_path):
     assert rc == 0
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["case_id"] == "synthetic_clear"
-    assert data["attributions"][0]["top"] == "author_a"
+    assert data["attributions"][0]["top"] is None
+    assert data["attributions"][0]["diagnostic_closed_set_top"] == "author_a"
 
 
 def test_case_dossier_uses_public_metadata(tmp_path):
@@ -213,7 +244,9 @@ provenance:
     dossier = dossier_path.read_text(encoding="utf-8")
     assert data["hypothesis"] == "Synthetic authorship hypothesis"
     assert data["claim"] == "Synthetic target goes to author A."
-    assert "Synthetic target goes to author A." in dossier
+    assert "Synthetic target goes to author A." not in dossier
+    assert "## Decision" in dossier
+    assert "воздержалась" in dossier
     assert "synthetic target" in dossier
     assert "stylo case run synthetic.yaml" in dossier
 
@@ -476,3 +509,150 @@ def test_legacy_centroid_weighting_is_explicit_and_recorded(tmp_path):
 
     assert spec.centroid_weighting == "chunk_weighted_legacy"
     assert passport["data"]["centroid_weighting"] == "chunk_weighted_legacy"
+
+
+def test_target_loader_preserves_parent_work_ids(tmp_path):
+    spec_path = _make_case(tmp_path)
+    target_file = tmp_path / "target.txt"
+    target_dir = tmp_path / "target_works"
+    _write(target_dir / "one.txt", "первый спорный самостоятельный текст " * 40)
+    _write(target_dir / "two.txt", "второй спорный самостоятельный текст " * 40)
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace(
+            f"target: {target_file}",
+            f"target: {target_dir}",
+        ),
+        encoding="utf-8",
+    )
+
+    spec = load_case_spec(spec_path)
+    chunks = case_framework._load_target_chunks(spec)
+
+    assert {chunk.work_id for chunk in chunks} == {
+        "target_works/one",
+        "target_works/two",
+    }
+    assert all(chunk.text for chunk in chunks)
+
+
+def test_work_bootstrap_cannot_gain_precision_from_duplicate_chunks():
+    centroids = np.asarray([[1.0, 0.0], [0.0, 1.0]])
+    base_rows = np.asarray([[1.0, 0.0], [0.8, 0.2]])
+    base_ids = ["work_one", "work_two"]
+    duplicated_rows = np.vstack(
+        [np.repeat(base_rows[:1], 50, axis=0), base_rows[1:]]
+    )
+    duplicated_ids = ["work_one"] * 50 + ["work_two"]
+
+    base_ci = case_framework._bootstrap_margin_by_work(
+        base_rows, base_ids, centroids, ["a", "b"], seed=7, n_iter=200
+    )
+    duplicated_ci = case_framework._bootstrap_margin_by_work(
+        duplicated_rows,
+        duplicated_ids,
+        centroids,
+        ["a", "b"],
+        seed=7,
+        n_iter=200,
+    )
+    one_work_ci = case_framework._bootstrap_margin_by_work(
+        duplicated_rows[:-1],
+        duplicated_ids[:-1],
+        centroids,
+        ["a", "b"],
+        seed=7,
+        n_iter=200,
+    )
+
+    assert duplicated_ci == base_ci
+    assert one_work_ci is None
+
+
+def test_required_gate_registry_rejects_unknown_name(tmp_path):
+    spec_path = _make_case(tmp_path)
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8")
+        + "\nrequired_gates: [feasibility_gate, typo_gate]\n",
+        encoding="utf-8",
+    )
+
+    passport = run_case(load_case_spec(spec_path)).to_dict()
+
+    assert set(case_framework.REQUIRED_GATE_REGISTRY) == {
+        "feasibility_gate",
+        "target_open_set_applicability_gate_v1",
+    }
+    assert passport["status"] == "fail"
+    assert passport["gate_pass"] is False
+    assert passport["gates"] == []
+    assert "unknown_required_gate:typo_gate" in passport["failure_modes"]
+    evaluations = {
+        row["name"]: row for row in passport["data"]["required_gate_evaluations"]
+    }
+    assert evaluations["typo_gate"]["status"] == "unknown"
+    assert evaluations["typo_gate"]["gate_pass"] is False
+
+
+def test_outsider_target_abstains_despite_relative_closed_set_winner(tmp_path):
+    spec_path = _make_case(tmp_path)
+    _write(
+        tmp_path / "target.txt",
+        "совершенно посторонний зелёный голос без сходства с панелью " * 35,
+    )
+
+    passport = run_case(load_case_spec(spec_path)).to_dict()
+    attribution = passport["attributions"][0]
+
+    assert passport["gates"][0]["gate_pass"] is True
+    assert passport["gate_pass"] is False
+    assert passport["status"] == "inconclusive"
+    assert passport["confidence"] == "low"
+    assert attribution["top"] is None
+    assert attribution["abstained"] is True
+    assert attribution["diagnostic_closed_set_top"] in {"author_a", "author_b"}
+    assert "не научным вердиктом" in passport["verdict"]
+
+
+def test_historical_case_passport_cannot_be_ranked_as_current(tmp_path):
+    path = tmp_path / "historical.passport.json"
+    path.write_text(
+        json.dumps(
+            {
+                "case_id": "legacy",
+                "claim_status": "exploratory_internal",
+                "status": "strong",
+                "evidence_score": 99,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(case_framework.CasePassportSemanticError, match="withdrawn"):
+        case_framework.load_passport(path)
+
+
+def test_forged_v2_target_verdict_is_rejected():
+    forged = {
+        "schema_version": "stylo.case-passport.v2",
+        "case_id": "forged",
+        "status": "strong",
+        "gate_pass": True,
+        "evidence_score": 100,
+        "attributions": [
+            {
+                "top": "candidate",
+                "second": "other",
+                "abstained": False,
+                "uncertainty_unit": "chunk",
+                "n_works": 1,
+                "target_work_ids": ["one"],
+                "margin_ci95": [0.1, 0.2],
+            }
+        ],
+    }
+
+    with pytest.raises(
+        case_framework.CasePassportSemanticError,
+        match="forbids strong/moderate",
+    ):
+        rank_passports([forged])

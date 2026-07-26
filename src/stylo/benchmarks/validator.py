@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import pathlib
 from typing import Any
 
 from .schema import (
@@ -16,6 +17,7 @@ from .schema import (
     SUPPORTED_SPLIT_ROLES,
     SUPPORTED_TASK_TYPES,
     SUPPORTED_TOKENIZERS,
+    TASK_ENDPOINT_MATRIX,
     SourceProvenance,
 )
 
@@ -54,6 +56,9 @@ _OPTIONAL_DOCUMENT_STRINGS = (
     "genre",
     "topic",
     "register",
+)
+_BLIND_IDENTITY_FIELDS = frozenset(
+    {"work", "edition", "period", "genre", "topic", "register"}
 )
 
 
@@ -112,6 +117,15 @@ def validate_manifest(value: object) -> BenchmarkManifest:
             else:
                 seen_doc_ids[document.doc_id] = index
             documents.append(document)
+
+    _validate_split_isolation(documents, errors)
+    represented_tasks = {task for document in documents for task in document.task_types}
+    unused_tasks = sorted(set(task_types) - represented_tasks)
+    if unused_tasks:
+        errors.append(
+            "$.task_types: every declared task must have at least one document; "
+            f"unused={unused_tasks!r}"
+        )
 
     if errors:
         raise ManifestValidationError(errors)
@@ -236,6 +250,45 @@ def _parse_document(
     for key in _OPTIONAL_DOCUMENT_STRINGS:
         optional[key] = _optional_string(raw, key, path, errors)
 
+    if split != "blind":
+        allowed_fields = set().union(
+            *(
+                TASK_ENDPOINT_MATRIX[task]["allowed_truth_fields"]
+                for task in task_types
+                if task in TASK_ENDPOINT_MATRIX
+            )
+        )
+        present_fields = {
+            field
+            for field, present in (
+                ("author_label", optional["author_label"] is not None),
+                ("document_label", optional["document_label"] is not None),
+                ("spans", bool(spans)),
+            )
+            if present
+        }
+        disallowed = sorted(present_fields - allowed_fields)
+        if disallowed:
+            errors.append(
+                f"{path}: truth fields {disallowed!r} are not registered for "
+                f"tasks {list(task_types)!r}"
+            )
+        for task in task_types:
+            contract = TASK_ENDPOINT_MATRIX.get(task)
+            if contract is None:
+                continue
+            missing = sorted(set(contract.get("required_all", ())) - present_fields)
+            if missing:
+                errors.append(
+                    f"{path}: task {task!r} requires truth fields {missing!r}"
+                )
+            for alternatives in contract.get("required_any", ()):
+                if not (set(alternatives) & present_fields):
+                    errors.append(
+                        f"{path}: task {task!r} requires at least one of "
+                        f"{sorted(alternatives)!r}"
+                    )
+
     if split == "blind":
         if "author_label" in raw:
             errors.append(f"{path}.author_label: forbidden in blind split")
@@ -243,6 +296,8 @@ def _parse_document(
             errors.append(f"{path}.document_label: forbidden in blind split")
         if spans_raw:
             errors.append(f"{path}.spans: blind split must not expose span labels")
+        for field in sorted(_BLIND_IDENTITY_FIELDS & raw.keys()):
+            errors.append(f"{path}.{field}: identity-bearing metadata is forbidden in blind split")
 
     if doc_id is None or source is None or split is None or spans_raw is None:
         return None
@@ -264,6 +319,56 @@ def _parse_document(
     )
 
 
+def _roles_are_isolated(left: str, right: str) -> bool:
+    """Whether two split roles must not share a work/source identity."""
+
+    if left == right:
+        return False
+    if "blind" in {left, right}:
+        return True
+    development = {"train", "validation"}
+    return not ({left, right} <= development)
+
+
+def _validate_split_isolation(
+    documents: list[BenchmarkDocument], errors: list[str]
+) -> None:
+    """Reject content/path/revision leakage before a benchmark is accepted."""
+
+    for index, left in enumerate(documents):
+        for right in documents[index + 1 :]:
+            if not _roles_are_isolated(left.split, right.split):
+                continue
+            if left.source.sha256 == right.source.sha256:
+                errors.append(
+                    "$.documents: exact source bytes cross isolated split roles: "
+                    f"{left.doc_id!r} ({left.split}) vs {right.doc_id!r} ({right.split})"
+                )
+            if (
+                left.text_path is not None
+                and right.text_path is not None
+                and pathlib.PurePosixPath(left.text_path)
+                == pathlib.PurePosixPath(right.text_path)
+            ):
+                errors.append(
+                    "$.documents: text_path crosses isolated split roles: "
+                    f"{left.doc_id!r} ({left.split}) vs {right.doc_id!r} ({right.split})"
+                )
+            if (
+                left.source.source_id == right.source.source_id
+                and left.source.revision == right.source.revision
+            ):
+                errors.append(
+                    "$.documents: source revision crosses isolated split roles: "
+                    f"{left.doc_id!r} ({left.split}) vs {right.doc_id!r} ({right.split})"
+                )
+            if left.work is not None and left.work == right.work:
+                errors.append(
+                    "$.documents: work identity crosses isolated split roles: "
+                    f"{left.doc_id!r} ({left.split}) vs {right.doc_id!r} ({right.split})"
+                )
+
+
 def _parse_spans(
     values: list[object] | None, path: str, errors: list[str]
 ) -> tuple[BenchmarkSpan, ...]:
@@ -276,7 +381,8 @@ def _parse_spans(
         raw = _object(value, span_path, errors)
         if raw is None:
             continue
-        _check_keys(raw, _SPAN_KEYS, _SPAN_KEYS, span_path, errors)
+        required = frozenset({"start", "end", "label", "ground_truth_known"})
+        _check_keys(raw, required, _SPAN_KEYS, span_path, errors)
         start = _required_integer(raw, "start", span_path, errors)
         end = _required_integer(raw, "end", span_path, errors)
         label = _required_string(raw, "label", span_path, errors)

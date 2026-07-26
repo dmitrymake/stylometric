@@ -95,6 +95,39 @@ def test_ruaa_inventory_verifier_logic_and_real_submission(tmp_path):
         assert ref.parse_ruaa_a0_reference(_RUAA_SUB)["n_rows"] == 137
 
 
+def test_ruaa_inventory_is_an_exact_bijection_and_count(tmp_path):
+    import hashlib as _h
+
+    a = tmp_path / "a.txt"
+    b = tmp_path / "nested" / "b.txt"
+    b.parent.mkdir()
+    a.write_text("alpha", encoding="utf-8")
+    b.write_text("beta", encoding="utf-8")
+    digest_a = _h.sha256(a.read_bytes()).hexdigest()
+    digest_b = _h.sha256(b.read_bytes()).hexdigest()
+    sums = tmp_path / "SHA256SUMS"
+    canonical = f"{digest_a}  a.txt\n{digest_b}  nested/b.txt\n"
+    sums.write_text(canonical, encoding="utf-8")
+    assert ref.verify_ruaa_inventory(sums, tmp_path, expected_files=2) == 2
+
+    sums.write_text(canonical + f"{digest_a}  a.txt\n", encoding="utf-8")
+    with pytest.raises(ref.ReferenceError, match="duplicate"):
+        ref.verify_ruaa_inventory(sums, tmp_path)
+
+    sums.write_text(f"{digest_a}  a.txt\n", encoding="utf-8")
+    with pytest.raises(ref.ReferenceError, match="path set mismatch"):
+        ref.verify_ruaa_inventory(sums, tmp_path)
+
+    sums.write_text(canonical, encoding="utf-8")
+    (tmp_path / "extra.txt").write_text("unlisted", encoding="utf-8")
+    with pytest.raises(ref.ReferenceError, match="path set mismatch"):
+        ref.verify_ruaa_inventory(sums, tmp_path)
+    (tmp_path / "extra.txt").unlink()
+
+    with pytest.raises(ref.ReferenceError, match="expected exactly 3"):
+        ref.verify_ruaa_inventory(sums, tmp_path, expected_files=3)
+
+
 def test_a0_preflight_lobo_only_on_clean_checkout():
     out = ref.assert_a0_preflight(lobo_books=_ROOT / "docs/lobo_books.txt", require_ruaa=False)
     assert out["lobo"]["n_correct"] == 221 and out["ruaa"] is None
@@ -200,12 +233,7 @@ def test_golden_fixture_inventory_from_disk(tmp_path):
 
 
 def _b4_fixture_bytes():
-    # committed on HEAD; present on disk in a clean checkout/snapshot, deleted only in the dirty rework
-    import subprocess
-    disk = _ROOT / "tests" / "fixtures" / "b4_goldens_v1.json"
-    if disk.is_file():
-        return disk.read_bytes()
-    return subprocess.check_output(["git", "show", "HEAD:tests/fixtures/b4_goldens_v1.json"], cwd=_ROOT)
+    return ref.resolve_b4_golden_fixture(_ROOT).read_bytes()
 
 
 def test_b4_golden_fixture_pinned_and_replayed(tmp_path):
@@ -222,3 +250,14 @@ def test_b4_golden_fixture_pinned_and_replayed(tmp_path):
         ref.verify_b4_goldens(fix)
     with pytest.raises(ref.ReferenceError):                             # missing fixture
         ref.verify_b4_goldens(tmp_path / "nope.json")
+
+
+def test_b4_legacy_and_descriptive_names_resolve_to_identical_canonical_bytes():
+    legacy = ref.resolve_b4_golden_fixture(_ROOT, "b4_goldens_v1.json")
+    descriptive = ref.resolve_b4_golden_fixture(
+        _ROOT, "work_balanced_ablation_goldens_v1.json")
+    assert legacy == descriptive
+    assert legacy.name == "work_balanced_ablation_goldens_v1.json"
+    assert legacy.read_bytes() == descriptive.read_bytes()
+    with pytest.raises(ref.ReferenceError, match="unknown B4"):
+        ref.resolve_b4_golden_fixture(_ROOT, "future_or_unreviewed_fixture")

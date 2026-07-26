@@ -24,6 +24,11 @@ def test_synthetic_breakthrough_stack_runs_end_to_end(tmp_path):
     assert built["n_documents"] == 38
     assert report["status"] == "integration_control_only"
     assert report["scientific_claim_allowed"] is False
+    assert report["reference_blind_score"]["protocol_binding"]["endpoint_counts"] == {
+        "idio_shift": 1,
+        "mixed_authorship": 2,
+        "spoof": 1,
+    }
     assert report["reference_blind_score"]["authorship"]["accuracy"] == 1.0
     assert (
         report["reference_blind_score"]["document_classification"]["accuracy"]

@@ -1,4 +1,4 @@
-"""P1 work-balanced training estimand invariants (Gate P1)."""
+"""Work-balanced training-weight estimand invariants and dispatch contracts."""
 from __future__ import annotations
 
 import numpy as np
@@ -19,7 +19,7 @@ def _work_mass(weights, groups):
 
 class TestWorkSampleWeights:
     def test_total_mass_is_W_and_authors_equal(self):
-        # W=4 works, A=2 authors: total = W, each author = W/A = 2 (D3 normalisation)
+        # W=4 works, A=2 authors: total = W, each author = W/A = 2.
         y = [0, 0, 0, 1, 1]
         groups = ["a/w1", "a/w1", "a/w2", "b/w3", "b/w4"]
         w = ww.work_sample_weights(y, groups)
@@ -65,7 +65,7 @@ class TestWorkSampleWeights:
             ww.aggregate_by_work(["c1", "c2"], ["w1"])
 
     def test_effective_sample_size_equals_num_works(self):
-        # sum(weights) == W for a ragged corpus (D3: work-level effective N)
+        # sum(weights) == W for a ragged corpus: work-level effective N.
         y = [0, 0, 0, 0, 1, 1]
         groups = ["a/w1", "a/w1", "a/w1", "a/w2", "b/w3", "b/w4"]
         assert ww.work_sample_weights(y, groups).sum() == pytest.approx(4.0)

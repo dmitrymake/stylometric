@@ -1,5 +1,10 @@
 # Taras Bulba Hardened Case
 
+> **CASE-PASSPORT v1 WITHDRAWAL.** Все приведённые ниже target-статусы
+> `strong`/`moderate`, включая positive controls, являются историческими
+> closed-set diagnostics. Их iid chunk CI и отсутствие calibrated open-set
+> applicability gate не соответствуют v2; научные атрибуционные вердикты сняты.
+
 > **POST-AUDIT NOTICE — 2026-07-11.** Прежний headline о панель-устойчивом
 > притяжении добавлений к Гоголю **снят** после устранения train-side
 > псевдорепликации. В work-balanced аудите multi-candidate panels не проходят

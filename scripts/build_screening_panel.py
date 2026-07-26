@@ -18,14 +18,14 @@ from stylo.config import load_config  # noqa: E402
 from stylo.eval.screening_panel import build_manifest, verify_manifest, MANIFEST_PATH  # noqa: E402
 from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY  # noqa: E402
 from stylo.jsonio import dumps_strict  # noqa: E402
-from stylo.workdoc import resolve_dataset  # noqa: E402
+from stylo.dataset import resolve_dataset, resolve_fragment_roots  # noqa: E402
 
 
 def main() -> int:
     cfg = load_config()
     ds = resolve_dataset(
         cfg, CHUNK_WEIGHTED_LEGACY,
-        ROOT / "data" / "frags_train",
+        resolve_fragment_roots(cfg).train_root,
         exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
         unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"))
     manifest = build_manifest(ds)

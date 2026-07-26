@@ -15,10 +15,18 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import Counter
 from typing import Callable, Mapping
+
+import numpy as np
 
 from ...jsonio import dumps_strict, load_strict
 from ...eval.metrics import macro_f1
+from ..prediction_contract import (
+    PredictionContractError,
+    validate_prediction_record,
+    validate_probability_vector,
+)
 from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION, LEGACY_ABLATION,
                               RELATIVE_FW_ONLY_ABLATION, WEIGHTS_ONLY_ABLATION)
 from . import applicability as ap
@@ -45,6 +53,14 @@ class RunnerError(RuntimeError):
     incomplete run)."""
 
 
+class StackManifestFeasibilityError(RunnerError):
+    """The registered stack cells cannot run on every committed outer fold."""
+
+    def __init__(self, message: str, *, report: Mapping):
+        super().__init__(message)
+        self.report = dict(report)
+
+
 def _author_of(work_id: str) -> str:
     return str(work_id).split("/", 1)[0]
 
@@ -65,6 +81,148 @@ def _bindings_for(manifest) -> dict:
     return dataset_bindings(manifest["dataset_digest"], manifest["parent_dataset_digest"],
                             manifest["self_hash"], manifest["probability_class_order"],
                             manifest["metric_label_order"])
+
+
+def assert_stack_manifest_feasible(datasets, manifests, cfg) -> dict:
+    """Preflight every registered stack outer fold before constructing a store.
+
+    The manifest supplies the exact outer work universe; the already
+    disk-verified dataset supplies its row/group layout.  We reproduce the
+    stack's configured ``StratifiedGroupKFold`` and feed every resulting split
+    through the same class/structure preflight used by
+    :class:`StackedChannelClassifier`.
+    """
+    if not any(model == "stylo_stack" for model, _cell in ap.registered_cells()):
+        return {
+            "schema": "paired_audit.stack_manifest_feasibility.v1",
+            "complete": True,
+            "registered_stack_cells": [],
+            "checked_outer_folds": 0,
+            "failures": [],
+        }
+
+    from sklearn.model_selection import StratifiedGroupKFold
+
+    from ...models.stacked_clf import build_inner_split_preflight_report
+    from ..lobo import _stacked_kwargs
+
+    stack_cfg = _stacked_kwargs(cfg)
+    inner_folds = stack_cfg["inner_folds"]
+    seed = stack_cfg["seed"]
+    if isinstance(inner_folds, bool) or not isinstance(
+        inner_folds, (int, np.integer)
+    ) or int(inner_folds) < 2:
+        raise StackManifestFeasibilityError(
+            "stylo_stack inner_folds must be an integer >=2",
+            report={
+                "schema": "paired_audit.stack_manifest_feasibility.v1",
+                "complete": False,
+                "inner_folds": inner_folds,
+                "failures": [{"reason": "invalid_inner_folds"}],
+            },
+        )
+    inner_folds = int(inner_folds)
+    failures = []
+    checked = 0
+    for dataset_kind in _DATASETS:
+        dataset = datasets[dataset_kind]
+        manifest = manifests[dataset_kind]
+        probability_order = list(manifest["probability_class_order"])
+        expected_classes = np.arange(len(probability_order), dtype=np.int64)
+        labels = np.asarray(dataset.y)
+        groups = np.asarray([str(group) for group in dataset.groups], dtype=object)
+        if labels.ndim != 1 or len(labels) != len(groups):
+            failures.append({
+                "dataset": dataset_kind,
+                "reason": "dataset_label_group_shape",
+            })
+            continue
+
+        # A class with fewer than two remaining work groups can never be
+        # present in every inner-train fold, regardless of splitter details.
+        group_label = {}
+        for group, label in zip(groups.tolist(), labels.tolist()):
+            if group in group_label and group_label[group] != int(label):
+                failures.append({
+                    "dataset": dataset_kind,
+                    "work_id": group,
+                    "reason": "work_has_multiple_labels",
+                })
+            group_label[group] = int(label)
+
+        for outer in manifest["works"]:
+            if not outer["tested"]:
+                continue
+            checked += 1
+            work_id = outer["work_id"]
+            train_mask = groups != work_id
+            train_labels = labels[train_mask]
+            train_groups = groups[train_mask]
+            remaining = Counter(
+                int(group_label[group]) for group in set(train_groups.tolist())
+            )
+            insufficient = [
+                probability_order[index]
+                for index in range(len(probability_order))
+                if remaining.get(index, 0) < 2
+            ]
+            failure = {
+                "dataset": dataset_kind,
+                "fold_index": outer["fold_index"],
+                "work_id": work_id,
+                "insufficient_train_work_authors": insufficient,
+            }
+            if insufficient:
+                failure["inner_split_report"] = {
+                    "complete": False,
+                    "reason": "fewer_than_two_train_work_groups",
+                }
+                failures.append(failure)
+                continue
+            try:
+                splitter = StratifiedGroupKFold(
+                    n_splits=inner_folds, shuffle=True, random_state=seed
+                )
+                splits = list(
+                    splitter.split(
+                        np.zeros(len(train_labels)), train_labels, train_groups
+                    )
+                )
+                split_report = build_inner_split_preflight_report(
+                    splits,
+                    train_labels,
+                    expected_classes,
+                    groups=train_groups,
+                    expected_split_count=inner_folds,
+                )
+                failure["inner_split_report"] = split_report
+            except (TypeError, ValueError) as exc:
+                failure["split_error"] = f"{type(exc).__name__}: {exc}"
+                split_report = {"complete": False}
+            if not split_report["complete"]:
+                failures.append(failure)
+
+    report = {
+        "schema": "paired_audit.stack_manifest_feasibility.v1",
+        "complete": not failures,
+        "inner_folds": inner_folds,
+        "seed": seed,
+        "registered_stack_cells": [
+            cell for model, cell in ap.registered_cells()
+            if model == "stylo_stack"
+        ],
+        "checked_outer_folds": checked,
+        "failures": failures,
+    }
+    if failures:
+        first = failures[0]
+        raise StackManifestFeasibilityError(
+            "registered stylo_stack matrix is infeasible before checkpoint "
+            f"construction: {len(failures)}/{checked} outer folds failed; "
+            f"first={first.get('dataset')}/{first.get('work_id')}",
+            report=report,
+        )
+    return report
 
 
 def _rebuild_manifest(dataset_kind: str, dataset, parent_digest: str, cfg, committed: Mapping, *,
@@ -90,6 +248,20 @@ def _rebuild_manifest(dataset_kind: str, dataset, parent_digest: str, cfg, commi
 # §7: the four stages are DURABLE and separately authorized — one call never auto-flows all of them.
 HEADLINE_DECISION_AUTHORIZATION = "authorize_headline_decision"
 
+# A real confirmatory execution is impossible until §11 preparation has been independently reviewed
+# and its exact freeze-root digest is pinned in a subsequent reviewed commit.  Keeping this pin empty
+# is an executable hard-stop, not a comment in a candidate JSON file.
+APPROVED_FREEZE_ROOT_SHA256: str | None = None
+
+
+def assert_confirmatory_freeze_approved() -> str:
+    """Return the reviewed freeze-root pin, or hard-stop before any confirmatory preflight/work."""
+    if APPROVED_FREEZE_ROOT_SHA256 is None:
+        raise RunnerError(
+            "confirmatory execution is disabled: no independently reviewed freeze root is pinned"
+        )
+    return APPROVED_FREEZE_ROOT_SHA256
+
 
 def run_execution(*, audit_root, cfg, committed_lobo_manifest: Mapping,
                   committed_ruaa_manifest: Mapping, ruaa_work_ids, checkpoint_root, docs_root,
@@ -105,6 +277,7 @@ def run_execution(*, audit_root, cfg, committed_lobo_manifest: Mapping,
         raise RunnerError(f"unknown run_kind {run_kind!r}")
     confirmatory = run_kind == "confirmatory"
     if confirmatory:
+        assert_confirmatory_freeze_approved()
         # a confirmatory run obtains git/source/env fingerprints from the real tree itself — a caller
         # cannot substitute a fake clean state via repo_root/src_root.
         repo_root = src_root = None
@@ -137,6 +310,10 @@ def run_execution(*, audit_root, cfg, committed_lobo_manifest: Mapping,
 
     # 4. exact applicability matrix
     ap.assert_matrix_invariants()
+    # The frozen matrix registers stylo_stack for every A0..A4 cell.  Prove
+    # every outer fold can construct the configured class-complete inner OOF
+    # splits before a checkpoint store (or even its run_id namespace) exists.
+    assert_stack_manifest_feasible(datasets, manifests, cfg)
 
     # 4b. resolve the production evaluator identity and bind it into the run_id (§4.2): a confirmatory
     # run requires a REGISTERED EvaluatorSpec whose source bytes / import identity / estimator config /
@@ -147,6 +324,9 @@ def run_execution(*, audit_root, cfg, committed_lobo_manifest: Mapping,
     eval_spec = evaluator if isinstance(evaluator, rp.EvaluatorSpec) else rp.EvaluatorSpec(
         name="smoke_dummy", fn=evaluator, estimator_config={"smoke": True},
         mechanism_passport={"smoke": True})
+    eval_spec = rp.resolve_evaluator_spec(
+        eval_spec, confirmatory=confirmatory
+    )
     eval_identity = rp.evaluator_identity(eval_spec, confirmatory=confirmatory)
     eval_fn = eval_spec.fn
 
@@ -275,6 +455,10 @@ def _build_run_plan(datasets, manifests, corpus_manifest, *, run_kind, a0_refere
     # call sites of a0_references have incompatible signatures, so never re-call verify_a0_references).
     a0_shas = {"lobo_books_txt": refmod.LOBO_BOOKS_SHA256,
                "ruaa_reference_submission": refmod.RUAA_REFERENCE_SUBMISSION_SHA256}
+    if run_kind == "confirmatory":
+        # A lock digest alone proves only which bytes were named, not that this
+        # process actually installed those versions.
+        rp.verify_installed_environment(repo_root)
     git = rp.git_commit_info(repo_root)
     per_ds = {}
     for ds in _DATASETS:
@@ -322,15 +506,32 @@ def _run_all_cells(store: CheckpointStore, datasets, manifests, evaluator, ctx) 
                 author = _author_of(work_id)
                 if author not in prob_order:
                     raise RunnerError(f"{ds}/{model}/{cell} fold {work_id}: author not in class order")
-                proba = [float(p) for p in res["probabilities"]]
+                true_label = prob_order.index(author)
+                try:
+                    proba = validate_probability_vector(
+                        res["probabilities"], expected_width=len(prob_order)
+                    ).tolist()
+                    decision = validate_prediction_record(
+                        probabilities=proba,
+                        pred_label=res["pred_label"],
+                        true_label=true_label,
+                        correct=res["correct"],
+                        rank=res["rank"],
+                        expected_width=len(prob_order),
+                    )
+                except (KeyError, PredictionContractError) as exc:
+                    raise RunnerError(
+                        f"{ds}/{model}/{cell} fold {work_id}: invalid prediction: {exc}"
+                    ) from exc
                 # the AUTHORITATIVE proba_digest is computed by the runner from the fold's OWN proba
                 # (the estimator's claimed digest is never trusted), and true_label from the class order.
                 evidence = {**dict(evidence), "proba_digest": _proba_digest(proba)}
                 _assert_fold_evidence(model, cell, evidence)       # real axis/state digests, no fallback
                 store.save(ds, model, cell, fold_index, work_id,
-                           result={"pred_label": int(res["pred_label"]),
-                                   "true_label": prob_order.index(author),
-                                   "correct": bool(res["correct"]), "rank": int(res["rank"]),
+                           result={"pred_label": decision.top1,
+                                   "true_label": true_label,
+                                   "correct": decision.top1 == true_label,
+                                   "rank": decision.true_rank,
                                    "probabilities": proba},
                            fold_local_evidence=evidence)
                 _reattest(ctx)                                     # after the fold
@@ -580,7 +781,18 @@ def _point_metrics(a, metric_idx) -> dict:
     n = len(a["correct"]) or 1
     acc = sum(a["correct"]) / n
     top2 = sum(1 for r in a["ranks"] if r <= 2) / n
-    f1 = float(macro_f1(np.array(a["trues"]), np.array(a["preds"]), metric_idx)) if a["trues"] else 0.0
+    f1 = (
+        float(
+            macro_f1(
+                np.array(a["trues"]),
+                np.array(a["preds"]),
+                metric_idx,
+                unknown_pred="count_as_error",
+            )
+        )
+        if a["trues"]
+        else 0.0
+    )
     recall = {}
     for au in sorted(set(a["authors"])):
         idx = [i for i, x in enumerate(a["authors"]) if x == au]

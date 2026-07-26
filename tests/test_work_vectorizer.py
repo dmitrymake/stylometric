@@ -1,4 +1,4 @@
-"""P1 B1: work-level sparse vectorizer estimand properties (design v3 §3)."""
+"""Work-level sparse-vectorizer estimand properties and input contracts."""
 from __future__ import annotations
 
 import numpy as np
@@ -144,7 +144,7 @@ class TestWorkIdContract:
         return validate_work_ids(groups, n)
 
     def test_accepts_object_ndarray_of_strings(self):
-        arr = np.array(["a/1", "a/1", "b/2"], dtype=object)   # exactly what B0 emits
+        arr = np.array(["a/1", "a/1", "b/2"], dtype=object)   # canonical loader output shape
         assert self._val(arr, 3) == ["a/1", "a/1", "b/2"]
 
     def test_normalizes_numpy_str(self):

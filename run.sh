@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Единый параметризованный entrypoint (заменяет run.sh/run_full.sh/run_validation.sh).
+# Канонический параметризованный entrypoint (заменяет удалённые run_full.sh/run_validation.sh).
 #
 #   ./run.sh all            — полный пайплайн end-to-end
 #   ./run.sh validate       — валидация корпуса
@@ -26,13 +26,16 @@ case "$cmd" in
     # стадии, читающие конфиг — иначе split/train/evaluate остались бы legacy при WB-sweep.
     # Preflight ВСЕГО плана ДО первой мутации: work_balanced не имеет predict/deploy-пути.
     run preflight --stages train,sweep,evaluate,predict,report "$@"
+    run clean "$@"              # raw bytes always produce a new attested clean snapshot first
     run validate-corpus "$@"    # fatal validation must STOP the scientific pipeline (no `|| true`)
     run split "$@"
     run warm "$@"
-    run train "$@"
+    train_receipt="$(run train "$@")"
+    printf '%s\n' "$train_receipt"
+    bundle_token="$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["bundle_token"])' <<<"$train_receipt")"
     run sweep "$@"        # скрининг блоков быстрым GKF-прокси
     run evaluate "$@"     # финальные цифры полным leakage-free LOBO + baseline + значимость
-    run predict "$@"      # БЕЗ «|| true»: work_balanced predict fail-closes, чтобы не подсунуть legacy-модель
+    run predict --model-bundle-token "$bundle_token" "$@"  # exact token pins executable model bytes
     run report "$@"
     ;;
   validate)        run validate-corpus "$@" ;;

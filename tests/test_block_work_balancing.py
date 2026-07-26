@@ -1,4 +1,4 @@
-"""P1 B1-c: learned blocks switch to work-level fitting when groups is given (else legacy)."""
+"""Learned feature blocks switch to work-level fitting when groups are supplied."""
 from __future__ import annotations
 
 import copy
@@ -134,7 +134,7 @@ class TestCloneMutationIsolation:
 
 
 class _Rep:
-    """Minimal Rep stand-in for the string/dict-driven blocks (B1-c)."""
+    """Minimal representation stand-in for string- and mapping-driven blocks."""
     def __init__(self, pos_str="", punct_str="", morph=None, dep_counts=None, dep_agg=None):
         self.pos_str = pos_str
         self.punct_str = punct_str
@@ -219,7 +219,7 @@ class TestMorphDepWorkDF:
         with pytest.raises(ValueError):
             MorphologyBlock().fit(None, reps, groups={"a/w1", "b/w2", "c/w3"})  # set
 
-    # ── Codex B1-c fail-closed regressions ────────────────────────────────────
+    # -- fail-closed count and vocabulary regressions
     def test_no_public_min_df_works_knob(self):
         # HIGH: threshold is a fixed constant, not a corruptible public param
         for cls in (MorphologyBlock, DependencyBlock):
@@ -239,7 +239,7 @@ class TestMorphDepWorkDF:
     @pytest.mark.parametrize("bad", [
         -1, float("nan"), float("inf"), 2.5,          # python int-negative / float / non-integral
         np.float32("nan"), np.float32("inf"),         # numpy float32 — NOT a python float subclass
-        np.longdouble("nan"), np.longdouble("inf"),   # numpy longdouble — type-hole Codex flagged
+        np.longdouble("nan"), np.longdouble("inf"),   # numpy longdouble exercises a distinct type path
         np.float64("nan"),
     ])
     def test_non_integer_or_negative_count_rejected(self, bad):
@@ -288,7 +288,7 @@ class TestMorphDepWorkDF:
         np.testing.assert_allclose(legacy[:, -6:], work[:, -6:])
 
 
-class TestBFourStateSwitch:
+class TestFeatureBlockStateSwitch:
     @pytest.mark.parametrize("make,gk", [
         (lambda: PosNgramBlock(ngram_range=(1, 2), min_df=1), "pos"),
         (lambda: PunctNgramBlock(ngram_range=(1, 2)), "punct"),

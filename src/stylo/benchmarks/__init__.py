@@ -24,6 +24,7 @@ from .alignment import (
 )
 from .loader import load_manifest, loads_manifest
 from .scoring import (
+    BlindBenchmarkMigrationRequired,
     BenchmarkScore,
     BenchmarkSubmission,
     BenchmarkTruth,
@@ -52,6 +53,7 @@ from .schema import (
     SUPPORTED_SPLIT_ROLES,
     SUPPORTED_TASK_TYPES,
     SUPPORTED_TOKENIZERS,
+    TASK_ENDPOINT_MATRIX,
     SourceProvenance,
 )
 from .validator import ManifestValidationError, validate_manifest
@@ -69,6 +71,7 @@ __all__ = [
     "BenchmarkScore",
     "BenchmarkSubmission",
     "BenchmarkTruth",
+    "BlindBenchmarkMigrationRequired",
     "ClassificationScore",
     "DatasetMetadata",
     "DOC_ID_PATTERN",
@@ -81,6 +84,7 @@ __all__ = [
     "SUPPORTED_SPLIT_ROLES",
     "SUPPORTED_TASK_TYPES",
     "SUPPORTED_TOKENIZERS",
+    "TASK_ENDPOINT_MATRIX",
     "SourceProvenance",
     "ScoringFormatError",
     "ScoringSpan",

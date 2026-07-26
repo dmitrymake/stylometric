@@ -1,9 +1,9 @@
-"""B2 single fit dispatch — the one fit entrypoint for LOBO, GKF and train.
+"""Single-fit model routing for LOBO, GKF and train.
 
 A spec's estimand lives *inside* the estimator that ``make_factory`` builds from the resolved
 ``training_weighting`` enum; this helper is pure, uniform group-routing so the same spec cannot
 fit with different estimands across evaluation engines (GKF previously fit ``needs_groups``
-models without groups). See research/P1_B2_MODEL_WIRING_DESIGN.md §10.
+models without groups). See research/work_balanced/model_routing.md §10.
 """
 from __future__ import annotations
 
@@ -14,7 +14,9 @@ def frozen_run_contract(cfg, frags_root=None):
     """The frozen run-config corpus identity (root + policy) — the anchor the disk gate loads."""
     from .provenance import RunContract
     if frags_root is None:
-        frags_root = pathlib.Path(cfg.get_path("paths.data", "data")) / "frags_train"
+        from ..dataset import resolve_fragment_roots
+
+        frags_root = resolve_fragment_roots(cfg).train_root
     return RunContract.build(
         frags_root,
         cfg.get_path("corpus_policy.exclude_from_benchmark", []) or [],
@@ -44,7 +46,9 @@ def expected_data_contract(cfg, weighting, frags_root=None):
 
     w = resolve_training_weighting(weighting)
     if frags_root is None:
-        frags_root = pathlib.Path(cfg.get_path("paths.data", "data")) / "frags_train"
+        from ..dataset import resolve_fragment_roots
+
+        frags_root = resolve_fragment_roots(cfg).train_root
     exclude = cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []
     unknown = cfg.get_path("corpus_policy.unknown_dir_name", "unknown")
     policy = CorpusPolicyProvenance.build(exclude, unknown)

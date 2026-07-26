@@ -1,4 +1,4 @@
-"""P1 B0: canonical WorkDocument, strict manifest and the single manifest-driven loader."""
+"""Canonical work documents, strict manifests, and the manifest-driven corpus loader."""
 from __future__ import annotations
 
 import os
@@ -263,7 +263,9 @@ def test_resolve_dataset_dispatch(tmp_path, monkeypatch):
         _make_work(tmp_path, a, b, texts)
     monkeypatch.setattr(wd, "chunker_config_hash", lambda cfg: _CH)
     cfg = load_config(overrides=parse_set_overrides([f"paths.input_clean={tmp_path / 'input_clean'}"]))
-    ds_wb = wd.resolve_dataset(cfg, "work_balanced", frags)
+    from stylo.dataset import resolve_dataset
+
+    ds_wb = resolve_dataset(cfg, "work_balanced", frags)
     assert hasattr(ds_wb, "_manifest_paths")
-    ds_legacy = wd.resolve_dataset(cfg, "chunk_weighted_legacy", frags)
+    ds_legacy = resolve_dataset(cfg, "chunk_weighted_legacy", frags)
     assert not hasattr(ds_legacy, "_manifest_paths")

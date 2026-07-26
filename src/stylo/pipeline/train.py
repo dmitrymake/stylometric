@@ -15,23 +15,63 @@ import pathlib
 import joblib
 
 from ..config import load_config
+from ..dataset import resolve_dataset, resolve_fragment_roots
 from ..eval.dispatch import fit_estimator
 from ..eval.lobo import make_factory
 from ..eval.provenance import verify_dataset_against_disk
-from ..eval.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+from ..domain.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                                    require_weighting)
 from ..features.reps import make_rep_cache
 from ..jsonio import dump_strict
 from ..models.delta import BurrowsDelta
-from ..workdoc import chunker_config_hash, resolve_dataset
+from ..workdoc import chunker_config_hash
 from .bundle import publish_bundle
 
 log = logging.getLogger("stylo.pipeline.train")
 
 
+class WorkspaceRequiredError(RuntimeError):
+    """The requested operation needs an attestable Stylo source workspace."""
+
+
+def _require_source_workspace(root: pathlib.Path | None = None) -> pathlib.Path:
+    """Return the canonical repository root or fail with an actionable error.
+
+    Training and publication create research artifacts that bind a live Git
+    commit. Installed wheels intentionally support inference and configuration,
+    but cannot honestly manufacture that source-control attestation.
+    """
+    import subprocess
+
+    candidate = (root or pathlib.Path(__file__).resolve().parents[3]).resolve()
+    markers = (candidate / "pyproject.toml", candidate / "requirements.lock", candidate / "configs")
+    if not (candidate / ".git").exists() or not all(marker.exists() for marker in markers):
+        raise WorkspaceRequiredError(
+            "training/artifact attestation requires a Stylo Git source workspace "
+            "(with .git, pyproject.toml, requirements.lock and configs/); "
+            "an installed wheel is inference-only"
+        )
+    try:
+        discovered = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=candidate,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        raise WorkspaceRequiredError(
+            "training/artifact attestation requires a working Git executable and source workspace"
+        ) from exc
+    if pathlib.Path(discovered).resolve() != candidate:
+        raise WorkspaceRequiredError(
+            f"source workspace mismatch: module expects {candidate}, git reports {discovered}"
+        )
+    return candidate
+
+
 def _code_tree_sha256() -> str | None:
     """Hash the CONTENT of the executing code tree (src/stylo/**/*.py), tracked or not — a bare
-    ``git diff`` misses untracked B1/B2 files entirely, so this binds actual bytes+relpath+mode."""
+    ``git diff`` misses untracked source files entirely, so this binds actual bytes+relpath+mode."""
     import hashlib
     src = pathlib.Path(__file__).resolve().parents[1]        # src/stylo
     try:
@@ -61,7 +101,7 @@ def _attestation(cfg) -> dict:
     import subprocess
 
     from ..jsonio import dumps_strict
-    root = pathlib.Path(__file__).resolve().parents[2]
+    root = _require_source_workspace()
 
     def _git(*args):
         return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL, text=True)
@@ -75,15 +115,16 @@ def _attestation(cfg) -> dict:
             "code_tree_sha256": _code_tree_sha256(), "config_id": config_id}
 
 
-def run(cfg=None, warm: bool = True, *, weighting: str) -> None:
+def run(cfg=None, warm: bool = True, *, weighting: str) -> dict:
     cfg = cfg or load_config()
+    _require_source_workspace()
     weighting = require_weighting(weighting)   # strict; resolved once upstream, not re-read from cfg
     data = pathlib.Path(cfg.get_path("paths.data", "data"))
     data.mkdir(parents=True, exist_ok=True)
 
     exclude = set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or [])
     unknown = cfg.get_path("corpus_policy.unknown_dir_name", "unknown")
-    frags = data / "frags_train"
+    frags = resolve_fragment_roots(cfg).train_root
     ds = resolve_dataset(cfg, weighting, frags, exclude_authors=exclude, unknown_name=unknown)
     from ..eval.dispatch import frozen_run_contract
     verify_dataset_against_disk(cfg, ds, weighting, frozen_run_contract(cfg, frags))   # disk-anchored gate
@@ -108,29 +149,34 @@ def run(cfg=None, warm: bool = True, *, weighting: str) -> None:
                          training_weighting=weighting)
     fit_estimator(delta, list(ds.texts), ds.y, ds.groups)
 
+    # Both deployment arms use the same immutable, hash-verified publication
+    # contract.  Loose model.pkl/delta.pkl/authors.json triples are no longer
+    # written because they can mix generations and cannot be authenticated
+    # before executable deserialisation.
     if weighting == CHUNK_WEIGHTED_LEGACY:
-        # legacy production bundle — byte-identical layout, no new fields
-        joblib.dump(pipe, data / "model.pkl")
-        joblib.dump(delta, data / "delta.pkl")
-        dump_strict(ds.authors, data / "authors.json", trailing_newline=False)
-        log.info("Сохранено (legacy): %s", data / "model.pkl")
+        bundle_dir = data / "deployment" / CHUNK_WEIGHTED_LEGACY
     else:
-        # work_balanced: separate root + strict sidecar hashing all three artifacts + attestation
         from ..eval.provenance import safe_exploratory_dir
-        bundle_dir = safe_exploratory_dir(data, "exploratory", "work_balanced")   # symlink-safe root
-        if _code_tree_sha256() != attest["code_tree_sha256"]:   # code must not have changed mid-run
-            raise RuntimeError("code tree changed during training — refusing to publish the bundle")
-        meta = {
-            "training_weighting": weighting,
-            "dataset_contract": ds.provenance.loader_kind,
-            "rows_digest": ds.provenance.rows_digest,
-            "chunker_config_hash": chunker_config_hash(cfg),
-            **attest,                                           # snapshot taken BEFORE fit
-        }
-        publish_bundle(bundle_dir, {
-            "model.pkl": lambda p: joblib.dump(pipe, p),
-            "delta.pkl": lambda p: joblib.dump(delta, p),
-            "authors.json": lambda p: dump_strict(ds.authors, p, trailing_newline=False),
-        }, meta)
-        log.info("Сохранено (work_balanced bundle): %s", bundle_dir)
+        bundle_dir = safe_exploratory_dir(data, "exploratory", "work_balanced")
+    if _code_tree_sha256() != attest["code_tree_sha256"]:
+        raise RuntimeError("code tree changed during training — refusing to publish the bundle")
+    meta = {
+        "training_weighting": weighting,
+        "dataset_contract": ds.provenance.loader_kind,
+        "rows_digest": ds.provenance.rows_digest,
+        "chunker_config_hash": chunker_config_hash(cfg),
+        **attest,
+    }
+    published = publish_bundle(bundle_dir, {
+        "model.pkl": lambda p: joblib.dump(pipe, p),
+        "delta.pkl": lambda p: joblib.dump(delta, p),
+        "authors.json": lambda p: dump_strict(ds.authors, p, trailing_newline=False),
+    }, meta)
+    log.info(
+        "Сохранено (%s bundle): %s; trusted token=%s",
+        weighting,
+        bundle_dir,
+        published["bundle_token"],
+    )
     log.info("Обучение завершено.")
+    return published

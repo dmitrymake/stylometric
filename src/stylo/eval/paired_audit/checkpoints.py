@@ -16,23 +16,26 @@ bound digests via :meth:`CheckpointStore.verify_bindings`.
 from __future__ import annotations
 
 import hashlib
-import math
 import os
 import pathlib
 import re
 from typing import Iterable, Mapping
 
 from ...jsonio import dumps_strict, load_strict
+from ..prediction_contract import (
+    PREDICTION_CONTRACT_VERSION,
+    PredictionContractError,
+    validate_prediction_record,
+)
 from ...pipeline.bundle import (BundleError, _real_within, _safe_name,
                                 _verify_real_dir_chain)
 
-_CHECKPOINT_SCHEMA = "paired_audit.checkpoint.v1"
+_CHECKPOINT_SCHEMA = "paired_audit.checkpoint.v2"
 _DATASETS = ("lobo", "ruaa")
 _REQUIRED_BINDING_KEYS = ("dataset_digest", "parent_dataset_digest", "fold_manifest_digest",
                           "probability_class_order_digest", "metric_label_order_digest")
 _IDENTITY_KEYS = ("run_id", "dataset", "model", "cell", "fold_index", "work_id")
 _RESULT_KEYS = ("pred_label", "true_label", "correct", "rank", "probabilities")
-_PROBA_SUM_TOL = 1e-6
 _FILENAME_RE = re.compile(r"^\d{4}-[0-9a-f]{16}\.json$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -61,7 +64,7 @@ def _self_hash(record: Mapping) -> str:
     return hashlib.sha256(dumps_strict(body, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-_PROBA_DIGEST_VERSION = "paired_audit.proba_digest.v1"
+_PROBA_DIGEST_VERSION = "paired_audit.proba_digest.v2"
 
 
 def proba_digest(proba) -> str:
@@ -76,43 +79,21 @@ def proba_digest(proba) -> str:
 _proba_digest = proba_digest      # module-internal alias
 
 
-def _is_int(v) -> bool:
-    return type(v) is int
-
-
 def _validate_result(result: Mapping) -> None:
     """Fail-closed unless the per-fold result is internally coherent (§4.3): a normalized probability
-    vector (finite, [0,1], sums to 1), an integer pred/true label in range, an integer rank in
-    ``1..width``, and pred==argmax / correct==(pred==true) / (correct ⇒ rank 1) consistency."""
+    vector and the shared stable-top1 / worst-tie-rank contract."""
     if not isinstance(result, Mapping) or any(k not in result for k in _RESULT_KEYS):
         raise CheckpointError(f"checkpoint result must carry {_RESULT_KEYS}")
-    proba = result["probabilities"]
-    if not isinstance(proba, (list, tuple)) or not proba:
-        raise CheckpointError("checkpoint result.probabilities must be a non-empty list")
-    width = len(proba)
-    for p in proba:
-        if isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p) or not (0.0 <= p <= 1.0):
-            raise CheckpointError("checkpoint probabilities must be finite numbers in [0,1]")
-    if abs(sum(proba) - 1.0) > _PROBA_SUM_TOL:
-        raise CheckpointError(f"checkpoint probabilities must sum to 1 (got {sum(proba)!r})")
-    pred, true, rank = result["pred_label"], result["true_label"], result["rank"]
-    if not _is_int(pred) or not (0 <= pred < width):
-        raise CheckpointError(f"pred_label must be an int in [0,{width})")
-    if not _is_int(true) or not (0 <= true < width):
-        raise CheckpointError(f"true_label must be an int in [0,{width})")
-    if not _is_int(rank) or not (1 <= rank <= width):
-        raise CheckpointError(f"rank must be an int in [1,{width}]")
-    if type(result["correct"]) is not bool:
-        raise CheckpointError("correct must be a bool")
-    if proba[pred] != max(proba):                        # pred must be a top pick (argmax)
-        raise CheckpointError("pred_label is not the argmax of the probability vector")
-    if result["correct"] != (pred == true):
-        raise CheckpointError("correct must equal (pred_label == true_label)")
-    expected_rank = 1 + sum(1 for p in proba if p > proba[true])   # rank of the true label
-    if rank != expected_rank:
-        raise CheckpointError(f"rank {rank} != the true label's rank {expected_rank} by the proba vector")
-    if result["correct"] and rank != 1:
-        raise CheckpointError("a correct fold must have the true label at rank 1")
+    try:
+        validate_prediction_record(
+            probabilities=result["probabilities"],
+            pred_label=result["pred_label"],
+            true_label=result["true_label"],
+            correct=result["correct"],
+            rank=result["rank"],
+        )
+    except PredictionContractError as exc:
+        raise CheckpointError(f"checkpoint prediction contract failed: {exc}") from exc
 
 
 def dataset_bindings(dataset_digest: str, parent_dataset_digest: str, fold_manifest_digest: str,
@@ -198,6 +179,7 @@ class CheckpointStore:
             raise CheckpointError("fold_local_evidence.proba_digest must equal the canonical proba digest")
         record = {
             "schema": _CHECKPOINT_SCHEMA,
+            "prediction_contract_version": PREDICTION_CONTRACT_VERSION,
             "run_id": self.run_id,
             "dataset": dataset,
             "model": model,
@@ -264,6 +246,10 @@ class CheckpointStore:
             raise CheckpointError(f"corrupt checkpoint (unreadable): {path}: {exc}") from exc
         if not isinstance(record, dict) or record.get("schema") != _CHECKPOINT_SCHEMA:
             raise CheckpointError(f"corrupt checkpoint (bad schema): {path}")
+        if record.get("prediction_contract_version") != PREDICTION_CONTRACT_VERSION:
+            raise CheckpointError(
+                f"corrupt checkpoint (prediction contract version mismatch): {path}"
+            )
         if record.get("self_hash") != _self_hash(record):
             raise CheckpointError(f"corrupt checkpoint (self-hash mismatch): {path}")
         self.verify_bindings(record)                     # conflicting identity/bindings -> fatal

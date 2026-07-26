@@ -16,6 +16,10 @@ import math
 import numpy as np
 
 from ...jsonio import dumps_strict
+from ..prediction_contract import (
+    PredictionContractError,
+    validate_prediction_record,
+)
 from .applicability import holm_family, registered_cells
 from .checkpoints import proba_digest as _proba_digest
 
@@ -24,11 +28,11 @@ from .checkpoints import proba_digest as _proba_digest
 # runner's shared implementation is not masked (a divergence is caught rather than agreed with).
 _HEADLINE_ENDPOINT = "stylo_lobo_a4_minus_a0_accuracy"
 _FAMILY_ALPHA = 0.05
+RESULT_AUDITOR_VERSION = "independent_recompute_v2"
 
 _DATASETS = ("lobo", "ruaa")
 # which registered tolerance each recomputed quantity is compared under
 _ACCURACY, _DELTA, _PVALUE, _CI = "accuracy", "delta_accuracy", "cluster_pvalue", "ci_endpoint"
-_PROBA_SUM_TOL = 1e-9
 # the frozen confirmatory universe (§1.1/§12): a 2-author toy fixture must NEVER pass as production
 _FROZEN_UNIVERSE = {"lobo": {"n_prob": 47, "n_metric": 43, "n_tested_works": 251},
                     "ruaa": {"n_prob": 22, "n_metric": 22, "n_tested_works": 137}}
@@ -59,47 +63,41 @@ def _arrays(vec):
     rows = sorted(vec, key=lambda v: v["work_id"])
     return {
         "works": [v["work_id"] for v in rows],
-        "correct": [1 if v["correct"] else 0 for v in rows],
+        "correct": [v["correct"] for v in rows],
         "authors": [str(v["work_id"]).split("/", 1)[0] for v in rows],
-        "ranks": [int(v["rank"]) for v in rows],
-        "trues": [int(v["true_label"]) for v in rows],
-        "preds": [int(v["pred_label"]) for v in rows],
+        "ranks": [v["rank"] for v in rows],
+        "trues": [v["true_label"] for v in rows],
+        "preds": [v["pred_label"] for v in rows],
         "probas": [v["proba"] for v in rows],
     }
 
 
 def _validate_fold_coherence(a, prob_order, label):
     """Re-validate EVERY per-work row from scratch at the publish boundary (the auditor never trusts
-    the vectors): the probability vector must be finite, in [0,1], sum to 1, of the class-order width;
-    pred==argmax; rank consistent with the true label's position; correct==(pred==true); a correct fold
-    has rank 1; and — decisively — the true_label MUST equal ``prob_order.index(work_id author)`` (a
-    permuted true_label that contradicts the author in the work_id is fatal)."""
+    the vectors) through the shared stable-top1 / worst-tie-rank contract; and — decisively — the
+    true_label MUST equal ``prob_order.index(work_id author)`` (a permuted true_label that contradicts
+    the author in the work_id is fatal)."""
     width = len(prob_order)
     n = len(a["works"])
     for i in range(n):
         w, proba = a["works"][i], a["probas"][i]
         pred, true, rank, correct = a["preds"][i], a["trues"][i], a["ranks"][i], a["correct"][i]
-        if not isinstance(proba, list) or len(proba) != width:
-            raise ResultAuditError(f"{label} {w}: proba width {len(proba) if isinstance(proba, list) else '?'} != {width}")
-        for p in proba:
-            if isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p) or not (0.0 <= p <= 1.0):
-                raise ResultAuditError(f"{label} {w}: proba must be finite numbers in [0,1] (got {proba})")
-        if abs(sum(proba) - 1.0) > _PROBA_SUM_TOL:
-            raise ResultAuditError(f"{label} {w}: proba must sum to 1 (got {sum(proba)})")
-        if not (0 <= pred < width) or proba[pred] != max(proba):
-            raise ResultAuditError(f"{label} {w}: pred_label is not the argmax of the proba vector")
-        if not (0 <= true < width):
-            raise ResultAuditError(f"{label} {w}: true_label {true} out of range")
+        try:
+            validate_prediction_record(
+                probabilities=proba,
+                pred_label=pred,
+                true_label=true,
+                correct=correct,
+                rank=rank,
+                expected_width=width,
+            )
+        except PredictionContractError as exc:
+            raise ResultAuditError(
+                f"{label} {w}: prediction contract failed: {exc}"
+            ) from exc
         author = str(w).split("/", 1)[0]
         if author not in prob_order or true != prob_order.index(author):
             raise ResultAuditError(f"{label} {w}: true_label {true} != the class-order index of author {author!r}")
-        if bool(correct) != (pred == true):
-            raise ResultAuditError(f"{label} {w}: correct != (pred==true)")
-        expected_rank = 1 + sum(1 for p in proba if p > proba[true])
-        if rank != expected_rank:
-            raise ResultAuditError(f"{label} {w}: rank {rank} != the true label's rank {expected_rank}")
-        if correct and rank != 1:
-            raise ResultAuditError(f"{label} {w}: a correct fold must have rank 1")
 
 
 def _cell_proba_digest(a) -> str:
@@ -337,7 +335,7 @@ def audit_results(summary, per_work_vectors, plan) -> dict:
                          head["diff_ci"]["lo"], head["diff_ci"]["hi"])):
         _require(_close(got, exp, tol_ci), "headline diff CI recompute mismatch")
     decision = _ind_gate(hlo, hhi, margin)
-    return {"passed": True, "auditor": "independent_recompute_v1",
+    return {"passed": True, "auditor": RESULT_AUDITOR_VERSION,
             "headline": {"endpoint": _HEADLINE_ENDPOINT,
                          "diff_ci": {"point": hpoint, "lo": hlo, "hi": hhi}, "decision": decision,
                          "margin": margin}}

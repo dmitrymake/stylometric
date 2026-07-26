@@ -16,7 +16,7 @@ from sklearn.metrics.pairwise import cosine_distances
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MaxAbsScaler
 
-from ..eval.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+from ..domain.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                                    resolve_training_weighting)
 
 
@@ -59,7 +59,7 @@ class CharCosineBaseline:
         self._centroids = None
 
     def __setstate__(self, state):
-        # migrate pre-B2 pickles (schema v1, versionless): fill attributes introduced in B2
+        # Migrate versionless schema-v1 pickles by filling attributes required by schema v2.
         self.__dict__.update(state)
         sv = self.__dict__.setdefault("_schema_version", 1)
         if isinstance(sv, bool) or not isinstance(sv, int) or not (1 <= sv <= self.ARTIFACT_SCHEMA_VERSION):
@@ -107,7 +107,7 @@ class CharCosineBaseline:
         return self
 
     def predict_proba(self, texts):
-        wv = getattr(self, "_wv", None)          # getattr: pre-B2 pickles have no _wv
+        wv = getattr(self, "_wv", None)          # versionless schema-v1 pickles have no _wv
         vec = wv if wv is not None else self._vec
         X = vec.transform(list(texts))
         d = cosine_distances(X, self._centroids)

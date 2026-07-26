@@ -101,7 +101,7 @@ class TestWithCorpus:
         from stylo.eval.dispatch import frozen_run_contract
         from stylo.eval.provenance import verify_dataset_against_disk
         from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
-        from stylo.workdoc import resolve_dataset
+        from stylo.dataset import resolve_dataset
         ds = resolve_dataset(
             CFG, CHUNK_WEIGHTED_LEGACY, FRAGS,
             exclude_authors=set(CFG.get_path("corpus_policy.exclude_from_benchmark", []) or []),

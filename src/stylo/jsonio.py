@@ -22,6 +22,7 @@ for order-independent output.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -31,6 +32,8 @@ from typing import Any
 
 __all__ = [
     "StrictJSONError",
+    "artifact_self_hash",
+    "canonical_hash",
     "dumps_strict",
     "dump_strict",
     "loads_strict",
@@ -150,6 +153,19 @@ def dumps_strict(
         separators=separators,
         allow_nan=False,
     )
+
+
+def canonical_hash(obj: Any) -> str:
+    """Return SHA-256 of the strict, sorted, compact JSON representation of ``obj``."""
+    payload = dumps_strict(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def artifact_self_hash(artifact: dict[str, Any]) -> str:
+    """Hash an artifact canonically while excluding only its own ``self_hash`` field."""
+    if not isinstance(artifact, dict):
+        raise TypeError("artifact must be a dict")
+    return canonical_hash({key: value for key, value in artifact.items() if key != "self_hash"})
 
 
 def dump_strict(

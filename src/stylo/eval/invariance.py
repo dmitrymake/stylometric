@@ -542,6 +542,8 @@ def align_purged_predictions(
     assigned = np.zeros(plan.diagnostics.n_samples, dtype=bool)
     for split in plan.splits:
         key = (split.level, split.group)
+        if key in normalised and not split.diagnostics.possible:
+            raise ValueError(f"predictions are forbidden for impossible cell {key!r}")
         if key not in normalised:
             if require_all_possible and split.diagnostics.possible:
                 raise KeyError(f"missing predictions for possible cell {key!r}")
@@ -588,8 +590,12 @@ def align_split_predictions(
     out = np.full(n, fill_value, dtype=object)
     assigned = np.zeros(n, dtype=bool)
     for split in plan.splits:
+        if split.level in normalised and not split.diagnostics.possible:
+            raise ValueError(
+                f"predictions are forbidden for impossible held-out level {split.level!r}"
+            )
         if split.level not in normalised:
-            if require_all:
+            if require_all and split.diagnostics.possible:
                 raise KeyError(f"missing predictions for held-out level {split.level!r}")
             continue
         pred = np.asarray(normalised[split.level], dtype=object)
@@ -603,8 +609,12 @@ def align_split_predictions(
             raise ValueError("split plan has overlapping test indices")
         out[split.test_idx] = pred
         assigned[split.test_idx] = True
-    if require_all and not assigned.all():
-        raise ValueError("split predictions do not cover every sample")
+    eligible = np.zeros(n, dtype=bool)
+    for split in plan.splits:
+        if split.diagnostics.possible:
+            eligible[split.test_idx] = True
+    if require_all and not assigned[eligible].all():
+        raise ValueError("split predictions do not cover every feasible sample")
     return out
 
 
@@ -628,6 +638,62 @@ def _macro_f1(y_true: np.ndarray, y_pred: np.ndarray, labels: Sequence[Any]) -> 
             else 0.0
         )
     return float(np.mean(scores)) if scores else 0.0
+
+
+def _exact_label_key(value: Any) -> tuple[type, Any]:
+    value = _hashable_scalar(value)
+    if _is_missing(value):
+        raise ValueError("metric labels must not contain missing values")
+    return type(value), value
+
+
+def _metric_label_universe(
+    labels: Optional[Sequence[Any]], y_true: np.ndarray
+) -> Tuple[Any, ...]:
+    source: Iterable[Any] = y_true if labels is None else labels
+    if isinstance(source, (str, bytes)):
+        raise TypeError("labels must be a sequence of scalar labels, not a string")
+    ordered: list[Any] = []
+    seen: set[tuple[type, Any]] = set()
+    supplied = labels is not None
+    for raw in source:
+        value = _hashable_scalar(raw)
+        key = _exact_label_key(value)
+        if key in seen:
+            if supplied:
+                raise ValueError("metric label universe must be ordered and duplicate-free")
+            continue
+        seen.add(key)
+        ordered.append(value)
+    if not ordered:
+        raise ValueError("metric label universe must be non-empty")
+    observed = {_exact_label_key(value) for value in y_true}
+    missing = observed - seen
+    if missing:
+        raise ValueError(
+            "metric label universe omits observed truth labels: "
+            f"{sorted((repr(value) for _kind, value in missing))!r}"
+        )
+    return tuple(ordered)
+
+
+def _assert_plan_matches(
+    supplied: FactorSplitPlan, expected: FactorSplitPlan
+) -> None:
+    if (
+        supplied.factor != expected.factor
+        or supplied.diagnostics != expected.diagnostics
+        or len(supplied.splits) != len(expected.splits)
+    ):
+        raise ValueError("split plan does not match current metadata/truth registration")
+    for left, right in zip(supplied.splits, expected.splits, strict=True):
+        if (
+            _exact_label_key(left.level) != _exact_label_key(right.level)
+            or left.diagnostics != right.diagnostics
+            or not np.array_equal(left.train_idx, right.train_idx)
+            or not np.array_equal(left.test_idx, right.test_idx)
+        ):
+            raise ValueError("split plan does not match current metadata/truth registration")
 
 
 def _cluster_keys(metadata: Any, fields: Sequence[str], n: int) -> np.ndarray:
@@ -737,17 +803,33 @@ def evaluate_factor_predictions(
     yt = np.asarray([_hashable_scalar(v) for v in yt], dtype=object)
     n = len(yt)
     cluster_keys = _cluster_keys(metadata, cluster_fields, n)
-    plan = plan or build_leave_one_factor_level_out(
+    expected_plan = build_leave_one_factor_level_out(
         metadata, factor, yt, author_field=author_field
     )
-    if plan.factor != factor or plan.diagnostics.n_samples != n:
-        raise ValueError("split plan does not match factor or sample count")
+    if plan is None:
+        plan = expected_plan
+    else:
+        _assert_plan_matches(plan, expected_plan)
 
-    global_labels = _stable_unique(labels) if labels is not None else _stable_unique(yt)
+    global_labels = _metric_label_universe(labels, yt)
+    inferential_indices = (
+        np.concatenate(
+            [
+                split.test_idx
+                for split in plan.splits
+                if split.diagnostics.possible and not split.diagnostics.confounded
+            ]
+        )
+        if any(
+            split.diagnostics.possible and not split.diagnostics.confounded
+            for split in plan.splits
+        )
+        else np.asarray([], dtype=int)
+    )
     overall = _prediction_metrics(
         yt,
         yp,
-        np.arange(n),
+        inferential_indices,
         cluster_keys,
         labels=global_labels,
         bootstrap_iters=bootstrap_iters,
@@ -757,16 +839,20 @@ def evaluate_factor_predictions(
 
     slices = []
     for i, split in enumerate(plan.splits):
-        # Slice macro-F1 is over classes actually represented in that slice.  A
-        # fixed global label set would mechanically punish a source containing
-        # only a subset of authors and would not measure within-slice quality.
-        slice_labels = _stable_unique(yt[split.test_idx])
+        # Impossible/confounded cells remain visible through their diagnostics,
+        # but they cannot contribute a point estimate or headline.  Every
+        # feasible slice uses the one registered metric universe.
+        indices = (
+            split.test_idx
+            if split.diagnostics.possible and not split.diagnostics.confounded
+            else np.asarray([], dtype=int)
+        )
         metrics = _prediction_metrics(
             yt,
             yp,
-            split.test_idx,
+            indices,
             cluster_keys,
-            labels=slice_labels,
+            labels=global_labels,
             bootstrap_iters=bootstrap_iters,
             ci_level=ci_level,
             seed=seed + i + 1,
@@ -780,7 +866,13 @@ def evaluate_factor_predictions(
             )
         )
 
-    scored = [s for s in slices if s.metrics.accuracy.point is not None]
+    scored = [
+        row
+        for row in slices
+        if row.split_diagnostics.possible
+        and not row.split_diagnostics.confounded
+        and row.metrics.accuracy.point is not None
+    ]
     worst = min(scored, key=lambda s: s.metrics.accuracy.point) if scored else None
     possible_n = sum(
         len(split.test_idx) for split in plan.splits if split.diagnostics.possible
@@ -831,7 +923,7 @@ def evaluate_predictions(
     if any(_is_missing(v) for v in yt):
         raise ValueError("y_true must not contain missing labels")
     yt = np.asarray([_hashable_scalar(v) for v in yt], dtype=object)
-    global_labels = _stable_unique(labels) if labels is not None else _stable_unique(yt)
+    global_labels = _metric_label_universe(labels, yt)
     cluster_keys = _cluster_keys(metadata, cluster_fields, len(yt))
     overall = _prediction_metrics(
         yt,

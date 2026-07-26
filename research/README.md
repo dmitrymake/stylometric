@@ -1,4 +1,15 @@
-# Authorship breakthrough programme
+# Authorship robustness research
+
+## Repository map
+
+- [`ROADMAP.md`](ROADMAP.md) — the only current execution and publication roadmap.
+- [`work_balanced/`](work_balanced/) — estimand, runtime routing, calibration, exploratory evidence,
+  active LOBO validation, and the confirmatory paired-audit protocol in one domain-owned section.
+- `research/local/` — ignored session handoffs and historical plans; never normative.
+
+Canonical paths describe purpose, not chronology or the agent that authored them. Names such as
+`wave_1`, `increment_2`, `round_3`, and bare phase codes are prohibited for first-class files.
+Version suffixes remain only for actual dataset, schema, or frozen-protocol versions.
 
 This directory is the public, machine-checkable research plan for three linked
 tracks:

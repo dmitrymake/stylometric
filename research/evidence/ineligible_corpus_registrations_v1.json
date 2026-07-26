@@ -1,0 +1,25 @@
+{
+  "schema_version": "stylo.ineligible-corpus-registry.v1",
+  "status": "ineligible_for_new_scientific_runs",
+  "registered_at": "2026-07-26",
+  "affected": [
+    {
+      "corpus_snapshot": "data/audit_corpus/15d265e0878dbf1acd9224e2558598ff7266fd6fc650585d1433fbd65a717029",
+      "registrations": [
+        "legacy full per-book LOBO",
+        "stylo_lobo_validation_v1",
+        "paired-audit LOBO fold manifests",
+        "paired-audit RuAA fold manifests derived from this work universe"
+      ],
+      "reason": "Distinct registered work ids are not content-independent.",
+      "known_exact_cross_work_chunk_sha256": "12549537df75cd876a2e927715e7a371ba1e2fd4ef8f4e5a16ba217840140937",
+      "known_component": [
+        "turgenev/бирюк",
+        "turgenev/певцы",
+        "turgenev/хорь_и_калиныч",
+        "turgenev/записки_охотника"
+      ],
+      "required_migration": "Register a new corpus/fold version using adjudicated content components, then rerun. Historical bytes remain evidence only."
+    }
+  ]
+}

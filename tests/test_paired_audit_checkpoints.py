@@ -203,8 +203,11 @@ class TestFailClosed:
         # owner repro: a checkpoint with pred=-9,true=99,rank=-5,proba=[-7,8] + empty evidence, RE-
         # self-hashed, was accepted by scan_cell. _validate_result now runs on LOAD, not only at save.
         from stylo.eval.paired_audit.checkpoints import _CHECKPOINT_SCHEMA, _self_hash
+        from stylo.eval.prediction_contract import PREDICTION_CONTRACT_VERSION
         store = _store(tmp_path)
-        record = {"schema": _CHECKPOINT_SCHEMA, "run_id": RUN_ID, "dataset": "lobo", "model": "stylo",
+        record = {"schema": _CHECKPOINT_SCHEMA,
+                  "prediction_contract_version": PREDICTION_CONTRACT_VERSION,
+                  "run_id": RUN_ID, "dataset": "lobo", "model": "stylo",
                   "cell": "A0", "fold_index": 0, "work_id": "x/w", "bindings": _bindings()["lobo"],
                   "result": {"pred_label": -9, "true_label": 99, "correct": True, "rank": -5,
                              "probabilities": [-7, 8]},
@@ -232,10 +235,43 @@ class TestFailClosed:
         bad(probabilities=[1.4, -0.4])                          # outside [0,1]
         bad(pred_label=0)                                       # pred != argmax (proba[0]=0.4 < 0.6)
         bad(correct=True, true_label=0)                         # correct but pred(1) != true(0)
-        bad(correct=True, rank=2)                               # correct but true not at rank 1
+        bad(correct=True, rank=2)                               # rank disagrees with this non-tied vector
         # empty evidence is rejected even with a coherent result
         with pytest.raises(CheckpointError):
             store.save("lobo", "stylo", "A0", 0, "w", result=_result(), fold_local_evidence={})
+
+    def test_tie_contract_is_stable_top1_and_conservative_rank(self, tmp_path):
+        store = _store(tmp_path)
+        tied = {
+            "pred_label": 0,
+            "true_label": 0,
+            "correct": True,
+            "rank": 2,
+            "probabilities": [0.5, 0.5],
+        }
+        _save(store, result=tied)
+        with pytest.raises(CheckpointError, match="stable top-1"):
+            _save(
+                _store(tmp_path / "other"),
+                result={
+                    **tied,
+                    "pred_label": 1,
+                    "true_label": 1,
+                },
+            )
+        with pytest.raises(CheckpointError, match="worst-tie"):
+            _save(_store(tmp_path / "third"), result={**tied, "rank": 1})
+
+    def test_v1_checkpoint_is_not_resumable_under_v2_contract(self, tmp_path):
+        store = _store(tmp_path)
+        path = _save(store)
+        record = load_strict(path)
+        record["schema"] = "paired_audit.checkpoint.v1"
+        from stylo.eval.paired_audit.checkpoints import _self_hash
+        record["self_hash"] = _self_hash(record)
+        dump_strict(record, path, trailing_newline=True)
+        with pytest.raises(CheckpointError, match="bad schema"):
+            store.scan_cell("lobo", "stylo", "A0")
 
 
 class TestRunComplete:

@@ -47,7 +47,7 @@ def _hashing_channel(hv: HashingVectorizer):
         if tr_groups is None:
             Xtr_out = tf.fit_transform(Xtr)                # legacy: chunk-level document frequency
         else:
-            tr_groups = validate_work_ids(tr_groups, len(tr))   # B1 contract, fail-closed (no bare str/dict/int)
+            tr_groups = validate_work_ids(tr_groups, len(tr))   # fail closed: no bare str/dict/int
             tf.fit(_work_sum_matrix(tr_groups) @ Xtr)      # work-balanced: IDF from work-level DF
             Xtr_out = tf.transform(Xtr)                    # per-chunk rows, frozen work-IDF
         return Xtr_out, tf.transform(hv.transform(list(te)))
@@ -72,7 +72,7 @@ def block_channel(cfg, blocks: List[str], relative_fw: bool | None = None) -> Ch
         for b in blocks:
             ov[b] = True
         vec = StyloVectorizer.from_config(cfg, enabled_override=ov, relative_fw=relative_fw)
-        # groups=None -> legacy pooled-chunk fit; groups -> B1 work-level feature fitting
+        # groups=None -> legacy pooled-chunk fit; groups -> work-level feature fitting
         Xtr = vec.fit_transform(list(tr)) if tr_groups is None \
             else vec.fit_transform(list(tr), groups=tr_groups)
         Xte = vec.transform(list(te))
@@ -84,7 +84,7 @@ def block_channel(cfg, blocks: List[str], relative_fw: bool | None = None) -> Ch
 def make_channels(cfg, relative_fw: bool | None = None) -> Dict[str, ChannelFn]:
     """Канальный набор бенчмарка (без DSP): идентичен scripts/run_benchmark.py.
 
-    ``relative_fw`` (B4-B increment 3) is the FunctionWord R-axis policy; it is threaded ONLY into the
+    ``relative_fw`` is the FunctionWord R-axis policy; it is threaded ONLY into the
     ``function_words`` channel (the sole FW consumer). ``None`` keeps the legacy corner coupling
     (byte-exact A0/A4); an explicit bool selects A2 (raw) / A3 (relative) independently of the F axis.
     Every other channel is R-agnostic and unchanged."""

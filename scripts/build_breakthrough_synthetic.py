@@ -153,12 +153,6 @@ def build_package(root: pathlib.Path, seed: int = 42) -> dict:
             "split": "blind",
             "task_types": ["mixed_authorship"],
             "text_path": mixed_path,
-            "work": mixed_work,
-            "edition": "critical",
-            "period": "synthetic",
-            "genre": "mixed",
-            "topic": "mixed",
-            "register": "literary",
             "spans": [],
         }
     )
@@ -185,6 +179,8 @@ def build_package(root: pathlib.Path, seed: int = 42) -> dict:
     )
 
     # Blind single-author negative control, scored by the segmentation FPR.
+    # It is also the registered no-shift observation for the idio_shift
+    # endpoint; every top-level task must have at least one blind observation.
     control_id = _opaque("doc", "blind:single:c")
     control_tokens = _tokens(
         "author_c", 1, "web", "popular", seed=seed + 10_003, length=240
@@ -201,14 +197,8 @@ def build_package(root: pathlib.Path, seed: int = 42) -> dict:
                 "sha256": control_hash,
             },
             "split": "blind",
-            "task_types": ["mixed_authorship", "spoof"],
+            "task_types": ["mixed_authorship", "idio_shift", "spoof"],
             "text_path": control_path,
-            "work": control_work,
-            "edition": "popular",
-            "period": "synthetic",
-            "genre": "control",
-            "topic": "control",
-            "register": "popular",
             "spans": [],
         }
     )

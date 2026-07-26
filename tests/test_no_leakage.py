@@ -50,6 +50,11 @@ def test_fold_excludes_test_book():
     assert "alpha bbb" not in spy.seen
     # train содержит остальные книги
     assert "alpha ccc" in spy.seen and "beta eee" in spy.seen
+    # Spy emits an exact tie: shared contract selects lowest index but assigns
+    # the conservative worst rank, even though that stable winner is correct.
+    assert res["pred_label"] == 0
+    assert res["correct"] is True
+    assert res["rank"] == 2
 
 
 def test_single_book_author_skipped():

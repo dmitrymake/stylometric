@@ -3,7 +3,16 @@
 Исследовательский пайплайн стилометрии: по тексту определяет наиболее близкого автора
 среди корпуса и **честно оценивает, какие признаки реально работают**, а какие нет.
 Собран как воспроизводимый пакет с единым источником истины параметров,
-leakage-free валидацией, доверительными интервалами и статистической значимостью.
+проверяемыми границами корпуса, доверительными интервалами и статистической значимостью.
+
+> **Отзыв исторического headline (2026-07-26).** В зарегистрированном корпусе
+> обнаружены произведения, вложенные друг в друга через границу LOBO (включая
+> точный межкнижный дубликат чанка). Поэтому `0.8805` и производные интервалы
+> ниже сохранены только как историческая арифметика и **не являются
+> leakage-free оценкой точности**. Новые LOBO/RuAA-запуски на этом snapshot
+> блокируются до зарегистрированной миграции content-компонент и полного
+> перерасчёта. Машиночитаемый статус:
+> `research/evidence/ineligible_corpus_registrations_v1.json`.
 
 > Числа в этом README **генерируются** из тех же `docs/*.json`, что и сайт
 > (`scripts/gen-readme.mjs`), поэтому не расходятся с витриной. Ручные правки чисел перетираются следующим прогоном генератора.
@@ -30,31 +39,34 @@ leakage-free валидацией, доверительными интервал
 «локальная оцифровка» разнороден, установленное семейство источников одно (Викитека) — проба измеряет границу
 «Викитека против остального», а не различие двух конкретных изданий.
 
-Канонический headline — полный per-book LOBO (47 в обучаемом пуле / 43 тестированных автора / 251 книга; таблица ниже).
+Исторический (отозванный) headline — per-book LOBO (47 в обучаемом пуле /
+43 тестированных автора / 251 книга; таблица ниже).
 Диагностика каналов (LinearSVC + StratifiedGroupKFold(5)) — на срезе **43 автора / 251 книга**
 (одно-книжные авторы выпадают; Ильф-Петров и дневники Николая II вынесены в кейсы) — отдельный протокол, не headline.
 
 | Модель | Accuracy (book-level) | macro-F1 | top-2 | vs stylo (McNemar) |
 |--------|----------------------|----------|-------|--------------------|
-| **stylo (все блоки)** | **0.8805** — по книгам [0.841, 0.916], по авторам **[0.8116, 0.9366]** (медиана 0.8826) | точка 0.8398; author-clustered CI отозван (см. оговорку ниже) | 0.9044 | — |
+| **stylo (historical/ineligible corpus)** | **0.8805 — ОТОЗВАНО как оценка точности**; исторические интервалы [0.841, 0.916] / [0.8116, 0.9366] | историческая точка 0.8398; inferential use запрещён | 0.9044 (historical) | cross-work content leakage |
 | Мешок слов + логрег | 0.8008 [0.753, 0.849] | 0.739 | 0.8645 | **p = 0.00018** |
 | char-3gram cosine | 0.6653 [0.61, 0.725] | 0.585 | 0.7291 | **p = 1.6e−15** |
 | Cosine Delta · 150 / 300 / 500 MFW | 0.7131 / 0.7769 / 0.7888 | 0.6803 / 0.7186 / 0.7222 | — | **p = 0.00061** |
-| Burrows Delta по книгам · 150 / 500 / 1000 MFW | 0.7251 / 0.749 / 0.7371 | — | — | **p = 1.7e−8** |
-| Burrows Delta (чанки) · 150 MFW | 0.4741 [0.418, 0.53] | 0.4221 | 0.5976 | **p = 1.4e−28** |
-| Burrows Delta (чанки) · 300 / 500 | 0.2829 / 0.1912 | 0.2939 / 0.2105 | — | p < 0.0001 |
+| Legacy selected-mass Delta по книгам · 150 / 500 / 1000 MFW | 0.7251 / 0.749 / 0.7371 | — | — | **p = 1.7e−8** |
+| Legacy selected-mass Delta (чанки) · 150 MFW | 0.4741 [0.418, 0.53] | 0.4221 | 0.5976 | **p = 1.4e−28** |
+| Legacy selected-mass Delta (чанки) · 300 / 500 | 0.2829 / 0.1912 | 0.2939 / 0.2105 | — | p < 0.0001 |
 | majority (нижняя граница) | 0.0398 | 0.0018 | — | — |
 
-> Оценка — **полный leakage-free per-book LOBO** (leave-one-book-out): на каждом шаге одна книга — тест,
+> Исторический расчёт использовал per-book LOBO (leave-one-book-out): на каждом шаге одна книга — тест,
 > всё обучаемое (vocab/IDF/MFW/scaler/классификатор) фитится на остальных книгах (`docs/final_comparison.csv`).
-> В LOBO-срезе оценивается 251 книга (4 автора с одной книгой в LOBO не тестируются — нет train-примера;
+> Он более не называется leakage-free: work-id complement не обеспечил
+> независимость содержания. В LOBO-срезе оценивалась 251 книга
+> (4 автора с одной книгой в LOBO не тестировались — нет train-примера;
 > macro-F1 считается по 43 тестированным классам). StratifiedGroupKFold(5) — лишь быстрый прокси в sweep/ablation.
 >
 > **Взвешивание обучения — `chunk_weighted_training_legacy`.** Длинная книга получает больший train-вес внутри автора,
 > vocab/IDF/MFW фитятся по чанкам. Work-balanced пересчёт (одна работа — один голос на train-стороне) ещё не проведён;
 > до него headline трактуется как legacy-оценка (`docs/cases/work_balanced_audit/`). LOBO держит тестовую книгу целиком —
 > смещение в train-взвешивании, не в утечке.
-> Строки Cosine Delta и Delta по книгам посчитаны тем же LOBO-протоколом отдельным скриптом
+> Строки Cosine Delta и legacy selected-mass Delta по книгам посчитаны тем же LOBO-протоколом отдельным скриптом
 > (`log/experiments/delta_cosine_lobo.py` → `docs/delta_cosine_lobo.json`); контроль воспроизведения: delta:150 этим
 > путём даёт ту же долю верных попаданий, что и канонический расчёт из final_comparison.csv (delta:150 на 251 книгах), —
 > протокол воспроизводится.
@@ -74,8 +86,8 @@ leakage-free валидацией, доверительными интервал
 
 **Главный честный вывод:** богатый набор признаков значимо обходит лучший классический baseline —
 **простой мешок слов** (stylo 0.8805 vs BoW 0.8008, McNemar **p = 0.00018**; кластер-робастный CI выше). Классика
-в честной для неё постановке сильна: Cosine Delta 0.7888 и Delta по целым книгам 0.7371 (таблица) —
-реальный разрыв со stylo ~+0.09..+0.14, а не +0.4. Провал строк «Burrows Delta (чанки)» при росте MFW
+сильна: Cosine Delta 0.7888 и legacy selected-mass Delta по целым книгам 0.7371 (таблица) —
+реальный разрыв со stylo ~+0.09..+0.14, а не +0.4. Провал строк «legacy selected-mass Delta (чанки)» при росте MFW
 (0.4741 → 0.1912) — эффект протокола, не свойство классики: на чанках в 500 слов слова MFW-рангов 301–500
 встречаются лишь в ~7% (медиана доли слов диапазона на чанк), их z-оценки — шум разреженности, топящий манхэттенское
 среднее; cosine на тех же z-оценках растёт с MFW, как в литературе. На корпусе со стилистически близкими авторами
@@ -143,7 +155,7 @@ src/stylo/
   config.py  lang.py  corpus.py  chunking.py  nlp.py (DocBin-кеш)
   features/      ← FeatureBlock + registry (каталог признаков, см. ниже)
   vectorizer.py  ← сборка вектора из включённых блоков
-  models/        lr.py (+калибровка)   delta.py (настоящая Burrows)   baselines.py
+  models/        lr.py (+калибровка)   delta.py (legacy selected-mass Delta)   baselines.py
   eval/          lobo.py (leakage-free)   groupkfold.py (быстрый прокси)
                  metrics.py (macro-F1, bootstrap-CI)   significance.py (McNemar)
                  sweep.py (ablation)   final.py (итоговое сравнение)
@@ -181,7 +193,9 @@ spaCy и не дробят I/O. Sweep считает конфиги паралл
   классификатор) учится только на остальных книгах; тестовая книга не видна на fit.
 - **Метрики**: Top-1/Top-2, **macro-F1** (важно при дисбалансе), per-author recall,
   **95% bootstrap-CI ресэмплингом по КНИГАМ и по АВТОРАМ** (чанки зависимы).
-- **Baseline-ы**: настоящая Burrows's Delta, char-3gram cosine, BoW-логрег, majority.
+- **Baseline-ы**: frozen legacy selected-mass Delta (`delta:N`; знаменатель
+  `Σ selected-MFW`, не canonical all-token Burrows), char-3gram cosine,
+  BoW-логрег, majority.
 - **Значимость**: McNemar и paired bootstrap по книгам; для главного сравнения — author-clustered bootstrap.
 - **Множественные сравнения**: в кейсах с несколькими гипотезами p-значения даются и сырыми, и с поправкой
   Холма (`docs/holm_correction.json`); вердикты кейсов опираются на скорректированные.
@@ -192,20 +206,45 @@ spaCy и не дробят I/O. Sweep считает конфиги паралл
 
 ```bash
 uv venv --python=python3.11 && source .venv/bin/activate
-uv pip install -e ".[dev]"
+uv pip install --constraint requirements.lock -e ".[dev]"
+python -c "from stylo.eval.paired_audit.run_plan import verify_installed_environment; verify_installed_environment()"
 python -m spacy download ru_core_news_lg
-uv run pytest -q           # быстрый unit/release-hygiene smoke; uv.lock локален и игнорируется
+python -m pytest -q        # быстрый unit/release-hygiene smoke; uv.lock локален и игнорируется
 python scripts/check_release_hygiene.py --audit-local-refs   # перед релизом: publish-ref + индекс = FAIL при приватных путях; другие refs/stash = WARN
 git config core.hooksPath .githooks   # включить pre-push-гейт (блокирует пуш приватной истории до загрузки объектов)
 ./run.sh all                 # validate → split → warm → train → sweep → evaluate → predict → report
-python scripts/run_benchmark.py --pd-only   # публикуемое PD-число → docs/validation_pd.json
-python scripts/run_benchmark.py             # полный корпус → docs/validation.json
+python scripts/run_benchmark.py --pd-only   # текущий атомарный split snapshot → docs/validation_pd.json
+python scripts/run_benchmark.py             # текущий атомарный split snapshot → docs/validation.json
 node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # синхронизировать сайт и README с docs
 ```
-Файл `.python-version` фиксирует канонический runtime для `uv run`: Python 3.11.
-Канонические пины полного локального окружения — в `requirements.lock`. `uv.lock`
-не является release-артефактом и игнорируется: если он появился локально после `uv run`, его не коммитят.
+Файл `.python-version` фиксирует поддерживаемый runtime: CPython 3.11.
+Единственный поддерживаемый точный путь установки core/dev-окружения использует
+`requirements.lock` именно как constraints-файл, как показано выше. После
+установки обязательная проверка сравнивает Python major/minor и точные версии
+переносимого core scientific stack с lock-файлом; bound-run при несовпадении
+падает до создания run identity/checkpoint. Fingerprint не содержит абсолютных
+путей, имени virtualenv, hostname или версии kernel. Не запрошенные CUDA/model/viz
+пакеты из constraints-файла не устанавливаются. `uv.lock` не является
+release-артефактом и игнорируется.
 UMAP-визуализации требуют extra `viz`: `uv pip install -e ".[viz]"`.
+
+### Ресурсный контракт LOBO
+
+Generic `stylo lobo` ограничивает outer-fold parallelism максимум восемью
+процессами (или меньшим `evaluation.max_parallel_folds`/числом CPU) и
+`pre_dispatch` равным числу workers. Это важно, потому что process-local Rep
+state может умножать RSS. Значение `n_jobs=-1` означает «до зарегистрированного
+лимита», а не неограниченное использование машины. Generic CLI пока не имеет
+per-fold resume: для длительного A0/A4/A1 прогона следует использовать
+`scripts/evaluation/run_stylo_lobo_validation.py --n-jobs N`, который пишет
+durable immutable checkpoint после каждой работы, возобновляется только из
+семантически проверенных записей и также ограничивает `N <= 8`.
+
+Exploratory `sweep`/work-balanced `evaluate` публикуют связанные файлы как
+immutable generation под `.stylo-batches/<publication>/generations/<sha256>/`.
+Единственная атомарно заменяемая точка — `CURRENT.json`; потребитель должен
+разрешать поколение через `resolve_published_batch`, а не собирать соседние
+flat-файлы, которые могут относиться к старому историческому запуску.
 
 ## Точность и воспроизводимая валидация
 

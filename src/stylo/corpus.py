@@ -6,10 +6,20 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import os
 import pathlib
 from typing import Iterable, List, Sequence, Set, Tuple
 
 import numpy as np
+
+from .domain.corpus_identity import (
+    LEGACY_RECURSIVE,
+    CorpusPolicyProvenance,
+    RowIdentity,
+    build_provenance,
+)
+from .jsonio import load_strict
 
 
 @dataclasses.dataclass
@@ -18,7 +28,7 @@ class Dataset:
     y: np.ndarray          # dtype=int, индекс автора
     groups: np.ndarray     # dtype=object, "author/book_id"
     authors: List[str]     # отсортированный список id авторов (индекс == метка)
-    provenance: object = None  # DatasetProvenance (B2) — набор данных привязан к weighting-арме
+    provenance: object = None  # DatasetProvenance binds rows to the selected weighting contract
 
     def __len__(self) -> int:
         return len(self.texts)
@@ -34,27 +44,142 @@ class Dataset:
         return out
 
 
+class CorpusLoadError(ValueError):
+    """The on-disk corpus is incomplete, malformed, or unsafe."""
+
+
 def iter_fragment_files(frags_root: pathlib.Path) -> List[pathlib.Path]:
     return sorted(p for p in frags_root.rglob("*.txt") if p.is_file())
 
 
 def infer_author_book(fp: pathlib.Path, frags_root: pathlib.Path) -> Tuple[str, str]:
-    """(author, book_id) из пути frags_root/author/book_id/chunk.txt с фолбэками."""
+    """Return the strict ``author/work`` identity for a canonical chunk path."""
     parts = fp.relative_to(frags_root).parts
-    if len(parts) >= 3:
+    if len(parts) == 3:
         return parts[0], parts[1]
-    if len(parts) == 2:
-        return parts[0], fp.stem
-    return "unknown", fp.stem
+    raise CorpusLoadError(
+        f"chunk must have layout author/work/chunk.txt, got {fp}"
+    )
 
 
 def list_authors(frags_root: pathlib.Path, exclude_unknown: str = "unknown",
                  exclude: Sequence[str] = ()) -> List[str]:
     excl = set(exclude) | {exclude_unknown}
-    return sorted(
-        p.name for p in frags_root.iterdir()
-        if p.is_dir() and p.name not in excl
-    )
+    authors: list[str] = []
+    for entry in sorted(os.scandir(frags_root), key=lambda item: item.name):
+        if entry.is_symlink():
+            raise CorpusLoadError(f"symlinked corpus entry rejected: {entry.path}")
+        if entry.is_dir(follow_symlinks=False) and entry.name not in excl:
+            authors.append(entry.name)
+        elif entry.name.endswith(".txt"):
+            raise CorpusLoadError(
+                f"stray chunk at corpus root; expected author/work/chunk.txt: {entry.path}"
+            )
+    return authors
+
+
+def _strict_legacy_inventory(
+    root: pathlib.Path,
+    authors: Sequence[str],
+) -> list[tuple[pathlib.Path, str, str]]:
+    """Inventory an exact, symlink-free author/work/chunk hierarchy.
+
+    A work manifest is optional for historical corpora.  When present, its
+    chunk list and text hashes are authoritative, making deletion/rename or
+    substitution detectable before model fitting.
+    """
+
+    inventory: list[tuple[pathlib.Path, str, str]] = []
+    for author in authors:
+        author_dir = root / author
+        work_entries = sorted(os.scandir(author_dir), key=lambda item: item.name)
+        work_dirs: list[pathlib.Path] = []
+        for entry in work_entries:
+            if entry.is_symlink():
+                raise CorpusLoadError(f"symlinked work entry rejected: {entry.path}")
+            if entry.is_dir(follow_symlinks=False):
+                work_dirs.append(pathlib.Path(entry.path))
+            elif entry.name.endswith(".txt"):
+                raise CorpusLoadError(
+                    f"stray author-level chunk rejected: {entry.path}"
+                )
+        if not work_dirs:
+            raise CorpusLoadError(f"author {author!r} has no work directories")
+
+        author_rows = 0
+        for work_dir in work_dirs:
+            entries = sorted(os.scandir(work_dir), key=lambda item: item.name)
+            chunk_paths: list[pathlib.Path] = []
+            for entry in entries:
+                if entry.is_symlink():
+                    raise CorpusLoadError(f"symlinked chunk entry rejected: {entry.path}")
+                if entry.is_dir(follow_symlinks=False):
+                    raise CorpusLoadError(
+                        f"nested directory below work is not allowed: {entry.path}"
+                    )
+                if entry.name.endswith(".txt"):
+                    chunk_paths.append(pathlib.Path(entry.path))
+            if not chunk_paths:
+                raise CorpusLoadError(f"work {author}/{work_dir.name} has no chunks")
+
+            manifest_path = work_dir / "manifest.json"
+            expected_hashes: dict[str, str] | None = None
+            if manifest_path.exists():
+                if manifest_path.is_symlink() or not manifest_path.is_file():
+                    raise CorpusLoadError(
+                        f"unsafe work manifest: {manifest_path}"
+                    )
+                try:
+                    raw = load_strict(manifest_path)
+                    chunks = raw["chunks"]
+                    if type(raw) is not dict or type(chunks) is not list or not chunks:
+                        raise TypeError("manifest/chunks schema")
+                    expected_hashes = {}
+                    for chunk in chunks:
+                        if (
+                            type(chunk) is not dict
+                            or set(chunk) != {"span_ordinal", "text_sha256", "path"}
+                            or type(chunk["path"]) is not str
+                            or pathlib.PurePath(chunk["path"]).name != chunk["path"]
+                            or type(chunk["text_sha256"]) is not str
+                        ):
+                            raise TypeError("manifest chunk schema")
+                        expected_hashes[chunk["path"]] = chunk["text_sha256"]
+                    if len(expected_hashes) != len(chunks):
+                        raise TypeError("duplicate manifest chunk path")
+                except Exception as exc:
+                    raise CorpusLoadError(
+                        f"malformed work manifest {manifest_path}: {exc}"
+                    ) from exc
+                actual_names = {path.name for path in chunk_paths}
+                if actual_names != set(expected_hashes):
+                    raise CorpusLoadError(
+                        f"manifest/file mismatch for {author}/{work_dir.name}: "
+                        f"missing={sorted(set(expected_hashes) - actual_names)}, "
+                        f"extra={sorted(actual_names - set(expected_hashes))}"
+                    )
+
+            for path in chunk_paths:
+                try:
+                    decoded = path.read_bytes().decode("utf-8")
+                except (OSError, UnicodeDecodeError) as exc:
+                    raise CorpusLoadError(
+                        f"unreadable/non-UTF-8 chunk {path}: {exc}"
+                    ) from exc
+                canonical = decoded.strip()
+                if not canonical:
+                    raise CorpusLoadError(f"empty chunk rejected: {path}")
+                if expected_hashes is not None:
+                    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+                    if digest != expected_hashes[path.name]:
+                        raise CorpusLoadError(
+                            f"manifest text hash mismatch for {path}"
+                        )
+                inventory.append((path, canonical, f"{author}/{work_dir.name}"))
+                author_rows += 1
+        if author_rows == 0:
+            raise CorpusLoadError(f"author {author!r} contributes zero rows")
+    return inventory
 
 
 def load_dataset(
@@ -64,7 +189,9 @@ def load_dataset(
 ) -> Dataset:
     """Загрузить все train-фрагменты (исключая каталог unknown и exclude_authors)."""
     frags_root = pathlib.Path(frags_root)
-    if not frags_root.exists():
+    if frags_root.is_symlink():
+        raise CorpusLoadError(f"corpus root must not be a symlink: {frags_root}")
+    if not frags_root.is_dir():
         raise FileNotFoundError(f"Каталог фрагментов не найден: {frags_root}")
 
     if isinstance(exclude_authors, (str, bytes)):     # a bare string would become a set of letters
@@ -82,32 +209,20 @@ def load_dataset(
     row_ids: List = []
     _ordinals: dict[str, int] = {}
 
-    for fp in iter_fragment_files(frags_root):
-        author, book_id = infer_author_book(fp, frags_root)
-        if author not in auth2idx:
-            continue
-        try:
-            txt = fp.read_text(encoding="utf-8").strip()
-        except Exception:
-            continue
-        if not txt:
-            continue
-        group = f"{author}/{book_id}"
+    inventory = _strict_legacy_inventory(frags_root, authors)
+    for fp, txt, group in inventory:
+        author, book_id = group.split("/", 1)
         texts.append(txt)
         y.append(auth2idx[author])
         groups.append(group)
         ordinal = _ordinals.get(group, 0)
         _ordinals[group] = ordinal + 1
-        import hashlib as _hl
-        from .eval.provenance import RowIdentity
         row_ids.append(RowIdentity(group=group, ordinal=ordinal,
-                                   text_sha256=_hl.sha256(txt.encode("utf-8")).hexdigest()))
+                                   text_sha256=hashlib.sha256(txt.encode("utf-8")).hexdigest()))
 
     if len(texts) < 10:
         raise ValueError(f"Слишком мало фрагментов после загрузки: {len(texts)}")
 
-    from .eval.provenance import (LEGACY_RECURSIVE, CorpusPolicyProvenance,
-                                  build_provenance)
     prov = build_provenance(
         loader_kind=LEGACY_RECURSIVE,
         texts=texts, y=y, groups=groups, authors=authors, row_ids=row_ids,
@@ -126,14 +241,19 @@ def load_dataset(
 def load_unknown(frags_root: pathlib.Path | str, unknown_name: str = "unknown") -> List[str]:
     """Загрузить тексты спорного автора (каталог unknown) для атрибуции."""
     root = pathlib.Path(frags_root) / unknown_name
+    if root.is_symlink():
+        raise CorpusLoadError(f"unknown root must not be a symlink: {root}")
     if not root.exists():
         return []
     out: List[str] = []
     for fp in iter_fragment_files(root):
+        if fp.is_symlink():
+            raise CorpusLoadError(f"symlinked unknown fragment rejected: {fp}")
         try:
-            txt = fp.read_text(encoding="utf-8").strip()
-        except Exception:
-            continue
-        if txt:
-            out.append(txt)
+            txt = fp.read_bytes().decode("utf-8").strip()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise CorpusLoadError(f"invalid unknown fragment {fp}: {exc}") from exc
+        if not txt:
+            raise CorpusLoadError(f"empty unknown fragment rejected: {fp}")
+        out.append(txt)
     return out

@@ -20,9 +20,9 @@ class FeatureBlock(abc.ABC):
     name  — уникальное имя блока (для конфигов/отчётов), напр. "char_ngrams".
     group — группа для ablation-sweep (часто == name; субблоки делят group).
 
-    ``fit`` принимает опциональный ``groups`` (per-chunk work id, P1 §4.3): если он
+    ``fit`` принимает опциональный ``groups`` (per-chunk stable work identity): если он
     передан, обучаемое состояние (словарь/DF/IDF/MFW) фитится с равным весом на работу;
-    ``groups=None`` — прежнее chunk-pooled поведение (chunk_weighted_legacy, P0).
+    ``groups=None`` — прежнее chunk-pooled поведение (chunk_weighted_legacy).
 
     Блоки cloneable как sklearn-эстиматоры: ``sklearn.clone`` возвращает UNFITTED копию
     (никакого fitted state) с ПОЛНОСТЬЮ независимым состоянием — клон внутри Pipeline/
@@ -36,7 +36,8 @@ class FeatureBlock(abc.ABC):
     SCHEMA_VERSION = 2                                # v2 adds _wv/_ctor_state; a versionless pickle = v1
 
     def __setstate__(self, state):
-        # migrate a pre-B2 pickled block (inside an old model.pkl): fill B1/B2 attrs, reject a future
+        # Migrate a legacy pickled block (inside an old model.pkl): initialise the work-vectorizer
+        # and constructor-snapshot attributes, reject a future
         # schema, and never silently reuse fitted state as an unfitted clone (see __sklearn_clone__).
         self.__dict__.update(state)
         sv = self.__dict__.setdefault("_schema_version", 1)
@@ -72,7 +73,7 @@ class FeatureBlock(abc.ABC):
             fresh.__dict__.update(snap)
             fresh.__dict__["_ctor_state"] = copy.deepcopy(snap)
             return fresh
-        # Pre-B2 pickle without a snapshot: rebuild a genuinely UNFITTED instance by re-running
+        # A legacy pickle without a snapshot: rebuild a genuinely UNFITTED instance by re-running
         # __init__ from the constructor params (stored as same-named attrs) — never copy the
         # fitted dict (that would leak a fitted _vec/vocab into the "clone").
         import inspect
@@ -92,7 +93,7 @@ class FeatureBlock(abc.ABC):
     def fit_transform(self, texts: Sequence[str], reps: Sequence,
                       groups: Optional[Sequence] = None) -> csr_matrix:
         if groups is None:
-            return self.fit(texts, reps).transform(texts, reps)   # exact legacy call (P0 parity)
+            return self.fit(texts, reps).transform(texts, reps)   # exact legacy call for parity
         return self.fit(texts, reps, groups=groups).transform(texts, reps)
 
     @abc.abstractmethod

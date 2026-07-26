@@ -40,8 +40,10 @@ def _make_ds(prefix, n_authors, n_tested, n_works):
         pred = t if correct else (t + 1) % n_authors
         proba = [0.001] * n_authors
         proba[pred] = 1.0 - 0.001 * (n_authors - 1)
+        from stylo.eval.prediction_contract import stable_top1_and_worst_tie_rank
+        decision = stable_top1_and_worst_tie_rank(proba, true_label=t)
         vec.append({"work_id": f"{author}/w{k:04d}", "true_label": t, "pred_label": pred,
-                    "correct": correct, "rank": 1 if correct else 2, "proba": proba})
+                    "correct": correct, "rank": decision.true_rank, "proba": proba})
     return prob, metric, vec
 
 
@@ -52,7 +54,7 @@ _DS = {"lobo": (_LOBO_PROB, _LOBO_METRIC, _LOBO_VEC), "ruaa": (_RUAA_PROB, _RUAA
 
 def _run_plan():
     return rp.build_run_plan(
-        run_kind="confirmatory", git_commit="a" * 40, git_dirty=False,
+        run_kind="smoke", git_commit="a" * 40, git_dirty=False,
         execution_source_sha256="1" * 64, env_lock_sha256="2" * 64, config_id="3" * 64,
         runtime_fingerprint={"python": "3.11", "libc": "glibc/2.39", "numpy": "2", "scipy": "1",
                              "sklearn": "1", "spacy": "3.8"},
@@ -60,7 +62,7 @@ def _run_plan():
         applicability_matrix_digest=ap.applicability_matrix_digest(),
         a0_reference_shas={"lobo_books_txt": LOBO_BOOKS_SHA256,
                            "ruaa_reference_submission": RUAA_REFERENCE_SUBMISSION_SHA256},
-        evaluator_identity={"name": "work_balanced_ablation_factory", "import_module": "m",
+        evaluator_identity={"name": "smoke_dummy", "import_module": "m",
                             "import_qualname": "q", "source_digest": "a" * 64,
                             "estimator_config_digest": "b" * 64, "mechanism_passport_digest": "c" * 64},
         tolerances=dict(rp.FROZEN_TOLERANCES),
@@ -86,7 +88,7 @@ def _universes():
 
 
 def _attestation():
-    return {"git_commit": "a" * 40, "run_kind": "confirmatory", "audit_version": rp.AUDIT_VERSION,
+    return {"git_commit": "a" * 40, "run_kind": "smoke", "audit_version": rp.AUDIT_VERSION,
             "execution_source_sha256": "1" * 64, "env_lock_sha256": "2" * 64, "config_id": "3" * 64,
             "golden_fixture_inventory_sha": "7" * 64}
 
@@ -147,7 +149,7 @@ def _base_summary():
             "holm": {"lobo": lobo_holm, "ruaa": ruaa_holm},
             "headline": {"endpoint": head["endpoint"], "decision": head["decision"],
                          "diff_ci": head["diff_ci"], "margin": _MARGIN},
-            "result_audit": {"passed": True, "auditor": "independent_recompute_v1"},
+            "result_audit": {"passed": True, "auditor": ra.RESULT_AUDITOR_VERSION},
             "run_plan": _PLAN, "universes": _universes(),
             "continuous_tolerances": dict(rp.FROZEN_TOLERANCES), "attestation": _attestation(),
             "run_id_source": "canonical_run_plan_sha256"}
@@ -165,6 +167,18 @@ def _summary(**over):
 def _vectors():
     return {f"{ds}/{m}/{c}": copy.deepcopy(_DS[ds][2])
             for ds in ("lobo", "ruaa") for (m, c) in ap.registered_cells()}
+
+
+def _publish(summary, vectors, *, docs_root):
+    return pub.publish_audit(
+        summary, vectors, docs_root=docs_root, run_kind="smoke"
+    )
+
+
+def _load(docs_root):
+    return pub.load_published_audit(
+        docs_root, run_kind="smoke", run_id=RUN_ID
+    )
 
 
 def _corrupt_all_proba(s, vectors, new_proba_fn):
@@ -187,12 +201,12 @@ class TestReproducedBypasses:
         s, v = _corrupt_all_proba(_summary(), _vectors(),
                                   lambda p: [-5.0, 6.0] + [0.0] * (len(p) - 2))
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, v, docs_root=tmp_path)
+            _publish(s, v, docs_root=tmp_path)
 
     def test_non_normalized_probabilities_rejected(self, tmp_path):
         s, v = _corrupt_all_proba(_summary(), _vectors(), lambda p: [0.9] + [0.9] * (len(p) - 1))
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, v, docs_root=tmp_path)
+            _publish(s, v, docs_root=tmp_path)
 
     def test_permuted_true_label_contradicting_author_rejected(self, tmp_path):
         # owner repro: a full true_label permutation contradicting the work_id author passed
@@ -207,7 +221,7 @@ class TestReproducedBypasses:
                 for row in v[k]:
                     row["true_label"] = (row["true_label"] + 1) % len(_LOBO_PROB)
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, v, docs_root=tmp_path)
+            _publish(s, v, docs_root=tmp_path)
 
     def test_toy_universe_rejected_for_confirmatory(self, tmp_path):
         # owner repro: a 2-author/4-work fixture accepted as production. audit_results now rejects it.
@@ -215,16 +229,18 @@ class TestReproducedBypasses:
         s = _summary()
         s["universes"]["lobo"] = {**s["universes"]["lobo"], "probability_class_order": prob,
                                   "metric_label_order": metric}
+        confirmatory_plan = {**_PLAN, "run_kind": "confirmatory"}
         with pytest.raises((pub.PublisherError, ra.ResultAuditError)):
             ra.audit_results(s, {**_vectors(), **{f"lobo/{m}/{c}": copy.deepcopy(vec)
-                                                  for (m, c) in ap.registered_cells()}}, _PLAN)
+                                                  for (m, c) in ap.registered_cells()}},
+                             confirmatory_plan)
 
     def test_fake_proba_digest_rejected(self, tmp_path):
         # owner repro: any hex64 accepted as proba_digest. It now must equal the proba-vector aggregate.
         s = _summary()
         s["cells"]["lobo"]["stylo/A0"]["evidence"]["proba_digest"] = "f" * 64
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
 
     def test_shrunk_non_stylo_arm_rejected(self):
         # review probe: the frozen-universe check inspected only stylo/A0, so bow_lr could be published
@@ -255,7 +271,7 @@ class TestReproducedBypasses:
                                 "significant": rec["vs_A0"]["significant"],
                                 "mcnemar_p_diagnostic": mc["mcnemar_p_diagnostic"]}
         with pytest.raises(ra.ResultAuditError):                      # a shrunk non-stylo arm is rejected
-            ra.audit_results(s, v, _PLAN)
+            ra.audit_results(s, v, {**_PLAN, "run_kind": "confirmatory"})
 
 
 class TestPathGuard:
@@ -307,64 +323,70 @@ class TestTransient:
 
 class TestPublish:
     def test_publish_and_load_round_trip(self, tmp_path):
-        published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
-        # committed summary + archive structure
-        assert (tmp_path / pub.SUMMARY_NAME).is_file()
+        published = _publish(_summary(), _vectors(), docs_root=tmp_path)
+        # smoke publication is isolated under the transient run namespace
+        archive_root = (
+            tmp_path / pub.RUNS_SUBPATH / RUN_ID / pub.ARCHIVE_DIRNAME
+        )
+        assert not (tmp_path / pub.SUMMARY_NAME).exists()
         vdir = published["versioned_dir"]
         assert (vdir / pub.SHA256SUMS_NAME).is_file()
-        assert (tmp_path / pub.ARCHIVE_DIRNAME / pub.CURRENT_NAME).is_file()
-        assert (tmp_path / pub.ARCHIVE_DIRNAME / pub.COMPLETE_NAME).is_file()
+        assert (archive_root / pub.CURRENT_NAME).is_file()
+        assert (archive_root / pub.COMPLETE_NAME).is_file()
         assert published["summary"]["self_hash"]
         # every per-work vector is content-addressed and referenced by hash
         inv = published["summary"]["per_work_archive"]
         assert set(inv) == set(_vectors())
         for ref in inv.values():
             assert (vdir / ref["filename"]).is_file()
-        loaded = pub.load_published_audit(tmp_path)
+        loaded = _load(tmp_path)
         assert loaded["version"] == published["version"]
         assert loaded["summary"]["run_id"] == RUN_ID
 
     def test_idempotent_republish(self, tmp_path):
-        a = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
-        b = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+        a = _publish(_summary(), _vectors(), docs_root=tmp_path)
+        b = _publish(_summary(), _vectors(), docs_root=tmp_path)
         assert a["version"] == b["version"]
 
     def test_summary_claim_and_run_id_required(self, tmp_path):
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(_summary(claim_status="internal_evidence"), _vectors(), docs_root=tmp_path)
+            _publish(_summary(claim_status="internal_evidence"), _vectors(), docs_root=tmp_path)
         s = _summary()
         del s["run_id"]
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
 
     def test_recovers_from_staging_orphan(self, tmp_path):
         # a leftover .staging_ dir (crash before os.replace) is inert; publish + load still succeed
-        versions = tmp_path / pub.ARCHIVE_DIRNAME / pub.VERSIONS_DIR
+        versions = (
+            tmp_path / pub.RUNS_SUBPATH / RUN_ID
+            / pub.ARCHIVE_DIRNAME / pub.VERSIONS_DIR
+        )
         versions.mkdir(parents=True)
         (versions / ".staging_orphan").mkdir()
         (versions / ".staging_orphan" / "half.json").write_text("{", encoding="utf-8")
-        published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
-        assert pub.load_published_audit(tmp_path)["version"] == published["version"]
+        published = _publish(_summary(), _vectors(), docs_root=tmp_path)
+        assert _load(tmp_path)["version"] == published["version"]
 
 
 class TestFinalAssembly:
     def test_arbitrary_or_partial_summary_rejected(self, tmp_path):
         with pytest.raises(pub.PublisherError):                       # arbitrary mapping
-            pub.publish_audit({"run_id": "a" * 64, "claim_status": "exploratory_internal"},
-                              _vectors(), docs_root=tmp_path)
+            _publish({"run_id": "a" * 64, "claim_status": "exploratory_internal"},
+                     _vectors(), docs_root=tmp_path)
         with pytest.raises(pub.PublisherError):                       # non-sha run_id
-            pub.publish_audit(_summary(run_id="short"), _vectors(), docs_root=tmp_path)
+            _publish(_summary(run_id="short"), _vectors(), docs_root=tmp_path)
         with pytest.raises(pub.PublisherError):                       # missing a dataset in cells
             bad = _summary(); bad["cells"].pop("ruaa")
-            pub.publish_audit(bad, _vectors(), docs_root=tmp_path)
+            _publish(bad, _vectors(), docs_root=tmp_path)
         with pytest.raises(pub.PublisherError):                       # incomplete Holm family
             bad = _summary(); bad["holm"]["lobo"].pop(next(iter(bad["holm"]["lobo"])))
-            pub.publish_audit(bad, _vectors(), docs_root=tmp_path)
+            _publish(bad, _vectors(), docs_root=tmp_path)
         with pytest.raises(pub.PublisherError):                       # per-work vectors missing cells
-            pub.publish_audit(_summary(), {"lobo/stylo/A4": [{"work_id": "a/w"}]}, docs_root=tmp_path)
+            _publish(_summary(), {"lobo/stylo/A4": [{"work_id": "a/w"}]}, docs_root=tmp_path)
         with pytest.raises(pub.PublisherError):                       # wrong headline endpoint
-            pub.publish_audit(_summary(headline={"endpoint": "bogus", "decision": "relabel"}),
-                              _vectors(), docs_root=tmp_path)
+            _publish(_summary(headline={"endpoint": "bogus", "decision": "relabel"}),
+                     _vectors(), docs_root=tmp_path)
 
 
 class TestArchiveCommittable:
@@ -414,8 +436,8 @@ class TestArtifactCompleteness:
             pub.verify_final_assembly(s, _vectors())
 
     def test_published_summary_round_trips_and_recomputes_run_id(self, tmp_path):
-        pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
-        loaded = pub.load_published_audit(tmp_path)
+        _publish(_summary(), _vectors(), docs_root=tmp_path)
+        loaded = _load(tmp_path)
         assert rp.run_id(loaded["summary"]["run_plan"]) == loaded["summary"]["run_id"] == RUN_ID
 
     def test_fixture_is_independently_auditor_consistent(self):
@@ -428,34 +450,41 @@ class TestPublishGate:
         # a confirmatory summary cannot be published under a smoke target (and vice versa) — the guard
         # is bound to the artifact's OWN run_kind, not just the caller's kwarg
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path, run_kind="smoke")
+            pub.publish_audit(
+                _summary(), _vectors(), docs_root=tmp_path,
+                run_kind="confirmatory",
+            )
 
     def test_publisher_re_derives_and_rejects_a_tampered_metric(self, tmp_path):
         # the publisher does not trust result_audit.passed — it re-runs the auditor over the vectors
         s = _summary()
         s["cells"]["lobo"]["stylo/A0"]["point"]["accuracy"] = 0.999   # contradicts its own vectors
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
         s2 = _summary()
         s2["result_audit"] = {"passed": True, "auditor": "x"}          # flag says pass, but vectors lie
         s2["cells"]["ruaa"]["stylo/A4"]["vs_A0"]["cluster_p"] = 0.000001
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s2, _vectors(), docs_root=tmp_path)
+            _publish(s2, _vectors(), docs_root=tmp_path)
 
-    def test_forged_confirmatory_run_plan_rejected(self, tmp_path):
-        # an embedded confirmatory plan is re-validated against EVERY build invariant, not just its id:
-        # a forged oversized tolerance / weakened bootstrap / inflated margin cannot publish or load
-        for over in ({"tolerances": {q: {"atol": 1e9, "rtol": 0.0, "dtype": "float64"}
-                                     for q in rp.REGISTERED_TOLERANCE_QUANTITIES}},
-                     {"stats": {**rp.FROZEN_STATS, "bootstrap_B": 1, "bootstrap_iters": 1}},
-                     {"stats": {**rp.FROZEN_STATS, "noninferiority_margin": 0.5}}):
+    def test_forged_run_plan_invariants_rejected(self, tmp_path):
+        # A self-consistent run_id cannot bypass the versioned prediction
+        # contract, digest shapes, or runtime field allowlist.
+        for over in (
+            {"prediction_contract_version": "obsolete"},
+            {"env_lock_sha256": "nothex"},
+            {"runtime_fingerprint": {
+                **_PLAN["runtime_fingerprint"],
+                "kernel_release": "forbidden",
+            }},
+        ):
             plan = copy.deepcopy(_PLAN)
             plan.update(over)
             s = _summary(run_plan=plan, run_id=rp.run_id(plan))
             with pytest.raises(pub.PublisherError):                    # id recomputes, but plan is forged
                 pub.verify_final_assembly(s, _vectors())
             with pytest.raises(pub.PublisherError):
-                pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+                _publish(s, _vectors(), docs_root=tmp_path)
 
     def test_universes_class_order_must_match_run_plan(self):
         s = _summary()
@@ -466,7 +495,7 @@ class TestPublishGate:
     def test_malformed_vectors_surface_as_publisher_error(self, tmp_path):
         bad = {k: [{"work_id": "aa/w1", "proba": [0.5, 0.5]}] for k in _vectors()}  # no labels/rank
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(_summary(), bad, docs_root=tmp_path)
+            _publish(_summary(), bad, docs_root=tmp_path)
 
     def test_forged_headline_diff_ci_point_rejected(self, tmp_path):
         # review probe: diff_ci.point was published but never recomputed. It is now audited + shape-pinned.
@@ -474,37 +503,31 @@ class TestPublishGate:
         s["headline"]["diff_ci"] = {**s["headline"]["diff_ci"],
                                     "point": s["headline"]["diff_ci"]["point"] + 0.3}
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
         s2 = _summary()                                             # an extra inner diff_ci key rejected
         s2["headline"]["diff_ci"] = {**s2["headline"]["diff_ci"], "extra": 1}
         with pytest.raises(pub.PublisherError):
             pub.verify_final_assembly(s2, _vectors())
 
-    def test_forged_confirmatory_provenance_rejected(self):
-        # review probe: a self-consistent confirmatory plan with forged A0-reference SHAs / legacy
-        # anchor published. The plan is now value-pinned to the module constants at the publish boundary.
-        plan = copy.deepcopy(_PLAN)
-        plan["a0_reference_shas"] = {"lobo_books_txt": "0" * 64, "ruaa_reference_submission": "0" * 64}
-        with pytest.raises(pub.PublisherError):
-            pub.verify_final_assembly(_summary(run_plan=plan, run_id=rp.run_id(plan)), _vectors())
-        plan2 = copy.deepcopy(_PLAN)
-        plan2["corpus_chain"] = {"legacy_anchor": "0" * 64, "semantic_parity_digest": "6" * 64}
-        with pytest.raises(pub.PublisherError):
-            pub.verify_final_assembly(_summary(run_plan=plan2, run_id=rp.run_id(plan2)), _vectors())
+    def test_confirmatory_plan_is_unrepresentable_without_canonical_evaluator(self):
+        kwargs = {key: copy.deepcopy(_PLAN[key]) for key in rp._PLAN_BUILD_KEYS}
+        kwargs["run_kind"] = "confirmatory"
+        with pytest.raises(rp.RunPlanError, match="no reviewed canonical"):
+            rp.build_run_plan(**kwargs)
 
     def test_forged_diagnostic_mcnemar_is_recomputed(self, tmp_path):
         # the diagnostic-only mcnemar p is published, so the auditor recomputes it too
         s = _summary()
         s["cells"]["lobo"]["stylo/A4"]["vs_A0"]["mcnemar_p_diagnostic"] = 0.123456
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
 
     def test_ghost_author_in_recall_is_rejected(self, tmp_path):
         # an EXTRA (never-recomputed) author in per_author_recall must be caught by set-equality
         s = _summary()
         s["cells"]["lobo"]["stylo/A0"]["point"]["per_author_recall"]["GHOST"] = 0.9999
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
 
     def test_non_dict_plan_field_surfaces_as_publisher_error(self):
         # a malformed embedded plan field (non-dict) fails closed as PublisherError, never an uncaught crash
@@ -518,7 +541,7 @@ class TestPublishGate:
         # every echoed field (attestation / universes digests / tolerances) must equal the bound plan
         forgeries = [
             lambda s: s["attestation"].__setitem__("git_commit", "z" * 40),
-            lambda s: s["attestation"].__setitem__("run_kind", "smoke"),
+            lambda s: s["attestation"].__setitem__("run_kind", "confirmatory"),
             lambda s: s["universes"]["lobo"].__setitem__("dataset_digest", "0" * 64),
             lambda s: s["universes"]["ruaa"].__setitem__("fold_manifest_digest", "0" * 64),
             lambda s: s.__setitem__("continuous_tolerances",
@@ -535,7 +558,7 @@ class TestPublishGate:
             {"work_id": "zz/fake", "true_label": 0, "pred_label": 0, "correct": True, "rank": 1,
              "proba": [0.6, 0.4]}]
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
 
     def test_forged_nonapplied_reason_rejected(self):
         s = _summary()
@@ -556,18 +579,21 @@ class TestPublishGate:
         s = _summary()
         s["holm"]["lobo"]["stylo/A4"]["raw_p"] = 0.000001          # diverges from the recomputed cluster_p
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(s, _vectors(), docs_root=tmp_path)
+            _publish(s, _vectors(), docs_root=tmp_path)
 
 
 class TestPublicationSecurity:
-    def test_swapped_committed_root_summary_is_detected(self, tmp_path):
-        pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)     # confirmatory
-        root = tmp_path / pub.SUMMARY_NAME
-        body = load_strict(root)
-        body["claim_status"] = "swapped"                                 # swap the committed root file
-        dump_strict(body, root, trailing_newline=True)
-        with pytest.raises(pub.PublisherError):                          # root != version summary
-            pub.load_published_audit(tmp_path)
+    def test_swapped_transient_current_pointer_is_detected(self, tmp_path):
+        _publish(_summary(), _vectors(), docs_root=tmp_path)
+        pointer = (
+            tmp_path / pub.RUNS_SUBPATH / RUN_ID / pub.ARCHIVE_DIRNAME
+            / pub.CURRENT_NAME
+        )
+        body = load_strict(pointer)
+        body["version"] = "f" * 64
+        dump_strict(body, pointer, trailing_newline=True)
+        with pytest.raises(pub.PublisherError):
+            _load(tmp_path)
 
     def test_write_transient_guards_symlinked_namespace_before_mkdir(self, tmp_path):
         rid = "a" * 64
@@ -585,25 +611,25 @@ class TestPublicationSecurity:
 
 class TestPublishFailClosed:
     def test_tampered_per_work_file_rejected_on_load(self, tmp_path):
-        published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+        published = _publish(_summary(), _vectors(), docs_root=tmp_path)
         ref = next(iter(published["summary"]["per_work_archive"].values()))
         (published["versioned_dir"] / ref["filename"]).write_text("tampered", encoding="utf-8")
         with pytest.raises(pub.PublisherError):
-            pub.load_published_audit(tmp_path)
+            _load(tmp_path)
 
     def test_tampered_summary_self_hash_rejected(self, tmp_path):
-        published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+        published = _publish(_summary(), _vectors(), docs_root=tmp_path)
         sfile = published["versioned_dir"] / pub.SUMMARY_IN_VERSION
         body = load_strict(sfile)
         body["decision"] = "relabel"                     # tamper without recomputing self_hash
         dump_strict(body, sfile, trailing_newline=True)
         with pytest.raises(pub.PublisherError):
-            pub.load_published_audit(tmp_path)
+            _load(tmp_path)
 
     def test_conflicting_version_dir_is_fatal(self, tmp_path):
-        published = pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+        published = _publish(_summary(), _vectors(), docs_root=tmp_path)
         # tamper a file inside the immutable version dir, then republish the SAME content
         ref = next(iter(published["summary"]["per_work_archive"].values()))
         (published["versioned_dir"] / ref["filename"]).write_text("mutated in place", encoding="utf-8")
         with pytest.raises(pub.PublisherError):
-            pub.publish_audit(_summary(), _vectors(), docs_root=tmp_path)
+            _publish(_summary(), _vectors(), docs_root=tmp_path)

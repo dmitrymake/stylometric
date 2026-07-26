@@ -1,55 +1,85 @@
-"""Information-theoretic «пол» для авторской атрибуции (Fano / Bayes-error).
+"""Descriptive diagnostics for authorship-model posterior matrices.
 
-«Потолок» метода — не эмпирическая неточность, а НИЖНЯЯ граница ошибки, заданная
-тем, сколько информации о метке автора НЕСЁТ вектор признаков. Меньше информации
-о авторе в признаках → выше неразрешимая ошибка → выше «пол», который не пробить
-никаким классификатором. Это и есть формальный язык для «почему спорный кейс
-неразрешим» (Harrison & Yener, ISIT 2025, только на блогерском корпусе).
+The historical version of this module treated the entropy of an arbitrary
+model's posterior as ``H(A|F)``.  It then published ``H(A)-H(A|F)`` as a mutual
+information lower bound and entropy transforms as unavoidable/Bayes error
+floors.  Those interpretations are invalid without assumptions that the API
+neither established nor tested.  In particular, a constant overconfident model
+can manufacture a large apparent "information" value although its output is
+independent of the true label.
 
-Формулы (биты, log2):
-  H(A)       = -Σ_a p_a·log2 p_a              — априорная неопределённость автора
-  H(A|F)     = ⟨ -Σ_a p̂(a|f)·log2 p̂(a|f) ⟩   — остаточная неопределённость,
-                                                  оцениваемая по OOF-постериорам
-                                                  модели (soft-vote на уровне книги)
-  I(A;F)     = H(A) − H(A|F)                   — сколько бит о авторе несут признаки
-  Fano (пол): P_e ≥ (H(A|F) − 1) / log2(K−1)   — нижняя граница ошибки атрибуции
-  пара (A,B): P_e(A,B) = h⁻¹(⟨H₂(p̂_AB)⟩)      — двоичная Bayes-ошибка «это A или B?»
-                                                (h — двоичная энтропия; h⁻¹ берёт
-                                                 меньший корень = честную ошибку)
+Version 2 therefore exposes only quantities that the supplied model output
+directly determines:
 
-ЧЕСТНОСТЬ (критично):
-  * fano_floor из H(A|F) — НЕ граница ошибки, а МОДЕЛЬ-ЗАВИСИМАЯ описательная
-    величина. Энтропия постериоров модели ВЕРХНЕ оценивает истинную H(A|F)
-    (модель хуже байесовской), а для НИЖНЕЙ границы ошибки Фано нужна НИЖНЯЯ
-    оценка H(A|F). Поэтому plug-in fano_floor может ПРЕВЫШАТЬ эмпирику
-    (gap_empirical_minus_floor < 0 в docs/fano_frontier.json) — это признак, что
-    величина не работает как нижняя граница. Читать как индикатор остаточной
-    неопределённости данной модели, не как «пол» атрибуции.
-  * I(A;F) = H(A) − H(A|F) — ВАЛИДНАЯ нижняя граница информации, которую признаки
-    несут о авторе: истинная взаимная информация не меньше оценённой по данной
-    модели (обработка данных не добавляет информации). Эту величину цитировать
-    можно как «признаки несут не менее I(A;F) бит».
-  * Модель-НЕЗАВИСИМОЙ нетривиальной нижней границы ошибки для книжных объёмов
-    здесь нет: корректная двухточечная граница (Ле Кам / Бхаттачарья по пуловым
-    частотам, при токенной единице счёта с поправкой на пачкообразность слов)
-    для реальных пар авторов на книжной длине падает практически к нулю —
-    «сертификат неразрешимости» пары из неё не получается. Поэтому проект не
-    публикует никакой нижней границы ошибки как границы.
-  * H(A|F) оценивается по OOF-постериорам; при плохой калибровке (ECE≈0.30 —
-    см. Boenninghoff 2021 и нашу metrics.expected_calibration_error) оценка
-    СМЕЩЕНА. Мы ОТЧЁТНО сообщаем ECE рядом. НЕ сравнивайте «пол» и «эмпирику»
-    вслепую.
-  * K=2 (пара) нельзя через (H−1)/log(K−1) (деление на 0) — для пар берём
-    h⁻¹ бинарной энтропии.
+* empirical label-prior entropy;
+* mean entropy of the model posterior rows;
+* their explicitly named arithmetic contrast;
+* empirical error and optional calibration error;
+* a binary *posterior-entropy-equivalent* error, which is a descriptive
+  re-expression of model confidence, never a Bayes-error bound.
+
+No function in the v2 API estimates mutual information, a Fano lower bound, an
+unavoidable error, or pair indistinguishability.  The old inferential entry
+points remain as fail-closed compatibility stubs so callers cannot silently
+continue publishing the withdrawn semantics.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, NoReturn, Sequence, Tuple
 
 import numpy as np
 
-_LOG2 = np.log(2.0)
 _EPS = 1e-12  # клиппинг постериоров для устойчивости логарифма
+POSTERIOR_DIAGNOSTICS_SCHEMA = "stylo.model-posterior-diagnostics.v2"
+
+
+class WithdrawnFanoSemanticsError(RuntimeError):
+    """A caller requested a scientifically withdrawn inferential quantity."""
+
+
+def _withdrawn(name: str) -> NoReturn:
+    raise WithdrawnFanoSemanticsError(
+        f"{name} was withdrawn: arbitrary model-posterior entropy does not "
+        "identify conditional entropy, mutual information, or a Bayes/Fano "
+        "error bound; use posterior_diagnostics_v2 for descriptive output"
+    )
+
+
+def _probability_matrix(
+    values: np.ndarray,
+    *,
+    n_classes: int | None = None,
+) -> np.ndarray:
+    matrix = np.asarray(values, dtype=np.float64)
+    if matrix.ndim != 2 or matrix.shape[0] == 0 or matrix.shape[1] < 2:
+        raise ValueError("probability matrix must have shape (n>=1, k>=2)")
+    if n_classes is not None and matrix.shape[1] != n_classes:
+        raise ValueError(
+            f"probability matrix has {matrix.shape[1]} columns, expected {n_classes}"
+        )
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("probability matrix must be finite")
+    if np.any(matrix < 0.0) or np.any(matrix > 1.0):
+        raise ValueError("probabilities must lie in [0, 1]")
+    if not np.allclose(matrix.sum(axis=1), 1.0, rtol=0.0, atol=1e-8):
+        raise ValueError("each probability row must sum to 1")
+    return matrix
+
+
+def _labels(y_true: np.ndarray, n_authors: int, n_rows: int) -> np.ndarray:
+    if type(n_authors) is not int or n_authors < 2:
+        raise ValueError("n_authors must be an integer >= 2")
+    labels = np.asarray(y_true)
+    if labels.ndim != 1 or n_rows < 1 or len(labels) != n_rows:
+        raise ValueError(
+            "y_true must be non-empty, one-dimensional, and align with probabilities"
+        )
+    if labels.dtype.kind not in {"i", "u"}:
+        raise TypeError("y_true must contain exact integer class indices")
+    labels = labels.astype(np.int64, copy=False)
+    if np.any(labels < 0) or np.any(labels >= n_authors):
+        raise ValueError("y_true class index is outside [0, n_authors)")
+    return labels
 
 
 def _row_entropy(probs: np.ndarray) -> np.ndarray:
@@ -61,41 +91,31 @@ def _row_entropy(probs: np.ndarray) -> np.ndarray:
 
 def prior_entropy(y_true: np.ndarray, n_authors: int) -> float:
     """H(A) по эмпирическому распределению меток авторов в выборке (биты)."""
-    y = np.asarray(y_true)
+    raw = np.asarray(y_true)
+    n_rows = int(raw.shape[0]) if raw.ndim == 1 else -1
+    y = _labels(raw, n_authors, n_rows)
     counts = np.bincount(y, minlength=n_authors).astype(np.float64)
     p = counts / counts.sum()
     p = p[p > 0]
     return float(-(p * np.log2(p)).sum())
 
 
-def conditional_entropy(prob_matrix: np.ndarray) -> float:
-    """H(A|F) = средняя по книгам энтропия OOF-постериора (биты).
-
-    Это оценка остаточной неопределённости Bayes-оптимального классификатора при
-    данных признаках. Смещена при плохой калибровке постериоров (см. ECE).
-    """
-    return float(np.mean(_row_entropy(prob_matrix)))
+def mean_model_posterior_entropy_bits(prob_matrix: np.ndarray) -> float:
+    """Return mean row entropy of a model probability matrix, in bits."""
+    return float(np.mean(_row_entropy(_probability_matrix(prob_matrix))))
 
 
-def mutual_information(H_A: float, H_A_given_F: float) -> float:
-    """I(A;F) = H(A) − H(A|F) (биты). Сколько информации о авторе несут признаки."""
-    return float(max(0.0, H_A - H_A_given_F))
-
-
-def fano_floor(H_A_given_F: float, n_authors: int) -> float:
-    """Плагин-величина Фано (H(A|F) − 1)/log2(K−1) от энтропии постериоров МОДЕЛИ.
-
-    ВНИМАНИЕ: это НЕ валидная нижняя граница ошибки. Энтропия постериоров модели
-    верхне оценивает истинную H(A|F), а Фано для нижней границы требует нижнюю
-    оценку H(A|F); поэтому величина может превышать эмпирику (см. секцию ЧЕСТНОСТЬ).
-    Нетривиальной модель-независимой замены для книжных объёмов нет (см. ЧЕСТНОСТЬ). Для K≤1 — 0.
-    Для пар (K=2) используйте binary_bayes_floor (здесь log2(1)=0).
-    """
-    if n_authors <= 2:
-        return float("nan")  # парный случай — отдельной функцией
-    denom = np.log2(n_authors - 1)
-    pe = (H_A_given_F - 1.0) / denom
-    return float(min(1.0, max(0.0, pe)))
+def prior_minus_model_posterior_entropy_bits(
+    label_prior_entropy_bits: float,
+    model_posterior_entropy_bits: float,
+) -> float:
+    """Return a descriptive arithmetic contrast, not mutual information."""
+    values = np.asarray(
+        [label_prior_entropy_bits, model_posterior_entropy_bits], dtype=float
+    )
+    if not np.all(np.isfinite(values)):
+        raise ValueError("entropy values must be finite")
+    return float(label_prior_entropy_bits - model_posterior_entropy_bits)
 
 
 def _binary_entropy(p: np.ndarray) -> np.ndarray:
@@ -105,9 +125,10 @@ def _binary_entropy(p: np.ndarray) -> np.ndarray:
 
 
 def _hinv_scalar(h_target: float) -> float:
-    """Меньший корень h(p) = h_target (бинарная Bayes-ошибка по энтропии).
+    """Return the smaller numerical root of ``h(p) = h_target``.
 
-    h(p)=h(1-p), симметрична; меньший p в [0, 0.5] — честная ошибка. Бисекция.
+    The root is only an entropy-equivalent Bernoulli probability.  It acquires
+    no Bayes-error semantics from this numerical inversion.
     """
     if h_target <= 0:
         return 0.0
@@ -123,72 +144,130 @@ def _hinv_scalar(h_target: float) -> float:
     return 0.5 * (lo + hi)
 
 
-def binary_bayes_floor(prob_AB: np.ndarray) -> float:
-    """Бинарный Bayes-пол для пары (A,B): h⁻¹(⟨H₂ постериора⟩) по книгам пары.
+def binary_posterior_entropy_equivalent_error(prob_AB: np.ndarray) -> float:
+    """Re-express mean binary model-posterior entropy on the interval [0, .5].
 
-    prob_AB: (n_books_in_pair, 2) — постериоры, ограниченные на {A,B} и
-    перенормированные. Возвращает P_e в [0, 0.5] — вероятность перепутать A и B
-    даже идеальным классификатором. ~0.5 = пара неразличима («пол»).
+    This is a model-confidence diagnostic only.  It is not the Bayes error, an
+    error lower bound, or evidence that a pair is distinguishable.
     """
-    p = np.clip(prob_AB[:, 1], _EPS, 1 - _EPS)  # вер-ть «второго» автора
+    matrix = _probability_matrix(prob_AB, n_classes=2)
+    p = np.clip(matrix[:, 1], _EPS, 1 - _EPS)
     h2 = float(np.mean(_binary_entropy(p)))
     return _hinv_scalar(h2)
 
 
-def fano_book_level(prob_matrix: np.ndarray, y_true: np.ndarray,
-                    n_authors: int, ece: float | None = None) -> Dict[str, float]:
-    """Пол + эмпирика на уровне книг по OOF-матрице постериоров.
-
-    Возвращает словарь с H(A), H(A|F), I(A;F), fano_floor (нижняя граница ошибки),
-    empirical_error (1 − accuracy), gap (= empirical − floor), и ECE (если задан).
-    """
-    prob_matrix = np.asarray(prob_matrix, dtype=np.float64)
-    y_true = np.asarray(y_true)
-    H_A = prior_entropy(y_true, n_authors)
-    H_AF = conditional_entropy(prob_matrix)
-    I_AF = mutual_information(H_A, H_AF)
-    floor = fano_floor(H_AF, n_authors)
-    pred = prob_matrix.argmax(axis=1)
-    empirical_err = float(1.0 - np.mean(pred == y_true))
-    out = {
-        "n_books": int(len(y_true)),
+def posterior_diagnostics_v2(
+    prob_matrix: np.ndarray,
+    y_true: np.ndarray,
+    n_authors: int,
+    ece: float | None = None,
+) -> Dict[str, Any]:
+    """Return schema-v2 descriptive diagnostics for one model's probabilities."""
+    matrix = _probability_matrix(prob_matrix, n_classes=n_authors)
+    labels = _labels(y_true, n_authors, matrix.shape[0])
+    prior = prior_entropy(labels, n_authors)
+    posterior_entropy = mean_model_posterior_entropy_bits(matrix)
+    contrast = prior_minus_model_posterior_entropy_bits(prior, posterior_entropy)
+    pred = matrix.argmax(axis=1)
+    empirical_err = float(1.0 - np.mean(pred == labels))
+    out: Dict[str, Any] = {
+        "schema_version": POSTERIOR_DIAGNOSTICS_SCHEMA,
+        "semantics": "descriptive_model_posterior_only",
+        "inferential_information_or_error_bound": False,
+        "n_books": int(len(labels)),
         "n_authors": int(n_authors),
-        "H_A_bits": round(H_A, 4),
-        "H_A_max_bits": round(float(np.log2(n_authors)), 4),  # если бы классы были равны
-        "H_A_given_F_bits": round(H_AF, 4),
-        "I_AF_bits": round(I_AF, 4),
-        "fano_floor_Pe": None if np.isnan(floor) else round(floor, 4),
+        "label_prior_entropy_bits": round(prior, 4),
+        "maximum_label_entropy_bits": round(float(np.log2(n_authors)), 4),
+        "mean_model_posterior_entropy_bits": round(posterior_entropy, 4),
+        "prior_minus_model_posterior_entropy_bits": round(contrast, 4),
         "empirical_error": round(empirical_err, 4),
         "empirical_accuracy": round(1.0 - empirical_err, 4),
-        "gap_empirical_minus_floor": None if np.isnan(floor) else round(empirical_err - floor, 4),
     }
     if ece is not None:
-        out["ECE"] = round(float(ece), 4)
+        if not np.isfinite(ece) or not 0.0 <= float(ece) <= 1.0:
+            raise ValueError("ece must be finite and lie in [0, 1]")
+        out["expected_calibration_error"] = round(float(ece), 4)
     return out
 
 
-def pairwise_floor(prob_matrix: np.ndarray, y_true: np.ndarray,
-                   n_authors: int, pairs: Sequence[Tuple[int, int]]) -> List[Dict]:
-    """Пер-pair Bayes-пол неразличимости. prob_matrix — полный (n_books, K).
-
-    Для каждой пары (i,j): берём книги этих авторов, ограничиваем постериор на {i,j},
-    перенормируем, считаем бинарный пол. Чем ближе к 0.5 — тем неразличимее пара
-    (тем труднее заметить «чужую руку» между ними — это и есть floor детекции).
-    """
-    prob_matrix = np.asarray(prob_matrix, dtype=np.float64)
-    y_true = np.asarray(y_true)
-    rows = []
+def pairwise_posterior_diagnostics_v2(
+    prob_matrix: np.ndarray,
+    y_true: np.ndarray,
+    n_authors: int,
+    pairs: Sequence[Tuple[int, int]],
+) -> List[Dict[str, Any]]:
+    """Return descriptive pair-restricted model-confidence diagnostics."""
+    matrix = _probability_matrix(prob_matrix, n_classes=n_authors)
+    labels = _labels(y_true, n_authors, matrix.shape[0])
+    rows: List[Dict[str, Any]] = []
     for i, j in pairs:
-        mask = (y_true == i) | (y_true == j)
+        if type(i) is not int or type(j) is not int or i == j:
+            raise ValueError("pairs must contain two distinct exact integer class indices")
+        if not (0 <= i < n_authors and 0 <= j < n_authors):
+            raise ValueError("pair class index is outside [0, n_authors)")
+        mask = (labels == i) | (labels == j)
         if mask.sum() < 2:
             continue
-        sub = prob_matrix[mask][:, [i, j]]
+        sub = matrix[mask][:, [i, j]]
         s = sub.sum(axis=1, keepdims=True)
-        sub = sub / np.where(s > 0, s, 1.0)
-        pe = binary_bayes_floor(sub)
-        rows.append({"a": int(i), "b": int(j), "n_books_pair": int(mask.sum()),
-                     "bayes_floor_Pe": round(pe, 4), "indistinguishable": pe >= 0.45})
+        if np.any(s <= 0.0):
+            raise ValueError("pair-restricted posterior has zero total mass")
+        sub = sub / s
+        entropy = mean_model_posterior_entropy_bits(sub)
+        equivalent = binary_posterior_entropy_equivalent_error(sub)
+        rows.append(
+            {
+                "schema_version": POSTERIOR_DIAGNOSTICS_SCHEMA,
+                "a": int(i),
+                "b": int(j),
+                "n_books_pair": int(mask.sum()),
+                "mean_pair_model_posterior_entropy_bits": round(entropy, 4),
+                "posterior_entropy_equivalent_error": round(equivalent, 4),
+                "inferential_information_or_error_bound": False,
+            }
+        )
     return rows
+
+
+# Fail-closed compatibility stubs for the invalid v1 inferential names.
+def conditional_entropy(prob_matrix: np.ndarray) -> float:
+    del prob_matrix
+    _withdrawn("conditional_entropy")
+
+
+def mutual_information(H_A: float, H_A_given_F: float) -> float:
+    del H_A, H_A_given_F
+    _withdrawn("mutual_information")
+
+
+def fano_floor(H_A_given_F: float, n_authors: int) -> float:
+    del H_A_given_F, n_authors
+    _withdrawn("fano_floor")
+
+
+def binary_bayes_floor(prob_AB: np.ndarray) -> float:
+    del prob_AB
+    _withdrawn("binary_bayes_floor")
+
+
+def fano_book_level(
+    prob_matrix: np.ndarray,
+    y_true: np.ndarray,
+    n_authors: int,
+    ece: float | None = None,
+) -> Dict[str, float]:
+    del prob_matrix, y_true, n_authors, ece
+    _withdrawn("fano_book_level")
+
+
+def pairwise_floor(
+    prob_matrix: np.ndarray,
+    y_true: np.ndarray,
+    n_authors: int,
+    pairs: Sequence[Tuple[int, int]],
+) -> List[Dict]:
+    del prob_matrix, y_true, n_authors, pairs
+    _withdrawn("pairwise_floor")
 
 
 # --- open-set / outsider: p(M_out | data) ---
@@ -248,38 +327,57 @@ def outsider_probability(score_in: np.ndarray, score_out: np.ndarray,
 
 
 # ---------------------------------------------------------------------------
-# self-test: синтетика с известным ответом (запуск: python -m stylo.eval.fano)
+# Self-test: regression counterexamples (run: python -m stylo.eval.fano)
 # ---------------------------------------------------------------------------
 def _self_test() -> None:
-    K = 10
-    rng = np.random.default_rng(0)
-    y = rng.integers(0, K, size=400)
+    # Constant output contains no information about balanced labels, yet the
+    # historical entropy contrast is large.  V2 reports the contrast only as a
+    # model-output diagnostic and publishes no information/error bound.
+    y = np.asarray([0, 1] * 20, dtype=int)
+    constant = np.tile(np.asarray([0.999, 0.001]), (len(y), 1))
+    report = posterior_diagnostics_v2(constant, y, 2)
+    assert report["empirical_error"] == 0.5
+    assert report["prior_minus_model_posterior_entropy_bits"] > 0.98
+    assert report["inferential_information_or_error_bound"] is False
+    assert not any(
+        token in key.casefold()
+        for key in report
+        for token in ("mutual_information", "bayes", "fano", "floor")
+    )
 
-    # 1) почти-уверенные постериоры → пол ≈ 0, эмпирика ≈ 0
-    conf = np.full((400, K), 0.01)
-    conf[np.arange(400), y] = 0.91
-    conf /= conf.sum(axis=1, keepdims=True)
-    r1 = fano_book_level(conf, y, K)
-    assert r1["fano_floor_Pe"] is not None and r1["fano_floor_Pe"] < 0.05, r1
-    assert r1["empirical_error"] == 0.0, r1
+    pair_value = binary_posterior_entropy_equivalent_error(constant)
+    assert pair_value < 0.01
+    assert report["empirical_error"] == 0.5
 
-    # 2) равномерные постериоры → H(A|F)=log2 K=I=0 → пол = (log2K − 1)/log2(K−1)
-    uni = np.full((400, K), 1.0 / K)
-    r2 = fano_book_level(uni, y, K)
-    # значения в словаре округлены до 4 знаков — толеранс 1e-3
-    assert abs(r2["H_A_given_F_bits"] - np.log2(K)) < 1e-3, r2
-    assert r2["I_AF_bits"] < 1e-3, r2
-    expected_floor = (np.log2(K) - 1.0) / np.log2(K - 1)
-    assert abs(r2["fano_floor_Pe"] - expected_floor) < 1e-3, (r2, expected_floor)
+    try:
+        binary_bayes_floor(constant)
+    except WithdrawnFanoSemanticsError:
+        pass
+    else:  # pragma: no cover - executable documentation
+        raise AssertionError("withdrawn Bayes-floor API did not fail closed")
 
-    # 3) пара: идентичные распределения A и B → пол ≈ 0.5 (неразличимы)
-    pair = np.full((20, 2), 0.5)
-    assert abs(binary_bayes_floor(pair) - 0.5) < 1e-6, binary_bayes_floor(pair)
-    # пара: идеально разделённые → пол ≈ 0
-    pair2 = np.zeros((20, 2)); pair2[:, 0] = 0.999; pair2[:, 1] = 0.001
-    assert binary_bayes_floor(pair2) < 0.02, binary_bayes_floor(pair2)
+    print("posterior diagnostics v2 self-test OK:", report)
 
-    print("fano self-test OK:", r1, r2)
+
+__all__ = [
+    "POSTERIOR_DIAGNOSTICS_SCHEMA",
+    "WithdrawnFanoSemanticsError",
+    "binary_posterior_entropy_equivalent_error",
+    "mean_model_posterior_entropy_bits",
+    "outsider_probability",
+    "pairwise_posterior_diagnostics_v2",
+    "posterior_diagnostics_v2",
+    "prior_entropy",
+    "prior_minus_model_posterior_entropy_bits",
+    "typicality_scores",
+    # Withdrawn v1 names remain importable only to raise a typed error.
+    "binary_bayes_floor",
+    "conditional_entropy",
+    "fano_book_level",
+    "fano_floor",
+    "mutual_information",
+    "pairwise_floor",
+]
 
 
 if __name__ == "__main__":

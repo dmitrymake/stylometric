@@ -16,6 +16,7 @@ LOBO_BOOKS_SHA256 = "26db64475e77657eaec6db895c55bad8bcd513344584ef5a64e9a580cf9
 LOBO_A0_CORRECT = 221
 LOBO_A0_TOTAL = 251
 RUAA_N_WORKS = 137
+RUAA_REGISTERED_INVENTORY_FILES = 141
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _LOBO_STATUS_RE = re.compile(r"^\[(OK|MISS)\s*\]\s+(.+?)\s+/\s+(\S+)\s+\(rank[^:]*:\s*(\d+)\)\s*$")
 _LOBO_TOP_RE = re.compile(r"^\s+топ:\s+(.+?)\s+\(")
@@ -197,6 +198,31 @@ _GOLDEN_INVENTORY_VERSION = "paired_audit.golden_inventory.v1"
 # B4_LIVE_GOLDEN_REPLAY gate; the STRUCTURAL panel replay below binds the goldens without the estimator.
 B4_GOLDEN_FIXTURE_SHA256 = "c66e63e7e8af36b03b6aaa28f3d8cb23b71ef8e7a433ddd0c85322463b993a25"
 _B4_GOLDEN_INVENTORY_VERSION = "paired_audit.b4_golden_inventory.v1"
+WORK_BALANCED_GOLDEN_FIXTURE = "tests/fixtures/work_balanced_ablation_goldens_v1.json"
+B4_GOLDEN_FIXTURE_ALIASES = {
+    "b4_goldens_v1": WORK_BALANCED_GOLDEN_FIXTURE,
+    "b4_goldens_v1.json": WORK_BALANCED_GOLDEN_FIXTURE,
+    "tests/fixtures/b4_goldens_v1.json": WORK_BALANCED_GOLDEN_FIXTURE,
+    "work_balanced_ablation_goldens_v1": WORK_BALANCED_GOLDEN_FIXTURE,
+    "work_balanced_ablation_goldens_v1.json": WORK_BALANCED_GOLDEN_FIXTURE,
+    WORK_BALANCED_GOLDEN_FIXTURE: WORK_BALANCED_GOLDEN_FIXTURE,
+}
+
+
+def resolve_b4_golden_fixture(repository_root: pathlib.Path | str,
+                              identifier: str = "b4_goldens_v1") -> pathlib.Path:
+    """Resolve both the legacy B4 name and the descriptive v1 name to one file.
+
+    This is an explicit compatibility mapping, not a Git-history fallback: clean
+    archives and wheels never need a deleted object to replay the frozen bytes.
+    The canonical file is SHA-pinned before its path is returned.
+    """
+    relative = B4_GOLDEN_FIXTURE_ALIASES.get(identifier)
+    if relative is None:
+        raise ReferenceError(f"unknown B4 golden fixture identifier: {identifier!r}")
+    path = pathlib.Path(repository_root) / relative
+    _pinned(path, B4_GOLDEN_FIXTURE_SHA256, "B4 golden fixture")
+    return path
 
 
 def _b4_panel_sha256(panel: dict) -> str:
@@ -252,28 +278,75 @@ def golden_fixture_inventory(named_paths: dict) -> str:
     return h.hexdigest()
 
 
-def verify_ruaa_inventory(ruaa_sha256sums: pathlib.Path | str, ruaa_root: pathlib.Path | str) -> int:
-    """Verify EVERY file listed in the frozen RuAA SHA256SUMS against its recorded digest (fail-closed
-    on any missing/symlinked/tampered file). Returns the number of verified files."""
+def verify_ruaa_inventory(
+    ruaa_sha256sums: pathlib.Path | str,
+    ruaa_root: pathlib.Path | str,
+    *,
+    expected_files: int | None = None,
+) -> int:
+    """Verify an exact path↔digest bijection for a RuAA source directory.
+
+    The sums file may not duplicate a path or omit/add a regular payload.  Any
+    symlink anywhere below the root is fatal.  Confirmatory callers additionally
+    pin ``expected_files`` to the registered 141-file source inventory.
+    """
     sums_path = pathlib.Path(ruaa_sha256sums)
     root = pathlib.Path(ruaa_root)
     if sums_path.is_symlink() or not sums_path.is_file():
         raise ReferenceError(f"RuAA SHA256SUMS missing or a symlink: {sums_path}")
-    n = 0
+    if root.is_symlink() or not root.is_dir():
+        raise ReferenceError(f"RuAA root missing or a symlink: {root}")
+    if expected_files is not None and (
+        type(expected_files) is not int or expected_files < 1
+    ):
+        raise TypeError("expected_files must be a positive exact integer")
+
+    recorded: dict[str, str] = {}
     for raw in sums_path.read_text(encoding="utf-8").splitlines():
         if not raw.strip():
             continue
-        digest, _, name = raw.partition("  ")
+        digest, separator, name = raw.partition("  ")
         digest, name = digest.strip(), name.strip()
         rel = pathlib.PurePosixPath(name)
-        if not (_HEX64_RE.match(digest) and name and ".." not in rel.parts and not rel.is_absolute()):
+        if not (
+            separator == "  "
+            and _HEX64_RE.fullmatch(digest)
+            and name
+            and "\\" not in name
+            and ".." not in rel.parts
+            and not rel.is_absolute()
+            and rel.as_posix() == name
+        ):
             raise ReferenceError(f"malformed/unsafe SHA256SUMS entry: {raw[:48]!r}")
-        if _sha256(root / name) != digest:                     # _sha256 fails closed on missing/symlink
-            raise ReferenceError(f"RuAA inventory digest mismatch for {name}")
-        n += 1
-    if n == 0:
+        if name in recorded:
+            raise ReferenceError(f"duplicate RuAA SHA256SUMS path: {name}")
+        recorded[name] = digest
+
+    if not recorded:
         raise ReferenceError("RuAA SHA256SUMS is empty")
-    return n
+
+    sums_absolute = sums_path.absolute()
+    actual: set[str] = set()
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise ReferenceError(f"RuAA inventory contains a symlink: {relative}")
+        if path.is_file() and path.absolute() != sums_absolute:
+            actual.add(relative)
+    listed = set(recorded)
+    if listed != actual:
+        raise ReferenceError(
+            "RuAA inventory path set mismatch: "
+            f"missing={sorted(actual - listed)!r}, extra={sorted(listed - actual)!r}"
+        )
+    if expected_files is not None and len(recorded) != expected_files:
+        raise ReferenceError(
+            f"RuAA inventory has {len(recorded)} files; expected exactly {expected_files}"
+        )
+    for name, digest in recorded.items():
+        if _sha256(root / name) != digest:
+            raise ReferenceError(f"RuAA inventory digest mismatch for {name}")
+    return len(recorded)
 
 
 def assert_a0_preflight(*, lobo_books: pathlib.Path | str,
@@ -293,6 +366,10 @@ def assert_a0_preflight(*, lobo_books: pathlib.Path | str,
             raise ReferenceError("RuAA reference data absent — the confirmatory A0 preflight cannot run")
         result["ruaa"] = None
         return result
-    n_inventory = verify_ruaa_inventory(ruaa_sha256sums, ruaa_root)
+    n_inventory = verify_ruaa_inventory(
+        ruaa_sha256sums,
+        ruaa_root,
+        expected_files=RUAA_REGISTERED_INVENTORY_FILES,
+    )
     result["ruaa"] = {"n_inventory": n_inventory, **parse_ruaa_a0_reference(ruaa_reference_submission)}
     return result

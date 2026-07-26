@@ -162,6 +162,65 @@ class TestBuilder:
         assert pointer["version"] == root.name
         assert ac.resolve_current_root(tmp_path / "audit") == root
 
+    def test_build_mints_manifests_only_inside_staging_for_legacy_source(self, tmp_path):
+        """The real frozen source is legacy-recursive and intentionally has no per-work manifests.
+
+        Preparation must make the work-balanced view atomically in the immutable copy; it must never
+        mutate ``data/frags_train`` (or the synthetic source standing in for it here).
+        """
+        from stylo.pipeline.split import resolve_fragment_snapshot, run as split_corpus
+
+        ic = tmp_path / "legacy_clean"
+        data = tmp_path / "legacy_data"
+        replay_cfg = with_overrides(CFG, {
+            "paths.input_clean": str(ic), "paths.data": str(data),
+            "chunking.chunk_size": 20, "chunking.min_words": 5,
+        })
+        for author in ("alpha", "beta", "gamma"):
+            for book in ("one", "two"):
+                path = ic / author / f"{book}.txt"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(" ".join(
+                    f"Предложение {i} книги {book} автора {author} содержит достаточно обычных слов."
+                    for i in range(18)
+                ), encoding="utf-8")
+        split_corpus(replay_cfg)
+        frags = resolve_fragment_snapshot(
+            data, require_versioned=True
+        ).train_root
+        for path in frags.rglob(wd.MANIFEST_NAME):
+            path.unlink()
+        assert not list(frags.rglob(wd.MANIFEST_NAME))
+
+        root = ac.build_audit_corpus(
+            source_frags_root=frags, input_clean_root=ic, cfg=replay_cfg,
+            audit_parent=tmp_path / "audit", legacy_anchor=_toy_anchor(frags),
+            expected_n_works=6,
+        )
+
+        assert not list(frags.rglob(wd.MANIFEST_NAME))
+        assert len(list((root / ac.FRAGS_SUBDIR).rglob(wd.MANIFEST_NAME))) == 6
+        legacy = load_dataset(root / ac.FRAGS_SUBDIR)
+        wb = load_work_balanced_dataset(root / ac.FRAGS_SUBDIR, cfg=replay_cfg,
+                                        input_clean_root=root / ac.INPUT_CLEAN_SUBDIR)
+        assert sp.assert_semantic_parity(legacy, wb)
+
+    def test_rejects_output_inside_source_and_symlinked_source_root(self, tmp_path):
+        frags, ic = _make_wb_corpus(tmp_path, _default_spec())
+        with pytest.raises(ac.AuditCorpusError):
+            ac.build_audit_corpus(
+                source_frags_root=frags, input_clean_root=ic, cfg=CFG,
+                audit_parent=frags / "audit-output", legacy_anchor=_toy_anchor(frags),
+            )
+
+        linked = tmp_path / "linked-frags"
+        linked.symlink_to(frags, target_is_directory=True)
+        with pytest.raises(ac.AuditCorpusError):
+            ac.build_audit_corpus(
+                source_frags_root=linked, input_clean_root=ic, cfg=CFG,
+                audit_parent=tmp_path / "safe-output", legacy_anchor=_toy_anchor(frags),
+            )
+
     def test_audit_dataset_is_work_balanced_for_every_cell(self, tmp_path):
         # §1.4: the audit dataset is the same WB-manifest dataset for A0..A4 (no legacy-loaded A0)
         _, _, root = self._build(tmp_path)

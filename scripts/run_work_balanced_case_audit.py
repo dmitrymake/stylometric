@@ -55,10 +55,15 @@ def _primary(result: dict[str, Any]) -> dict[str, Any]:
     attribution = (result.get("attributions") or [{}])[0]
     return {
         "status": result["status"],
-        "gate_pass": result["gate_pass"],
+        "required_gates_pass": result["gate_pass"],
+        "panel_feasibility_gate_pass": gate.get("gate_pass", False),
         "work_macro_recall": gate.get("work_macro_recall"),
         "permutation_p": gate.get("permutation_p"),
         "top": attribution.get("top"),
+        "diagnostic_closed_set_top": attribution.get(
+            "diagnostic_closed_set_top"
+        ),
+        "abstained": attribution.get("abstained", True),
         "winner_share": attribution.get("winner_share", {}),
         "margin": attribution.get("margin"),
         "n_chunks": attribution.get("n_chunks", 0),
@@ -78,8 +83,14 @@ def _paired_row(source_spec: str, results: dict[str, dict[str, Any]]) -> dict[st
         "legacy": legacy,
         "work_balanced": balanced,
         "gate_delta_work_balanced_minus_legacy": delta,
-        "gate_decision_changed": legacy["gate_pass"] != balanced["gate_pass"],
-        "target_top_changed": legacy["top"] != balanced["top"],
+        "panel_gate_decision_changed": (
+            legacy["panel_feasibility_gate_pass"]
+            != balanced["panel_feasibility_gate_pass"]
+        ),
+        "diagnostic_target_top_changed": (
+            legacy["diagnostic_closed_set_top"]
+            != balanced["diagnostic_closed_set_top"]
+        ),
     }
 
 
@@ -92,7 +103,7 @@ def _markdown(report: dict[str, Any]) -> str:
         "The registered feasibility threshold is 0.80; a score below it fails even when "
         "the permutation p-value is small.",
         "",
-        "| case | legacy gate | work-balanced gate | delta | legacy p | balanced p | legacy top | balanced top |",
+        "| case | legacy gate | work-balanced gate | delta | legacy p | balanced p | legacy diagnostic top | balanced diagnostic top |",
         "|---|---:|---:|---:|---:|---:|---|---|",
     ]
     for row in report["cases"]:
@@ -106,15 +117,17 @@ def _markdown(report: dict[str, Any]) -> str:
                 delta=row["gate_delta_work_balanced_minus_legacy"],
                 lp=legacy["permutation_p"],
                 bp=balanced["permutation_p"],
-                lt=legacy["top"] or "",
-                bt=balanced["top"] or "",
+                lt=legacy["diagnostic_closed_set_top"] or "",
+                bt=balanced["diagnostic_closed_set_top"] or "",
             )
         )
     lines.extend(
         [
             "",
-            "A failed feasibility gate forbids interpretation of the target even when its "
-            "top label is unchanged. Historical passports remain available as legacy artifacts.",
+            "All target labels in this table are withdrawn closed-set diagnostics. "
+            "A feasibility pass does not establish target applicability; current v2 "
+            "passports abstain until a calibrated open-set gate exists. Historical "
+            "passports remain available only as withdrawn legacy artifacts.",
             "",
             "The historical bespoke Kolokol panel is audited separately because its corpus and "
             "600-word window differ from the framework spec. Under work-balanced function-word "
@@ -176,7 +189,7 @@ def run(
         rows.append(_paired_row(relative, paired))
 
     report = {
-        "audit": "work_balanced_train_centroid_v1",
+        "audit": "work_balanced_train_centroid_v2_fail_closed_targets",
         "status": "exploratory_adversarial_rerun",
         "date": "2026-07-11",
         "estimands": {

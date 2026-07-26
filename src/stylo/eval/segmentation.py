@@ -22,25 +22,10 @@ from typing import Literal
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from ..domain.segmentation import LabeledSpan, Span
 
 EvaluationMode = Literal["named_attribution", "anonymous_partition"]
-
-
-@dataclass(frozen=True, slots=True)
-class LabeledSpan:
-    """A contiguous author-labelled token span, using ``[start, end)`` offsets."""
-
-    start: int
-    end: int
-    label: str
-
-    @property
-    def length(self) -> int:
-        return self.end - self.start
-
-
-# A short, convenient alias for callers constructing many synthetic spans.
-Span = LabeledSpan
+TOPOLOGY_ROLE = "mixed_authorship_evaluation"
 
 
 @dataclass(frozen=True, slots=True)

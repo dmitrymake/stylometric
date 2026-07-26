@@ -26,7 +26,7 @@ from typing import Callable, Tuple
 
 CI_COL = "vs_stylo_dacc_authorclustered_ci"
 
-# Frozen P0 snapshot SHA256 (also pinned in docs/p0_baseline_snapshot.json). Immutable inputs.
+# Frozen baseline-snapshot SHA256 (also pinned in docs/p0_baseline_snapshot.json). Immutable inputs.
 FROZEN_SHA256 = {
     "final_comparison.csv": "31bba7af930685fc9862fe6b1806b3f2ba5ba21b6726e66757e4dd756a3ded6f",
     "final_comparison.txt": "5b2e6f6b6f18c87ce13183413cdec9e136b873be6674856f5780656dcda92d96",

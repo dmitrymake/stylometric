@@ -4,7 +4,7 @@
   mfw        — топ-N самых частотных слов (CountVectorizer max_features),
   fixed_list — фиксированный язык-специфичный список (RU: 405 слов из lang.py).
 
-Две независимые оси (B4-B increment 3):
+Две независимые оси абляции:
   F (feature state) — словарь: pooled ``CountVectorizer`` (F0) vs work-level
       ``WorkLevelVectorizer`` (F1); маршрутизируется наличием ``groups`` на ``fit``.
   R (transform)     — сырые счётчики (R0) vs относительная частота
@@ -55,13 +55,13 @@ class FunctionWordBlock(FeatureBlock):
 
     def __setstate__(self, state):
         super().__setstate__(state)
-        # An artifact is pre-increment-3 iff ``relative_fw`` is absent from BOTH the top-level state AND
-        # the constructor snapshot (``_ctor_state``) — stripping only the top-level field on an inc-3
-        # artifact must NOT downgrade it to legacy (that would silently flip R). Then the full fitted
-        # coherence table (below) rejects any partial/incoherent state.
+        # An artifact uses the legacy coupled axes iff ``relative_fw`` is absent from BOTH the top-level
+        # state AND the constructor snapshot (``_ctor_state``). Stripping only the top-level field from
+        # an explicit-axis artifact must NOT downgrade it to the legacy coupling (that would silently
+        # flip R). The fitted-state coherence table below rejects every partial/incoherent state.
         ctor = self.__dict__.get("_ctor_state") or {}
-        is_inc3 = ("relative_fw" in self.__dict__) or ("relative_fw" in ctor)
-        if not is_inc3:
+        has_explicit_axis_state = ("relative_fw" in self.__dict__) or ("relative_fw" in ctor)
+        if not has_explicit_axis_state:
             self.__dict__["relative_fw"] = None
             self.__dict__.setdefault("feature_fit_", None)
             self.__dict__.setdefault("relative_fw_", None)
@@ -87,7 +87,7 @@ class FunctionWordBlock(FeatureBlock):
                 raise ValueError("legacy FunctionWord _wv must be MODE_RELATIVE (A4)")
             if type(rf_) is bool and rf_ is not (wv is not None):   # if a bool is recorded it must match
                 raise ValueError("legacy FunctionWord effective relative_fw_ is incoherent")
-        else:                                                   # explicit inc-3 A2/A3 (or explicit corner)
+        else:                                                   # explicit-axis A2/A3 (or explicit corner)
             if type(ff_) is not bool or type(rf_) is not bool:
                 raise ValueError("fitted explicit FunctionWord needs plain-bool effective axes")
             if rf_ is not rf:                                   # the fitted R must match the policy

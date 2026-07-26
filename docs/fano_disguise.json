@@ -429,6 +429,6 @@
       "mean_passes_as_A": 1.0
     }
   ],
-  "headline": "recognize_B → 0 при s → 1 для ВСЕХ пар ⇒ маскировка конструктивно достигает information-пола (чужая рука невидима); натуральные пары там не находятся (см. fano_frontier.json) ⇒ пол = свойство вырожденного/сознательно-замаскированного режима, не натуральной AA",
-  "status": "exploratory; НЕ headline-ready: детектор bow_lr обучен IN-SAMPLE (fit на всех данных, оценка на тех же); маскировка в лексическом bow-пространстве, не структурном. Зонд геометрии, не оценка обобщаемой детекции."
+  "headline": "WITHDRAWN. This in-sample model-output simulation does not establish an information floor, Bayes error, pair indistinguishability, or an unavoidable limit.",
+  "status": "WITHDRAWN_INVALID_FANO_INTERPRETATION; historical descriptive simulation only. The bow_lr detector was fitted and evaluated in-sample, and fano_frontier.json no longer supplies a valid information/error bound. Do not cite as a generalizable detection or impossibility result."
 }
