@@ -17,6 +17,7 @@ particular never touches a headline artifact path (publication is gated separate
 from __future__ import annotations
 
 import math
+import numbers
 from typing import Sequence
 
 import numpy as np
@@ -30,6 +31,20 @@ DEFAULT_QUANTILES = (2.5, 97.5)
 
 class HeadlineError(ValueError):
     """Fail-closed: headline inputs are misaligned or empty."""
+
+
+def _finite_ci_bound(value, *, name: str) -> float:
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, numbers.Real):
+        raise HeadlineError(f"CI {name} bound must be a finite real number")
+    try:
+        bound = float(value)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise HeadlineError(
+            f"CI {name} bound must be a finite real number"
+        ) from exc
+    if not math.isfinite(bound):
+        raise HeadlineError(f"CI {name} bound must be a finite real number")
+    return bound
 
 
 def _cluster_percentile_ci(values: Sequence, authors: Sequence, *, iters: int, seed: int,
@@ -97,6 +112,8 @@ def headline_gate(ci_lo: float, ci_hi: float, *, margin: float = DEFAULT_MARGIN)
     if not (isinstance(margin, (int, float)) and not isinstance(margin, bool)
             and math.isfinite(margin) and margin > 0):
         raise HeadlineError("margin must be a positive finite number")
+    ci_lo = _finite_ci_bound(ci_lo, name="lower")
+    ci_hi = _finite_ci_bound(ci_hi, name="upper")
     if ci_hi < ci_lo:
         raise HeadlineError("CI upper bound is below the lower bound")
     if ci_lo > -margin:

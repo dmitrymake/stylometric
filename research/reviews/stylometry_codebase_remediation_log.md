@@ -88,6 +88,7 @@ Initial state:
 | AUD-061 | MEDIUM | fixed / v1 work-identity migration gated | Added a central task→allowed/required endpoint matrix, exact declared-task coverage, nonzero blind endpoint checks, and endpoint counts in the score envelope. Segmentation requires an explicit bootstrap unit; scientific scoring requires registered work IDs, while document bootstrap is synthetic-integration-only pending the already-required blind v2 identity migration. |
 | AUD-050 | LOW | fixed | Replaced the FunctionWord mode and Delta metric configuration asserts with explicit exact-string `ValueError` contracts. A subprocess regression proves both invalid configurations still fail under `python -O`. |
 | AUD-051 | LOW | fixed | `StyloVectorizer.transform` and `fit_transform` now materialize each public input iterable before representation and block passes. Real-block regressions prove list/generator parity for both direct transform and combined fit-transform. |
+| AUD-052 | LOW | fixed | The headline gate now validates both CI bounds as non-bool finite real scalars before ordering or decision comparisons and raises the existing typed `HeadlineError`. NaN and both infinities reject in either bound; equal finite bounds retain registered semantics. |
 
 ## Chronology
 
@@ -219,3 +220,7 @@ Initial state:
 - 2026-07-26: Completed LOW finding AUD-051 by normalizing single-use text
   iterables at both vectorizer entrypoints. List/generator parity now holds for
   direct transform and fit-transform in the focused block/vectorizer suite.
+- 2026-07-26: Completed LOW finding AUD-052. The headline helper now rejects
+  nonnumeric, boolean and nonfinite CI bounds before applying the registered
+  ordering and noninferiority comparisons; paired-audit headline and publisher
+  regressions pass.

@@ -27,6 +27,27 @@ class TestHeadlineGate:
         with pytest.raises(hl.HeadlineError):
             hl.headline_gate(0.1, -0.1, margin=0.02)
 
+    @pytest.mark.parametrize("bound", [float("nan"), float("inf"), float("-inf")])
+    def test_nonfinite_ci_bounds_rejected(self, bound):
+        with pytest.raises(hl.HeadlineError, match="finite real"):
+            hl.headline_gate(bound, 0.1, margin=0.02)
+        with pytest.raises(hl.HeadlineError, match="finite real"):
+            hl.headline_gate(-0.1, bound, margin=0.02)
+
+    @pytest.mark.parametrize(
+        "bound",
+        [True, np.bool_(False), "0.1", 10**10000],
+        ids=["bool", "numpy-bool", "string", "overflowing-int"],
+    )
+    def test_nonnumeric_ci_bounds_raise_typed_error(self, bound):
+        with pytest.raises(hl.HeadlineError, match="finite real"):
+            hl.headline_gate(bound, 0.1, margin=0.02)
+        with pytest.raises(hl.HeadlineError, match="finite real"):
+            hl.headline_gate(-0.1, bound, margin=0.02)
+
+    def test_equal_finite_bounds_remain_valid_and_inconclusive(self):
+        assert hl.headline_gate(-0.02, -0.02, margin=0.02) == "inconclusive"
+
     def test_stat_input_validation(self):
         with pytest.raises(hl.HeadlineError):
             hl.headline_gate(-0.01, 0.05, margin=0)                             # margin must be > 0
