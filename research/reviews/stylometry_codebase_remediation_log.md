@@ -96,6 +96,7 @@ Initial state:
 | POST-REVIEW-COMMENT-001 | LOW | fixed | Normalized stale generator/data comments that called the ineligible full/PD snapshot canonical, production, publishable or leakage-free. They now describe historical arithmetic only; no generated metric value or frozen evidence changed. |
 | POST-REVIEW-META-001 | HIGH | fixed | Static SEO/Open Graph/Twitter metadata bypassed the React withdrawal notice and still advertised “leakage-free LOBO” and confidence intervals as active claims. Replaced all three descriptions with an explicit withdrawal, added a static metadata regression, and corrected the canonical/Open Graph domain typo from `russkykod.com` to the deployed `russkiykod.com`. |
 | POST-REVIEW-RENDER-001 | MEDIUM | fixed | The SSR smoke rendered only the default framework tab, so an undefined identifier in any of the four click-only chapters could pass CI and fail in production. `App` now accepts a validated test-only initial chapter while production defaults remain unchanged; the smoke renders all five registered chapters with chapter-specific markers and exact registry coverage. A Babel scope gate scans every JS/JSX source, including callbacks/effects that SSR cannot execute, and proves sensitivity with an undefined-identifier negative fixture. Its exact direct parser/traverse dependencies are synchronized in both tracked package-manager locks. |
+| POST-REVIEW-REPRO-001 | LOW | fixed | Repro incorrectly said `run.sh all` fetched classics on a clean machine and reproduced the historical metric. Acquisition is now documented as the separate `fetch-classics` command; `all` requires an already assembled registered content-safe corpus, while the ineligible historical snapshot must stop at the isolation gate. Historical arithmetic is described only as stored artifact/provenance replay. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -303,3 +304,9 @@ not change the normative ledger or frozen evidence.
   version-pinned Babel scope scan over every JS/JSX source so event/effect-only
   undefined identifiers fail too; its negative fixture proves the gate detects
   the original failure class. Production `<App />` initialization is unchanged.
+- 2026-07-26: Corrected the final Repro command contract: `run.sh all` never
+  performs acquisition and must not regenerate a metric from the registered
+  ineligible snapshot. Documented `fetch-classics` as a separate step, limited
+  fresh `all`/benchmark execution to a registered content-safe corpus, and
+  distinguished byte/provenance replay of stored historical artifacts from a
+  new scientific run.

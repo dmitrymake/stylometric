@@ -185,6 +185,9 @@ def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
         "lobo.py (leakage-free)",
         "Главный тест держит ровно одно правило",
         "не видела проверяемую книгу",
+        "На чистой машине скрипт докачивает классиков",
+        'title="весь прогон одной командой"',
+        "./run.sh all                 # validate → split",
     )
     for phrase in banned:
         assert phrase not in site_source
@@ -219,3 +222,12 @@ def test_method_does_not_render_the_withdrawn_macro_f1_interval():
     assert "интервал macro-F1 дополнительно отозван" in source
     assert "Следующий протокол · content-safe" in source
     assert "Весь content-компонент отложенной книги" in source
+
+
+def test_repro_separates_artifact_replay_acquisition_and_new_scientific_run():
+    source = (ROOT / "site" / "src" / "sections" / "Repro.jsx").read_text(
+        encoding="utf-8"
+    )
+    assert "artifact replay, а не новый научный прогон" in source
+    assert "нынешний ineligible snapshot" in source
+    assert "./run.sh fetch-classics" in source

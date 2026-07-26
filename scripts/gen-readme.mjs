@@ -302,11 +302,16 @@ python -m spacy download ru_core_news_lg
 python -m pytest -q        # быстрый unit/release-hygiene smoke; uv.lock локален и игнорируется
 python scripts/check_release_hygiene.py --audit-local-refs   # перед релизом: publish-ref + индекс = FAIL при приватных путях; другие refs/stash = WARN
 git config core.hooksPath .githooks   # включить pre-push-гейт (блокирует пуш приватной истории до загрузки объектов)
-./run.sh all                 # validate → split → warm → train → sweep → evaluate → predict → report
-python scripts/run_benchmark.py --pd-only   # текущий атомарный split snapshot → docs/validation_pd.json
-python scripts/run_benchmark.py             # текущий атомарный split snapshot → docs/validation.json
-node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # синхронизировать сайт и README с docs
+./run.sh fetch-classics      # отдельная загрузка открытых источников; не входит в all
+./run.sh all                 # только зарегистрированный content-safe corpus; historical snapshot обязан упасть на gate
+python scripts/run_benchmark.py --pd-only   # новый scientific run — только после content-safe регистрации
+python scripts/run_benchmark.py             # новый scientific run — только после content-safe регистрации
+node scripts/gen-site-data.mjs && node scripts/gen-readme.mjs   # replay сохранённых docs/provenance, не новый scientific run
 \`\`\`
+Команда \`fetch-classics\` не вызывается из \`all\`: acquisition и scientific
+pipeline разделены. Сохранённые исторические числа воспроизводятся как
+артефакты, но зарегистрированный ineligible snapshot не должен проходить новый
+\`evaluate\` до content-component миграции.
 Файл \`.python-version\` фиксирует поддерживаемый runtime: CPython 3.11.
 Единственный поддерживаемый точный путь установки core/dev-окружения использует
 \`requirements.lock\` именно как constraints-файл, как показано выше. После

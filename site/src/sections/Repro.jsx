@@ -29,15 +29,14 @@ export default function Repro() {
       <div className="wrap flow">
         <div className="section-head reveal">
           <p className="eyebrow">Можно повторить у себя</p>
-          <h2>От корпуса до вердикта за один прогон</h2>
+          <h2>Исторические артефакты и новый gated-прогон</h2>
           <p className="prose lead muted">
-            Хороший результат — тот, который перепроверит кто угодно. Здесь нет скрытого шага, что
-            срабатывает лишь на чужой машине. Весь путь — от сборки корпуса до готового отчёта —
-            запускается одной командой. На чистой машине скрипт докачивает классиков по
-            списку-манифесту, заново собирает открытую часть корпуса и воспроизводит
-            историческую арифметику — {fmtScore(BENCH.topTop1, 3)}, около{" "}
-            {fmtPct(BENCH.topTop1)} попаданий. Из-за cross-work content leakage это
-            не действующая оценка точности и не реабилитация отозванного полного LOBO.
+            Сохранённые docs и provenance позволяют проверить байты исторической арифметики —{" "}
+            {fmtScore(BENCH.topTop1, 3)}, около {fmtPct(BENCH.topTop1)} попаданий, — но это
+            artifact replay, а не новый научный прогон. Загрузка классиков выполняется отдельной
+            командой и сама по себе не собирает допустимый корпус. Для <code>run.sh all</code>{" "}
+            нужен уже зарегистрированный content-safe corpus; нынешний ineligible snapshot
+            обязан остановиться на content-isolation gate до публикации новой оценки.
           </p>
           <HistoricalHeadlineNotice compact />
           <p className="prose muted">
@@ -61,18 +60,20 @@ export default function Repro() {
 
         {/* Полный пайплайн */}
         <div className="module reveal" style={{ display: "grid", gap: 16 }}>
-          <CodeBlock language="bash" title="весь прогон одной командой">
-            {`./run.sh all   # validate → split → warm → train → sweep → evaluate → predict → report`}
+          <CodeBlock language="bash" title="новый прогон после content-safe миграции">
+            {`./run.sh fetch-classics   # отдельная загрузка открытых источников; не часть all
+./run.sh all              # только для уже собранного и зарегистрированного content-safe corpus`}
           </CodeBlock>
 
           <p className="prose muted" style={{ margin: 0, fontSize: 13.5 }}>
-            Восемь стадий: проверка данных → нарезка книг на отрывки → прогрев кэша
-            признаков → обучение → отбор признаков → оценка → предсказание → отчёт.
+            После подготовки допустимого корпуса pipeline выполняет preflight, очистку,
+            валидацию, split, прогрев кэша, обучение, sweep, оценку, предсказание и отчёт.
+            Зарегистрированный исторический snapshot эту границу не проходит.
           </p>
 
           <CodeBlock language="bash" title="по шагам">
-            {`./run.sh sweep      # отключаем признаки по одному — что реально работает
-./run.sh evaluate   # проверка по целым книгам + простые методы-ориентиры для сравнения (классическая Дельта)
+            {`./run.sh sweep      # exploratory screening на допустимом зарегистрированном corpus
+./run.sh evaluate   # content-isolation gate → оценка; historical snapshot должен остановиться
 ./run.sh predict    # определяем автора неизвестного текста по профилям авторов`}
           </CodeBlock>
         </div>

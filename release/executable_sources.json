@@ -82,7 +82,7 @@
   "sha256_bindings": {
     ".github/workflows/ci.yml": "230bbf02a2b065e89b41d0c4bd3e24fb68b61473cdfb4ec6a62cdeaf08e067c4",
     ".github/workflows/deploy-pages.yml": "5470d0c92ad5b3d096732eecb8816ee0f2b079212e886e4c256f26b296cbb26c",
-    "README.md": "08dcddb79a38812031cca1c5a4961d5588c82e0cd70470bb120c437866e6a33f",
+    "README.md": "c72f84b944c3bfbc8af15ecef0e9d7962de4e7ba0f01d8564e162c444e08fb1a",
     "docs/ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
     "research/evidence/ineligible_corpus_registrations_v1.json": "87074d041fc6171d9bea1e863ca729576462aeffb4c1af185afcbaf2960b4424",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source/scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
@@ -98,7 +98,7 @@
     "research/governance/topology.json": "456dfbf37dbcbdc7ea5e73be2d4bd65e3465f7786ffa099b44b12eb8350caf1d",
     "scripts/check-provenance.mjs": "42ec5e403e93b5b12e2ca61c8a95ece76e634f0c0e860efd95479b8b85766d34",
     "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
-    "scripts/gen-readme.mjs": "47475679f523c2e4e94135e661d336bededdee7a375707ba39f8fdcb75a112f5",
+    "scripts/gen-readme.mjs": "2d0db8a2bd7607a0c873608abbf5c9078b54e25ebea7e4d33523d323e5d40909",
     "scripts/gen-site-data.mjs": "8d37f311d56274afea9520703ac9f0bce9520ec0ddb23ebd84e4aec1b2959cb7",
     "site/index.html": "43fc16ebcacd9fdc385ee67331588dd105466e40bff4165e34b62edd19fc69e8",
     "site/package-lock.json": "e63c2a4bb8dc0b6f796574049e52f451e6dd1c04f0d5006e1ced0c82d8b7bad9",
