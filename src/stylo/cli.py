@@ -3,6 +3,7 @@
   stylo validate-corpus      — отчёт о качестве корпуса
   stylo clean                — очистка input -> input_clean (NER-маскировка)
   stylo split [--leave-out]  — нарезка на чанки по предложениям
+  stylo verify-evaluation-corpus — provenance + cross-work content gate
   stylo warm                 — прогрев DocBin-кеша spaCy
   stylo train                — обучение продакшен-модели
   stylo lobo [--model spec]  — честный LOBO одной модели
@@ -42,8 +43,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     simple_commands = {}
-    for name in ["validate-corpus", "clean", "warm", "train", "predict", "report",
-                 "fetch-classics", "evaluate"]:
+    for name in [
+        "validate-corpus",
+        "clean",
+        "verify-evaluation-corpus",
+        "warm",
+        "train",
+        "predict",
+        "report",
+        "fetch-classics",
+        "evaluate",
+    ]:
         sp = sub.add_parser(name)
         _add_global(sp)
         simple_commands[name] = sp
@@ -155,6 +165,36 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.cmd == "split":
         from .pipeline import split
         split.run(cfg, leave_out=args.leave_out)
+    elif args.cmd == "verify-evaluation-corpus":
+        from .dataset import resolve_dataset
+        from .domain.work_weighting import resolve_training_weighting
+        from .eval.provenance import prepare_scientific_evaluation
+
+        weighting = resolve_training_weighting(
+            cfg.get_path("evaluation.training_weighting")
+        )
+        ds = resolve_dataset(
+            cfg,
+            weighting,
+            exclude_authors=set(
+                cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []
+            ),
+            unknown_name=cfg.get_path(
+                "corpus_policy.unknown_dir_name",
+                "unknown",
+            ),
+        )
+        context = prepare_scientific_evaluation(
+            cfg,
+            ds,
+            weighting,
+        )
+        print(
+            "evaluation corpus OK: "
+            f"weighting={context.weighting} rows={len(context)} "
+            f"works={len(set(context.groups))} "
+            f"isolation_receipt={context.isolation_receipt_sha256}"
+        )
     elif args.cmd == "warm":
         from .corpus import load_dataset
         from .dataset import resolve_fragment_roots
@@ -196,7 +236,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         from .pipeline import predict
         predict.run(cfg, expected_bundle_token=args.model_bundle_token)
     elif args.cmd == "lobo":
-        from .features.reps import make_rep_cache
         from .eval.lobo import lobo_evaluate, format_top_candidates
         from .eval.metrics import summarize_book_results
         from .domain.work_weighting import resolve_training_weighting
@@ -205,7 +244,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         ds = resolve_dataset(cfg, weighting,
                              exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
                              unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"))
-        make_rep_cache(cfg).warm(list(ds.texts), n_process=cfg.get_path("language.parse_n_process", 4))
         df, _, _ = lobo_evaluate(cfg, ds, spec=args.model, max_books=args.max_books, weighting=weighting)
         s = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
                                    df["rank"].to_numpy(), ds.authors,
@@ -213,7 +251,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                                    seed=cfg.get_path("seed", 42))
         print(f"\nLOBO[{args.model}]: acc={s['accuracy']} macroF1={s['macro_f1']} top2={s['top2']}")
     elif args.cmd == "sweep":
-        from .features.reps import make_rep_cache
         from .eval.sweep import run_sweep, format_sweep_table
         from .domain.work_weighting import CHUNK_WEIGHTED_LEGACY, resolve_training_weighting
         from .dataset import resolve_dataset
@@ -221,7 +258,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         ds = resolve_dataset(cfg, weighting,
                              exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
                              unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"))
-        make_rep_cache(cfg).warm(list(ds.texts), n_process=cfg.get_path("language.parse_n_process", 4))
         sw = run_sweep(cfg, ds, strategy="lobo" if args.lobo else "gkf",
                        include_baselines=not args.no_baselines, weighting=weighting)
         table = format_sweep_table(sw["table"])
@@ -262,7 +298,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"atomic sweep generation → {published['sweep_table.v2.txt'].parent}")
     elif args.cmd == "evaluate":
         import pathlib
-        from .features.reps import make_rep_cache
         from .eval.lobo import write_book_report
         from .eval.final import run_final, format_final
         from .eval.provenance import assert_headline_write_allowed, safe_exploratory_dir
@@ -273,7 +308,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         ds = resolve_dataset(cfg, weighting,
                              exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
                              unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"))
-        make_rep_cache(cfg).warm(list(ds.texts), n_process=cfg.get_path("language.parse_n_process", 4))
         out = run_final(cfg, ds, weighting=weighting)
         txt = format_final(out["table"], out["results"])
         print(txt)

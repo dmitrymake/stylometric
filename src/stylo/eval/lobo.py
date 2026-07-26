@@ -22,7 +22,6 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from ..corpus import Dataset
-from ..domain.corpus_identity import assert_cross_work_content_isolation
 from ..lang import display_name
 from ..models.baselines import CharCosineBaseline, MajorityBaseline, build_bow_lr
 from ..models.delta import BurrowsDelta
@@ -34,12 +33,16 @@ from ..models.registry import (
 from ..features.reps import make_rep_cache
 from ..models.lr import make_full_pipeline, make_logreg, make_scaler
 from ..vectorizer import StyloVectorizer
-from .dispatch import fit_estimator, frozen_run_contract
+from .dispatch import fit_estimator
 from .prediction_contract import (
     stable_top1_and_worst_tie_rank,
     validate_probability_matrix,
 )
-from .provenance import UnsupportedVariantError, verify_dataset_against_disk
+from .provenance import (
+    UnsupportedVariantError,
+    prepare_scientific_evaluation,
+    require_scientific_evaluation_context,
+)
 from .work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
 
@@ -360,13 +363,36 @@ def lobo_evaluate(
     Публичный вход ВСЕГДА проверяет dataset против контракта, выведенного ТОЛЬКО из ``cfg``
     (никакого caller-supplied contract — иначе Dataset+rogue-контракт обошли бы cfg-корпус)."""
     weighting = require_weighting(weighting)
-    weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
-    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
-    return _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting)
+    context = prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        weighting,
+    )
+    return _lobo_run(
+        cfg,
+        context,
+        spec,
+        enabled_override,
+        max_books,
+        n_jobs,
+    )
 
 
-def _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting):
-    """Internal LOBO worker — NO verification (caller must have verified). Not a public API."""
+def _lobo_run(
+    cfg,
+    context,
+    spec,
+    enabled_override,
+    max_books,
+    n_jobs,
+):
+    """Internal LOBO worker.
+
+    A bare Dataset is rejected: callers must pass the sealed result of
+    :func:`prepare_scientific_evaluation`. This is not a public API.
+    """
+    dataset = require_scientific_evaluation_context(context)
+    weighting = dataset.weighting
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
     n_jobs = _bounded_lobo_workers(cfg, n_jobs)
 

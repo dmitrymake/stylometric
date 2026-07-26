@@ -15,10 +15,13 @@ import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
 from ..corpus import Dataset
-from .dispatch import fit_estimator, frozen_run_contract
+from .dispatch import fit_estimator
 from .lobo import _align_proba, _validate_proba, make_factory
 from .prediction_contract import stable_top1_and_worst_tie_rank
-from .provenance import verify_dataset_against_disk
+from .provenance import (
+    prepare_scientific_evaluation,
+    require_scientific_evaluation_context,
+)
 from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
 
 log = logging.getLogger("stylo.eval.groupkfold")
@@ -35,19 +38,32 @@ def gkf_evaluate(
 ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     """k-fold прокси. Публичный вход всегда проверяет dataset против cfg-выведенного контракта."""
     weighting = require_weighting(weighting)
-    weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
-    return _gkf_run(cfg, dataset, spec, enabled_override, k, weighting)
+    context = prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        weighting,
+    )
+    return _gkf_run(cfg, context, spec, enabled_override, k)
 
 
-def _gkf_run(cfg, dataset, spec, enabled_override, k, weighting, panel=None):
-    """Internal GKF worker — NO verification (caller must have verified). Not a public API.
+def _gkf_run(cfg, context, spec, enabled_override, k, panel=None):
+    """Internal GKF worker. Not a public API.
 
     When a frozen ``screening_panel_v1`` manifest is supplied, the dataset is ALREADY the panel
     subset and evaluation uses the frozen folds (every sweep case sees identical folds), with each
     result checked against the canonical manifest. Otherwise the legacy per-run StratifiedGroupKFold
-    proxy is used (toy datasets / non-canonical corpora / the work_balanced arm)."""
+    proxy is used (toy datasets / non-canonical corpora / the work_balanced arm). The caller must
+    first pass the dataset through :func:`prepare_scientific_evaluation`."""
+    dataset = require_scientific_evaluation_context(context)
+    weighting = dataset.weighting
     if panel is not None:
-        return _gkf_run_panel(cfg, dataset, spec, enabled_override, weighting, panel)
+        return _gkf_run_panel(
+            cfg,
+            dataset,
+            spec,
+            enabled_override,
+            panel,
+        )
     if k is None:
         k = cfg.get_path("evaluation.groupkfold_k", 5)
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
@@ -139,8 +155,10 @@ def bind_screening_panel(cfg, dataset, weighting):
     return build_panel_subset(dataset, committed), committed
 
 
-def _gkf_run_panel(cfg, dataset, spec, enabled_override, weighting, manifest):
+def _gkf_run_panel(cfg, context, spec, enabled_override, manifest):
     """GKF over the FROZEN screening_panel_v1 folds; ``dataset`` is already the panel subset."""
+    dataset = require_scientific_evaluation_context(context)
+    weighting = dataset.weighting
     factory = make_factory(spec, cfg, enabled_override, weighting=weighting)
     df, prob_matrix, y_true, _timing = evaluate_frozen_panel_factory(
         cfg, dataset, factory, manifest, spec=spec)
@@ -149,7 +167,7 @@ def _gkf_run_panel(cfg, dataset, spec, enabled_override, weighting, manifest):
 
 def evaluate_frozen_panel_factory(
     cfg,
-    dataset,
+    context,
     factory,
     manifest,
     *,
@@ -162,6 +180,7 @@ def evaluate_frozen_panel_factory(
     the frozen-panel validation, class alignment, one-average-per-work aggregation and deterministic
     row order identical to :func:`_gkf_run_panel`, while exposing fold-level wall-clock timings.
     """
+    dataset = require_scientific_evaluation_context(context)
     from .screening_panel import (ScreeningPanelError, verify_result_against_panel)
     if clock is None:
         clock = time.perf_counter

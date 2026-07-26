@@ -415,6 +415,16 @@ def test_topology_has_one_owner_per_output_and_distinct_eval_roles():
         None,
         "frozen_historical_output_no_live_writer",
     )
+    assert owners["docs/{validation.json,validation_pd.json}"] == (
+        None,
+        "frozen_historical_output_no_live_writer",
+    )
+    assert owners[
+        "<paths.docs>/exploratory/channel_benchmark/{full,pd_only}/{all_channels,fast}/**"
+    ] == (
+        "scripts/run_benchmark.py",
+        "atomic_content_addressed_exploratory_candidate",
+    )
     assert owners[
         "<paths.docs>/exploratory/{legacy_recompute,work_balanced}/**/final_comparison.{txt,csv}"
     ][0] == "src/stylo/cli.py"

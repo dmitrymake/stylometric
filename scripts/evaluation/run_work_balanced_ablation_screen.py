@@ -29,10 +29,12 @@ from stylo.eval.work_balanced_ablation_screen import (  # noqa: E402
     format_compact_table,
     run_ablation_screen,
 )
-from stylo.eval.dispatch import frozen_run_contract  # noqa: E402
 from stylo.eval.groupkfold import bind_screening_panel, evaluate_frozen_panel_factory  # noqa: E402
 from stylo.eval.paired_audit.run_plan import verify_installed_environment  # noqa: E402
-from stylo.eval.provenance import verify_dataset_against_disk  # noqa: E402
+from stylo.eval.provenance import (  # noqa: E402
+    prepare_derived_scientific_evaluation,
+    prepare_scientific_evaluation,
+)
 from stylo.eval.run_attestation import LiveRunAttestor  # noqa: E402
 from stylo.eval.screening_panel import verify_manifest  # noqa: E402
 from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY  # noqa: E402
@@ -272,18 +274,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
         unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"),
     )
-    verified = verify_dataset_against_disk(
+    context = prepare_scientific_evaluation(
         cfg,
         dataset,
         CHUNK_WEIGHTED_LEGACY,
-        frozen_run_contract(cfg, data_root),
     )
-    if verified != CHUNK_WEIGHTED_LEGACY:
-        raise RuntimeError(f"unexpected verified weighting: {verified!r}")
 
     # Bind exactly once under the legacy corpus contract.  Every A0--A4 factory below receives this
     # same subset and manifest; A4 never triggers a work-balanced loader or dynamic split.
-    panel_dataset, manifest = bind_screening_panel(cfg, dataset, CHUNK_WEIGHTED_LEGACY)
+    panel_dataset, manifest = bind_screening_panel(
+        cfg,
+        context,
+        context.weighting,
+    )
+    panel_context = prepare_derived_scientific_evaluation(
+        context,
+        panel_dataset,
+    )
     verify_manifest(manifest)
     if manifest["n_authors"] != 43 or manifest["n_works"] != 251:
         raise RuntimeError(
@@ -297,7 +304,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         rep_cache = make_rep_cache(cfg)
         if not args.no_warm_cache:
             warmed = rep_cache.warm(
-                list(panel_dataset.texts),
+                list(panel_context.texts),
                 n_process=cfg.get_path("language.parse_n_process", 4),
             )
             print(f"representation_cache_warmed={warmed}", flush=True)
@@ -332,7 +339,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     artifact = run_ablation_screen(
         cfg,
-        panel_dataset,
+        panel_context,
         manifest,
         output_path,
         config_path=str(config_path),

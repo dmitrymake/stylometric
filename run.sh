@@ -5,6 +5,7 @@
 #   ./run.sh validate       — валидация корпуса
 #   ./run.sh clean          — очистка input -> input_clean (NER-маскировка)
 #   ./run.sh split          — нарезка на чанки
+#   ./run.sh verify-evaluation-corpus — provenance + content-isolation gate
 #   ./run.sh warm           — прогрев DocBin-кеша spaCy
 #   ./run.sh train          — обучение продакшен-модели
 #   ./run.sh sweep [--lobo] — ablation-sweep «что работает»
@@ -29,18 +30,23 @@ case "$cmd" in
     run clean "$@"              # raw bytes always produce a new attested clean snapshot first
     run validate-corpus "$@"    # fatal validation must STOP the scientific pipeline (no `|| true`)
     run split "$@"
+    # This read-only gate must pass before cache mutation, model fitting or
+    # scientific output. Distinct work ids are not sufficient evidence of
+    # content independence.
+    run verify-evaluation-corpus "$@"
     run warm "$@"
     train_receipt="$(run train "$@")"
     printf '%s\n' "$train_receipt"
     bundle_token="$("$PY" -c 'import json,sys; print(json.load(sys.stdin)["bundle_token"])' <<<"$train_receipt")"
     run sweep "$@"        # скрининг блоков быстрым GKF-прокси
-    run evaluate "$@"     # финальные цифры полным leakage-free LOBO + baseline + значимость
+    run evaluate "$@"     # exploratory content-isolated LOBO + baseline + significance
     run predict --model-bundle-token "$bundle_token" "$@"  # exact token pins executable model bytes
     run report "$@"
     ;;
   validate)        run validate-corpus "$@" ;;
   clean)           run clean "$@" ;;
   split)           run split "$@" ;;
+  verify-evaluation-corpus) run verify-evaluation-corpus "$@" ;;
   warm)            run warm "$@" ;;
   train)           run train "$@" ;;
   sweep)           run sweep "$@" ;;

@@ -51,6 +51,112 @@ class UnsupportedVariantError(RuntimeError):
     """Raised when model-routing preflight rejects a requested (spec, weighting)."""
 
 
+SCIENTIFIC_ISOLATION_CONTRACT_VERSION = (
+    "stylo.cross-work-content-isolation.word5.v1"
+)
+_SCIENTIFIC_CONTEXT_SEAL = (
+    "stylo.scientific-evaluation-context.sealed.v1"
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class ScientificEvaluationContext:
+    """Read-only, dataset-bound authority required by scientific CV kernels.
+
+    The constructor is intentionally application-internal. Contexts are made
+    only by the preparation functions below, after the relevant content gate
+    has passed. Exact-type checks at raw kernels prevent a bare ``Dataset``
+    from accidentally bypassing that gate.
+    """
+
+    texts: object
+    y: object
+    groups: object
+    authors: tuple[str, ...]
+    provenance: object
+    weighting: str
+    rows_digest: str
+    isolation_receipt_sha256: str
+    isolation_contract_version: str
+    disk_verified: bool
+    _seal: str = dataclasses.field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self._seal != _SCIENTIFIC_CONTEXT_SEAL:
+            raise TypeError(
+                "ScientificEvaluationContext cannot be constructed directly"
+            )
+
+    def __len__(self) -> int:
+        return len(self.texts)
+
+    @property
+    def n_authors(self) -> int:
+        return len(self.authors)
+
+    def book_to_author(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for group, label in zip(self.groups, self.y, strict=True):
+            out.setdefault(str(group), int(label))
+        return out
+
+    def __reduce__(self):
+        # NumPy's default pickle restores arrays as writeable. Route every
+        # process boundary through the validating restore helper so joblib
+        # workers retain the sealed read-only contract.
+        return (
+            _restore_scientific_evaluation_context,
+            (
+                self.texts,
+                self.y,
+                self.groups,
+                self.authors,
+                self.provenance,
+                self.weighting,
+                self.rows_digest,
+                self.isolation_receipt_sha256,
+                self.isolation_contract_version,
+                self.disk_verified,
+            ),
+        )
+
+
+def _restore_scientific_evaluation_context(
+    texts,
+    y,
+    groups,
+    authors,
+    provenance,
+    weighting,
+    rows_digest,
+    isolation_receipt_sha256,
+    isolation_contract_version,
+    disk_verified,
+) -> ScientificEvaluationContext:
+    import numpy as np
+
+    frozen_arrays = (
+        np.array(texts, dtype=object, copy=True),
+        np.array(y, dtype=int, copy=True),
+        np.array(groups, dtype=object, copy=True),
+    )
+    for values in frozen_arrays:
+        values.setflags(write=False)
+    return ScientificEvaluationContext(
+        texts=frozen_arrays[0],
+        y=frozen_arrays[1],
+        groups=frozen_arrays[2],
+        authors=tuple(authors),
+        provenance=provenance,
+        weighting=weighting,
+        rows_digest=rows_digest,
+        isolation_receipt_sha256=isolation_receipt_sha256,
+        isolation_contract_version=isolation_contract_version,
+        disk_verified=disk_verified,
+        _seal=_SCIENTIFIC_CONTEXT_SEAL,
+    )
+
+
 # ── canonical digest ──────────────────────────────────────────────────────────
 def _lp(b: bytes) -> bytes:
     return len(b).to_bytes(8, "big") + b
@@ -385,6 +491,173 @@ def verify_dataset_against_disk(cfg, dataset, weighting: str, contract: "RunCont
         if prov.rows_digest != disk.rows_digest:
             raise ProvenanceError("dataset digest != frozen on-disk digest (fabricated/non-disk)")
     return weighting
+
+
+def _scientific_rows_receipt(texts, y, groups, authors) -> str:
+    """Path-free receipt for the exact frozen arrays authorized by the gate."""
+
+    digest = hashlib.sha256()
+    digest.update(b"stylo.scientific-evaluation-rows.v1")
+    for values in (texts, y, groups, authors):
+        digest.update(len(values).to_bytes(8, "big"))
+        for value in values:
+            raw = str(value).encode("utf-8")
+            digest.update(len(raw).to_bytes(8, "big"))
+            digest.update(raw)
+    return digest.hexdigest()
+
+
+def _freeze_scientific_context(
+    dataset,
+    weighting: str,
+    *,
+    disk_verified: bool,
+) -> ScientificEvaluationContext:
+    import numpy as np
+
+    texts = np.array(dataset.texts, dtype=object, copy=True)
+    y = np.array(dataset.y, dtype=int, copy=True)
+    groups = np.array(dataset.groups, dtype=object, copy=True)
+    for values in (texts, y, groups):
+        values.setflags(write=False)
+    authors = tuple(dataset.authors)
+    provenance = getattr(dataset, "provenance", None)
+    rows_digest = getattr(provenance, "rows_digest", None)
+    if type(rows_digest) is not str:
+        rows_digest = _scientific_rows_receipt(texts, y, groups, authors)
+    return ScientificEvaluationContext(
+        texts=texts,
+        y=y,
+        groups=groups,
+        authors=authors,
+        provenance=provenance,
+        weighting=resolve_training_weighting(weighting),
+        rows_digest=rows_digest,
+        isolation_receipt_sha256=_scientific_rows_receipt(
+            texts,
+            y,
+            groups,
+            authors,
+        ),
+        isolation_contract_version=SCIENTIFIC_ISOLATION_CONTRACT_VERSION,
+        disk_verified=bool(disk_verified),
+        _seal=_SCIENTIFIC_CONTEXT_SEAL,
+    )
+
+
+def require_scientific_evaluation_context(
+    context,
+) -> ScientificEvaluationContext:
+    """Reject bare/malformed datasets before any raw evaluator side effect."""
+
+    if (
+        type(context) is not ScientificEvaluationContext
+        or context._seal != _SCIENTIFIC_CONTEXT_SEAL
+        or context.isolation_contract_version
+        != SCIENTIFIC_ISOLATION_CONTRACT_VERSION
+    ):
+        raise ProvenanceError(
+            "scientific evaluator requires a sealed "
+            "ScientificEvaluationContext"
+        )
+    if any(getattr(values, "flags", None).writeable for values in (
+        context.texts,
+        context.y,
+        context.groups,
+    )):
+        raise ProvenanceError("scientific evaluation context arrays are mutable")
+    if not (
+        len(context.texts)
+        == len(context.y)
+        == len(context.groups)
+    ):
+        raise ProvenanceError("scientific evaluation context length mismatch")
+    return context
+
+
+def prepare_scientific_evaluation(
+    cfg,
+    dataset,
+    weighting: str,
+) -> ScientificEvaluationContext:
+    """Disk-bind, isolate and freeze one dataset before scientific execution.
+
+    The frozen run contract is derived here from ``cfg``; callers cannot
+    supply a self-selected contract.
+    """
+
+    from .dispatch import frozen_run_contract
+
+    weighting = verify_dataset_against_disk(
+        cfg,
+        dataset,
+        weighting,
+        frozen_run_contract(cfg),
+    )
+    _corpus_identity.assert_cross_work_content_isolation(
+        dataset.texts,
+        dataset.groups,
+    )
+    return _freeze_scientific_context(
+        dataset,
+        weighting,
+        disk_verified=True,
+    )
+
+
+def prepare_derived_scientific_evaluation(
+    parent_context,
+    dataset,
+) -> ScientificEvaluationContext:
+    """Authorize a provenance-preserving subset of an already verified parent."""
+
+    parent = require_scientific_evaluation_context(parent_context)
+    prov = getattr(dataset, "provenance", None)
+    if not isinstance(prov, DatasetProvenance):
+        raise ProvenanceError("derived scientific dataset has no provenance")
+    if (
+        prov.parent_rows_digest != parent.rows_digest
+        or prov.frags_root != getattr(parent.provenance, "frags_root", None)
+        or prov.corpus_policy
+        != getattr(parent.provenance, "corpus_policy", None)
+    ):
+        raise ProvenanceError(
+            "derived scientific dataset is not bound to the verified parent"
+        )
+    _verify_stored_provenance(
+        dataset.texts,
+        dataset.y,
+        dataset.groups,
+        dataset.authors,
+        prov,
+    )
+    _corpus_identity.assert_cross_work_content_isolation(
+        dataset.texts,
+        dataset.groups,
+    )
+    return _freeze_scientific_context(
+        dataset,
+        parent.weighting,
+        disk_verified=parent.disk_verified,
+    )
+
+
+def prepare_synthetic_scientific_evaluation(
+    dataset,
+    weighting: str,
+) -> ScientificEvaluationContext:
+    """Content-gated context for synthetic integration tests and injected evaluators."""
+
+    weighting = resolve_training_weighting(weighting)
+    _corpus_identity.assert_cross_work_content_isolation(
+        dataset.texts,
+        dataset.groups,
+    )
+    return _freeze_scientific_context(
+        dataset,
+        weighting,
+        disk_verified=False,
+    )
 
 
 # ── atomic subset derivation ──────────────────────────────────────────────────

@@ -18,6 +18,7 @@
       "src/stylo/eval/final.py",
       "src/stylo/eval/segment.py",
       "src/stylo/eval/segmentation.py",
+      "scripts/run_benchmark.py",
       "scripts/evaluation/run_stylo_lobo_validation.py",
       "scripts/evaluation/run_work_balanced_ablation_screen.py"
     ],
@@ -116,6 +117,12 @@
       "status": "canonical",
       "responsibility": "mixed_authorship_evaluation",
       "public_surface": "Python API"
+    },
+    {
+      "path": "scripts/run_benchmark.py",
+      "status": "canonical_bounded_exploratory",
+      "responsibility": "content_isolated_channel_benchmark_candidate",
+      "public_surface": "explicit exploratory runner"
     },
     {
       "path": "scripts/evaluation/run_stylo_lobo_validation.py",
@@ -248,6 +255,16 @@
       "namespace": "docs/final_comparison.csv",
       "owner": null,
       "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "docs/{validation.json,validation_pd.json}",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "<paths.docs>/exploratory/channel_benchmark/{full,pd_only}/{all_channels,fast}/**",
+      "owner": "scripts/run_benchmark.py",
+      "contract": "atomic_content_addressed_exploratory_candidate"
     },
     {
       "namespace": "<paths.docs>/exploratory/{legacy_recompute,work_balanced}/**/final_comparison.{txt,csv}",

@@ -117,20 +117,15 @@ class TestWithCorpus:
         assert rebuilt["parent_dataset_digest"] == ds.provenance.rows_digest
         assert committed["parent_dataset_digest"] == ds.provenance.rows_digest
 
-    def test_end_to_end_smoke_majority_on_frozen_folds(self):
+    def test_raw_panel_worker_rejects_bare_dataset_before_fit(self):
         from stylo.eval.groupkfold import bind_screening_panel, _gkf_run
+        from stylo.eval.provenance import ProvenanceError
         from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
         ds = self._dataset()
         sub, panel = bind_screening_panel(CFG, ds, CHUNK_WEIGHTED_LEGACY)
         assert panel is not None and sub.n_authors == 43
-        # light smoke: majority only (no spaCy / no full sweep)
-        df, probs, y_true = _gkf_run(CFG, sub, "majority", None, None, CHUNK_WEIGHTED_LEGACY, panel)
-        assert len(df) == 251 and sorted(df["fold"].unique().tolist()) == [0, 1, 2, 3, 4]
-        # every evaluated work sits in EXACTLY its frozen fold (all cases use these same folds)
-        want = {w["work_id"]: w["fold"] for w in panel["works"]}
-        got = {f"{r.test_author}/{r.test_book}": r.fold for r in df.itertuples()}
-        assert got == want
-        sp.verify_result_against_panel(df, panel)                 # baseline row checked too
+        with pytest.raises(ProvenanceError, match="sealed"):
+            _gkf_run(CFG, sub, "majority", None, None, panel)
 
     def test_missing_manifest_hard_fails_no_sgkf_fallback(self, monkeypatch, tmp_path):
         from stylo.eval.groupkfold import bind_screening_panel

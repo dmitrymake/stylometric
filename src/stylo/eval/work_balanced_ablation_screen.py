@@ -21,11 +21,17 @@ from .prediction_contract import (
     PredictionContractError,
     validate_prediction_record,
 )
+from .provenance import (
+    ScientificEvaluationContext,
+    prepare_synthetic_scientific_evaluation,
+    require_scientific_evaluation_context,
+)
 from .run_attestation import LiveRunAttestationError
 from .significance import paired_bootstrap_diff_clustered
 from .work_weighting import (
     AblationEquivalentError,
     AblationNotApplicableError,
+    CHUNK_WEIGHTED_LEGACY,
     FEATURE_STATE_ONLY_ABLATION,
     FULL_WB_ABLATION,
     LEGACY_ABLATION,
@@ -740,8 +746,17 @@ def run_ablation_screen(
         raise ValueError("ci_level must be between zero and one")
     if not isinstance(manifest, dict) or manifest.get("self_hash") is None:
         raise TypeError("manifest must be a verified screening-panel dict")
-    from ..domain.corpus_identity import assert_cross_work_content_isolation
-    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
+    if type(dataset) is ScientificEvaluationContext:
+        dataset = require_scientific_evaluation_context(dataset)
+    else:
+        dataset = prepare_synthetic_scientific_evaluation(
+            dataset,
+            CHUNK_WEIGHTED_LEGACY,
+        )
+    if dataset.weighting != CHUNK_WEIGHTED_LEGACY:
+        raise AblationScreenArtifactError(
+            "frozen screening panel requires the legacy dataset arm"
+        )
     plan = selected_plan(models, cells)
     output_path = pathlib.Path(output_path)
     metadata = _expected_metadata(

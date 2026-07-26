@@ -12,6 +12,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 # frozen CI artifacts (immutable baseline and CI-sign-erratum sources), by canonical docs/ basename
 FROZEN = {"final_comparison.csv", "final_comparison.txt", "ruaa_bench_v1.json", "ruaa_bench_leaderboard.md"}
+FROZEN_VALIDATION = {"validation.json", "validation_pd.json"}
 HEADLINE_JSON = "stylo_lobo_authorci.json"
 GUARD = "assert_publish_target_not_frozen"
 WITHDRAWN_MARKER = "macro_f1_authorclustered_interval_status"
@@ -57,6 +58,51 @@ def _writes_path(tree, needle):
     return False
 
 
+def _contains_exact_string(node, value):
+    return any(
+        isinstance(item, ast.Constant) and item.value == value
+        for item in ast.walk(node)
+    )
+
+
+def _writes_exact_path(tree, filename):
+    tainted = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and _contains_exact_string(node.value, filename)
+        ):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    tainted.add(target.id)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        if isinstance(function, ast.Attribute) and function.attr in _WRITE_ATTRS:
+            receiver = function.value
+            if (
+                isinstance(receiver, ast.Name)
+                and receiver.id in tainted
+            ) or _contains_exact_string(receiver, filename):
+                return True
+        function_name = (
+            function.attr
+            if isinstance(function, ast.Attribute)
+            else (
+                function.id if isinstance(function, ast.Name) else ""
+            )
+        )
+        if function_name in _DUMP_FUNCS:
+            for argument in node.args:
+                if (
+                    isinstance(argument, ast.Name)
+                    and argument.id in tainted
+                ) or _contains_exact_string(argument, filename):
+                    return True
+    return False
+
+
 def test_no_production_writer_targets_a_frozen_ci_artifact_without_the_guard():
     offenders = []
     for p in _py_files():
@@ -69,6 +115,40 @@ def test_no_production_writer_targets_a_frozen_ci_artifact_without_the_guard():
             if _writes_path(tree, name) and not uses_guard:
                 offenders.append(f"{p.relative_to(ROOT)} -> {name}")
     assert not offenders, "production writer targets a frozen CI artifact without the guard:\n" + "\n".join(offenders)
+
+
+def test_no_production_writer_targets_historical_validation_inputs():
+    import warnings
+
+    offenders = []
+    with warnings.catch_warnings():
+        # Two legacy invalid-escape warnings are already tracked by the older
+        # AST scans; this additional writer inventory must not multiply them.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        for path in _py_files():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for name in FROZEN_VALIDATION:
+                if _writes_exact_path(tree, name):
+                    offenders.append(f"{path.relative_to(ROOT)} -> {name}")
+    assert not offenders, (
+        "production writer targets a frozen historical validation input:\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_historical_validation_inputs_match_the_p0_snapshot():
+    import hashlib
+    import json
+
+    snapshot = json.loads(
+        (ROOT / "docs" / "p0_baseline_snapshot.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for name in sorted(FROZEN_VALIDATION):
+        relative = f"docs/{name}"
+        actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        assert actual == snapshot["artifacts"]["sha256"][relative]
 
 
 def test_headline_json_writers_carry_the_withdrawal_marker():

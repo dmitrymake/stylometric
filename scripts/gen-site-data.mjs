@@ -121,6 +121,17 @@ function loadModelsCsv() {
   return rows;
 }
 
+const historicalSnapshot = loadRepositoryJson("docs/p0_baseline_snapshot.json");
+for (const name of ["validation.json", "validation_pd.json"]) {
+  const relativePath = `docs/${name}`;
+  const registered = historicalSnapshot?.artifacts?.sha256?.[relativePath];
+  const actual = sha256(readFileSync(join(ROOT, relativePath)));
+  if (typeof registered !== "string" || registered !== actual) {
+    throw new Error(
+      `${relativePath} is a frozen historical site input: P0 SHA256 ${registered} != ${actual}`
+    );
+  }
+}
 const val = load("validation.json");
 const valPd = load("validation_pd.json");
 const rec = load("model_recall.json");

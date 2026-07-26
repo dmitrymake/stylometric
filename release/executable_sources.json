@@ -95,11 +95,11 @@
     "research/governance/requirements.json": "031ba20b15b00330c6ccf4a1ff3e0bebdb85c256c185b39397ef34e2dd1bd659",
     "research/governance/runner_catalog.json": "15674ef3660dd74c979102bb28af1fe3629b948279de771628fb333982b632f9",
     "research/governance/status_ledger.json": "363bdeb3905742f8c30741811772de5eb616d5881e7da2a109f02590ca9579b3",
-    "research/governance/topology.json": "456dfbf37dbcbdc7ea5e73be2d4bd65e3465f7786ffa099b44b12eb8350caf1d",
+    "research/governance/topology.json": "529496d32918f4d29cb0933169192b6b09b5eaad9171be0dc78b7e70e5a05200",
     "scripts/check-provenance.mjs": "42ec5e403e93b5b12e2ca61c8a95ece76e634f0c0e860efd95479b8b85766d34",
     "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
-    "scripts/gen-readme.mjs": "2d0db8a2bd7607a0c873608abbf5c9078b54e25ebea7e4d33523d323e5d40909",
-    "scripts/gen-site-data.mjs": "8d37f311d56274afea9520703ac9f0bce9520ec0ddb23ebd84e4aec1b2959cb7",
+    "scripts/gen-readme.mjs": "75c77147e80deba90df816aeae67fc762baeec1ae80b7e9223b7c85a776179fb",
+    "scripts/gen-site-data.mjs": "85e22bf5538a5a0c33a56fef55611acb5f8a28e32eed3f4027499390b88c9921",
     "site/index.html": "43fc16ebcacd9fdc385ee67331588dd105466e40bff4165e34b62edd19fc69e8",
     "site/package-lock.json": "e63c2a4bb8dc0b6f796574049e52f451e6dd1c04f0d5006e1ced0c82d8b7bad9",
     "site/package.json": "5de735a700bf7b8fa012d4cc8fb3cfcd6a423eaca097c0552e1268265dacbae8",
@@ -108,7 +108,7 @@
     "site/scripts/check-render.mjs": "9b6cde8876c8182edda2a0f6bb3f72b5b9929c4d90d0279791ce0eedd61cf3b8",
     "site/src/App.jsx": "b6d69d4c686c0edef65f5a2a018b7ec3dda557d9ba4adb4928db0b7723e477d6",
     "site/src/components/HistoricalHeadlineNotice.jsx": "6ef7718c5fc2f6c8e659b39db003c3b14a443661820f38ff0d7be8fb8baad677",
-    "site/src/generated/manifest.json": "4735ef052ec18af78feb5dc2c6d49c8644a80b60bd2e14586a2a9ef537694529",
+    "site/src/generated/manifest.json": "f592b76c2b1fde8e2082626ec54eb1c110f383f77110383862c2f45672b19242",
     "tests/fixtures/work_balanced_ablation_goldens_v1.SHA256SUMS": "9e36cfb98a67dbf92dfcfdae56a689a1e314cc1b44afd44d002f1772c2219a71",
     "tests/fixtures/work_balanced_ablation_goldens_v1.json": "c66e63e7e8af36b03b6aaa28f3d8cb23b71ef8e7a433ddd0c85322463b993a25"
   }

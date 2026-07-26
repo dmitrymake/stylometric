@@ -318,6 +318,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         cfg, dataset, CHUNK_WEIGHTED_LEGACY, frozen_run_contract(cfg, data_root))
     if verified != CHUNK_WEIGHTED_LEGACY:
         raise RuntimeError(f"unexpected verified corpus arm {verified!r}")
+    # The lower-level resumable runner repeats this fail-closed check at its
+    # own mutation boundary. This early copy is intentional: the executable
+    # entrypoint must reject an ineligible snapshot before warming the
+    # representation cache.
+    from stylo.domain.corpus_identity import (  # noqa: E402
+        assert_cross_work_content_isolation,
+    )
+    assert_cross_work_content_isolation(dataset.texts, dataset.groups)
     if dataset.provenance.rows_digest != LEGACY_DATASET_DIGEST:
         raise RuntimeError(
             f"legacy corpus digest drift: {dataset.provenance.rows_digest} != {LEGACY_DATASET_DIGEST}")

@@ -2,15 +2,29 @@
 // Проза — шаблон ниже; КАЖДОЕ метрик-число подставляется из данных, чтобы README не дрейфовал.
 // Запуск: node scripts/gen-readme.mjs  (без зависимостей). Прогонять после run_benchmark/gen-site-data.
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const jload = (p) => JSON.parse(read(p));
+const sha256 = (p) => crypto.createHash("sha256").update(
+  fs.readFileSync(path.join(ROOT, p))
+).digest("hex");
 
 const sd = jload("site/src/generated/site-data.json");
 const cv = jload("docs/corpus_validation.json");
+const historicalSnapshot = jload("docs/p0_baseline_snapshot.json");
+for (const p of ["docs/validation.json", "docs/validation_pd.json"]) {
+  const registered = historicalSnapshot?.artifacts?.sha256?.[p];
+  const actual = sha256(p);
+  if (typeof registered !== "string" || registered !== actual) {
+    throw new Error(
+      `${p} is a frozen historical README input: P0 SHA256 ${registered} != ${actual}`
+    );
+  }
+}
 const val = jload("docs/validation.json");
 const valPd = jload("docs/validation_pd.json");
 const ccat = jload("docs/ccat50.json");

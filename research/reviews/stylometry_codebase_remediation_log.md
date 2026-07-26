@@ -97,6 +97,7 @@ Initial state:
 | POST-REVIEW-META-001 | HIGH | fixed | Static SEO/Open Graph/Twitter metadata bypassed the React withdrawal notice and still advertised “leakage-free LOBO” and confidence intervals as active claims. Replaced all three descriptions with an explicit withdrawal, added a static metadata regression, and corrected the canonical/Open Graph domain typo from `russkykod.com` to the deployed `russkiykod.com`. |
 | POST-REVIEW-RENDER-001 | MEDIUM | fixed | The SSR smoke rendered only the default framework tab, so an undefined identifier in any of the four click-only chapters could pass CI and fail in production. `App` now accepts a validated test-only initial chapter while production defaults remain unchanged; the smoke renders all five registered chapters with chapter-specific markers and exact registry coverage. A Babel scope gate scans every JS/JSX source, including callbacks/effects that SSR cannot execute, and proves sensitivity with an undefined-identifier negative fixture. Its exact direct parser/traverse dependencies are synchronized in both tracked package-manager locks. |
 | POST-REVIEW-REPRO-001 | LOW | fixed | Repro incorrectly said `run.sh all` fetched classics on a clean machine and reproduced the historical metric. Acquisition is now documented as the separate `fetch-classics` command; `all` requires an already assembled registered content-safe corpus, while the ineligible historical snapshot must stop at the isolation gate. Historical arithmetic is described only as stored artifact/provenance replay. |
+| POST-REVIEW-EXEC-001 | HIGH | fixed | Independent executable review proved that `run_final`, both sweep strategies, public GKF and the legacy channel benchmark could call raw CV workers without the registered cross-work content-isolation gate. Scientific LOBO/GKF kernels now require an exact sealed, read-only, dataset-bound context produced only after disk provenance and content isolation; the context remains sealed across joblib serialization, suite orchestrators reuse it, and raw `Dataset` calls fail before cache/factory/fit. `run.sh all` performs an explicit read-only corpus gate after split and before warm/train. The channel benchmark selects provenance-preserving uncapped and capped children directly from the disk parent, gates both before cache/fit, emits no replacement for the withdrawn malformed macro-F1 interval, and atomically writes only an `exploratory_internal` candidate generation. The SHA-bound historical `docs/validation{,_pd}.json` have no live writer, are registered in topology, and both public generators verify their P0 hashes before consuming them. Frozen evidence, the ineligibility registry, status ledger, approvals and confirmatory gates were not changed. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -310,3 +311,14 @@ not change the normative ledger or frozen evidence.
   fresh `all`/benchmark execution to a registered content-safe corpus, and
   distinguished byte/provenance replay of stored historical artifacts from a
   new scientific run.
+- 2026-07-26: A final independent executable probe then found that the prose
+  contract was stronger than the code: `run_final`, GKF, both sweep strategies
+  and `run_benchmark.py` could still reach fit workers without content
+  isolation, while the benchmark could overwrite the historical site inputs.
+  Introduced one sealed scientific-evaluation context, required it at every raw
+  LOBO/GKF/panel kernel, moved the `all` eligibility check ahead of cache/train,
+  and converted the legacy channel runner to a twice-gated, provenance-bound,
+  atomic exploratory candidate writer. Added behavioral, caller-inventory,
+  serialization, pre-CAP, frozen-writer and generator-hash regressions. The
+  registered ineligible corpus now fails before any scientific cache, fit,
+  model-bundle or candidate-output side effect.

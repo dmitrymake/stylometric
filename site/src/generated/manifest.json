@@ -2,7 +2,7 @@
   "schema": "stylo.site_generation_provenance.v1",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "8d37f311d56274afea9520703ac9f0bce9520ec0ddb23ebd84e4aec1b2959cb7"
+    "sha256": "85e22bf5538a5a0c33a56fef55611acb5f8a28e32eed3f4027499390b88c9921"
   },
   "sources": [
     {
@@ -260,6 +260,10 @@
     {
       "path": "docs/nikolas2_authorship.json",
       "sha256": "de49aafc811260ec8a39c772850efaa114908c3c6b93a8d7b2b28ece793f6c85"
+    },
+    {
+      "path": "docs/p0_baseline_snapshot.json",
+      "sha256": "ec651e1284782dee87806c716997b645ff57ce1f1727720b4bfc9a90a1008d36"
     },
     {
       "path": "docs/proza_compare.json",

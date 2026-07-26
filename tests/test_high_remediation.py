@@ -1,6 +1,7 @@
 """Focused fail-closed regressions for the HIGH remediation block."""
 from __future__ import annotations
 
+import ast
 import concurrent.futures
 import hashlib
 import json
@@ -26,7 +27,7 @@ from stylo.benchmarks import (
     validate_manifest,
 )
 from stylo.config import load_config, with_overrides
-from stylo.corpus import CorpusLoadError, load_dataset
+from stylo.corpus import Dataset, CorpusLoadError, load_dataset
 from stylo.corpus_tools.validate_corpus import (
     CorpusValidationError,
     run as validate_corpus,
@@ -36,6 +37,7 @@ from stylo.domain.prediction_contract import (
     validate_class_indices,
     validate_probabilities,
 )
+from stylo.domain.corpus_identity import ContentIsolationError
 from stylo.eval.ensemble import reliability_weighted
 from stylo.eval.run_attestation import (
     LiveRunAttestationError,
@@ -337,6 +339,327 @@ def test_reproducible_benchmark_resolves_the_current_fragment_snapshot(
     assert "data/frags_train" not in (
         pathlib.Path(__file__).resolve().parents[1] / "scripts/run_benchmark.py"
     ).read_text(encoding="utf-8")
+
+
+def _cross_work_duplicate_dataset():
+    duplicate = "один и тот же зарегистрированный фрагмент " * 20
+    return Dataset(
+        texts=np.array([duplicate, duplicate], dtype=object),
+        y=np.array([0, 1], dtype=int),
+        groups=np.array(["alpha/work", "beta/work"], dtype=object),
+        authors=["alpha", "beta"],
+    )
+
+
+def test_all_public_cv_entrypoints_reject_content_overlap_before_workers(
+    monkeypatch,
+):
+    from stylo.eval import dispatch, final, groupkfold, lobo, provenance, sweep
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    dataset = _cross_work_duplicate_dataset()
+    monkeypatch.setattr(
+        dispatch,
+        "frozen_run_contract",
+        lambda _cfg: object(),
+    )
+    monkeypatch.setattr(
+        provenance,
+        "verify_dataset_against_disk",
+        lambda _cfg, _dataset, weighting, _contract: weighting,
+    )
+    reached = []
+
+    def worker(*_args, **_kwargs):
+        reached.append("worker")
+        raise AssertionError("raw evaluator reached after failed content gate")
+
+    monkeypatch.setattr(lobo, "_lobo_run", worker)
+    monkeypatch.setattr(groupkfold, "_gkf_run", worker)
+    monkeypatch.setattr(final, "_lobo_run", worker)
+    monkeypatch.setattr(sweep, "_gkf_run", worker)
+    monkeypatch.setattr(sweep, "_lobo_run", worker)
+
+    calls = (
+        lambda: lobo.lobo_evaluate(
+            object(),
+            dataset,
+            weighting=CHUNK_WEIGHTED_LEGACY,
+        ),
+        lambda: groupkfold.gkf_evaluate(
+            object(),
+            dataset,
+            weighting=CHUNK_WEIGHTED_LEGACY,
+        ),
+        lambda: final.run_final(
+            object(),
+            dataset,
+            weighting=CHUNK_WEIGHTED_LEGACY,
+        ),
+        lambda: sweep.run_sweep(
+            object(),
+            dataset,
+            strategy="gkf",
+            weighting=CHUNK_WEIGHTED_LEGACY,
+        ),
+        lambda: sweep.run_sweep(
+            object(),
+            dataset,
+            strategy="lobo",
+            weighting=CHUNK_WEIGHTED_LEGACY,
+        ),
+    )
+    for call in calls:
+        with pytest.raises(
+            ContentIsolationError,
+            match="exact_cross_work_chunk",
+        ):
+            call()
+    assert reached == []
+
+
+def test_raw_cv_kernels_reject_bare_dataset_before_factory_or_cache():
+    from stylo.eval import groupkfold, lobo, sweep
+    from stylo.eval.provenance import ProvenanceError
+
+    dataset = Dataset(
+        texts=np.array(["alpha unique", "beta unique"], dtype=object),
+        y=np.array([0, 1], dtype=int),
+        groups=np.array(["alpha/work", "beta/work"], dtype=object),
+        authors=["alpha", "beta"],
+    )
+    calls = (
+        lambda: lobo._lobo_run(
+            object(),
+            dataset,
+            "stylo",
+            None,
+            0,
+            1,
+        ),
+        lambda: groupkfold._gkf_run(
+            object(),
+            dataset,
+            "stylo",
+            None,
+            2,
+        ),
+        lambda: groupkfold._gkf_run_panel(
+            object(),
+            dataset,
+            "stylo",
+            None,
+            {},
+        ),
+        lambda: groupkfold.evaluate_frozen_panel_factory(
+            object(),
+            dataset,
+            lambda: object(),
+            {},
+        ),
+        lambda: sweep._evaluate_case(
+            object(),
+            dataset,
+            sweep.EvalCase("raw"),
+            weighting="chunk_weighted_legacy",
+        ),
+    )
+    for call in calls:
+        with pytest.raises(ProvenanceError, match="sealed"):
+            call()
+
+
+def test_scientific_context_remains_sealed_across_process_serialization():
+    import pickle
+
+    from stylo.eval.provenance import (
+        prepare_synthetic_scientific_evaluation,
+        require_scientific_evaluation_context,
+    )
+    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+
+    dataset = Dataset(
+        texts=np.array(["alpha unique", "beta unique"], dtype=object),
+        y=np.array([0, 1], dtype=int),
+        groups=np.array(["alpha/work", "beta/work"], dtype=object),
+        authors=["alpha", "beta"],
+    )
+    context = prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    restored = pickle.loads(pickle.dumps(context))
+    assert require_scientific_evaluation_context(restored) is restored
+    assert all(
+        not values.flags.writeable
+        for values in (restored.texts, restored.y, restored.groups)
+    )
+    assert restored.isolation_receipt_sha256 == (
+        context.isolation_receipt_sha256
+    )
+
+
+def test_raw_cv_kernel_callers_are_exactly_the_guarded_orchestrators():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    expected = {
+        "_lobo_run": {
+            "src/stylo/eval/final.py",
+            "src/stylo/eval/lobo.py",
+            "src/stylo/eval/sweep.py",
+        },
+        "_gkf_run": {
+            "src/stylo/eval/groupkfold.py",
+            "src/stylo/eval/sweep.py",
+        },
+        "_gkf_run_panel": {"src/stylo/eval/groupkfold.py"},
+        "evaluate_frozen_panel_factory": {
+            "src/stylo/eval/groupkfold.py",
+        },
+    }
+    observed = {name: set() for name in expected}
+    for source_root in ("src", "scripts"):
+        for path in (root / source_root).rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else (
+                        node.func.attr
+                        if isinstance(node.func, ast.Attribute)
+                        else None
+                    )
+                )
+                if name in observed:
+                    observed[name].add(path.relative_to(root).as_posix())
+    assert observed == expected
+
+
+def test_run_all_checks_content_isolation_before_cache_and_training():
+    source = (
+        pathlib.Path(__file__).resolve().parents[1] / "run.sh"
+    ).read_text(encoding="utf-8")
+    split = source.index('run split "$@"')
+    isolation = source.index('run verify-evaluation-corpus "$@"')
+    warm = source.index('run warm "$@"')
+    train = source.index('train_receipt="$(run train "$@")"')
+    assert split < isolation < warm < train
+
+
+def test_benchmark_rejects_uncapped_overlap_before_rng_or_cache(
+    tmp_path,
+    monkeypatch,
+):
+    namespace = runpy.run_path(
+        str(
+            pathlib.Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "run_benchmark.py"
+        ),
+        run_name="stylo_benchmark_uncapped_gate_test",
+    )
+    root = tmp_path / "frags"
+    hidden = "скрытый за лимитом одинаковый фрагмент " * 20
+    for author in ("alpha", "beta"):
+        for work in ("one", "two"):
+            work_root = root / author / work
+            work_root.mkdir(parents=True)
+            for index in range(36):
+                text = f"{author} {work} unique fragment {index}"
+                if work == "one" and index == 35:
+                    text = hidden
+                (work_root / f"{index:03d}.txt").write_text(
+                    text,
+                    encoding="utf-8",
+                )
+    parent = load_dataset(root)
+    prepare = namespace["prepare_benchmark_contexts"]
+    globals_ = prepare.__globals__
+    from stylo.eval.provenance import (
+        prepare_synthetic_scientific_evaluation,
+    )
+
+    monkeypatch.setitem(
+        globals_,
+        "prepare_scientific_evaluation",
+        lambda _cfg, dataset, weighting: (
+            prepare_synthetic_scientific_evaluation(dataset, weighting)
+        ),
+    )
+
+    class NeverCap:
+        calls = 0
+
+        def choice(self, *_args, **_kwargs):
+            self.calls += 1
+            return np.arange(35)
+
+    rng = NeverCap()
+    with pytest.raises(
+        ContentIsolationError,
+        match="exact_cross_work_chunk",
+    ):
+        prepare(object(), parent, pd_only=False, rng=rng)
+    assert rng.calls == 0
+
+
+def test_benchmark_candidate_writer_preserves_historical_site_inputs(
+    tmp_path,
+):
+    namespace = runpy.run_path(
+        str(
+            pathlib.Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "run_benchmark.py"
+        ),
+        run_name="stylo_benchmark_writer_test",
+    )
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    historical = {
+        "validation.json": b"frozen-full",
+        "validation_pd.json": b"frozen-pd",
+    }
+    for name, payload in historical.items():
+        (docs / name).write_bytes(payload)
+    out = {
+        "claim_status": "exploratory_internal",
+        "public_headline_authorized": False,
+        "dataset_identity": {
+            "rows_digest": "a" * 64,
+            "isolation_contract_version": "test-v1",
+        },
+        "attestation": {
+            "git_commit": "b" * 40,
+            "git_dirty": True,
+            "code_tree_sha256": "c" * 64,
+            "config_id": "d" * 64,
+        },
+    }
+    published = namespace["publish_benchmark_result"](
+        out,
+        docs=docs,
+        pd_only=False,
+        fast=False,
+    )
+    assert set(published) == {
+        "run_provenance.json",
+        "validation.full.all_channels.candidate.json",
+    }
+    assert "exploratory/channel_benchmark/full/all_channels" in (
+        published["run_provenance.json"].as_posix()
+    )
+    for name, payload in historical.items():
+        assert (docs / name).read_bytes() == payload
+    candidate = load_strict(
+        published["validation.full.all_channels.candidate.json"]
+    )
+    provenance = load_strict(published["run_provenance.json"])
+    assert candidate["claim_status"] == "exploratory_internal"
+    assert provenance["public_headline_authorized"] is False
+    assert provenance["supersedes"] is None
 
 
 @pytest.mark.parametrize(

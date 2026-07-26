@@ -20,12 +20,14 @@ from ..models.registry import (
     CALIBRATION_MODEL_SPECS,
     DEFAULT_EXPLORATORY_SPECS,
 )
-from .dispatch import frozen_run_contract
 from .lobo import _lobo_run, make_factory
 from .metrics import (accuracy, expected_calibration_error, macro_f1,
                       summarize_book_results)
-from .provenance import (UnsupportedVariantError, VariantRole,
-                         verify_dataset_against_disk)
+from .provenance import (
+    UnsupportedVariantError,
+    VariantRole,
+    prepare_scientific_evaluation,
+)
 from .significance import mcnemar, paired_bootstrap_diff_clustered
 from .work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
@@ -93,7 +95,13 @@ def _provenance_block(dataset: Dataset, weighting: str, specs: List[str]) -> Dic
 def run_final(cfg, dataset: Dataset, specs: List[str] | None = None,
               n_jobs=None, *, weighting: str) -> Dict:
     weighting = require_weighting(weighting)
-    weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
+    context = prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        weighting,
+    )
+    dataset = context
+    weighting = context.weighting
     specs = list(specs or DEFAULT_SPECS)
     if len(set(specs)) != len(specs):
         raise ValueError(f"duplicate specs in the run-plan: {specs}")
@@ -116,7 +124,14 @@ def run_final(cfg, dataset: Dataset, specs: List[str] | None = None,
     results: Dict[str, Dict] = {}
     for spec in specs:
         log.info("final LOBO[%s]: %s", weighting, spec)
-        df, probs, ytrue = _lobo_run(cfg, dataset, spec, None, 0, n_jobs, weighting)   # verified once above
+        df, probs, ytrue = _lobo_run(
+            cfg,
+            context,
+            spec,
+            None,
+            0,
+            n_jobs,
+        )  # provenance + content isolation verified once above
         summ = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
                                       df["rank"].to_numpy(), dataset.authors,
                                       iters=iters, level=level, seed=seed)

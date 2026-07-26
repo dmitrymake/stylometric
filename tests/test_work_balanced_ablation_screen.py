@@ -18,6 +18,8 @@ import pytest
 from stylo.corpus import Dataset
 from stylo.eval import groupkfold
 from stylo.eval import screening_panel as sp
+from stylo.eval.provenance import prepare_synthetic_scientific_evaluation
+from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
 from stylo.jsonio import artifact_self_hash, canonical_hash, dump_strict, load_strict
 
 
@@ -63,7 +65,11 @@ def tiny_panel():
     )
     manifest = sp.build_manifest(dataset, k=2, seed=42)
     sp.verify_manifest(manifest)
-    return _Cfg(), dataset, manifest
+    context = prepare_synthetic_scientific_evaluation(
+        dataset,
+        CHUNK_WEIGHTED_LEGACY,
+    )
+    return _Cfg(), context, manifest
 
 
 class _SpyEstimator:
@@ -185,7 +191,7 @@ def test_injected_A0_helper_exactly_matches_existing_panel_worker(tiny_panel, mo
     old_factory, _ = _spy_factory()
     monkeypatch.setattr(groupkfold, "make_factory", lambda *args, **kwargs: old_factory)
     wrapped = groupkfold._gkf_run_panel(
-        cfg, dataset, "majority", None, "chunk_weighted_legacy", manifest)
+        cfg, dataset, "majority", None, manifest)
 
     pd.testing.assert_frame_equal(wrapped[0], direct[0], check_exact=True)
     np.testing.assert_array_equal(wrapped[1], direct[1])

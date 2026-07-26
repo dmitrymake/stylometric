@@ -23,7 +23,7 @@ from ..features.registry import BLOCK_ORDER
 from ..features.syntax import SUBBLOCK_ORDER
 from .groupkfold import _gkf_run
 from .lobo import _lobo_run
-from .work_weighting import CHUNK_WEIGHTED_LEGACY
+from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
 from .metrics import accuracy, macro_f1, summarize_book_results
 from .significance import mcnemar
 
@@ -50,17 +50,51 @@ def _clone_with(cfg, dotted_overrides: Dict[str, object]):
     return ConfigNode(raw)
 
 
-def _evaluate_case(cfg, dataset: Dataset, case: EvalCase, strategy: str = "gkf",
-                  n_jobs: Optional[int] = None, *, weighting: str, panel=None) -> Dict:
+def _evaluate_case(
+    cfg,
+    context,
+    case: EvalCase,
+    strategy: str = "gkf",
+    n_jobs: Optional[int] = None,
+    *,
+    weighting: str,
+    panel=None,
+) -> Dict:
+    from .provenance import require_scientific_evaluation_context
+
+    if strategy not in ("gkf", "lobo"):
+        raise ValueError(
+            f"unknown sweep strategy {strategy!r} "
+            "(expected 'gkf' or 'lobo')"
+        )
+    dataset = require_scientific_evaluation_context(context)
+    weighting = require_weighting(weighting)
+    if weighting != dataset.weighting:
+        raise ValueError(
+            "sweep weighting does not match the sealed evaluation context"
+        )
     eval_cfg = cfg
     if case.subblock_override:
         eval_cfg = _clone_with(cfg, {f"features.syntax.subblocks.{k}": v
                                      for k, v in case.subblock_override.items()})
     if strategy == "gkf":
-        df, probs, ytrue = _gkf_run(eval_cfg, dataset, case.spec, case.enabled_override, None, weighting, panel)
+        df, probs, ytrue = _gkf_run(
+            eval_cfg,
+            dataset,
+            case.spec,
+            case.enabled_override,
+            None,
+            panel,
+        )
     elif strategy == "lobo":
-        df, probs, ytrue = _lobo_run(eval_cfg, dataset, case.spec, case.enabled_override,
-                                     0, n_jobs, weighting)
+        df, probs, ytrue = _lobo_run(
+            eval_cfg,
+            dataset,
+            case.spec,
+            case.enabled_override,
+            0,
+            n_jobs,
+        )
     else:
         raise ValueError(f"unknown sweep strategy {strategy!r} (expected 'gkf' or 'lobo')")
     summ = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
@@ -113,15 +147,39 @@ def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
     """
     if strategy not in ("gkf", "lobo"):                # validate BEFORE any fit (no silent LOBO)
         raise ValueError(f"unknown sweep strategy {strategy!r} (expected 'gkf' or 'lobo')")
-    from .dispatch import frozen_run_contract
-    from .provenance import verify_dataset_against_disk
-    weighting = verify_dataset_against_disk(cfg, dataset, weighting, frozen_run_contract(cfg))
+    from .provenance import (
+        prepare_derived_scientific_evaluation,
+        prepare_scientific_evaluation,
+    )
+    context = prepare_scientific_evaluation(
+        cfg,
+        dataset,
+        weighting,
+    )
+    weighting = context.weighting
     # legacy GKF screening runs on the FROZEN screening_panel_v1 (43 authors / 251 works): every
     # sweep case sees the SAME folds, and each result is checked against the canonical manifest.
     panel = None
     if strategy == "gkf":
         from .groupkfold import bind_screening_panel
-        dataset, panel = bind_screening_panel(cfg, dataset, weighting)
+        panel_dataset, panel = bind_screening_panel(
+            cfg,
+            context,
+            context.weighting,
+        )
+        if panel is not None:
+            context = prepare_derived_scientific_evaluation(
+                context,
+                panel_dataset,
+            )
+    # Preserve the one-time representation-cache optimization, but only after
+    # the exact evaluation dataset (full LOBO or derived GKF panel) has passed
+    # provenance and content isolation.
+    from ..features.reps import make_rep_cache
+    make_rep_cache(cfg).warm(
+        list(context.texts),
+        n_process=cfg.get_path("language.parse_n_process", 4),
+    )
     full, loo, baselines = default_cases(cfg)
     cases = [full] + loo + (baselines if include_baselines else [])
 
@@ -131,7 +189,15 @@ def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
         log.info("sweep[gkf/%s]: %d конфигов параллельно (n_jobs=%s, panel=%s)",
                  weighting, len(cases), njobs, panel is not None)
         out = Parallel(n_jobs=njobs, pre_dispatch="2*n_jobs")(
-            delayed(_evaluate_case)(cfg, dataset, case, "gkf", 1, weighting=weighting, panel=panel)
+            delayed(_evaluate_case)(
+                cfg,
+                context,
+                case,
+                "gkf",
+                1,
+                weighting=weighting,
+                panel=panel,
+            )
             for case in cases
         )
         results = {case.label: r for case, r in zip(cases, out)}
@@ -139,7 +205,14 @@ def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
         results = {}
         for case in cases:
             log.info("sweep[lobo/%s]: %s", weighting, case.label)
-            results[case.label] = _evaluate_case(cfg, dataset, case, "lobo", n_jobs, weighting=weighting)
+            results[case.label] = _evaluate_case(
+                cfg,
+                context,
+                case,
+                "lobo",
+                n_jobs,
+                weighting=weighting,
+            )
 
     ref = results[full.label]
     ref_manifest = _fold_manifest(ref["df"])          # ordered (book, true_label) — exact fold set
