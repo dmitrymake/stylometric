@@ -252,3 +252,10 @@ not change the normative ledger or frozen evidence.
   Pages build and bound that executable gate in the release inventory. The
   focused site/withdrawal/inventory tests, production build and 91-source
   provenance verification pass; frozen scientific evidence is unchanged.
+- 2026-07-26: The subsequent Git-free Pages rehearsal exposed an npm-version
+  compatibility gap in the existing lockfile: npm 12 rejected `npm ci` because
+  the esbuild and Rollup optional-dependency declarations lacked their
+  cross-platform package records. Mechanically completed the lockfile without
+  changing resolved runtime or tool versions, added a closure regression, and
+  rebound its release digest. A clean archive install and the production
+  build/render/provenance chain then passed.

@@ -39,6 +39,20 @@ def test_site_build_executes_a_real_server_render_smoke():
     assert "renderToStaticMarkup" in source
 
 
+def test_site_lock_contains_every_declared_optional_platform_package():
+    lock = json.loads((ROOT / "site" / "package-lock.json").read_text(encoding="utf-8"))
+    packages = lock["packages"]
+    optional = {
+        dependency
+        for package in ("node_modules/esbuild", "node_modules/rollup")
+        for dependency in packages[package]["optionalDependencies"]
+    }
+    missing = sorted(
+        dependency for dependency in optional if f"node_modules/{dependency}" not in packages
+    )
+    assert missing == []
+
+
 def test_method_does_not_render_the_withdrawn_macro_f1_interval():
     source = (ROOT / "site" / "src" / "sections" / "Method.jsx").read_text(encoding="utf-8")
     assert "MF1_CI" not in source
