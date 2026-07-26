@@ -108,6 +108,7 @@ Initial state:
 | POST-REVIEW-PROVENANCE-001 | LOW | fixed | Provenance `entries` previously accepted any array and even contained a duplicate `models` record plus human pseudo-globs. Schema v2 gives every unique dotted site-data key a nonempty note and a sorted nonempty array of canonical exact sources. The generator and checker both require every key to resolve, every top-level output to be covered, every entry source to belong to the digest-verified registry, and every consumed source to be cited; unsafe, unverified, duplicate and nonexistent field mappings fail adversarial tests. |
 | POST-REVIEW-P0-001 | LOW | external owner decision gated | The in-repository P0 hash table detects accidental one-sided mutation but cannot independently prevent a coordinated change to both expected and actual bytes. No local file can truthfully manufacture that external authority, so frozen validation inputs and gates remain byte-identical and `ODM-010` records protected signed tag/attestation or separately controlled registry options with disposition `UNSET`. |
 | SCI-FINAL-001 | MEDIUM | fixed | Final exact-commit review showed that the benchmark reconstructed its snapshot with `resolved=requested`, so a real `ru_core_news_md` fallback could be published as a no-fallback `ru_core_news_lg` run. The snapshot now consumes only the identity registered by `load_nlp`, rejects any fallback/request mismatch, verifies every hashed wheel-`RECORD` member against its current bytes and size, and binds an exact serialization digest of the live pipeline into a self-hashed benchmark identity used by the DSP cache. Before/after snapshots detect live component-state drift; regressions distinguish same-pipe-name pipelines with different segmentation and reproduce fallback rejection. |
+| SITE-FINAL-001 | MEDIUM | fixed | Final public-surface review found a stale hard-coded Sholokhov paragraph in the generated README and therefore in wheel/sdist metadata: it said 4/4 and mixed a 0.455 open-set control with the registered noncircular LOBO gradient. The generator now fails closed on and renders directly from `docs/sholokhov_lobo.json`: 3/4 and 0.595→0.035. The separate 0.455 block-permutation control is explicitly labeled as a distinct test; active site fields no longer consume the older frozen `sholokhov_rigor12.json` verdict; and a source-bound regression prevents README/package prose from drifting from the registered JSON. No evidence bytes or scientific approval state changed. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -382,3 +383,10 @@ not change the normative ledger or frozen evidence.
   treating normal vocabulary growth as drift. Focused adversarial regressions
   pass; frozen evidence, owner dispositions and confirmatory gates are
   unchanged.
+- 2026-07-26: Final independent site/release review of exact commit `8cefa51e`
+  found a source-drifted Sholokhov claim that propagated into package long
+  descriptions. README generation now takes the 3/4 verdict and 0.595→0.035
+  gradient from `docs/sholokhov_lobo.json`, labels the separate 0.455 control,
+  and keeps the contradictory older P0-bound `sholokhov_rigor12.json` bytes
+  frozen rather than silently rewriting evidence. The site and README active
+  fields share the newer registered source, protected by a source-bound test.

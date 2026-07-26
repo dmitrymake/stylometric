@@ -36,6 +36,7 @@ const ft = jload("docs/neuro_finetune_proza.json");        // ruBERT-tiny2, до
 const crob = jload("docs/cluster_robust_stylo_vs_bow.json");
 const osp = jload("docs/openset_passport.json");
 const shOpen = jload("docs/sholokhov_openset.json");
+const shLobo = jload("docs/sholokhov_lobo.json");
 const dcos = jload("docs/delta_cosine_lobo.json");        // cosine/книжный Delta в headline-LOBO
 const nik = jload("docs/nikolas2_authorship.json");
 const cg = jload("docs/crossgenre_recall.json");          // кросс-жанровый перенос: train проза → test дневники/письма
@@ -47,6 +48,18 @@ if (
   sd.headline.claimStatus !== "exploratory_internal"
 ) {
   throw new Error("README generation requires the registered historical/ineligible headline status");
+}
+if (
+  shLobo.procedure_valid !== true ||
+  typeof shLobo.td_attributed_to_sholokhov !== "string" ||
+  !/^\d+\/\d+$/.test(shLobo.td_attributed_to_sholokhov) ||
+  !Array.isArray(shLobo.disputed_td) ||
+  shLobo.disputed_td.length !== 4 ||
+  shLobo.disputed_td.some(
+    (row) => !Number.isFinite(row?.foreign_fraction)
+  )
+) {
+  throw new Error("README generation requires the registered Sholokhov LOBO result");
 }
 
 const M = Object.fromEntries(sd.models.map((m) => [m.id, m]));
@@ -207,11 +220,13 @@ ${f4(M.stylo.f1)} лежит выше его верхней границы); к�
 Реальный размер выборки для по-авторных выводов — ${sd.corpus.lobo.tested_authors} тестированных автора, а не ${sd.corpus.lobo.books} ${ruBooks(sd.corpus.lobo.books)}.
 
 **Кейс «Тихий Дон»** (см. \`site/\` — статья, и \`docs/sholokhov_*.json\`): единственный формальный confirmatory-тест —
-нециркулярный leave-block-out LOBO — атрибутирует **4/4 тома ТД → Шолохову** (все тома вне обучения; процедурные
-контроли валидны). Что именно проверено тестом значимости: доля «чужих» отрывков в ТД-1 (${shOpen.td1_block_permutation.td1_ff}) выше фона донских
-контролей (0.0) — перестановка по отрывкам p≈0.0001; отрывки внутри книги связаны, поэтому честнее блочная
-перестановка — она даёт p=${shOpen.td1_block_permutation.block_perm_p} (\`docs/sholokhov_openset.json\`). Спад «чужой» доли от тома к тому (0.455→0.017) —
-описание картины, отдельной тестовой статистикой он не проверялся. Это **направленное свидетельство за Шолохова**; но
+нециркулярный leave-block-out LOBO — атрибутирует **${shLobo.td_attributed_to_sholokhov} тома ТД → Шолохову**
+(все тома вне обучения; процедурные контроли валидны). В этом LOBO спад «чужой» доли от тома к тому
+(${f4(shLobo.disputed_td[0].foreign_fraction)}→${f4(shLobo.disputed_td.at(-1).foreign_fraction)}) — описание картины,
+отдельной тестовой статистикой он не проверялся. Отдельный сегментный контроль проверяет долю «чужих» отрывков
+в ТД-1 (${shOpen.td1_block_permutation.td1_ff}) против фона донских контролей (0.0): перестановка по отрывкам
+даёт p≈0.0001; отрывки внутри книги связаны, поэтому честнее блочная перестановка — она даёт
+p=${shOpen.td1_block_permutation.block_perm_p} (\`docs/sholokhov_openset.json\`). Это **направленное свидетельство за Шолохова**; но
 доказать авторство нельзя — n≈2 независимых произведения, циркулярность эталона, автор/редактор неразличимы; примесь
 стилистически похожей донской руки ниже ~25% метод не различает. Версии «Крюков написал» и «много литературных
 негров» **не поддерживаются**.
@@ -220,8 +235,9 @@ ${f4(M.stylo.f1)} лежит выше его верхней границы); к�
 корпуса. Проверки на этот случай сделаны и опубликованы. Детекция «текст автора вне корпуса» по типичности ответа
 модели: AUC ${osp.outsider_detection_auc.max_prob} (авторов-чужаков: ${osp.outsider_authors.length}, их книг: ${osp.n_outsider_books}; \`docs/openset_passport.json\`). Инъекция чужака в кейс ТД: Платонов
 уходит к самому себе (доля ${shOpen.openset_injection.open_to_self}), Шолохову — ${shOpen.openset_injection.open_to_sholokhov}. В открытом режиме (48 кандидатов) ТД-1 даёт Шолохову лишь
-${shOpen.openset_td_full_argmax[0].sholokhov_share_open} — «в закрытом списке 4/4 неизбежны» опровергается собственными данными: открытый режим ранние тома
-Шолохову сам не отдаёт (\`docs/sholokhov_openset.json\`). Верификационное семейство (unmasking Koppel–Schler, imposters
+${shOpen.openset_td_full_argmax[0].sholokhov_share_open}: при закрытом LOBO-результате
+${shLobo.td_attributed_to_sholokhov} открытый режим ранние тома Шолохову сам не отдаёт
+(\`docs/sholokhov_openset.json\`). Верификационное семейство (unmasking Koppel–Schler, imposters
 Koppel–Winter) на ТД тоже прогнано: 0/4 томов верифицируются как Шолохов — но контроль валидности показывает, что в
 этом сеттинге метод смещён: зрелые бесспорные вещи Шолохова тоже проваливают unmasking (1/4), поэтому «ТД→Крюков» по
 этим методам — артефакт, не свидетельство (\`docs/sholokhov_verify.json\`, \`docs/sholokhov_verify3_FW_ONLY.json\`).

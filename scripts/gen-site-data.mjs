@@ -657,7 +657,7 @@ const r11 = load("sholokhov_rigor11.json");
 const r12 = load("sholokhov_rigor12.json");
 const shOpenset = load("sholokhov_openset.json");   // open-set 48-way + инъекция аутсайдера + блочная перестановка ТД-1
 const shVerify = load("sholokhov_verify.json");     // 3-4-е семейства: unmasking + imposters на ТД (топик-чувствительны, контроль честности)
-const slob = load("sholokhov_lobo.json"); // нециркулярный disputed-TD LOBO: градиент 0.455→0.017, p=0.0001, 4/4→Шолохову
+const slob = load("sholokhov_lobo.json"); // нециркулярный disputed-TD LOBO: градиент 0.595→0.035, p=0.0001, 3/4→Шолохову
 const ser = load("hyp_tests2.json").serafimovich_editor_td;
 const emb = load("embedding_robustness.json");
 const crossGenre = load("audit_genre_crossauthor.json").TOPIC_INVARIANT_strict.cross_author_genre_auc;
@@ -695,9 +695,9 @@ const rigor = {
   silCtrl: [["Шолохов", "sholohov", true], ["Тургенев", "turgenev"], ["Достоевский", "dostoevsky"], ["Бунин", "bunin"], ["Горький", "gorky"]]
     .map(([a, k, hi]) => ({ a, v: rnd(r12.silhouette_oneauthor_control[k], 3), ...(hi ? { hi: true } : {}) })),
   tdLoboAttributed: slob.td_attributed_to_sholokhov,   // ЕДИНЫЙ источник вердикта = docs/sholokhov_lobo.json: "3/4" тома ТД → Шолохову (ТД-1 по большинству кусков уходит Крюкову)
-  tdLoboP: r12.test_registry.confirmatory.permutation_p,            // перестановка по чанкам: доля «чужих» чанков ТД-1 vs донской FPR-нуль (НЕ тренд по томам)
+  tdLoboP: slob.td1_vs_null_permutation_p,             // тот же зарегистрированный LOBO-источник; замороженный rigor12 хранит прежнюю интеграцию 4/4 и не задаёт активный вердикт
   tdLoboBlockP: shOpenset.td1_block_permutation.block_perm_p,       // блочная перестановка (чанки внутри книги связаны) — честнее точечной
-  tdLoboSurvives: r12.test_registry.confirmatory["survives_0.05"],
+  tdLoboSurvives: slob.don_source_signal_significant,
   tdExploratoryN: r12.test_registry.exploratory.length,             // направленные наблюдения (доли бутстрепов/дескриптивы)
   gmlrTdShFull: gml.tihiy_don.full["Михаил Шолохов"], gmlrTdKrFull: gml.tihiy_don.full["Фёдор Крюков"],
   gmlrTdShTopic: gml.tihiy_don.topic["Михаил Шолохов"], gmlrPcKrFull: gml.podnyataya.full["Фёдор Крюков"],

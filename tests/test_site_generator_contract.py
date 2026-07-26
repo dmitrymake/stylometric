@@ -232,6 +232,41 @@ def test_readme_is_byte_identical_to_its_fail_closed_generator():
     assert "README.md совпадает с генератором" in completed.stdout
 
 
+def test_readme_sholokhov_claim_is_bound_to_registered_lobo_source():
+    registered = json.loads(
+        (ROOT / "docs" / "sholokhov_lobo.json").read_text(encoding="utf-8")
+    )
+    verdict = registered["td_attributed_to_sholokhov"]
+    gradient = registered["disputed_td"]
+    readme = " ".join(
+        (ROOT / "README.md").read_text(encoding="utf-8").split()
+    )
+    generator = README_GENERATOR.read_text(encoding="utf-8")
+    site_generator = GENERATOR.read_text(encoding="utf-8")
+
+    def rendered(value):
+        return f"{value:.4f}".rstrip("0").rstrip(".")
+
+    assert f"**{verdict} тома ТД → Шолохову**" in readme
+    assert (
+        f"({rendered(gradient[0]['foreign_fraction'])}→"
+        f"{rendered(gradient[-1]['foreign_fraction'])})"
+    ) in readme
+    assert (
+        "shLobo.td_attributed_to_sholokhov" in generator
+        and "shLobo.disputed_td[0].foreign_fraction" in generator
+        and "shLobo.disputed_td.at(-1).foreign_fraction" in generator
+    )
+    assert "tdLoboP: slob.td1_vs_null_permutation_p" in site_generator
+    assert (
+        "tdLoboSurvives: slob.don_source_signal_significant"
+        in site_generator
+    )
+    assert "tdLoboP: r12.test_registry.confirmatory" not in site_generator
+    if verdict != "4/4":
+        assert "**4/4 тома ТД → Шолохову**" not in readme
+
+
 def test_method_does_not_render_the_withdrawn_macro_f1_interval():
     source = (ROOT / "site" / "src" / "sections" / "Method.jsx").read_text(encoding="utf-8")
     assert "MF1_CI" not in source
