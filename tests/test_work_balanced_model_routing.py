@@ -267,6 +267,18 @@ class TestDispatchAndLifecycle:
         cw = make_factory("stylo", CFG, weighting=weighting)().named_steps["classifier"].class_weight
         assert (cw is None) == (weighting == WORK_BALANCED)
 
+    @pytest.mark.parametrize("weighting", [CHUNK_WEIGHTED_LEGACY, WORK_BALANCED])
+    def test_stylo_factory_construction_does_not_resolve_spacy(
+            self, weighting, monkeypatch):
+        from stylo import nlp
+
+        def eager_model_load(*_args, **_kwargs):
+            pytest.fail("estimator construction must not resolve a spaCy model")
+
+        monkeypatch.setattr(nlp, "load_nlp", eager_model_load)
+        estimator = make_factory("stylo", CFG, weighting=weighting)()
+        assert estimator.named_steps["vectorizer"].rep_cache.doc_cache._nlp is None
+
     def test_bow_ref_is_wb_only(self):
         assert make_factory("bow_lr_ref_legacy", CFG, weighting=WORK_BALANCED)() is not None
         with pytest.raises(UnsupportedVariantError):        # forbidden in legacy arm

@@ -106,6 +106,11 @@ def _key(text: str, nlp_identity: str, version: str, rep_ver: str) -> str:
 class RepCache:
     """Safe SQLite/strict-JSON representation cache.
 
+    Construction is deliberately side-effect free: the resolved spaCy identity
+    (and therefore the identity-scoped SQLite path) is obtained only when the
+    cache is first used.  Estimator factories may thus be validated or cloned
+    without requiring a locally installed language model.
+
     warm(): строит недостающие Rep (через DocCache+spaCy) и пишет файл.
     get_reps(): reads only requested rows; missing representations are rebuilt.
 
@@ -119,13 +124,21 @@ class RepCache:
         self.data_dir = pathlib.Path(data_dir)
         self.params = params
         self.rep_ver = params.version()
-        self.path = (
-            self.data_dir
-            / (
-                f"reps_{doc_cache.identity.identity_sha256}_"
-                f"{doc_cache.version}_{self.rep_ver}.sqlite3"
+        self._path: pathlib.Path | None = None
+
+    @property
+    def path(self) -> pathlib.Path:
+        """Identity-scoped cache path, resolved lazily on first cache use."""
+
+        if self._path is None:
+            self._path = (
+                self.data_dir
+                / (
+                    f"reps_{self.doc_cache.identity.identity_sha256}_"
+                    f"{self.doc_cache.version}_{self.rep_ver}.sqlite3"
+                )
             )
-        )
+        return self._path
 
     def _metadata(self) -> dict[str, str]:
         return {

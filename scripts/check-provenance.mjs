@@ -1,9 +1,10 @@
 // Verify the typed site-generation registry, every consumed byte, and every generated output.
-// Production: node scripts/check-provenance.mjs
+// Checkout: node scripts/check-provenance.mjs
+// Git-free release archive: node scripts/check-provenance.mjs --archive
 // Tests may point at a synthetic tree with: --root PATH --skip-tracked
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,17 +20,38 @@ function fail(message) {
 
 function parseArgs(argv) {
   let root = DEFAULT_ROOT;
-  let checkTracked = true;
+  let trackingMode = "checkout";
+  let trackingModeExplicit = false;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--root" && i + 1 < argv.length) {
       root = resolve(argv[++i]);
     } else if (argv[i] === "--skip-tracked") {
-      checkTracked = false;
+      if (trackingModeExplicit) fail("tracking mode may be specified only once");
+      trackingMode = "test-skip";
+      trackingModeExplicit = true;
+    } else if (argv[i] === "--archive") {
+      if (trackingModeExplicit) fail("tracking mode may be specified only once");
+      trackingMode = "archive";
+      trackingModeExplicit = true;
     } else {
       fail(`unknown or incomplete argument ${JSON.stringify(argv[i])}`);
     }
   }
-  return { root, checkTracked };
+  return { root, trackingMode };
+}
+
+function hasGitMetadata(root) {
+  const gitPath = resolve(root, ".git");
+  try {
+    const metadata = lstatSync(gitPath);
+    if (!metadata.isDirectory() && !metadata.isFile()) {
+      fail(`${gitPath} is not regular Git metadata`);
+    }
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    fail(`cannot inspect Git metadata at ${gitPath}: ${error.message}`);
+  }
 }
 
 function exactKeys(value, keys, where) {
@@ -82,7 +104,14 @@ function verifyBinding(root, binding, where) {
   return path;
 }
 
-const { root, checkTracked } = parseArgs(process.argv.slice(2));
+const { root, trackingMode } = parseArgs(process.argv.slice(2));
+const gitMetadataPresent = hasGitMetadata(root);
+if (trackingMode === "checkout" && !gitMetadataPresent) {
+  fail("Git metadata is absent; a verified source archive must use --archive");
+}
+if (trackingMode === "archive" && gitMetadataPresent) {
+  fail("--archive requires a Git-free root and cannot bypass checkout trackedness");
+}
 let registry;
 try {
   registry = JSON.parse(readFileSync(resolve(root, MANIFEST_PATH), "utf-8"));
@@ -124,7 +153,7 @@ if (
   fail("outputs must bind exactly site/src/generated/site-data.json");
 }
 
-if (checkTracked) {
+if (trackingMode === "checkout") {
   for (const path of [...paths, MANIFEST_PATH]) {
     try {
       execFileSync("git", ["ls-files", "--error-unmatch", "--", path], {

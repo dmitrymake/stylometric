@@ -139,14 +139,23 @@ def _provenance_registry(generator: bytes, source: bytes, output: bytes) -> dict
     }
 
 
-def _run_checker(root: pathlib.Path) -> subprocess.CompletedProcess[str]:
+def _run_checker(
+    root: pathlib.Path,
+    *,
+    mode: str = "test-skip",
+) -> subprocess.CompletedProcess[str]:
+    mode_args = {
+        "checkout": [],
+        "test-skip": ["--skip-tracked"],
+        "archive": ["--archive"],
+    }[mode]
     return subprocess.run(
         [
             "node",
             str(ROOT / "scripts" / "check-provenance.mjs"),
             "--root",
             str(root),
-            "--skip-tracked",
+            *mode_args,
         ],
         text=True,
         stdout=subprocess.PIPE,
@@ -188,9 +197,55 @@ def test_typed_site_provenance_detects_source_and_output_mutation(tmp_path):
     assert "digest mismatch" in output_failure.stderr
 
 
+def test_git_free_provenance_mode_is_explicit_and_cannot_bypass_checkout(
+    tmp_path,
+):
+    generator = b"// archived generator\n"
+    source = b'{"archived": true}\n'
+    output = b'{"rendered": true}\n'
+    paths = {
+        "generator": tmp_path / "scripts" / "gen-site-data.mjs",
+        "source": tmp_path / "docs" / "source.json",
+        "output": tmp_path / "site" / "src" / "generated" / "site-data.json",
+        "manifest": tmp_path / "site" / "src" / "generated" / "manifest.json",
+    }
+    for path in paths.values():
+        path.parent.mkdir(parents=True, exist_ok=True)
+    paths["generator"].write_bytes(generator)
+    paths["source"].write_bytes(source)
+    paths["output"].write_bytes(output)
+    paths["manifest"].write_text(
+        json.dumps(_provenance_registry(generator, source, output)) + "\n",
+        encoding="utf-8",
+    )
+
+    implicit_checkout = _run_checker(tmp_path, mode="checkout")
+    assert implicit_checkout.returncode == 1
+    assert "Git metadata is absent; a verified source archive must use --archive" in (
+        implicit_checkout.stderr
+    )
+
+    archived = _run_checker(tmp_path, mode="archive")
+    assert archived.returncode == 0, archived.stderr
+
+    paths["source"].write_bytes(b'{"archived": false}\n')
+    drifted = _run_checker(tmp_path, mode="archive")
+    assert drifted.returncode == 1
+    assert "digest mismatch" in drifted.stderr
+
+    paths["source"].write_bytes(source)
+    (tmp_path / ".git").mkdir()
+    checkout_bypass = _run_checker(tmp_path, mode="archive")
+    assert checkout_bypass.returncode == 1
+    assert "cannot bypass checkout trackedness" in checkout_bypass.stderr
+
+
 def test_real_site_registry_and_pages_workflow_are_reproducible():
+    command = ["node", str(ROOT / "scripts" / "check-provenance.mjs")]
+    if not (ROOT / ".git").exists():
+        command.append("--archive")
     checked = subprocess.run(
-        ["node", str(ROOT / "scripts" / "check-provenance.mjs")],
+        command,
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,

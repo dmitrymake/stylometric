@@ -84,7 +84,7 @@
     "research/governance/runner_catalog.json": "15674ef3660dd74c979102bb28af1fe3629b948279de771628fb333982b632f9",
     "research/governance/status_ledger.json": "363bdeb3905742f8c30741811772de5eb616d5881e7da2a109f02590ca9579b3",
     "research/governance/topology.json": "456dfbf37dbcbdc7ea5e73be2d4bd65e3465f7786ffa099b44b12eb8350caf1d",
-    "scripts/check-provenance.mjs": "3bc5dd083e6ceb951a0f8cda64101685d1c590a84ef5a5416a9efb3db3a801a7",
+    "scripts/check-provenance.mjs": "42ec5e403e93b5b12e2ca61c8a95ece76e634f0c0e860efd95479b8b85766d34",
     "scripts/evaluation/run_stack_class_coverage_repair_smoke.py": "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55",
     "scripts/gen-site-data.mjs": "67e27535b63c6156f1e91887836bb2fc1ee47b9e652aceacd1eb7fc1e6ca3e92",
     "site/package-lock.json": "bdb1e7b5d7bf3855ef11eff237687d2c4e1f19889204221c3d54fc854fd49218",

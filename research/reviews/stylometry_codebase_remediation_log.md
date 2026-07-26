@@ -193,3 +193,19 @@ Initial state:
   passed all 1035 collected tests (two unchanged invalid-escape deprecation
   warnings), all Python compiled, diff/provenance/path/hash checks passed, and
   the previously verified production site build remains reproducible.
+- 2026-07-26: Integrated the audited tree into the sanitized public `main` as
+  merge `fd034e00`; the unrelated legacy local `main` was quarantined at
+  `archive/local-main-private-20260726` because its history contains private
+  corpus paths. GitHub Actions run `30203153366` then exposed two clean-runner
+  boundary defects hidden by the developer checkout: five construction-only
+  routing tests eagerly resolved the locally installed Russian spaCy model,
+  and the same five plus one provenance test failed in the Git-free archive
+  because checkout trackedness was attempted without Git metadata. Made the
+  representation-cache path lazy while retaining resolved-NLP identity in its
+  namespace/metadata/keying, and added an explicit fail-closed provenance
+  `--archive` mode that cannot be used when `.git` is present. Added
+  model-free factory and archive-mode regressions and updated the checker's
+  release SHA binding. The exact former failures pass in both checkout and a
+  materialized Git-free archive; archive inventory and 91-source provenance
+  pass; the complete suite now passes all 1038 collected tests with only the
+  same two invalid-escape deprecation warnings.
