@@ -7,8 +7,28 @@
 import D from "./generated/site-data.json";
 import { CORPUS } from "./corpus.js";
 
-// HEADLINE = продакшен-модель stylo (LogReg по всем блокам фич), полный per-book LOBO.
-// authors/books — срез LOBO (43 тестированных автора / 251 книга).
+const REQUIRED_HISTORICAL_CLAIM_STATUS = "exploratory_internal";
+if (D.headline.claimStatus !== REQUIRED_HISTORICAL_CLAIM_STATUS) {
+  throw new Error(
+    `headline publication status must be ${REQUIRED_HISTORICAL_CLAIM_STATUS}, got ${D.headline.claimStatus}`
+  );
+}
+
+export const HEADLINE_PUBLICATION = Object.freeze({
+  claimStatus: REQUIRED_HISTORICAL_CLAIM_STATUS,
+  corpusStatus: D.headline.corpusEligibilityStatus,
+  currentAccuracyClaimAuthorized: false,
+  currentSignificanceClaimAuthorized: false,
+});
+if (HEADLINE_PUBLICATION.corpusStatus !== "ineligible_for_new_scientific_runs") {
+  throw new Error(
+    `headline corpus status must fail closed, got ${HEADLINE_PUBLICATION.corpusStatus}`
+  );
+}
+
+// HEADLINE сохраняет историческую арифметику stylo-LR per-book LOBO.
+// Этот corpus snapshot непригоден для новых научных claims из-за cross-work
+// content leakage; authors/books нужны только для маркированного historical view.
 export const HEADLINE = {
   ...D.headline,
   authors: CORPUS.lobo.tested_authors,
@@ -24,8 +44,9 @@ const ruBooks = (n) => {
   return "книг";
 };
 
-// Финальное сравнение моделей — ИСТИННЫЙ пер-книжный LOBO (final.py/lobo.py → final_comparison.csv).
-// p = McNemar по книгам против stylo. p===0 → машинный нуль (≪0.0001).
+// Историческое сравнение моделей из ineligible corpus snapshot.
+// p = сохранённая McNemar-арифметика по книгам против stylo; это не действующий
+// significance claim. p===0 → машинный нуль (≪0.0001).
 const MODEL_META = {
   stylo: { name: "stylo (все блоки)", kind: "ours" },
   bow_lr: { name: "Мешок слов + логрег", kind: "baseline" },
@@ -48,8 +69,7 @@ export const WORST_CLASSIC_P = Math.max(
   ...MODELS.filter((m) => m.kind === "classic").map((m) => m.p).filter((p) => p != null),
 );
 
-// Вклад блоков признаков: каждый КАНАЛ в одиночку (один SVM, тот же leak-free срез).
-// Равновесный ансамбль (leak-free) ≥ лучшего одиночного канала → блоки взаимодополняемы.
+// Историческая диагностика каналов на том же ineligible corpus snapshot.
 const CHANNEL_META = {
   "char (2-5)": { name: "char-n-граммы 2–5", kind: "base" },
   function_words: { name: "служебные слова", kind: "base" },
@@ -122,10 +142,10 @@ export const CONFUSIONS = D.confusions.map((c) => ({
   note: CONFUSION_NOTES[`${c.trueId}>${c.predId}`],
 }));
 
-// Находки валидатора корпуса (docs/corpus_validation.json).
+// Исторические находки валидатора корпуса (docs/corpus_validation.json).
 export const CORPUS_FINDINGS = [
   { severity: "warn", title: "Внутриавторские near-duplicate", text: "Прутков (cos 0.95–0.96 между сборниками афоризмов) и Гаршин — пересекающиеся фрагменты. Источник утечки train↔test; учитывается при чтении силуэта коллектива." },
-  { severity: "warn", title: `Дисбаланс ${D.corpus.research.imbalanceRatio}×`, text: "Достоевский (≈1.15M слов) против Волошина (≈1.8k). Accuracy завышается «толстыми» классами — поэтому рядом приводим macro-F1. Интервал macro-F1 по авторам отозван; интервал accuracy сохранён." },
+  { severity: "warn", title: `Дисбаланс ${D.corpus.research.imbalanceRatio}×`, text: "Достоевский (≈1.15M слов) против Волошина (≈1.8k). Историческая accuracy завышается «толстыми» классами, поэтому рядом сохранена описательная точка macro-F1. Её интервал отозван; accuracy-интервал остаётся только исторической арифметикой." },
   { severity: "info", title: "1-книжные авторы вне оценки", text: "Гончаров, Григорович, Решетников, Волошин — книгу нельзя оставить, не лишив автора профиля; в book-level CV не участвуют." },
   { severity: "info", title: "Дуэт и дневники — отдельно", text: "Ильф-Петров (соавторство) и дневники Николая II (не проза) исключены из headline-бенчмарка и разбираются отдельными кейсами." },
 ];
@@ -141,14 +161,14 @@ export const SEGMENT = {
     `наименьшая пойманная доля чужого текста около ${D.segment.similarDetectionFloorPct}%; честный предел, решающий в кейсе «Тихого Дона».`,
 };
 
-// Истинный LOBO для голого признака (trueLoboBooks, каждая книга держится вне по очереди)
-// vs 5-fold book-level прокси; канонический stylo LOBO берётся из final_comparison.csv.
+// Исторический LOBO для голого признака (trueLoboBooks, каждая книга держится вне по очереди)
+// vs 5-fold book-level прокси; отозванный stylo LOBO берётся из final_comparison.csv.
 export const LOBO_STRICT = {
   ...D.loboStrict, // trueLoboTop1/2/3, trueLoboAuthors/Books, proxyTop1 — из docs/lobo_fast.json + headline
-  trueLoboMethod: "Cosine-Delta, char_wb 3–5 (HashingVectorizer без обучаемого словаря → leak-free по построению)",
+  trueLoboMethod: "historical Cosine-Delta, char_wb 3–5; snapshot ineligible из-за cross-work content leakage",
   proxyCv: "5-fold book-level StratifiedGroupKFold (прокси для sweep/ablation)",
   note:
-    `Канонический HEADLINE — полный per-book LOBO (leave-one-book-out; пересчётов: ${HEADLINE.books}, каждая книга по очереди отложена; final.py/lobo.py → final_comparison.csv): top-1 ${D.loboStrict.styloFullLobo} (${HEADLINE.authors} тестированных автора / ${HEADLINE.books} ${ruBooks(HEADLINE.books)}). StratifiedGroupKFold(5) (top-1 ${D.loboStrict.proxyTop1}) — лишь быстрый прокси для sweep/ablation, не headline; сходится с LOBO в пределах шума. Голый char-косинус (Cosine-Delta) под LOBO даёт строгий ПОЛ на признаке без обучаемого словаря (${D.loboStrict.trueLoboTop1}) — отдельный нижний ориентир.`,
+    `Исторический отозванный per-book LOBO (final.py/lobo.py → final_comparison.csv): top-1 ${D.loboStrict.styloFullLobo} (${HEADLINE.authors} тестированных автора / ${HEADLINE.books} ${ruBooks(HEADLINE.books)}). Snapshot непригоден для новых claims из-за cross-work content leakage. StratifiedGroupKFold(5) (top-1 ${D.loboStrict.proxyTop1}) и голый char-косинус (${D.loboStrict.trueLoboTop1}) также остаются историческими диагностическими числами, а не текущим headline.`,
 };
 
 // Заметка о воспроизводимости демо-кода группы ТУСУР (Romanov/Kurtukova/Fedotova/Shelupanov).

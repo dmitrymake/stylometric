@@ -10,6 +10,7 @@ on:
       - "docs/**"
       - "scripts/gen-site-data.mjs"
       - "scripts/check-provenance.mjs"
+      - "research/evidence/ineligible_corpus_registrations_v1.json"
       - "site/**"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:

@@ -6,15 +6,16 @@ import { CASES, BENCH, BENCH_EXT } from "../segdata.js";
 import { fmtScore, fmtP, fmtRange, fmtPct } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
 import Sources from "../components/Sources.jsx";
+import HistoricalHeadlineNotice from "../components/HistoricalHeadlineNotice.jsx";
 
 const TA = CASES.tolstoyAn;
 const C = CASES;
 // значимость — все числа из генератора, не литералы
 const BOW_M = MODELS.find((m) => m.id === "bow_lr");
 // author-clustered CI macro-F1 ОТОЗВАН (HEADLINE.macroF1CI === null) — показываем точку.
-// доверительный интервал точности считаем по выборкам КНИГ (author-clustered) — единообразно
-// с macro-F1 CI и с WhyBlock «единица оценки — книга»; более узкий чанк-интервал не берём.
-const ACC_CI = fmtRange(HEADLINE.accCIAuthor[0], HEADLINE.accCIAuthor[1]);
+// Accuracy-интервал статистически определён в исторической арифметике, но upstream
+// corpus snapshot непригоден из-за cross-work leakage: это не текущая uncertainty.
+const HISTORICAL_ACC_CI = fmtRange(HEADLINE.accCIAuthor[0], HEADLINE.accCIAuthor[1]);
 // max шкал берётся из данных, не литералом
 const CH_MAX = Math.max(...BENCH.channels.map((r) => r.v));
 const PROZA_MAX = Math.max(...BENCH_EXT.prozaCompare.map((r) => r.v));
@@ -39,7 +40,7 @@ const chRu = (c) => CH_RU[c] || c;
 // разброс «цельного одиночки» берём из бесспорных контролей, не литералом
 const SINGLE_LOW = Math.min(...C.controls.map((c) => c.v));
 const SINGLE_HIGH = Math.max(...C.controls.map((c) => c.v));
-// худший по узнаваемости автор публикуемого среза + сколько его книг помечено верно
+// Историческая PD-only диагностика: худший recall и число помеченных книг.
 const WORST = BENCH.worstRecall;
 const WORST_OK = Math.round(WORST.recall * WORST.books);
 const ruBooks = (n) => {
@@ -68,7 +69,7 @@ const TOMSK_KMAX = Math.max(...TOMSK.headToHead.table.map((r) => r.k));
 
 // Короткие устойчивые ярлыки трёх срезов корпуса — чтобы читатель не путал 22 / 43 / 51 автора
 // (числа приходят из данных, склонение — через ruAuthors; форма именительная для скобочного вида).
-const SLICE_OPEN = `открытый срез (${BENCH.nAuthors} ${ruAuthors(BENCH.nAuthors)})`;
+const SLICE_OPEN = `исторический открытый срез (${BENCH.nAuthors} ${ruAuthors(BENCH.nAuthors)})`;
 const SLICE_BOOK = `срез по книгам (${CORPUS.benchmark.authors} ${ruAuthors(CORPUS.benchmark.authors)})`;
 const SLICE_ALL = `весь корпус (${CORPUS.research.authors} ${ruAuthors(CORPUS.research.authors)})`;
 
@@ -103,8 +104,8 @@ const featNote = (n) => FEAT_NOTE_RU[n] || n;
 const PROTOCOL = [
   { marker: "01", title: "очистка", body: "Нормализация текста, удаление точных дублей по контрольной сумме, отсев почти-одинаковых отрывков одного автора — чтобы куски своих же книг не подсматривали из обучения в проверку.", color: "var(--icon-blue)", state: "done" },
   { marker: "02", title: "разделение", body: "Книга — неделимая единица. Отрывки одной книги никогда не попадают по разные стороны границы между обучением и проверкой.", color: "var(--icon-blue)", state: "done" },
-  { marker: "03", title: "проверка по целым книгам", body: `Каждую книгу по очереди убираем и проверяем — ${HEADLINE.books} пересчётов, по одному на отложенную книгу. На её шаге всё обучаемое учится строго без неё: словарь, частоты слов, веса классификатора. Вердикт по книге — среднее вероятностей её отрывков, чтобы одна удачная страница не стала выводом. Всего проверено ${HEADLINE.authors} ${ruAuthors(HEADLINE.authors)} / ${HEADLINE.books} ${ruBooks(HEADLINE.books)}.`, color: "var(--gold)", state: "done" },
-  { marker: "04", title: "значимость", body: "Каждую цифру проверяем отдельно: насколько она точна, устойчива ли к пересчётам и не случайно ли выше простого метода.", color: "var(--cinnabar)", state: "done" },
+  { marker: "03", title: "исторический LOBO", body: `В старом расчёте каждую книгу по очереди убирали — ${HEADLINE.books} пересчётов. Позднее аудит нашёл совпадающее содержание под другими work-id по разные стороны границы, поэтому эти ${HEADLINE.authors} ${ruAuthors(HEADLINE.authors)} / ${HEADLINE.books} ${ruBooks(HEADLINE.books)} сохраняются только как исторический срез.`, color: "var(--gold)", state: "done" },
+  { marker: "04", title: "историческая диагностика", body: "Интервалы и p воспроизводят старую арифметику, но не разрешают текущий вывод о точности или преимуществе на непригодном snapshot.", color: "var(--cinnabar)", state: "done" },
 ];
 
 export default function Method() {
@@ -113,27 +114,29 @@ export default function Method() {
       <div className="wrap flow">
         <div className="section-head reveal">
           <p className="eyebrow">Метод</p>
-          <h2>Проверяем по целым книгам — без подсматривания</h2>
+          <h2>Проверка по книгам — и обнаруженная граница утечки</h2>
           <p className="prose lead muted">
             Главное в атрибуции не принять смену темы за смену руки. Автор
             берёт новый сюжет, других героев, другой словарь — и слабый метод решает, что
             сменился человек. Страхуемся так: проверяемую книгу целиком убираем из корпуса
             и возвращаем только на шаге предсказания. Она не участвует ни в словаре, ни в
             частотах слов, ни в обучении — текст не может подсказать сам себя. Поэтому
-            итоговая цифра показывает, как метод переносится на новую книгу, а не насколько
-            он её запомнил.
+            такой дизайн должен показывать перенос на новую книгу. Но исторический corpus
+            snapshot содержал вложенные произведения и точное совпадение чанка под разными
+            work-id: формально отложенная книга всё же встречалась в train через другое имя.
           </p>
           <p className="prose muted">
-            Заголовочная проверка — по одной отложенной книге за раз; её доля верных
+            Исторический отозванный LOBO оставлял по одной книге; сохранённая доля
             попаданий — {fmtScore(LOBO_STRICT.styloFullLobo, 3)}.
-            Деление корпуса на 5 частей — быстрый ориентир для перебора
+            Деление корпуса на 5 частей было быстрым ориентиром для перебора
             ({fmtScore(LOBO_STRICT.proxyTop1, 3)}). Числа близкие, но считаются по-разному
-            и на разных наборах авторов. Поэтому между собой их не сравнивают.
+            и на разных наборах авторов; оба остаются диагностикой старого snapshot.
           </p>
+          <HistoricalHeadlineNotice compact />
           {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
             <p className="mono muted" style={{ fontSize: 12 }}>
               Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-              один голос» ещё впереди — заголовочная цифра может немного сдвинуться.
+              один голос» не реабилитирует старый snapshot: сначала нужна content-safe миграция.
             </p>
           )}
         </div>
@@ -165,13 +168,13 @@ export default function Method() {
                 и точкой отсчёта «всегда самый частый автор».
               </p>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — Точность по авторам (macro-F1 — средняя по всем авторам поровну, чтобы авторы с большим числом книг не перетягивали среднее) — единая оценка {fmtScore(HEADLINE.macroF1)}. Разброс по авторам не приводим: пересборка по авторам меняет набор учитываемых авторов, поэтому такой интервал для macro-F1 недействителен и отозван.
+                — Историческая точка macro-F1 (средняя по всем авторам поровну) — {fmtScore(HEADLINE.macroF1)}. Она описывает сохранённую арифметику, но не является текущей оценкой; её author-clustered интервал дополнительно недействителен и отозван.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — Доверительный интервал точности по книгам [{ACC_CI}] — из повторных пересчётов на случайных выборках книг.
+                — Исторический accuracy-интервал [{HISTORICAL_ACC_CI}] воспроизводит старый bootstrap, но из-за upstream content leakage не оценивает текущую неопределённость.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
-                — Тест МакНемара (сравнивает два метода на одних и тех же книгах) против опорных методов даёт p {fmtP(BOW_M.p)}: stylo надёжно обходит и Burrows Delta, и мешок слов — отрыв не случайный.
+                — McNemar p {fmtP(BOW_M.p)} сохранён как историческая диагностика. На ineligible corpus snapshot он не подтверждает текущий claim о превосходстве над Burrows Delta или мешком слов.
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 6, maxWidth: "62ch" }}>
                 — Калибровка (ECE — насколько заявленная уверенность расходится с реальной долей попаданий) {fmtScore(HEADLINE.ece)}: плохая (хорошая около 0.02–0.05). Модель склонна переоценивать себя, поэтому доли вероятностей в разборах читаем как порядок версий, а не как точную уверенность.
@@ -305,14 +308,15 @@ export default function Method() {
           </p>
         </div>
 
-        {/* точность инструмента — бенчмарк */}
+        {/* историческая диагностика на ineligible corpus snapshot */}
         <div className="reveal module">
-          <h3>Насколько точен инструмент</h3>
+          <h3>Историческая диагностика открытого среза</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 16 }}>
-            Открытый срез — <strong style={{ color: "var(--text)" }}>{BENCH.nBooks} {ruBooks(BENCH.nBooks)}</strong> по{" "}
+            Сохранённый PD-only артефакт — <strong style={{ color: "var(--text)" }}>{BENCH.nBooks} {ruBooks(BENCH.nBooks)}</strong> по{" "}
             <strong style={{ color: "var(--text)" }}>{BENCH.nAuthors} авторам-классикам</strong>, умершим больше 70 лет назад:
-            их тексты может докачать и перепроверить кто угодно. Проверяем по целым книгам простой линейной моделью
-            (без нейросетей). Вклад каждой группы признаков по отдельности:
+            его байты можно воспроизвести, но известный Turgenev content-component
+            пересекает work-id границу. Поэтому показатели групп признаков ниже —
+            историческая арифметика, не текущая точность:
           </p>
           <div className="split" style={{ alignItems: "center" }}>
             <div>
@@ -326,37 +330,38 @@ export default function Method() {
             </div>
             <div style={{ display: "grid", gap: 10, alignContent: "start" }}>
               <div className="grid cols-2">
-                <Stat label="точность по авторам (главная метрика)" value={fmtScore(BENCH.topMacroF1)} accent="var(--icon-blue)" />
-                <Stat label="верных попаданий" value={fmtScore(BENCH.topTop1)} accent="var(--text)" />
+                <Stat label="historical PD macro-F1" value={fmtScore(BENCH.topMacroF1)} accent="var(--icon-blue)" />
+                <Stat label="historical PD accuracy" value={fmtScore(BENCH.topTop1)} accent="var(--text)" />
               </div>
               <p className="note" style={{ margin: 0 }}>
                 Ансамбль «все группы поровну» — это простое усреднение групп признаков. Его веса{" "}
-                <strong style={{ color: "var(--text)" }}>не зависят от проверяемого текста</strong>, поэтому текст не помогает угадать сам себя.
+                <strong style={{ color: "var(--text)" }}>не зависят от test labels</strong>, но это не устраняет upstream cross-work content leakage.
               </p>
               <p className="note" style={{ margin: 0 }}>
                 Под <em>одним</em> классификатором{" "}
-                <strong style={{ color: "var(--text)" }}>цепочки букв ({fmtScore(CH_CHAR.v, 3)}) и синтаксис ({fmtScore(CH_SYN.v, 3)}) идут вровень</strong>.
-                Независимость от темы здесь — <em>размен</em>, а не выигрыш в точности.
+                <strong style={{ color: "var(--text)" }}>цепочки букв ({fmtScore(CH_CHAR.v, 3)}) и синтаксис ({fmtScore(CH_SYN.v, 3)}) дали близкую историческую арифметику</strong>.
+                Это гипотеза для нового content-safe пересчёта.
               </p>
             </div>
           </div>
           <p className="muted" style={{ fontSize: 12.5, marginTop: 12, maxWidth: "80ch" }}>
-            Это открытый срез из {BENCH.nAuthors} {ruAuthors(BENCH.nAuthors)}; заголовочные{" "}
-            {fmtScore(LOBO_STRICT.styloFullLobo, 3)} считаются на другом, большем срезе. Числа с разных
-            срезов между собой не сравнивают.
+            Это открытый срез из {BENCH.nAuthors} {ruAuthors(BENCH.nAuthors)}. Исторические
+            {fmtScore(LOBO_STRICT.styloFullLobo, 3)} получены на другом, большем и ныне
+            непригодном срезе; эти числа не сравнивают и не используют как текущий claim.
           </p>
           <details style={{ marginTop: 6 }}>
             <summary style={SUMMARY_STYLE}>Три среза корпуса</summary>
             <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 8px", maxWidth: "80ch" }}>
-              На <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> верных попаданий больше ({fmtScore(BENCH.topTop1)}) и точность по авторам выше ({fmtScore(BENCH.topMacroF1)}): меньше авторов — их труднее спутать.
-              Заголовочные числа считаются на <strong style={{ color: "var(--text)" }}>{SLICE_BOOK}</strong>: доля верных попаданий {fmtScore(LOBO_STRICT.styloFullLobo, 3)}, точность по авторам (macro-F1) {fmtScore(HEADLINE.macroF1, 3)}.
-              Интервал macro-F1 отозван: пересборка по авторам меняет набор классов и не оценивает разброс одной фиксированной метрики.
-              И то, и другое зависит от состава среза, поэтому числа с разных срезов между собой не сравнивают.
+              Для <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> сохранены точки {fmtScore(BENCH.topTop1)} / {fmtScore(BENCH.topMacroF1)}.
+              Исторические отозванные числа для <strong style={{ color: "var(--text)" }}>{SLICE_BOOK}</strong>: доля верных попаданий {fmtScore(LOBO_STRICT.styloFullLobo, 3)}, описательная точка macro-F1 {fmtScore(HEADLINE.macroF1, 3)}.
+              Весь snapshot непригоден из-за cross-work content leakage; интервал macro-F1 дополнительно отозван, потому что пересборка по авторам меняет набор классов.
+              Ни один срез не поддерживает текущий claim; между собой их тоже не сравнивают.
             </p>
             <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px", maxWidth: "80ch" }}>
               Слабее всех узнаётся {WORST.name} — коллективная маска: своим именем помечена лишь половина его книг ({WORST_OK} из {WORST.books}).
               Маску из нескольких почерков трудно свести к одному профилю.
-              Доверительный интервал точности по авторам на открытом срезе — {fmtRange(BENCH.ci[0], BENCH.ci[1])}: верхняя точка оптимистична, честная нижняя граница — {fmtScore(BENCH.ci[0])}.
+              Исторический PD macro-F1 interval — {fmtRange(BENCH.ci[0], BENCH.ci[1])}.
+              Он сохранён для аудита arithmetic и не является текущей uncertainty.
             </p>
             <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px", maxWidth: "80ch" }}>
               <strong style={{ color: "var(--text)" }}>{SLICE_OPEN}</strong> — классики, умершие больше 70 лет назад ({BENCH.nBooks} {ruBooks(BENCH.nBooks)}):
@@ -473,19 +478,19 @@ export default function Method() {
             <div className="split" style={{ alignItems: "start", marginTop: 12 }}>
               <div>
                 <div className="grid cols-3">
-                  <Stat label="проверка по целым книгам · главная цифра" value={fmtScore(LOBO_STRICT.styloFullLobo, 3)} accent="var(--gold)" />
-                  <Stat label="деление на 5 частей · ориентир" value={fmtScore(LOBO_STRICT.proxyTop1, 3)} accent="var(--text)" />
-                  <Stat label={`нижняя граница · голый посимвольный признак (${LOBO_STRICT.trueLoboBooks} ${ruBooks(LOBO_STRICT.trueLoboBooks)})`} value={fmtScore(LOBO_STRICT.trueLoboTop1, 3)} accent="var(--text-muted)" />
+                  <Stat label="исторический отозванный LOBO" value={fmtScore(LOBO_STRICT.styloFullLobo, 3)} accent="var(--gold)" />
+                  <Stat label="историческая 5-fold диагностика" value={fmtScore(LOBO_STRICT.proxyTop1, 3)} accent="var(--text)" />
+                  <Stat label={`исторический посимвольный ориентир (${LOBO_STRICT.trueLoboBooks} ${ruBooks(LOBO_STRICT.trueLoboBooks)})`} value={fmtScore(LOBO_STRICT.trueLoboTop1, 3)} accent="var(--text-muted)" />
                 </div>
                 <p className="muted" style={{ fontSize: 12.5, marginTop: 10, maxWidth: "54ch" }}>
-                  Заголовочная цифра — {fmtScore(LOBO_STRICT.styloFullLobo, 3)} ({HEADLINE.authors} {ruAuthors(HEADLINE.authors)} / {HEADLINE.books} {ruBooks(HEADLINE.books)}).
-                  Деление на 5 частей ({fmtScore(LOBO_STRICT.proxyTop1, 3)}) сходится с ней в пределах шума. Голый посимвольный
-                  косинус без обучаемого словаря даёт строгую нижнюю границу на одном признаке — {fmtScore(LOBO_STRICT.trueLoboTop1, 3)}.
+                  Отозванная историческая точка — {fmtScore(LOBO_STRICT.styloFullLobo, 3)} ({HEADLINE.authors} {ruAuthors(HEADLINE.authors)} / {HEADLINE.books} {ruBooks(HEADLINE.books)}).
+                  Деление на 5 частей ({fmtScore(LOBO_STRICT.proxyTop1, 3)}) и посимвольный
+                  косинус ({fmtScore(LOBO_STRICT.trueLoboTop1, 3)}) сохраняются только как диагностика того же ineligible snapshot.
                 </p>
                 {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
                   <p className="mono muted" style={{ fontSize: 12, marginTop: 8, maxWidth: "54ch" }}>
                     Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-                    один голос» ещё впереди — заголовочная цифра может немного сдвинуться.
+                    один голос» возможен после content-safe миграции; старую цифру он не делает допустимой.
                   </p>
                 )}
               </div>
@@ -541,9 +546,9 @@ export default function Method() {
             </p>
             <div style={{ display: "grid", gap: 8, maxWidth: "72ch" }}>
               {[
-                { what: "Публикуемый бенчмарк классиков", cmd: "scripts/run_benchmark.py --pd-only", out: "docs/validation_pd.json" },
+                { what: "Исторический PD-only артефакт", cmd: "scripts/run_benchmark.py --pd-only", out: "docs/validation_pd.json" },
                 { what: "Русский набор Proza.ru", cmd: "scripts/run_proza_ru.py", out: null },
-                { what: "Проверка по целым книгам", cmd: "final.py / lobo.py", out: "final_comparison.csv" },
+                { what: "Отозванный исторический LOBO", cmd: "final.py / lobo.py", out: "final_comparison.csv" },
               ].map((r) => (
                 <div key={r.cmd} style={{ display: "grid", gridTemplateColumns: "20ch 1fr", gap: 10, alignItems: "baseline", borderBottom: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingBottom: 7 }}>
                   <span style={{ fontSize: 12.5, color: "var(--text)" }}>{r.what}</span>

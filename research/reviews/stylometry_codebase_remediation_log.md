@@ -90,6 +90,7 @@ Initial state:
 | AUD-051 | LOW | fixed | `StyloVectorizer.transform` and `fit_transform` now materialize each public input iterable before representation and block passes. Real-block regressions prove list/generator parity for both direct transform and combined fit-transform. |
 | AUD-052 | LOW | fixed | The headline gate now validates both CI bounds as non-bool finite real scalars before ordering or decision comparisons and raises the existing typed `HeadlineError`. NaN and both infinities reject in either bound; equal finite bounds retain registered semantics. |
 | AUD-053 | LOW | fixed / deletion owner-gated | Release-wide search found no internal caller, but direct-module wheel imports and two SHA-bound config references prevent proof of no external use. The compatibility factory still returns the exact uncalibrated scaler+LR pipeline, while every explicit or config-driven calibration request now raises typed `UngroupedCalibrationError`; the ordinary `cv=3` wrapper is removed. The frozen-config comment and physical API cleanup require a future versioned owner decision rather than evidence refreezing. |
+| POST-REVIEW-PUB-001 | HIGH | fixed / historical claims withdrawn | The registered corpus snapshot was already ineligible because of cross-work content leakage, but the site and README still rendered its accuracy, macro-F1 intervals and McNemar result as active claims. Every public headline surface now displays a local withdrawal notice and treats the full and PD-only numbers as historical arithmetic only. Both generators consume the ineligibility registry fail-closed; CI checks byte-identical generated surfaces and provenance, Pages rebuilds when the registry changes, and an SSR/banned-phrase regression protects the rendered contract. No corpus, frozen evidence, governance status, approval or confirmatory gate was changed. |
 
 Open scientific and API-owner decisions are classified in
 [`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
@@ -259,3 +260,13 @@ not change the normative ledger or frozen evidence.
   changing resolved runtime or tool versions, added a closure regression, and
   rebound its release digest. A clean archive install and the production
   build/render/provenance chain then passed.
+- 2026-07-26: Independent post-LOW science/site review found a release-blocking
+  public-contract gap beyond the `MF1_CI` runtime fix: the registered ineligible
+  corpus snapshot still appeared as a current accuracy/significance claim on
+  the site and in the generated README, including the PD-only slice. Withdrew
+  those interpretations locally on every affected surface while retaining the
+  exact historical arithmetic, made both generators consume the ineligibility
+  registry fail-closed, added visible status and banned-phrase regressions, and
+  extended checkout/archive CI provenance gates. The focused contract tests,
+  production Vite build, full-app SSR and 92-source/one-output provenance check
+  pass; frozen scientific and governance evidence remains byte-identical.

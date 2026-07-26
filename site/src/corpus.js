@@ -12,14 +12,16 @@ export const CORPUS = {
   // Включает копирайтных/живых авторов и спец-случаи — локально, НЕ в git.
   research: { ...D.corpus.research, label: "полный корпус" },
 
-  // Бенчмарк точности: leak-free 5-fold book-level StratifiedGroupKFold,
+  // Исторический 5-fold book-level StratifiedGroupKFold. Book-id grouping было
+  // соблюдено, но поздний аудит нашёл cross-work content components; snapshot
+  // непригоден для новых claims.
   // профиль автора ограничен 35 чанками/книга (баланс объёма). Исключены
   // соавторский дуэт (Ильф-Петров), дневники (Николай II) и спорный автор
   // (Шолохов); одно-книжные авторы выпадают (LOBO/CV по книге невозможен).
   benchmark: {
     ...D.corpus.benchmark,
-    label: "бенчмарк (5-fold book-level CV)",
-    cv: "StratifiedGroupKFold(5), book-level, leak-free",
+    label: "исторический бенчмарк (ineligible snapshot)",
+    cv: "historical StratifiedGroupKFold(5); cross-work content leakage",
   },
 
   // PD-срез: авторы, умершие >70 лет назад, — единственный воспроизводимый третьей
@@ -27,11 +29,11 @@ export const CORPUS = {
   // ВНИМАНИЕ: для Гумилёва и Пильняка охрана в РФ продлена после реабилитации
   // (ст. 1281 п. 5 ГК) — срез НЕ называть «редистрибутируемым».
   // Меньше классов → выше точность; с полным числом напрямую НЕ сравнивать.
-  pd: { ...D.corpus.pd, label: "публикуемый бенчмарк (классики †70+ лет)" },
+  pd: { ...D.corpus.pd, label: "исторический PD-only срез (ineligible snapshot)" },
 
-  // Канонический headline-срез: полный per-book LOBO (final.py → final_comparison.csv).
+  // Исторический отозванный headline-срез: полный per-book LOBO.
   // 47 в обучаемом пуле / 43 тестированных / 251 книга.
-  lobo: { ...D.corpus.lobo, label: "полный per-book LOBO" },
+  lobo: { ...D.corpus.lobo, label: "исторический отозванный per-book LOBO" },
 };
 
 // Удобный помощник: «{shown} из {CORPUS.benchmark.authors} авторов» для графа/recall.

@@ -2,7 +2,7 @@
   "schema": "stylo.site_generation_provenance.v1",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "67e27535b63c6156f1e91887836bb2fc1ee47b9e652aceacd1eb7fc1e6ca3e92"
+    "sha256": "c075aa092d1ac63b6df17eaf13e5b04d8bebd096be1da1a2e8b10fa233d5e33a"
   },
   "sources": [
     {
@@ -368,12 +368,16 @@
     {
       "path": "docs/validation_pd.json",
       "sha256": "a615b2ec0c1b926415cf9e5ca2bd5616c930e463689dd1458632ea8b7157ceb9"
+    },
+    {
+      "path": "research/evidence/ineligible_corpus_registrations_v1.json",
+      "sha256": "87074d041fc6171d9bea1e863ca729576462aeffb4c1af185afcbaf2960b4424"
     }
   ],
   "outputs": [
     {
       "path": "site/src/generated/site-data.json",
-      "sha256": "02ce968e3380d18391c06d45df33d559a1203018329fda816c97b0147ca1bb0d"
+      "sha256": "d80007042c1e1c8245eeb4620368880acb05cce952636dbe53af01464f2d76f3"
     }
   ],
   "entries": [
@@ -399,8 +403,8 @@
     },
     {
       "key": "headline",
-      "source": "docs/final_comparison.csv (stylo-LR LOBO) + docs/stylo_lobo_authorci.json",
-      "note": "канонический headline; ensemble* — диагностика SVM+GKF5"
+      "source": "docs/final_comparison.csv + docs/stylo_lobo_authorci.json + research/evidence/ineligible_corpus_registrations_v1.json",
+      "note": "историческая арифметика; corpus snapshot непригоден для новых scientific claims"
     },
     {
       "key": "models",

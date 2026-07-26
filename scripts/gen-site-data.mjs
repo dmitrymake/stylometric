@@ -83,6 +83,16 @@ function load(name) {
   return parseStrictJson(readFileSync(p, "utf-8"), `docs/${name}`);
 }
 
+function loadRepositoryJson(relativePath) {
+  const p = join(ROOT, relativePath);
+  if (!existsSync(p)) {
+    console.error(`ОТСУТСТВУЕТ обязательный источник: ${relativePath}`);
+    process.exit(1);
+  }
+  consumedSources.add(relativePath);
+  return parseStrictJson(readFileSync(p, "utf-8"), relativePath);
+}
+
 // final_comparison.csv: model,accuracy,acc_ci,macro_f1,top2,ece,vs_stylo_dacc,vs_stylo_mcnemar_p
 // acc_ci — поле в кавычках с запятой внутри: "[0.849,0.924]".
 function loadModelsCsv() {
@@ -121,6 +131,17 @@ const lobo = load("lobo_fast.json");
 const attrib = load("sholokhov_attrib.json");
 const tomskFinal = load("tomsk_final.json");
 const tomskFull = load("tomsk_full.json");
+const ineligibleCorpus = loadRepositoryJson(
+  "research/evidence/ineligible_corpus_registrations_v1.json"
+);
+if (
+  ineligibleCorpus.status !== "ineligible_for_new_scientific_runs" ||
+  !Array.isArray(ineligibleCorpus.affected) ||
+  ineligibleCorpus.affected.length !== 1
+) {
+  throw new Error("ineligible corpus registry does not carry the expected fail-closed status");
+}
+const historicalCorpusRegistration = ineligibleCorpus.affected[0];
 
 // ── корпус (три среза) ──
 // источник LOBO-размеров (пул/тестированные/книги) — docs/stylo_lobo_authorci.json, не литералы (защита от дрейфа)
@@ -164,8 +185,15 @@ const headline = {
   ensembleTop1: val.ensemble_top1, ensembleMacroF1: val.headline_macro_f1, ensembleTop3: val.ensemble_top3,
   // train-side взвешивание — по чанкам; work-balanced пересчёт ещё не проведён (§1.2 плана)
   trainingWeighting: styloCI.training_weighting, claimStatus: styloCI.claim_status,
+  corpusEligibilityStatus: ineligibleCorpus.status,
+  corpusEligibilityReason: historicalCorpusRegistration.reason,
+  requiredCorpusMigration: historicalCorpusRegistration.required_migration,
 };
-track("headline", "docs/final_comparison.csv (stylo-LR LOBO) + docs/stylo_lobo_authorci.json", "канонический headline; ensemble* — диагностика SVM+GKF5");
+track(
+  "headline",
+  "docs/final_comparison.csv + docs/stylo_lobo_authorci.json + research/evidence/ineligible_corpus_registrations_v1.json",
+  "историческая арифметика; corpus snapshot непригоден для новых scientific claims"
+);
 
 // ── таблица моделей (leak-free сравнение) ──
 const models = loadModelsCsv();

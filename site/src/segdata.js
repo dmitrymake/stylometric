@@ -30,9 +30,10 @@ export const ILF_PETROV = {
   heterogeneity: D.ilfHeterogeneity, // docs/ilfpetrov_heterogeneity.json (генератор)
 };
 
-// Бенчмарк точности — ВОСПРОИЗВОДИМЫЙ (docs/validation.json из scripts/run_benchmark.py)
-// leak-free book-level, единый классификатор LinearSVC, fit ВНУТРИ фолда, без tuned-on-test
-// PD-срез (публикуемый; НЕ «редистрибутируемый» — у Гумилёва/Пильняка охрана в РФ продлена
+// Исторический бенчмарк (docs/validation.json): book-id grouping и fit внутри
+// фолда соблюдены, но весь snapshot позднее признан ineligible из-за cross-work
+// content leakage. Числа ниже — диагностика, не текущие claims.
+// Исторический PD-only срез (НЕ «редистрибутируемый» — у Гумилёва/Пильняка охрана в РФ продлена
 // после реабилитации, тексты докачиваются по манифесту) — числа из docs/validation_pd.json (генератор).
 // Метки каналов — здесь; точность каждого канала из прогона.
 const PD_CH_LABELS = {
@@ -47,6 +48,7 @@ const PD_CH_LABELS = {
 };
 export const BENCH = {
   pdOnly: true,
+  publicationStatus: "historical_ineligible_corpus_snapshot",
   nAuthors: D.benchPd.nAuthors, nBooks: D.benchPd.nBooks, chance: D.benchPd.chance,
   topMacroF1: D.benchPd.topMacroF1, topTop1: D.benchPd.topTop1, top3: D.benchPd.top3, ci: D.benchPd.ci,
   // худший по узнаваемости автор PD-среза — динамически из генератора (имя, recall, число книг), не литерал
@@ -56,11 +58,10 @@ export const BENCH = {
     .map((c) => ({ c: PD_CH_LABELS[c.id] || c.id, v: c.top1, hi: c.id.startsWith("АНСАМБЛЬ") }))
     .sort((a, b) => b.v - a.v),
   caveat:
-    `char-n-граммы и топик-инвариантный синтаксис идут вровень — последний даёт ту же точность ценой ` +
-    `меньшей жанровой утечки (trade-off). PD-only (${D.corpus.pd.authors} автора, ансамбль ${D.corpus.pd.ensembleTop1}) ` +
-    `и полный (${D.corpus.benchmark.authors} автора, ${D.headline.ensembleTop1}) идут практически вровень: меньшее число ` +
-    `классов в PD компенсируется тем, что именно в нём сидят самые путаемые кластеры (донские очеркисты, бытописатели) — ` +
-    `срезы несравнимы напрямую, у них разный состав авторов.`,
+    `PD-only (${D.corpus.pd.authors} автора, ансамбль ${D.corpus.pd.ensembleTop1}) и полный ` +
+    `(${D.corpus.benchmark.authors} автора, ${D.headline.ensembleTop1}) срезы сохранены как ` +
+    `историческая диагностика ineligible corpus snapshot. Их нельзя сравнивать или использовать ` +
+    `для текущего claim до content-safe миграции и полного пересчёта.`,
 };
 
 // Внешние бенчмарки + сравнение с современными инструментами — docs/ccat50.json, proza_compare.json

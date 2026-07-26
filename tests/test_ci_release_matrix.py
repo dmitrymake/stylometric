@@ -18,6 +18,10 @@ def test_ci_runs_full_and_focused_suites_under_lock_constraints():
     assert "scripts/check_release_hygiene.py --publish-ref HEAD" in text
     assert "Verify canonical portable environment binding" in text
     assert text.count("verify_installed_environment") >= 3
+    assert "node scripts/gen-site-data.mjs" in text
+    assert "node scripts/gen-readme.mjs --check" in text
+    assert "node scripts/check-provenance.mjs" in text
+    assert "git diff --exit-code -- README.md site/src/generated" in text
 
 
 def test_ci_builds_wheel_and_tests_git_free_archive():
@@ -27,4 +31,5 @@ def test_ci_builds_wheel_and_tests_git_free_archive():
     assert "working-directory: /tmp" in text
     assert "git archive HEAD | tar -x -C /tmp/stylo-archive" in text
     assert "check_executable_source_inventory.py --archive" in text
+    assert "check-provenance.mjs --archive" in text
     assert "working-directory: /tmp/stylo-archive" in text

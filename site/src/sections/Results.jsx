@@ -3,6 +3,7 @@ import { MODELS, CHANNELS, HEADLINE, WORST_CLASSIC_P } from "../data.js";
 import { CORPUS } from "../corpus.js";
 import { fmtScore, fmtPct, fmtP } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
+import HistoricalHeadlineNotice from "../components/HistoricalHeadlineNotice.jsx";
 
 const ACCENT = {
   ours: "var(--gold)",
@@ -43,20 +44,17 @@ export default function Results() {
       <div className="wrap flow">
         <div className="section-head reveal">
           <p className="eyebrow">Результаты · книгу прячут целиком</p>
-          <h2>Какие приметы стиля проходят проверку</h2>
+          <h2>Что показывала историческая диагностика</h2>
           <p className="prose lead muted">
-            Спрятать от программы целую книгу — все её отрывки до одного — и только потом
-            спросить: чья? При обучении этой книги программа не может подсмотреть
-            ответ у себя. Так устроена проверка на {CORPUS.lobo.books}{" "}
+            Исторический расчёт пытался спрятать целую книгу — все её отрывки — и только
+            потом спросить: чья? Поздний аудит показал, что совпадающее содержание могло
+            оставаться под другим work-id. Поэтому таблица на {CORPUS.lobo.books}{" "}
             {ruBooksPrep(CORPUS.lobo.books)}. Ответ ищут среди {CORPUS.lobo.tested_authors}{" "}
-            авторов. У каждого есть и другие книги — по ним профиль и виден. У кого книга
-            одна, тот без неё профиль теряет: в зачёт не идёт, только помогает учиться.
-            Полоски ниже — доля верно угаданных книг у каждого метода.
-            Границы (95%) считаются повторными пересчётами на случайных наборах книг, а не
-            отрывков: иначе похожие куски одного романа нарисовали бы обманчиво гладкую
-            картину.
+            авторов сохраняется только как историческая арифметика, не как действующая
+            оценка точности. Полоски и 95%-границы воспроизводят старый snapshot.
           </p>
         </div>
+        <HistoricalHeadlineNotice compact />
 
         {/* лидерборд моделей с CI — кастомные бары, яркая контрастная скоба интервала */}
         <Card padding={24} className="reveal">
@@ -84,7 +82,7 @@ export default function Results() {
             })}
           </div>
           <p className="mono muted" style={{ fontSize: 11, marginTop: 16 }}>
-            заливка — доля верных ответов (по целым книгам) · <span style={{ color: "var(--text)" }}>┠─┨</span> границы 95% (повторные пересчёты по книгам)
+            историческая доля ответов · <span style={{ color: "var(--text)" }}>┠─┨</span> исторические 95%-границы · inferential use запрещён
           </p>
         </Card>
 
@@ -92,14 +90,15 @@ export default function Results() {
         <div className="split reveal module">
           <div className="prose">
             <p className="verdict">
-              Полный набор примет (<strong style={{ color: "var(--text)" }}>{fmtPct(HEADLINE.accuracy, 1)}</strong>) уверенно
-              обгоняет и классику, и простой{" "}
-              <strong style={{ color: "var(--icon-blue)" }}>мешок слов</strong> ({fmtPct(bow.acc, 1)}).
+              В отозванном расчёте полный набор примет дал{" "}
+              <strong style={{ color: "var(--text)" }}>{fmtPct(HEADLINE.accuracy, 1)}</strong>,
+              а мешок слов — <strong style={{ color: "var(--icon-blue)" }}>{fmtPct(bow.acc, 1)}</strong>.
+              Это описательная историческая разность, не текущий claim о превосходстве.
             </p>
             {HEADLINE.trainingWeighting === "chunk_weighted_training_legacy" && (
               <p className="mono muted" style={{ fontSize: 12 }}>
                 Оговорка: при обучении длинная книга сейчас весит больше короткой. Пересчёт «одна книга —
-                один голос» ещё впереди — число может немного сдвинуться.
+                один голос» возможен только после content-safe миграции и полного пересчёта.
               </p>
             )}
             <p>
@@ -108,9 +107,10 @@ export default function Results() {
               встречаются, без их порядка.
             </p>
             <p>
-              Перевес не случаен. Парный тест (McNemar) отвергает удачу — и против
-              мешка слов (p&nbsp;{fmtP(bow.p)}), и против сильнейшего из классических методов
-              (p&nbsp;{fmtP(WORST_CLASSIC_P)}).
+              Исторические McNemar p ({fmtP(bow.p)} против мешка слов и{" "}
+              {fmtP(WORST_CLASSIC_P)} против сильнейшего классического метода) оставлены
+              для воспроизведения арифметики; upstream content leakage запрещает
+              интерпретировать их как действующую значимость.
             </p>
             <p>
               Когда рядом много близких авторов — донская школа, одесситы, деревенщики, —
@@ -120,10 +120,10 @@ export default function Results() {
             </p>
           </div>
           <div className="grid cols-2" style={{ alignContent: "start" }}>
-            <Stat label="stylo · доля угаданных книг" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
-            <Stat label="мешок слов" value={fmtScore(bow.acc, 3)} accent="var(--icon-blue)" />
-            <Stat label="точность по авторам (macro-F1)" value={fmtScore(HEADLINE.styloMacroF1, 3)} accent="var(--icon-blue)" hint="единая оценка на всех авторах сразу; author-clustered интервал отозван — пересборка по авторам меняет набор классов и недействительна как разброс macro-F1" />
-            <Stat label="p · перевес над мешком слов" value={fmtP(bow.p)} accent="var(--gold)" hint="тот же парный тест: перевес не случаен" />
+            <Stat label="historical stylo accuracy" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
+            <Stat label="historical bag-of-words" value={fmtScore(bow.acc, 3)} accent="var(--icon-blue)" />
+            <Stat label="historical macro-F1 point" value={fmtScore(HEADLINE.styloMacroF1, 3)} accent="var(--icon-blue)" hint="Описательная точка; весь corpus snapshot ineligible, author-clustered интервал дополнительно отозван." />
+            <Stat label="historical McNemar p" value={fmtP(bow.p)} accent="var(--gold)" hint="не для текущего inferential вывода" />
           </div>
         </div>
 
@@ -131,12 +131,13 @@ export default function Results() {
         <div className="reveal module">
           <h3>Из чего складывается почерк</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 18 }}>
-            Каждый набор примет проверили отдельно, одной и той же моделью; баллы — у полосок справа.
+            В историческом snapshot каждый набор примет проверили отдельно одной моделью;
+            баллы справа — диагностические, не текущие оценки.
             Сильнее всех поодиночке — цепочки букв (символьные n-граммы, {fmtScore(CHANNELS.byId("char (2-5)").top1, 3)}).
             Чуть позади идут построение фразы, не зависящее от темы, и служебные слова. По отдельности приметы
             формы слабее. Зато <strong style={{ color: "var(--text)" }}>все вместе (ансамбль, {fmtScore(CHANNELS.ensembleTop1, 3)})
-            обходят лучший одиночный набор на +{fmtScore(CHANNELS.ensembleTop1 - CHANNELS.rows[0].top1, 3)}</strong>{" "}
-            (значимость именно этого зазора отдельно не проверялась): разные приметы описывают разные грани почерка.
+            дали на +{fmtScore(CHANNELS.ensembleTop1 - CHANNELS.rows[0].top1, 3)} больше лучшего одиночного набора</strong>{" "}
+            (зазор отдельно не проверялся; upstream snapshot непригоден): это только гипотеза для нового пересчёта.
           </p>
           <div className="split" style={{ alignItems: "center" }}>
             <div>

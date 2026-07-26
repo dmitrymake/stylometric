@@ -17,7 +17,11 @@ const server = await createServer({
 try {
   const { default: App } = await server.ssrLoadModule("/src/App.jsx");
   const html = renderToStaticMarkup(React.createElement(App));
-  for (const marker of ["Стилометрия", "Три среза корпуса"]) {
+  for (const marker of [
+    "Стилометрия",
+    "Три среза корпуса",
+    "Исторический LOBO headline отозван",
+  ]) {
     if (!html.includes(marker)) {
       throw new Error(`site render smoke: missing marker ${JSON.stringify(marker)}`);
     }

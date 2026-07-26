@@ -55,7 +55,10 @@
     "ensembleMacroF1": 0.833,
     "ensembleTop3": 0.94,
     "trainingWeighting": "chunk_weighted_training_legacy",
-    "claimStatus": "exploratory_internal"
+    "claimStatus": "exploratory_internal",
+    "corpusEligibilityStatus": "ineligible_for_new_scientific_runs",
+    "corpusEligibilityReason": "Distinct registered work ids are not content-independent.",
+    "requiredCorpusMigration": "Register a new corpus/fold version using adjudicated content components, then rerun. Historical bytes remain evidence only."
   },
   "models": [
     {
