@@ -89,6 +89,7 @@ Initial state:
 | AUD-050 | LOW | fixed | Replaced the FunctionWord mode and Delta metric configuration asserts with explicit exact-string `ValueError` contracts. A subprocess regression proves both invalid configurations still fail under `python -O`. |
 | AUD-051 | LOW | fixed | `StyloVectorizer.transform` and `fit_transform` now materialize each public input iterable before representation and block passes. Real-block regressions prove list/generator parity for both direct transform and combined fit-transform. |
 | AUD-052 | LOW | fixed | The headline gate now validates both CI bounds as non-bool finite real scalars before ordering or decision comparisons and raises the existing typed `HeadlineError`. NaN and both infinities reject in either bound; equal finite bounds retain registered semantics. |
+| AUD-053 | LOW | fixed / deletion owner-gated | Release-wide search found no internal caller, but direct-module wheel imports and two live config references prevent proof of no external use. The compatibility factory still returns the exact uncalibrated scaler+LR pipeline, while every explicit or config-driven calibration request now raises typed `UngroupedCalibrationError`; the ordinary `cv=3` wrapper and misleading live comments are removed. Physical API deletion remains an owner decision. |
 
 ## Chronology
 
@@ -224,3 +225,8 @@ Initial state:
   nonnumeric, boolean and nonfinite CI bounds before applying the registered
   ordering and noninferiority comparisons; paired-audit headline and publisher
   regressions pass.
+- 2026-07-26: Completed the safe portion of LOW finding AUD-053. With no
+  repository caller but unresolved external direct-module compatibility, the
+  uncalibrated factory remains available and structurally compatible while every
+  learned-calibration request fails closed. Deletion is deferred to the owner
+  decision memo.

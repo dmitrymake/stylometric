@@ -8,13 +8,39 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from stylo.config import load_config
+from stylo.config import load_config, with_overrides
 from stylo.eval.calibration import choose_calibrator
 from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
 from stylo.models import stacked_clf as sc
 from stylo.models.channels import ch_char, ch_word
 
 CFG = load_config()
+
+
+class TestCompatibilityClassifierFactory:
+    def test_uncalibrated_import_compatibility_is_preserved(self):
+        from stylo.models.lr import make_classifier
+
+        for kwargs in ({}, {"calibrate": False}):
+            classifier = make_classifier(CFG, **kwargs)
+            assert tuple(classifier.named_steps) == ("scaler", "lr")
+
+    @pytest.mark.parametrize("from_config", [False, True])
+    def test_every_calibration_request_fails_closed(self, from_config):
+        from stylo.models.lr import UngroupedCalibrationError, make_classifier
+
+        cfg = with_overrides(
+            CFG, {"model.calibration.enabled": True}
+        ) if from_config else CFG
+        kwargs = {} if from_config else {"calibrate": True}
+        with pytest.raises(UngroupedCalibrationError, match="work-group"):
+            make_classifier(cfg, **kwargs)
+
+    def test_unsafe_sklearn_calibration_wrapper_is_absent(self):
+        import inspect
+        import stylo.models.lr as lr
+
+        assert "CalibratedClassifierCV" not in inspect.getsource(lr)
 
 
 def _separable(works_per_class):

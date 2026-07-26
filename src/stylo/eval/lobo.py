@@ -388,8 +388,8 @@ def _lobo_run(cfg, dataset, spec, enabled_override, max_books, n_jobs, weighting
     except Exception as exc:  # pragma: no cover — на отсутствии spaCy падать в per-fold путь
         log.warning("rep-кэш не прогрет (%s) — фолды построят представления на лету", exc)
 
-    # verbose=10 → joblib печатает прогресс «Done N out of M» (иначе после старта LOBO — тишина до конца;
-    # с CalibratedClassifierCV(cv=3) внутри stylo один фолд ~30 CPU-мин, прогон видеть НАДО).
+    # verbose=10 → joblib печатает прогресс «Done N out of M» (иначе после старта LOBO — тишина
+    # до конца; многократные channel/meta fits в экспериментальном stack могут быть долгими).
     # Rep caches can be hundreds of MiB.  Never queue twice the active fold
     # count: bounded pre-dispatch avoids needless serialization/RSS pressure.
     res = Parallel(n_jobs=n_jobs, pre_dispatch=n_jobs, verbose=10)(
