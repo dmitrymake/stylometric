@@ -134,7 +134,8 @@ def test_resolved_nlp_identity_changes_between_fallback_and_primary(monkeypatch)
     nlp_module._NLP_CACHE.clear()
     nlp_module._NLP_IDENTITIES.clear()
 
-    def fallback_load(name, **_kwargs):
+    def fallback_load(binding, **_kwargs):
+        name = binding[0]
         if name == "primary":
             raise OSError("missing")
         return spacy.blank("ru")
@@ -149,10 +150,14 @@ def test_resolved_nlp_identity_changes_between_fallback_and_primary(monkeypatch)
     )
     monkeypatch.setattr(
         nlp_module,
-        "_verified_model_import_binding",
-        lambda name, identity, *, require_loaded: (name, identity),
+        "_verified_model_package_binding",
+        lambda name, identity: (name, identity),
     )
-    monkeypatch.setattr(nlp_module.spacy, "load", fallback_load)
+    monkeypatch.setattr(
+        nlp_module,
+        "_load_verified_model_from_binding",
+        fallback_load,
+    )
     fallback_pipeline = nlp_module.load_nlp(
         "primary", "fallback", max_length=1234
     )
@@ -163,9 +168,9 @@ def test_resolved_nlp_identity_changes_between_fallback_and_primary(monkeypatch)
     nlp_module._NLP_CACHE.clear()
     nlp_module._NLP_IDENTITIES.clear()
     monkeypatch.setattr(
-        nlp_module.spacy,
-        "load",
-        lambda name, **_kwargs: spacy.blank("ru"),
+        nlp_module,
+        "_load_verified_model_from_binding",
+        lambda _binding, **_kwargs: spacy.blank("ru"),
     )
     primary_pipeline = nlp_module.load_nlp(
         "primary", "fallback", max_length=1234
@@ -182,9 +187,9 @@ def test_doc_cache_rejects_swapped_text_payload(tmp_path, monkeypatch):
     nlp_module._NLP_CACHE.clear()
     nlp_module._NLP_IDENTITIES.clear()
     monkeypatch.setattr(
-        nlp_module.spacy,
-        "load",
-        lambda _name, **_kwargs: spacy.blank("ru"),
+        nlp_module,
+        "_load_verified_model_from_binding",
+        lambda _binding, **_kwargs: spacy.blank("ru"),
     )
     monkeypatch.setattr(
         nlp_module,
@@ -196,8 +201,8 @@ def test_doc_cache_rejects_swapped_text_payload(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         nlp_module,
-        "_verified_model_import_binding",
-        lambda name, identity, *, require_loaded: (name, identity),
+        "_verified_model_package_binding",
+        lambda name, identity: (name, identity),
     )
     cache = nlp_module.DocCache(tmp_path, "model", "configured-v1")
     key = nlp_module._text_key(
@@ -1290,9 +1295,9 @@ def test_spacy_load_rejects_sys_path_shadow_of_verified_wheel(
         distribution,
     )
     monkeypatch.setattr(
-        nlp_module.spacy,
-        "load",
-        lambda name, **_kwargs: imported.append(name),
+        nlp_module,
+        "_load_verified_model_from_binding",
+        lambda binding, **_kwargs: imported.append(binding[0]),
     )
     monkeypatch.syspath_prepend(str(shadow_root))
 
@@ -1304,7 +1309,136 @@ def test_spacy_load_rejects_sys_path_shadow_of_verified_wheel(
     assert imported == []
 
 
-def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
+@pytest.mark.parametrize("fallback_route", [False, True])
+@pytest.mark.parametrize(
+    "loader_order",
+    [("load_nlp", "load_ner"), ("load_ner", "load_nlp")],
+)
+def test_verified_model_load_bypasses_mutable_preloaded_package_namespace(
+    fallback_route,
+    loader_order,
+    tmp_path,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    model = "stylo_preloaded_model_fixture"
+    root = (tmp_path / "installed").resolve()
+    origin = root / model / "__init__.py"
+    origin.parent.mkdir(parents=True)
+    origin.write_text("TRUSTED = True\n", encoding="utf-8")
+    identity = ("1.0", hashlib.sha256(model.encode()).hexdigest())
+    binding = (
+        str(root),
+        f"{model}/__init__.py",
+        "sha256=fixture",
+        str(origin.stat().st_size),
+        (model,),
+    )
+
+    poison_calls = []
+    poisoned_module = types.ModuleType(model)
+
+    def poisoned_load(**_kwargs):
+        poison_calls.append("package.load")
+        return spacy.blank("ru")
+
+    poisoned_module.load = poisoned_load
+    poisoned_module.load_model_from_init_py = poisoned_load
+    monkeypatch.setitem(sys.modules, model, poisoned_module)
+    monkeypatch.setattr(
+        nlp_module.spacy,
+        "load",
+        lambda *_args, **_kwargs: poison_calls.append("spacy.load"),
+    )
+
+    def verify(name):
+        if name == "missing_primary_fixture":
+            raise nlp_module.importlib.metadata.PackageNotFoundError(name)
+        assert name == model
+        return identity
+
+    direct_calls = []
+
+    def direct_load(init_path, *, disable):
+        direct_calls.append((pathlib.Path(init_path), tuple(disable)))
+        return spacy.blank("ru")
+
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        verify,
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_package_binding",
+        lambda name, observed: binding
+        if (name, observed) == (model, identity)
+        else pytest.fail("unexpected model binding"),
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_spacy_load_model_from_init_py",
+        direct_load,
+    )
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+
+    primary = "missing_primary_fixture" if fallback_route else model
+    fallback = model if fallback_route else None
+    for loader_name in loader_order:
+        getattr(nlp_module, loader_name)(primary, fallback)
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    getattr(nlp_module, loader_order[0])(primary, fallback)
+
+    assert poison_calls == []
+    assert [call[0] for call in direct_calls] == [origin, origin, origin]
+    assert len(direct_calls) == 3
+    assert sys.modules[model] is poisoned_module
+
+
+@pytest.mark.parametrize(
+    ("primary", "fallback", "resolved"),
+    [
+        ("ru_core_news_lg", None, "ru_core_news_lg"),
+        ("missing_primary_fixture", "ru_core_news_md", "ru_core_news_md"),
+    ],
+)
+@pytest.mark.parametrize("loader_name", ["load_nlp", "load_ner"])
+def test_real_model_load_ignores_substituted_preloaded_load(
+    primary,
+    fallback,
+    resolved,
+    loader_name,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    package = pytest.importorskip(resolved)
+    poison_calls = []
+
+    def poisoned_load(**_kwargs):
+        poison_calls.append(resolved)
+        return spacy.blank("ru")
+
+    monkeypatch.setattr(package, "load", poisoned_load)
+    monkeypatch.setattr(package, "load_model_from_init_py", poisoned_load)
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    loaded = getattr(nlp_module, loader_name)(primary, fallback)
+
+    assert poison_calls == []
+    if loader_name == "load_nlp":
+        identity = nlp_module.resolved_nlp_identity(loaded)
+        assert identity.resolved_model == resolved
+        assert identity.fallback_used is (fallback is not None)
+        assert "morphologizer" in loaded.pipe_names
+    else:
+        assert "ner" in loaded.pipe_names
+
+
+def test_spacy_model_packages_are_verified_before_primary_and_fallback_load(
     monkeypatch,
 ):
     from stylo import nlp as nlp_module
@@ -1317,7 +1451,8 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
         events.append(("verify", name))
         return ("test-version", hashlib.sha256(name.encode()).hexdigest())
 
-    def load(name, **_kwargs):
+    def load(binding, **_kwargs):
+        name = binding[0]
         events.append(("load", name))
         if name == "primary":
             raise OSError("primary load failed")
@@ -1330,15 +1465,20 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
     )
     monkeypatch.setattr(
         nlp_module,
-        "_verified_model_import_binding",
-        lambda name, identity, *, require_loaded: (name, identity),
+        "_verified_model_package_binding",
+        lambda name, identity: (name, identity),
     )
-    monkeypatch.setattr(nlp_module.spacy, "load", load)
+    monkeypatch.setattr(
+        nlp_module,
+        "_load_verified_model_from_binding",
+        load,
+    )
     loaded = nlp_module.load_nlp("primary", "fallback")
     assert nlp_module.resolved_nlp_identity(loaded).resolved_model == "fallback"
     assert events == [
         ("verify", "primary"),
         ("load", "primary"),
+        ("verify", "primary"),
         ("verify", "fallback"),
         ("load", "fallback"),
         ("verify", "fallback"),
@@ -1354,7 +1494,8 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
             raise nlp_module.importlib.metadata.PackageNotFoundError(name)
         return ("test-version", hashlib.sha256(name.encode()).hexdigest())
 
-    def load_fallback_only(name, **_kwargs):
+    def load_fallback_only(binding, **_kwargs):
+        name = binding[0]
         events.append(("load", name))
         assert name == "fallback"
         return spacy.blank("ru")
@@ -1364,7 +1505,11 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
         "verified_installed_package_record",
         verify_missing_primary,
     )
-    monkeypatch.setattr(nlp_module.spacy, "load", load_fallback_only)
+    monkeypatch.setattr(
+        nlp_module,
+        "_load_verified_model_from_binding",
+        load_fallback_only,
+    )
     loaded = nlp_module.load_nlp("primary", "fallback")
     assert nlp_module.resolved_nlp_identity(loaded).resolved_model == "fallback"
     assert events == [
@@ -1373,6 +1518,103 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
         ("load", "fallback"),
         ("verify", "fallback"),
     ]
+
+
+def test_primary_load_oserror_cannot_launder_integrity_drift_into_fallback(
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    observations = iter(
+        [
+            ("1.0", "a" * 64),
+            ("1.0", "b" * 64),
+        ]
+    )
+    fallback_touched = []
+
+    def verify(name):
+        if name == "primary":
+            return next(observations)
+        fallback_touched.append(name)
+        return ("1.0", "c" * 64)
+
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        verify,
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_package_binding",
+        lambda name, identity: (name, *identity),
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_load_verified_model_from_binding",
+        lambda _binding, **_kwargs: (_ for _ in ()).throw(
+            OSError("load failed")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="changed during a failed direct load"):
+        nlp_module.load_nlp("primary", "fallback")
+    assert fallback_touched == []
+
+
+@pytest.mark.parametrize("loader_name", ["load_nlp", "load_ner"])
+@pytest.mark.parametrize("direct_load_succeeds", [False, True])
+def test_post_load_integrity_oserror_never_enters_fallback(
+    loader_name,
+    direct_load_succeeds,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    primary_checks = 0
+    fallback_touched = []
+    identity = ("1.0", "a" * 64)
+
+    def verify(name):
+        nonlocal primary_checks
+        if name == "primary":
+            primary_checks += 1
+            if primary_checks == 2:
+                raise FileNotFoundError("post-load integrity read failed")
+            return identity
+        fallback_touched.append(name)
+        return ("1.0", "b" * 64)
+
+    def direct_load(binding, **_kwargs):
+        assert binding[0] == "primary"
+        if not direct_load_succeeds:
+            raise OSError("direct load failed")
+        return spacy.blank("ru")
+
+    monkeypatch.setattr(
+        nlp_module,
+        "verified_installed_package_record",
+        verify,
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_package_binding",
+        lambda name, observed: (name, *observed),
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_load_verified_model_from_binding",
+        direct_load,
+    )
+
+    with pytest.raises(RuntimeError, match="cannot reverify.*direct load"):
+        getattr(nlp_module, loader_name)("primary", "fallback")
+    assert primary_checks == 2
+    assert fallback_touched == []
 
 
 @pytest.mark.parametrize("loader_name", ["load_nlp", "load_ner"])
@@ -1395,9 +1637,9 @@ def test_spacy_record_failure_blocks_model_import_and_fallback(
         reject,
     )
     monkeypatch.setattr(
-        nlp_module.spacy,
-        "load",
-        lambda name, **_kwargs: imported.append(name),
+        nlp_module,
+        "_load_verified_model_from_binding",
+        lambda binding, **_kwargs: imported.append(binding[0]),
     )
     with pytest.raises(RuntimeError, match="RECORD integrity failed"):
         getattr(nlp_module, loader_name)("primary", "fallback")

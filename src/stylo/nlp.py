@@ -24,7 +24,6 @@ import logging
 import marshal
 import os
 import pathlib
-import sys
 import tempfile
 import threading
 from contextlib import contextmanager
@@ -32,6 +31,7 @@ from typing import Dict, List, Optional, Sequence
 
 import spacy
 from spacy.tokens import Doc, DocBin
+from spacy.util import load_model_from_init_py as _spacy_load_model_from_init_py
 
 from .jsonio import dumps_strict
 
@@ -492,13 +492,11 @@ def verified_installed_package_record(name: str) -> tuple[str, str]:
     )
 
 
-def _verified_model_import_binding(
+def _verified_model_package_binding(
     name: str,
     package_identity: tuple[str, str],
-    *,
-    require_loaded: bool,
 ) -> tuple[str, str, str, str, tuple[str, ...]]:
-    """Bind Python's resolved package import to a verified RECORD source."""
+    """Bind a standard model package and its exact init path to its RECORD."""
 
     if not name.isidentifier():
         raise RuntimeError(
@@ -518,7 +516,10 @@ def _verified_model_import_binding(
         )
 
     root = pathlib.Path(distribution.locate_file("")).resolve(strict=True)
-    spec = importlib.util.find_spec(name)
+    # Search the current import path directly instead of consulting
+    # ``sys.modules``.  A previously imported model module is mutable process
+    # state and must never become authority for a scientific model load.
+    spec = importlib.machinery.PathFinder.find_spec(name)
     if (
         spec is None
         or spec.name != name
@@ -545,6 +546,11 @@ def _verified_model_import_binding(
             f"spaCy model {name!r} import target is outside its verified wheel"
         )
     origin_member = origin.relative_to(root).as_posix()
+    expected_origin_member = f"{name}/__init__.py"
+    if origin_member != expected_origin_member:
+        raise RuntimeError(
+            f"spaCy model {name!r} lacks its canonical package init"
+        )
 
     rows: dict[str, tuple[str, str]] = {}
     try:
@@ -594,23 +600,10 @@ def _verified_model_import_binding(
         raise RuntimeError(
             f"spaCy model {name!r} package search root differs from its origin"
         )
-
-    if require_loaded:
-        module = sys.modules.get(name)
-        module_spec = getattr(module, "__spec__", None)
-        module_file = getattr(module, "__file__", None)
-        module_path = tuple(getattr(module, "__path__", ()))
-        if (
-            module is None
-            or module_spec is not spec
-            or type(module_file) is not str
-            or pathlib.Path(module_file).resolve(strict=True) != origin
-            or len(module_path) != 1
-            or pathlib.Path(module_path[0]).resolve(strict=True) != location
-        ):
-            raise RuntimeError(
-                f"spaCy model {name!r} loaded module is not its verified wheel"
-            )
+    if location.relative_to(root).as_posix() != name:
+        raise RuntimeError(
+            f"spaCy model {name!r} has a noncanonical package search root"
+        )
 
     return (
         str(root),
@@ -621,13 +614,97 @@ def _verified_model_import_binding(
     )
 
 
+def _load_verified_model_from_binding(
+    binding: tuple[str, str, str, str, tuple[str, ...]],
+    *,
+    disable: Sequence[str],
+):
+    """Load verified model data without executing its mutable package module."""
+
+    root_text, origin_member, _digest, _size, _locations = binding
+    root = pathlib.Path(root_text)
+    origin = root.joinpath(*pathlib.PurePosixPath(origin_member).parts)
+    if (
+        origin.is_symlink()
+        or not origin.is_file()
+        or origin.resolve(strict=True) != origin
+    ):
+        raise RuntimeError("verified spaCy model init changed before data load")
+    # Standard spaCy trained-pipeline wheels implement package ``load`` as this
+    # exact helper call.  Calling it by the verified init path preserves those
+    # semantics while keeping caller-preloaded ``name`` / ``name.*`` modules
+    # outside the scientific trust boundary.
+    return _spacy_load_model_from_init_py(origin, disable=disable)
+
+
+class _VerifiedModelLoadUnavailable(OSError):
+    """The direct model load failed after an unchanged-package recheck."""
+
+
 def _verified_spacy_load(
     model: str,
     fallback: Optional[str],
     *,
     disable: Sequence[str],
 ):
-    """Verify wheel payloads both before and after importing a model package."""
+    """Verify wheel payloads around a direct load of their trained-pipeline data."""
+
+    def reverify_bound(
+        name: str,
+        before: tuple[str, str],
+        before_binding: tuple[str, str, str, str, tuple[str, ...]],
+        *,
+        outcome: str,
+    ) -> tuple[str, str]:
+        try:
+            after = verified_installed_package_record(name)
+            after_binding = _verified_model_package_binding(name, after)
+        except Exception as exc:
+            raise RuntimeError(
+                f"cannot reverify spaCy model {name!r} after {outcome}"
+            ) from exc
+        if after != before or after_binding != before_binding:
+            raise RuntimeError(
+                f"spaCy model {name!r} changed during {outcome}"
+            )
+        return after
+
+    def load_bound(
+        name: str,
+        before: tuple[str, str],
+        before_binding: tuple[str, str, str, str, tuple[str, ...]],
+    ):
+        try:
+            loaded = _load_verified_model_from_binding(
+                before_binding,
+                disable=disable,
+            )
+        except OSError as exc:
+            # A load-time OSError is eligible for the configured fallback only
+            # when the package stayed byte-identical.  Otherwise a concurrent
+            # integrity failure could be laundered into an ordinary absence.
+            reverify_bound(
+                name,
+                before,
+                before_binding,
+                outcome="a failed direct load",
+            )
+            raise _VerifiedModelLoadUnavailable(str(exc)) from exc
+        except Exception:
+            reverify_bound(
+                name,
+                before,
+                before_binding,
+                outcome="a failed direct load",
+            )
+            raise
+        after = reverify_bound(
+            name,
+            before,
+            before_binding,
+            outcome="a successful direct load",
+        )
+        return loaded, after
 
     def verified_fallback():
         assert fallback is not None
@@ -641,27 +718,15 @@ def _verified_spacy_load(
             raise OSError(
                 f"spaCy fallback {fallback!r} is not installed as a wheel"
             ) from exc
-        before_binding = _verified_model_import_binding(
+        before_binding = _verified_model_package_binding(
             fallback,
             before,
-            require_loaded=False,
         )
-        loaded = spacy.load(fallback, disable=disable)
-        after = verified_installed_package_record(fallback)
-        if after != before:
-            raise RuntimeError(
-                f"spaCy fallback {fallback!r} changed while it was loaded"
-            )
-        after_binding = _verified_model_import_binding(
+        loaded, after = load_bound(
             fallback,
-            after,
-            require_loaded=True,
+            before,
+            before_binding,
         )
-        if after_binding != before_binding:
-            raise RuntimeError(
-                f"spaCy fallback {fallback!r} import target changed while "
-                f"it was loaded"
-            )
         return loaded, fallback, after
 
     try:
@@ -682,30 +747,21 @@ def _verified_spacy_load(
         )
         return verified_fallback()
 
-    before_binding = _verified_model_import_binding(
+    before_binding = _verified_model_package_binding(
         model,
         before,
-        require_loaded=False,
     )
     try:
-        loaded = spacy.load(model, disable=disable)
-    except OSError:
+        loaded, after = load_bound(
+            model,
+            before,
+            before_binding,
+        )
+    except _VerifiedModelLoadUnavailable:
         if fallback is None:
             raise
         log.warning("Модель %s не найдена, использую fallback %s", model, fallback)
         return verified_fallback()
-    after = verified_installed_package_record(model)
-    if after != before:
-        raise RuntimeError(f"spaCy model {model!r} changed while it was loaded")
-    after_binding = _verified_model_import_binding(
-        model,
-        after,
-        require_loaded=True,
-    )
-    if after_binding != before_binding:
-        raise RuntimeError(
-            f"spaCy model {model!r} import target changed while it was loaded"
-        )
     return loaded, model, after
 
 
