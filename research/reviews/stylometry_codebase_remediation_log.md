@@ -22,7 +22,8 @@ Initial state:
 - The working tree already contained tracked modifications/deletions and untracked
   repair sources before this remediation started.
 - Review catalog: 6 CRITICAL, 24 HIGH, 27 MEDIUM, 4 LOW.
-- LOW findings are outside the requested scope.
+- LOW findings were outside the original remediation scope and are handled in
+  the continuation recorded below.
 
 ## Progress
 
@@ -85,6 +86,7 @@ Initial state:
 | AUD-059 | MEDIUM | fixed | Invariance APIs validate a nonempty ordered, exact-type, duplicate-free metric universe containing every observed truth label. One frozen universe is reused for overall and slice macro-F1; registered absent classes remain in the denominator. |
 | AUD-060 | MEDIUM | fixed / v1 character-segmentation gated | Schema-v1 character-offset artifacts remain representable, but segmentation scoring fails closed instead of publishing character positions under token metric names. Token scoring records the offset unit and explicit bootstrap contract. |
 | AUD-061 | MEDIUM | fixed / v1 work-identity migration gated | Added a central task→allowed/required endpoint matrix, exact declared-task coverage, nonzero blind endpoint checks, and endpoint counts in the score envelope. Segmentation requires an explicit bootstrap unit; scientific scoring requires registered work IDs, while document bootstrap is synthetic-integration-only pending the already-required blind v2 identity migration. |
+| AUD-050 | LOW | fixed | Replaced the FunctionWord mode and Delta metric configuration asserts with explicit exact-string `ValueError` contracts. A subprocess regression proves both invalid configurations still fail under `python -O`. |
 
 ## Chronology
 
@@ -209,3 +211,7 @@ Initial state:
   materialized Git-free archive; archive inventory and 91-source provenance
   pass; the complete suite now passes all 1038 collected tests with only the
   same two invalid-escape deprecation warnings.
+- 2026-07-26: Continued with LOW finding AUD-050. Replaced optimization-sensitive
+  configuration asserts in FunctionWord and Delta constructors with typed
+  fail-closed validation; the focused suite and an actual optimized-interpreter
+  subprocess regression pass.

@@ -40,7 +40,10 @@ class FunctionWordBlock(FeatureBlock):
 
     def __init__(self, mode: str = "mfw", mfw_count: int = 300, lang: str = "ru",
                  relative_fw: bool | None = None):
-        assert mode in {"mfw", "fixed_list"}
+        if type(mode) is not str or mode not in {"mfw", "fixed_list"}:
+            raise ValueError(
+                f"mode must be one of 'mfw' or 'fixed_list', got {mode!r}"
+            )
         if relative_fw is not None and type(relative_fw) is not bool:
             raise TypeError(f"relative_fw must be a plain bool or None, got {type(relative_fw).__name__}")
         self.mode = mode

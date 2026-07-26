@@ -1,10 +1,37 @@
 """Настоящая Delta считается только по MFW; метрики/CI ведут себя корректно."""
+import subprocess
+import sys
+
 import numpy as np
 
 from stylo.eval.metrics import accuracy, macro_f1, bootstrap_ci, expected_calibration_error
 from stylo.eval.significance import mcnemar, paired_bootstrap_diff, paired_bootstrap_diff_clustered
 from stylo.models.baselines import CharCosineBaseline
 from stylo.models.delta import BurrowsDelta
+
+
+def test_configuration_enums_fail_closed_under_optimized_python():
+    script = """
+from stylo.features.function_words import FunctionWordBlock
+from stylo.models.delta import BurrowsDelta
+
+for constructor in (
+    lambda: FunctionWordBlock(mode="unknown"),
+    lambda: BurrowsDelta(metric="unknown"),
+):
+    try:
+        constructor()
+    except ValueError:
+        continue
+    raise AssertionError("invalid configuration survived python -O")
+"""
+    completed = subprocess.run(
+        [sys.executable, "-O", "-c", script],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_delta_uses_only_mfw():

@@ -45,7 +45,10 @@ class BurrowsDelta:
                  vocabulary: List[str] | None = None,
                  training_weighting: str = CHUNK_WEIGHTED_LEGACY,
                  *, ablation: "AblationConfig | None" = None):
-        assert metric in {"manhattan", "cosine"}
+        if type(metric) is not str or metric not in {"manhattan", "cosine"}:
+            raise ValueError(
+                f"metric must be one of 'manhattan' or 'cosine', got {metric!r}"
+            )
         self._schema_version = self.ARTIFACT_SCHEMA_VERSION
         self.mfw_count = mfw_count
         self.metric = metric
