@@ -91,6 +91,11 @@ Initial state:
 | AUD-052 | LOW | fixed | The headline gate now validates both CI bounds as non-bool finite real scalars before ordering or decision comparisons and raises the existing typed `HeadlineError`. NaN and both infinities reject in either bound; equal finite bounds retain registered semantics. |
 | AUD-053 | LOW | fixed / deletion owner-gated | Release-wide search found no internal caller, but direct-module wheel imports and two live config references prevent proof of no external use. The compatibility factory still returns the exact uncalibrated scaler+LR pipeline, while every explicit or config-driven calibration request now raises typed `UngroupedCalibrationError`; the ordinary `cv=3` wrapper and misleading live comments are removed. Physical API deletion remains an owner decision. |
 
+Open scientific and API-owner decisions are classified in
+[`stylometry_owner_decision_memo.md`](stylometry_owner_decision_memo.md).
+That memo has no approval authority, leaves every disposition `UNSET`, and does
+not change the normative ledger or frozen evidence.
+
 ## Chronology
 
 - 2026-07-26: Read the review, captured the pre-existing dirty-tree inventory,
@@ -230,3 +235,7 @@ Initial state:
   uncalibrated factory remains available and structurally compatible while every
   learned-calibration request fails closed. Deletion is deferred to the owner
   decision memo.
+- 2026-07-26: Classified the remaining owner decisions and confirmatory gates
+  in a non-authorizing draft memo. Every disposition remains `UNSET`; the
+  normative status ledger, frozen protocol/matrix, corpus/evidence bytes,
+  freeze-root pin and evaluator registry are unchanged.
