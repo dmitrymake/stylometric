@@ -11,6 +11,7 @@ README_GENERATOR = ROOT / "scripts" / "gen-readme.mjs"
 RENDER_SMOKE = ROOT / "site" / "scripts" / "check-render.mjs"
 NO_UNDEF_GATE = ROOT / "site" / "scripts" / "check-no-undef.mjs"
 SITE_INDEX = ROOT / "site" / "index.html"
+PNPM_LOCK = ROOT / "site" / "pnpm-lock.yaml"
 HISTORICAL_NOTICE = (
     ROOT / "site" / "src" / "components" / "HistoricalHeadlineNotice.jsx"
 )
@@ -59,6 +60,14 @@ def test_site_build_executes_a_real_server_render_smoke():
     assert "npm run check:undef" in package["scripts"]["build"]
     assert package["devDependencies"]["@babel/parser"] == "7.29.7"
     assert package["devDependencies"]["@babel/traverse"] == "7.29.7"
+    pnpm_lock = PNPM_LOCK.read_text(encoding="utf-8")
+    for dependency in ("@babel/parser", "@babel/traverse"):
+        importer = (
+            f"      '{dependency}':\n"
+            "        specifier: 7.29.7\n"
+            "        version: 7.29.7"
+        )
+        assert importer in pnpm_lock
 
     source = RENDER_SMOKE.read_text(encoding="utf-8")
     no_undef_source = NO_UNDEF_GATE.read_text(encoding="utf-8")
