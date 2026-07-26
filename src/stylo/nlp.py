@@ -16,6 +16,7 @@ import base64
 import csv
 import dataclasses
 import hashlib
+import importlib.machinery
 import importlib.metadata
 import importlib.util
 import io
@@ -23,6 +24,7 @@ import logging
 import marshal
 import os
 import pathlib
+import sys
 import tempfile
 import threading
 from contextlib import contextmanager
@@ -335,7 +337,11 @@ def verified_installed_package_record(name: str) -> tuple[str, str]:
     # RECORD may omit bytecode generated after installation.  Such a cache is
     # still preferred over the verified source at import time, so discover and
     # validate every current-runtime cache path for every hashed Python source.
-    for source_member, (source_member_path, digest_spec, _size_text) in parsed.items():
+    for source_member, (
+        source_member_path,
+        digest_spec,
+        _size_text,
+    ) in parsed.items():
         if source_member_path.suffix != ".py" or not digest_spec:
             continue
         source_path = pathlib.Path(distribution.locate_file(source_member))
@@ -363,6 +369,46 @@ def verified_installed_package_record(name: str) -> tuple[str, str]:
                 raise RuntimeError(
                     f"installed spaCy model {name!r} has ambiguous generated "
                     f"bytecode source: {bytecode_member!r}"
+                )
+
+    owned_roots: set[pathlib.Path] = set()
+    for member_path, _digest_spec, _size_text in parsed.values():
+        if (
+            len(member_path.parts) < 2
+            or member_path.parts[0].endswith(".dist-info")
+        ):
+            continue
+        candidate = root / member_path.parts[0]
+        if candidate.is_symlink():
+            raise RuntimeError(
+                f"installed spaCy model {name!r} has a symlinked package root"
+            )
+        if candidate.is_dir():
+            owned_roots.add(candidate)
+
+    allowed_unrecorded = set(bytecode_sources)
+    for owned_root in sorted(owned_roots):
+        for directory, directory_names, file_names in os.walk(
+            owned_root,
+            followlinks=False,
+        ):
+            directory_path = pathlib.Path(directory)
+            for directory_name in directory_names:
+                child = directory_path / directory_name
+                if child.is_symlink():
+                    raise RuntimeError(
+                        f"installed spaCy model {name!r} has an unrecorded "
+                        f"symlinked package path: "
+                        f"{child.relative_to(root).as_posix()!r}"
+                    )
+            for file_name in file_names:
+                child = directory_path / file_name
+                member = child.relative_to(root).as_posix()
+                if member in parsed or member in allowed_unrecorded:
+                    continue
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} has an unrecorded "
+                    f"model payload: {member!r}"
                 )
 
     verified = 0
@@ -446,6 +492,135 @@ def verified_installed_package_record(name: str) -> tuple[str, str]:
     )
 
 
+def _verified_model_import_binding(
+    name: str,
+    package_identity: tuple[str, str],
+    *,
+    require_loaded: bool,
+) -> tuple[str, str, str, str, tuple[str, ...]]:
+    """Bind Python's resolved package import to a verified RECORD source."""
+
+    if not name.isidentifier():
+        raise RuntimeError(
+            f"spaCy model {name!r} is not a top-level installed package"
+        )
+    distribution = importlib.metadata.distribution(name)
+    record = distribution.read_text("RECORD")
+    if not record:
+        raise RuntimeError(f"installed spaCy model {name!r} has no wheel RECORD")
+    observed_identity = (
+        str(distribution.version),
+        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    )
+    if observed_identity != package_identity:
+        raise RuntimeError(
+            f"spaCy model {name!r} distribution changed before import binding"
+        )
+
+    root = pathlib.Path(distribution.locate_file("")).resolve(strict=True)
+    spec = importlib.util.find_spec(name)
+    if (
+        spec is None
+        or spec.name != name
+        or type(spec.loader) is not importlib.machinery.SourceFileLoader
+        or type(spec.origin) is not str
+        or spec.submodule_search_locations is None
+    ):
+        raise RuntimeError(
+            f"spaCy model {name!r} import target is not a standard source package"
+        )
+
+    origin_path = pathlib.Path(spec.origin)
+    if (
+        origin_path.is_symlink()
+        or not origin_path.is_file()
+        or origin_path.name != "__init__.py"
+    ):
+        raise RuntimeError(
+            f"spaCy model {name!r} import target is missing or unsafe"
+        )
+    origin = origin_path.resolve(strict=True)
+    if not origin.is_relative_to(root):
+        raise RuntimeError(
+            f"spaCy model {name!r} import target is outside its verified wheel"
+        )
+    origin_member = origin.relative_to(root).as_posix()
+
+    rows: dict[str, tuple[str, str]] = {}
+    try:
+        for row in csv.reader(io.StringIO(record), strict=True):
+            if len(row) != 3:
+                raise RuntimeError(
+                    f"installed spaCy model {name!r} has malformed RECORD"
+                )
+            rows[row[0]] = (row[1], row[2])
+    except csv.Error as exc:
+        raise RuntimeError(
+            f"installed spaCy model {name!r} has invalid wheel RECORD"
+        ) from exc
+    origin_identity = rows.get(origin_member)
+    if (
+        origin_identity is None
+        or not origin_identity[0].startswith("sha256=")
+        or not origin_identity[1].isascii()
+        or not origin_identity[1].isdecimal()
+    ):
+        raise RuntimeError(
+            f"spaCy model {name!r} import target is not RECORD-hashed"
+        )
+    recorded_origin = _safe_distribution_member(
+        distribution,
+        root,
+        origin_member,
+        model=name,
+    )
+    if recorded_origin != origin:
+        raise RuntimeError(
+            f"spaCy model {name!r} import target differs from its RECORD member"
+        )
+
+    locations = tuple(spec.submodule_search_locations)
+    if len(locations) != 1:
+        raise RuntimeError(
+            f"spaCy model {name!r} has ambiguous package search roots"
+        )
+    location_path = pathlib.Path(locations[0])
+    if location_path.is_symlink() or not location_path.is_dir():
+        raise RuntimeError(
+            f"spaCy model {name!r} has an unsafe package search root"
+        )
+    location = location_path.resolve(strict=True)
+    if location != origin.parent:
+        raise RuntimeError(
+            f"spaCy model {name!r} package search root differs from its origin"
+        )
+
+    if require_loaded:
+        module = sys.modules.get(name)
+        module_spec = getattr(module, "__spec__", None)
+        module_file = getattr(module, "__file__", None)
+        module_path = tuple(getattr(module, "__path__", ()))
+        if (
+            module is None
+            or module_spec is not spec
+            or type(module_file) is not str
+            or pathlib.Path(module_file).resolve(strict=True) != origin
+            or len(module_path) != 1
+            or pathlib.Path(module_path[0]).resolve(strict=True) != location
+        ):
+            raise RuntimeError(
+                f"spaCy model {name!r} loaded module is not its verified wheel"
+            )
+
+    return (
+        str(root),
+        origin_member,
+        origin_identity[0],
+        origin_identity[1],
+        (location.relative_to(root).as_posix(),),
+    )
+
+
 def _verified_spacy_load(
     model: str,
     fallback: Optional[str],
@@ -466,11 +641,26 @@ def _verified_spacy_load(
             raise OSError(
                 f"spaCy fallback {fallback!r} is not installed as a wheel"
             ) from exc
+        before_binding = _verified_model_import_binding(
+            fallback,
+            before,
+            require_loaded=False,
+        )
         loaded = spacy.load(fallback, disable=disable)
         after = verified_installed_package_record(fallback)
         if after != before:
             raise RuntimeError(
                 f"spaCy fallback {fallback!r} changed while it was loaded"
+            )
+        after_binding = _verified_model_import_binding(
+            fallback,
+            after,
+            require_loaded=True,
+        )
+        if after_binding != before_binding:
+            raise RuntimeError(
+                f"spaCy fallback {fallback!r} import target changed while "
+                f"it was loaded"
             )
         return loaded, fallback, after
 
@@ -492,6 +682,11 @@ def _verified_spacy_load(
         )
         return verified_fallback()
 
+    before_binding = _verified_model_import_binding(
+        model,
+        before,
+        require_loaded=False,
+    )
     try:
         loaded = spacy.load(model, disable=disable)
     except OSError:
@@ -502,6 +697,15 @@ def _verified_spacy_load(
     after = verified_installed_package_record(model)
     if after != before:
         raise RuntimeError(f"spaCy model {model!r} changed while it was loaded")
+    after_binding = _verified_model_import_binding(
+        model,
+        after,
+        require_loaded=True,
+    )
+    if after_binding != before_binding:
+        raise RuntimeError(
+            f"spaCy model {model!r} import target changed while it was loaded"
+        )
     return loaded, model, after
 
 

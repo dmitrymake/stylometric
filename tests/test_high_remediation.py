@@ -147,6 +147,11 @@ def test_resolved_nlp_identity_changes_between_fallback_and_primary(monkeypatch)
             hashlib.sha256(name.encode("utf-8")).hexdigest(),
         ),
     )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_import_binding",
+        lambda name, identity, *, require_loaded: (name, identity),
+    )
     monkeypatch.setattr(nlp_module.spacy, "load", fallback_load)
     fallback_pipeline = nlp_module.load_nlp(
         "primary", "fallback", max_length=1234
@@ -188,6 +193,11 @@ def test_doc_cache_rejects_swapped_text_payload(tmp_path, monkeypatch):
             "test-version",
             hashlib.sha256(name.encode("utf-8")).hexdigest(),
         ),
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_import_binding",
+        lambda name, identity, *, require_loaded: (name, identity),
     )
     cache = nlp_module.DocCache(tmp_path, "model", "configured-v1")
     key = nlp_module._text_key(
@@ -1200,6 +1210,99 @@ def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
     with pytest.raises(RuntimeError, match="does not derive"):
         nlp_module.verified_installed_package_record("example_model")
 
+    py_compile.compile(
+        str(source),
+        cfile=str(bytecode),
+        dfile=str(source.resolve()),
+        doraise=True,
+        optimize=0,
+        invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP,
+    )
+    extension = source.parent / (
+        "__init__" + nlp_module.importlib.machinery.EXTENSION_SUFFIXES[0]
+    )
+    extension.write_bytes(b"unrecorded native extension fixture")
+    with pytest.raises(RuntimeError, match="unrecorded model payload"):
+        nlp_module.verified_installed_package_record("example_model")
+
+
+@pytest.mark.parametrize("fallback_route", [False, True])
+def test_spacy_load_rejects_sys_path_shadow_of_verified_wheel(
+    fallback_route,
+    tmp_path,
+    monkeypatch,
+):
+    import base64
+
+    from stylo import nlp as nlp_module
+
+    model = "stylo_verified_model_shadow_fixture"
+    installed_root = tmp_path / "installed"
+    installed_source = installed_root / model / "__init__.py"
+    installed_source.parent.mkdir(parents=True)
+    source_bytes = b"VERIFIED = True\n"
+    installed_source.write_bytes(source_bytes)
+    source_digest = (
+        base64.urlsafe_b64encode(hashlib.sha256(source_bytes).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    dist_info = installed_root / f"{model}-1.0.dist-info"
+    dist_info.mkdir()
+    source_member = f"{model}/__init__.py"
+    record_member = f"{model}-1.0.dist-info/RECORD"
+    record = (
+        f"{source_member},sha256={source_digest},{len(source_bytes)}\n"
+        f"{record_member},,\n"
+    )
+    (dist_info / "RECORD").write_text(record, encoding="utf-8")
+
+    shadow_root = tmp_path / "shadow"
+    shadow_source = shadow_root / model / "__init__.py"
+    shadow_source.parent.mkdir(parents=True)
+    shadow_source.write_text("SHADOW = True\n", encoding="utf-8")
+
+    class Distribution:
+        version = "1.0"
+        _path = dist_info
+
+        @staticmethod
+        def read_text(name):
+            assert name == "RECORD"
+            return record
+
+        @staticmethod
+        def locate_file(path):
+            return installed_root / path
+
+    def distribution(name):
+        if name == model:
+            return Distribution()
+        raise nlp_module.importlib.metadata.PackageNotFoundError(name)
+
+    imported = []
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    assert model not in sys.modules
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        distribution,
+    )
+    monkeypatch.setattr(
+        nlp_module.spacy,
+        "load",
+        lambda name, **_kwargs: imported.append(name),
+    )
+    monkeypatch.syspath_prepend(str(shadow_root))
+
+    with pytest.raises(RuntimeError, match="outside its verified wheel"):
+        if fallback_route:
+            nlp_module.load_nlp("missing_primary_fixture", model)
+        else:
+            nlp_module.load_nlp(model)
+    assert imported == []
+
 
 def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
     monkeypatch,
@@ -1224,6 +1327,11 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_import(
         nlp_module,
         "verified_installed_package_record",
         verify,
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_import_binding",
+        lambda name, identity, *, require_loaded: (name, identity),
     )
     monkeypatch.setattr(nlp_module.spacy, "load", load)
     loaded = nlp_module.load_nlp("primary", "fallback")
