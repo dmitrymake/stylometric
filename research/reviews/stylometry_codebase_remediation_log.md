@@ -431,3 +431,9 @@ not change the normative ledger or frozen evidence.
   methodological correction. README and metadata use the same framing; SSR
   rejects internal audit jargon. Generated scientific data, frozen evidence,
   registrations and owner-controlled gates were not changed.
+- 2026-07-27: The first release-CI run after the public rewrite correctly
+  stopped because its reviewed support-file inventory still named the removed
+  withdrawal banner and pinned the previous public bytes. Rebound only those
+  public support paths and digests to `ResearchUpdate` and the generated
+  science-pop surface; the 280-file Python path-set identity and all frozen
+  scientific evidence remain unchanged.
