@@ -1221,7 +1221,7 @@ def _request_parameters(
         return {
             "action": "parse",
             "oldid": str(revision),
-            "prop": "text|revid|title",
+            "prop": "text|revid",
             "disableeditsection": "1",
             "disablelimitreport": "1",
             "format": "json",

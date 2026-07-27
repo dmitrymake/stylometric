@@ -233,6 +233,11 @@ def test_ready_candidate_pins_v2_campaign_and_exact_order(tmp_path):
         ("revids" in call) != ("oldid" in call)
         for call in transport.calls
     )
+    assert all(
+        call["prop"] == "text|revid"
+        for call in transport.calls
+        if call["action"] == "parse"
+    )
 
 
 def test_boundary_selection_is_explicit_and_bound_into_v2_part(tmp_path):
