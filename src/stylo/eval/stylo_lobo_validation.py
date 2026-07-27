@@ -45,8 +45,16 @@ from .work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION, WEIGHTS_ONLY_ABLA
 
 
 STATUS = "true_lobo_target_protocol_validation_not_external_replication"
-SCHEMA_VERSION = "b4_true_lobo_a0_a1_a4_v2"
-CHECKPOINT_SCHEMA_VERSION = "b4_true_lobo_checkpoint_v2"
+LEGACY_FINAL_SCHEMA_V1 = "b4_true_lobo_a0_a1_a4_v1"
+LEGACY_FINAL_SCHEMA_V2 = "b4_true_lobo_a0_a1_a4_v2"
+SCHEMA_VERSION = "b4_true_lobo_a0_a1_a4_v3"
+LEGACY_CHECKPOINT_SCHEMA_V1 = "b4_true_lobo_checkpoint_v1"
+LEGACY_CHECKPOINT_SCHEMA_V2 = "b4_true_lobo_checkpoint_v2"
+CHECKPOINT_SCHEMA_VERSION = "b4_true_lobo_checkpoint_v3"
+LEGACY_FINAL_PROJECTION_SCHEMA_VERSION = "stylo_lobo_legacy_final_projection_v1"
+LEGACY_CHECKPOINT_PROJECTION_SCHEMA_VERSION = (
+    "stylo_lobo_legacy_checkpoint_projection_v1"
+)
 LEGACY_RUN_SCHEMA_VERSION = "b4_true_lobo_run_v1"
 OLDER_RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v2"
 PREVIOUS_RUN_SCHEMA_VERSION = "stylo_lobo_validation_run_v3"
@@ -113,6 +121,111 @@ class A0ParityError(TrueLoboError):
 
 class CheckpointError(TrueLoboError):
     """A checkpoint directory or checkpoint payload cannot be safely resumed."""
+
+
+def _require_exact_keys(
+    value: Any,
+    expected: set[str] | frozenset[str],
+    *,
+    path: str,
+    error_type: type[TrueLoboError] = TrueLoboError,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise error_type(f"{path} must be an object")
+    observed = set(value)
+    if observed != expected:
+        missing = sorted(expected - observed)
+        extra = sorted(observed - expected)
+        raise error_type(
+            f"{path} key mismatch: missing={missing}, extra={extra}"
+        )
+    return value
+
+
+def _require_exact_structure(
+    observed: Any,
+    expected: Any,
+    *,
+    path: str,
+    error_type: type[TrueLoboError] = TrueLoboError,
+) -> None:
+    """Compare a JSON value without Python's bool/int or int/float equality."""
+
+    if type(observed) is not type(expected):
+        raise error_type(
+            f"{path} type mismatch: expected {type(expected).__name__}, "
+            f"got {type(observed).__name__}"
+        )
+    if isinstance(expected, dict):
+        _require_exact_keys(
+            observed, set(expected), path=path, error_type=error_type
+        )
+        for key, expected_value in expected.items():
+            _require_exact_structure(
+                observed[key],
+                expected_value,
+                path=f"{path}.{key}",
+                error_type=error_type,
+            )
+        return
+    if isinstance(expected, list):
+        if len(observed) != len(expected):
+            raise error_type(
+                f"{path} length mismatch: expected {len(expected)}, "
+                f"got {len(observed)}"
+            )
+        for index, (observed_value, expected_value) in enumerate(
+            zip(observed, expected, strict=True)
+        ):
+            _require_exact_structure(
+                observed_value,
+                expected_value,
+                path=f"{path}[{index}]",
+                error_type=error_type,
+            )
+        return
+    if isinstance(expected, float) and (
+        not math.isfinite(observed) or not math.isfinite(expected)
+    ):
+        raise error_type(f"{path} must be finite")
+    if observed != expected:
+        raise error_type(f"{path} value mismatch")
+
+
+def _require_sha256(
+    value: Any,
+    *,
+    path: str,
+    error_type: type[TrueLoboError] = TrueLoboError,
+) -> str:
+    if (
+        type(value) is not str
+        or re.fullmatch(r"[0-9a-f]{64}", value) is None
+    ):
+        raise error_type(f"{path} must be a lowercase SHA-256")
+    return value
+
+
+def _require_nonnegative_float(
+    value: Any,
+    *,
+    path: str,
+    error_type: type[TrueLoboError] = TrueLoboError,
+) -> float:
+    if type(value) is not float or not math.isfinite(value) or value < 0.0:
+        raise error_type(f"{path} must be a finite nonnegative float")
+    return value
+
+
+def _require_nonnegative_int(
+    value: Any,
+    *,
+    path: str,
+    error_type: type[TrueLoboError] = TrueLoboError,
+) -> int:
+    if type(value) is not int or value < 0:
+        raise error_type(f"{path} must be a nonnegative exact integer")
+    return value
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -886,11 +999,30 @@ def build_checkpoint(
     fold_spec: dict[str, Any],
     evaluated: dict[str, Any],
 ) -> dict[str, Any]:
+    _require_exact_keys(
+        evaluated,
+        {
+            "fold_index",
+            "work_id",
+            "true_label",
+            "true_author",
+            "split",
+            "result",
+            "timing",
+        },
+        path=f"worker result {cell}/{fold_spec['work_id']}",
+        error_type=CheckpointError,
+    )
     for field in ("fold_index", "work_id", "true_label", "true_author"):
         expected = fold_spec[field]
-        if evaluated.get(field) != expected:
-            raise CheckpointError(
-                f"worker result identity mismatch for {cell}/{fold_spec['work_id']}: {field}")
+        _require_exact_structure(
+            evaluated[field],
+            expected,
+            path=(
+                f"worker result {cell}/{fold_spec['work_id']}.{field}"
+            ),
+            error_type=CheckpointError,
+        )
     checkpoint = {
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "status": STATUS,
@@ -920,10 +1052,73 @@ def validate_checkpoint(
     cell: str,
     fold_spec: dict[str, Any],
 ) -> None:
-    if not isinstance(checkpoint, dict):
-        raise CheckpointError("checkpoint must be an object")
+    if identity.get("schema_version") != RUN_SCHEMA_VERSION:
+        raise CheckpointError(
+            "legacy true-LOBO identities are read-only and not resumable"
+        )
+    _require_exact_keys(
+        checkpoint,
+        {
+            "schema_version",
+            "status",
+            "run_id",
+            "evaluation_authority",
+            "bindings",
+            "cell",
+            "axes",
+            "fold_index",
+            "work_id",
+            "true_label",
+            "true_author",
+            "split",
+            "result",
+            "timing",
+            "self_hash",
+        },
+        path="checkpoint",
+        error_type=CheckpointError,
+    )
+    _require_sha256(
+        checkpoint["self_hash"],
+        path="checkpoint.self_hash",
+        error_type=CheckpointError,
+    )
     if checkpoint.get("self_hash") != artifact_self_hash(checkpoint):
         raise CheckpointError(f"checkpoint self_hash mismatch for {cell}/{fold_spec['work_id']}")
+    _require_exact_keys(
+        checkpoint["evaluation_authority"],
+        {"mode", "context_rows_digest", "evaluator"},
+        path="checkpoint.evaluation_authority",
+        error_type=CheckpointError,
+    )
+    _require_exact_keys(
+        checkpoint["bindings"],
+        {
+            "config_sha256",
+            "resolved_config_sha256",
+            "code_tree_sha256",
+            "probability_order_sha256",
+            "metric_order_sha256",
+            "work_universe_sha256",
+            "tested_inventory_sha256",
+            "reference_sha256",
+            "representation_cache_sha256",
+        },
+        path="checkpoint.bindings",
+        error_type=CheckpointError,
+    )
+    for key, value in checkpoint["bindings"].items():
+        _require_sha256(
+            value,
+            path=f"checkpoint.bindings.{key}",
+            error_type=CheckpointError,
+        )
+    _require_exact_keys(
+        checkpoint["axes"],
+        {"weights", "feature_fit", "relative_fw"},
+        path="checkpoint.axes",
+        error_type=CheckpointError,
+    )
     expected_scalars = {
         "schema_version": CHECKPOINT_SCHEMA_VERSION,
         "status": STATUS,
@@ -938,45 +1133,208 @@ def validate_checkpoint(
         "true_author": fold_spec["true_author"],
         "split": _expected_split(identity, fold_spec),
     }
-    for field, expected in expected_scalars.items():
-        if checkpoint.get(field) != expected:
-            raise CheckpointError(
-                f"checkpoint {cell}/{fold_spec['work_id']} metadata mismatch: {field}")
+    _require_exact_structure(
+        {
+            field: checkpoint[field]
+            for field in expected_scalars
+        },
+        expected_scalars,
+        path=f"checkpoint {cell}/{fold_spec['work_id']} metadata",
+        error_type=CheckpointError,
+    )
+    split = _require_exact_keys(
+        checkpoint["split"],
+        {
+            "n_train_chunks",
+            "n_test_chunks",
+            "n_train_works",
+            "n_train_authors",
+            "train_work_inventory_sha256",
+            "singleton_work_ids_present",
+        },
+        path="checkpoint.split",
+        error_type=CheckpointError,
+    )
+    for field in (
+        "n_train_chunks",
+        "n_test_chunks",
+        "n_train_works",
+        "n_train_authors",
+    ):
+        _require_nonnegative_int(
+            split[field],
+            path=f"checkpoint.split.{field}",
+            error_type=CheckpointError,
+        )
+    _require_sha256(
+        split["train_work_inventory_sha256"],
+        path="checkpoint.split.train_work_inventory_sha256",
+        error_type=CheckpointError,
+    )
+    if (
+        not isinstance(split["singleton_work_ids_present"], list)
+        or any(type(value) is not str for value in split["singleton_work_ids_present"])
+    ):
+        raise CheckpointError(
+            "checkpoint.split.singleton_work_ids_present must be an exact string array"
+        )
 
-    result = checkpoint.get("result")
-    if not isinstance(result, dict):
-        raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} lacks result")
+    result = _require_exact_keys(
+        checkpoint["result"],
+        {"pred_label", "pred_author", "rank", "correct", "probabilities"},
+        path="checkpoint.result",
+        error_type=CheckpointError,
+    )
     n_authors = int(identity["dataset"]["n_authors"])
-    probabilities = np.asarray(result.get("probabilities"), dtype=np.float64)
-    if probabilities.shape != (n_authors,):
+    probabilities = result["probabilities"]
+    if not isinstance(probabilities, list) or len(probabilities) != n_authors:
         raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} probability width mismatch")
-    if not np.isfinite(probabilities).all() or (probabilities < -1e-9).any():
-        raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} has invalid probabilities")
-    if not np.isclose(probabilities.sum(), 1.0, atol=1e-6, rtol=0.0):
+    if any(
+        type(value) is not float
+        or not math.isfinite(value)
+        or not 0.0 <= value <= 1.0
+        for value in probabilities
+    ):
+        raise CheckpointError(
+            f"checkpoint {cell}/{fold_spec['work_id']} has invalid probabilities"
+        )
+    if not math.isclose(
+        math.fsum(probabilities), 1.0, abs_tol=1e-6, rel_tol=0.0
+    ):
         raise CheckpointError(
             f"checkpoint {cell}/{fold_spec['work_id']} probabilities do not sum to one")
-    order = np.argsort(-probabilities, kind="stable")
-    pred_label = _checked_label(result.get("pred_label"), n_authors, field="pred_label")
+    pred_label = _checked_label(
+        result["pred_label"], n_authors, field="pred_label"
+    )
     true_label = int(fold_spec["true_label"])
-    rank = int((probabilities >= probabilities[true_label]).sum())
+    top_label = max(range(n_authors), key=probabilities.__getitem__)
+    rank = sum(
+        value >= probabilities[true_label] for value in probabilities
+    )
     expected_pred_author = identity["probability_class_order"][pred_label]["author"]
-    if pred_label != int(order[0]) or result.get("pred_author") != expected_pred_author:
+    if (
+        type(result["pred_author"]) is not str
+        or pred_label != top_label
+        or result["pred_author"] != expected_pred_author
+    ):
         raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} prediction mismatch")
-    if result.get("rank") != rank or result.get("correct") is not (pred_label == true_label):
+    if (
+        type(result["rank"]) is not int
+        or type(result["correct"]) is not bool
+        or result["rank"] != rank
+        or result["correct"] is not (pred_label == true_label)
+    ):
         raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} rank/correct mismatch")
-    timing = checkpoint.get("timing")
-    timing_fields = (
+    timing_fields = {
         "fit_wall_seconds", "predict_wall_seconds", "total_wall_seconds",
         "fit_cpu_seconds", "predict_cpu_seconds", "total_cpu_seconds", "peak_rss_kib",
+    }
+    timing = _require_exact_keys(
+        checkpoint["timing"],
+        timing_fields,
+        path="checkpoint.timing",
+        error_type=CheckpointError,
     )
-    if not isinstance(timing, dict) or any(field not in timing for field in timing_fields):
-        raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} timing mismatch")
-    for field in timing_fields[:-1]:
-        value = timing[field]
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
-            raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} invalid timing {field}")
-    if type(timing["peak_rss_kib"]) is not int or timing["peak_rss_kib"] < 0:
-        raise CheckpointError(f"checkpoint {cell}/{fold_spec['work_id']} invalid peak RSS")
+    for field in timing_fields - {"peak_rss_kib"}:
+        _require_nonnegative_float(
+            timing[field],
+            path=f"checkpoint.timing.{field}",
+            error_type=CheckpointError,
+        )
+    _require_nonnegative_int(
+        timing["peak_rss_kib"],
+        path="checkpoint.timing.peak_rss_kib",
+        error_type=CheckpointError,
+    )
+
+
+def _validate_legacy_self_hashed_payload(
+    value: Any,
+    *,
+    schemas: frozenset[str],
+    noun: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise TrueLoboError(f"legacy {noun} must be an object")
+    if value.get("schema_version") not in schemas:
+        raise TrueLoboError(f"unsupported legacy {noun} schema")
+    _require_sha256(value.get("self_hash"), path=f"legacy {noun}.self_hash")
+    try:
+        expected_hash = artifact_self_hash(value)
+    except (TypeError, ValueError) as exc:
+        raise TrueLoboError(f"legacy {noun} is not canonical strict JSON") from exc
+    if value["self_hash"] != expected_hash:
+        raise TrueLoboError(f"legacy {noun} self_hash mismatch")
+    return value
+
+
+def project_legacy_checkpoint_read_only(
+    checkpoint: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a narrow descriptive view; never a resumable checkpoint."""
+
+    value = _validate_legacy_self_hashed_payload(
+        checkpoint,
+        schemas=frozenset(
+            {LEGACY_CHECKPOINT_SCHEMA_V1, LEGACY_CHECKPOINT_SCHEMA_V2}
+        ),
+        noun="checkpoint",
+    )
+    required = {
+        "status",
+        "run_id",
+        "cell",
+        "fold_index",
+        "work_id",
+        "true_label",
+        "true_author",
+        "result",
+    }
+    if any(key not in value for key in required):
+        raise TrueLoboError("legacy checkpoint lacks descriptive fields")
+    result = value["result"]
+    if not isinstance(result, dict) or any(
+        key not in result
+        for key in (
+            "pred_label",
+            "pred_author",
+            "rank",
+            "correct",
+            "probabilities",
+        )
+    ):
+        raise TrueLoboError("legacy checkpoint result is malformed")
+    projection = {
+        "schema_version": LEGACY_CHECKPOINT_PROJECTION_SCHEMA_VERSION,
+        "read_only": True,
+        "source_schema_version": value["schema_version"],
+        "source_self_hash": value["self_hash"],
+        "status": value["status"],
+        "run_id": value["run_id"],
+        "cell": value["cell"],
+        "fold_index": value["fold_index"],
+        "work_id": value["work_id"],
+        "true_label": value["true_label"],
+        "true_author": value["true_author"],
+        "result": {
+            key: copy.deepcopy(result[key])
+            for key in (
+                "pred_label",
+                "pred_author",
+                "rank",
+                "correct",
+                "probabilities",
+            )
+        },
+    }
+    projection["self_hash"] = artifact_self_hash(projection)
+    return projection
+
+
+def validate_legacy_checkpoint_read_only(
+    checkpoint: dict[str, Any],
+) -> None:
+    project_legacy_checkpoint_read_only(checkpoint)
 
 
 def checkpoint_filename(fold_spec: dict[str, Any]) -> str:
@@ -1080,6 +1438,10 @@ class CheckpointStore:
 
     def __init__(self, root: str | pathlib.Path, identity: dict[str, Any]):
         validate_run_identity(identity)
+        if identity.get("schema_version") != RUN_SCHEMA_VERSION:
+            raise CheckpointError(
+                "legacy true-LOBO identities are read-only and not resumable"
+            )
         self.root = pathlib.Path(root)
         self.identity = identity
         if self.root.is_symlink():
@@ -1232,7 +1594,13 @@ def assemble_cell(
             "work_id": fold["work_id"],
             "true_label": int(fold["true_label"]),
             "true_author": fold["true_author"],
-            **copy.deepcopy(checkpoint["result"]),
+            "pred_label": checkpoint["result"]["pred_label"],
+            "pred_author": checkpoint["result"]["pred_author"],
+            "rank": checkpoint["result"]["rank"],
+            "correct": checkpoint["result"]["correct"],
+            "probabilities": copy.deepcopy(
+                checkpoint["result"]["probabilities"]
+            ),
             "split": copy.deepcopy(checkpoint["split"]),
             "timing": copy.deepcopy(checkpoint["timing"]),
             "checkpoint_self_hash": checkpoint["self_hash"],
@@ -1602,17 +1970,554 @@ def assemble_artifact(
     return artifact
 
 
+def _validate_final_cell(
+    cell_record: dict[str, Any],
+    identity: dict[str, Any],
+    cell: str,
+) -> dict[str, Any]:
+    _require_exact_keys(
+        cell_record,
+        {
+            "cell",
+            "axes",
+            "status",
+            "works",
+            "metrics",
+            "timing",
+            "result_sha256",
+        },
+        path=f"artifact.cells[{cell}]",
+    )
+    works = cell_record["works"]
+    tested = identity["tested_inventory"]
+    if not isinstance(works, list) or len(works) != len(tested):
+        raise TrueLoboError(f"artifact cell {cell} work inventory length mismatch")
+    validated_works = []
+    for index, (work, fold) in enumerate(zip(works, tested, strict=True)):
+        path = f"artifact.cells[{cell}].works[{index}]"
+        _require_exact_keys(
+            work,
+            {
+                "fold_index",
+                "work_id",
+                "true_label",
+                "true_author",
+                "pred_label",
+                "pred_author",
+                "rank",
+                "correct",
+                "probabilities",
+                "split",
+                "timing",
+                "checkpoint_self_hash",
+            },
+            path=path,
+        )
+        _require_exact_structure(
+            {
+                key: work[key]
+                for key in (
+                    "fold_index",
+                    "work_id",
+                    "true_label",
+                    "true_author",
+                )
+            },
+            {
+                key: fold[key]
+                for key in (
+                    "fold_index",
+                    "work_id",
+                    "true_label",
+                    "true_author",
+                )
+            },
+            path=f"{path}.fold_identity",
+        )
+        _require_sha256(
+            work["checkpoint_self_hash"],
+            path=f"{path}.checkpoint_self_hash",
+        )
+        checkpoint = {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "status": STATUS,
+            "run_id": identity["run_id"],
+            "evaluation_authority": copy.deepcopy(
+                identity["evaluation_authority"]
+            ),
+            "bindings": copy.deepcopy(identity["bindings"]),
+            "cell": cell,
+            "axes": _axes(cell),
+            "fold_index": work["fold_index"],
+            "work_id": work["work_id"],
+            "true_label": work["true_label"],
+            "true_author": work["true_author"],
+            "split": copy.deepcopy(work["split"]),
+            "result": {
+                key: copy.deepcopy(work[key])
+                for key in (
+                    "pred_label",
+                    "pred_author",
+                    "rank",
+                    "correct",
+                    "probabilities",
+                )
+            },
+            "timing": copy.deepcopy(work["timing"]),
+        }
+        checkpoint["self_hash"] = artifact_self_hash(checkpoint)
+        if checkpoint["self_hash"] != work["checkpoint_self_hash"]:
+            raise TrueLoboError(
+                f"{path} does not reconstruct its checkpoint self-hash"
+            )
+        validate_checkpoint(checkpoint, identity, cell, fold)
+        validated_works.append(copy.deepcopy(work))
+
+    truth = np.asarray(
+        [work["true_label"] for work in validated_works], dtype=int
+    )
+    pred = np.asarray(
+        [work["pred_label"] for work in validated_works], dtype=int
+    )
+    ranks = np.asarray([work["rank"] for work in validated_works], dtype=int)
+    metric_labels = [
+        int(item["label"]) for item in identity["metric_label_order"]
+    ]
+    per_author = {}
+    for item in identity["metric_label_order"]:
+        label = int(item["label"])
+        mask = truth == label
+        per_author[item["author"]] = float(np.mean(pred[mask] == label))
+    metrics = {
+        "correct": int(np.sum(truth == pred)),
+        "n_tested": len(validated_works),
+        "accuracy": accuracy(truth, pred),
+        "macro_f1": macro_f1(
+            truth,
+            pred,
+            metric_labels,
+            unknown_pred="count_as_error",
+        ),
+        "top2": topk_accuracy(ranks, 2),
+        "per_author_recall": per_author,
+    }
+    timing = {
+        "fit_wall_seconds_sum": float(
+            sum(
+                work["timing"]["fit_wall_seconds"]
+                for work in validated_works
+            )
+        ),
+        "predict_wall_seconds_sum": float(
+            sum(
+                work["timing"]["predict_wall_seconds"]
+                for work in validated_works
+            )
+        ),
+        "fold_wall_seconds_sum": float(
+            sum(
+                work["timing"]["total_wall_seconds"]
+                for work in validated_works
+            )
+        ),
+        "fit_cpu_seconds_sum": float(
+            sum(
+                work["timing"]["fit_cpu_seconds"]
+                for work in validated_works
+            )
+        ),
+        "predict_cpu_seconds_sum": float(
+            sum(
+                work["timing"]["predict_cpu_seconds"]
+                for work in validated_works
+            )
+        ),
+        "total_cpu_seconds": float(
+            sum(
+                work["timing"]["total_cpu_seconds"]
+                for work in validated_works
+            )
+        ),
+        "peak_rss_kib_max": int(
+            max(work["timing"]["peak_rss_kib"] for work in validated_works)
+        ),
+    }
+    result_sha256 = canonical_hash(
+        {
+            "cell": cell,
+            "works": [
+                {
+                    key: work[key]
+                    for key in (
+                        "fold_index",
+                        "work_id",
+                        "true_label",
+                        "pred_label",
+                        "rank",
+                        "correct",
+                        "probabilities",
+                    )
+                }
+                for work in validated_works
+            ],
+            "metrics": metrics,
+        }
+    )
+    expected = {
+        "cell": cell,
+        "axes": _axes(cell),
+        "status": "applied",
+        "works": validated_works,
+        "metrics": metrics,
+        "timing": timing,
+        "result_sha256": result_sha256,
+    }
+    _require_exact_structure(
+        cell_record,
+        expected,
+        path=f"artifact.cells[{cell}]",
+    )
+    return expected
+
+
+def _expected_checkpoint_inventory_from_cells(
+    identity: dict[str, Any],
+    cells: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    result = {
+        "expected_per_cell": len(identity["tested_inventory"]),
+        "cells": {},
+    }
+    for cell in CELL_ORDER:
+        works = cells[cell]["works"]
+        result["cells"][cell] = {
+            "count": len(works),
+            "files": [
+                {
+                    "fold_index": int(work["fold_index"]),
+                    "work_id": work["work_id"],
+                    "filename": checkpoint_filename(
+                        identity["tested_inventory"][index]
+                    ),
+                    "self_hash": work["checkpoint_self_hash"],
+                }
+                for index, work in enumerate(works)
+            ],
+        }
+    result["self_hash"] = artifact_self_hash(result)
+    return result
+
+
+def _validate_final_gate_receipt(
+    receipt: dict[str, Any],
+    identity: dict[str, Any],
+    a0: dict[str, Any],
+) -> dict[str, Any]:
+    _require_exact_keys(
+        receipt,
+        {
+            "schema_version",
+            "status",
+            "run_id",
+            "evaluation_authority",
+            "reference_sha256",
+            "reference_records_sha256",
+            "a0_result_sha256",
+            "checkpoint_self_hashes_sha256",
+            "correct",
+            "n_tested",
+            "accuracy",
+            "per_work_exact_matches",
+            "self_hash",
+        },
+        path="artifact.a0_frozen_parity",
+    )
+    _require_sha256(
+        receipt["reference_records_sha256"],
+        path="artifact.a0_frozen_parity.reference_records_sha256",
+    )
+    expected = {
+        "schema_version": GATE_SCHEMA_VERSION,
+        "status": "passed",
+        "run_id": identity["run_id"],
+        "evaluation_authority": copy.deepcopy(
+            identity["evaluation_authority"]
+        ),
+        "reference_sha256": identity["bindings"]["reference_sha256"],
+        "reference_records_sha256": receipt["reference_records_sha256"],
+        "a0_result_sha256": a0["result_sha256"],
+        "checkpoint_self_hashes_sha256": canonical_hash(
+            [work["checkpoint_self_hash"] for work in a0["works"]]
+        ),
+        "correct": a0["metrics"]["correct"],
+        "n_tested": a0["metrics"]["n_tested"],
+        "accuracy": a0["metrics"]["accuracy"],
+        "per_work_exact_matches": a0["metrics"]["n_tested"],
+    }
+    expected["self_hash"] = artifact_self_hash(expected)
+    _require_exact_structure(
+        receipt,
+        expected,
+        path="artifact.a0_frozen_parity",
+    )
+    return expected
+
+
+def _expected_final_runtime(
+    cells: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    total_cpu = float(
+        sum(cells[cell]["timing"]["total_cpu_seconds"] for cell in CELL_ORDER)
+    )
+    fold_wall_sum = float(
+        sum(
+            cells[cell]["timing"]["fold_wall_seconds_sum"]
+            for cell in CELL_ORDER
+        )
+    )
+    return {
+        "total_cpu_seconds": total_cpu,
+        "total_wall_seconds": fold_wall_sum,
+        "fold_wall_seconds_sum": fold_wall_sum,
+        "total_wall_definition": (
+            "sum of measured per-fold worker wall seconds; resume-invariant and distinct from "
+            "parallel orchestrator elapsed time"
+        ),
+        "per_cell": {
+            cell: {
+                "total_cpu_seconds": float(
+                    cells[cell]["timing"]["total_cpu_seconds"]
+                ),
+                "wall_seconds": float(
+                    cells[cell]["timing"]["fold_wall_seconds_sum"]
+                ),
+                "fold_wall_seconds_sum": float(
+                    cells[cell]["timing"]["fold_wall_seconds_sum"]
+                ),
+            }
+            for cell in CELL_ORDER
+        },
+        "orchestrator_telemetry": (
+            "operational RUNTIME.json sidecar; intentionally excluded from the canonical "
+            "artifact so interrupted and uninterrupted assembly are identical"
+        ),
+        "peak_rss_kib_max": int(
+            max(
+                cells[cell]["timing"]["peak_rss_kib_max"]
+                for cell in CELL_ORDER
+            )
+        ),
+    }
+
+
 def _validate_final_artifact(artifact: dict[str, Any], identity: dict[str, Any]) -> None:
-    if (
-        not isinstance(artifact, dict)
-        or artifact.get("schema_version") != SCHEMA_VERSION
-        or artifact.get("status") != STATUS
-        or artifact.get("run_id") != identity["run_id"]
-        or artifact.get("attestation", {}).get("evaluation_authority")
-        != identity["evaluation_authority"]
-        or artifact.get("self_hash") != artifact_self_hash(artifact)
+    if identity.get("schema_version") != RUN_SCHEMA_VERSION:
+        raise TrueLoboError(
+            "legacy true-LOBO identities are read-only and cannot validate a current final artifact"
+        )
+    _require_exact_keys(
+        artifact,
+        {
+            "schema_version",
+            "status",
+            "run_id",
+            "attestation",
+            "probability_class_order",
+            "metric_label_order",
+            "work_universe",
+            "tested_inventory",
+            "singleton_train_only",
+            "a0_frozen_parity",
+            "cells",
+            "comparisons",
+            "primary_A4_noninferiority_gate",
+            "checkpoint_inventory",
+            "runtime",
+            "interpretation_scope",
+            "self_hash",
+        },
+        path="artifact",
+    )
+    _require_sha256(artifact["self_hash"], path="artifact.self_hash")
+    try:
+        expected_self_hash = artifact_self_hash(artifact)
+    except (TypeError, ValueError) as exc:
+        raise TrueLoboError(
+            "existing final true-LOBO artifact is not canonical strict JSON"
+        ) from exc
+    if artifact["self_hash"] != expected_self_hash:
+        raise TrueLoboError(
+            "existing final true-LOBO artifact self_hash mismatch"
+        )
+    expected_attestation = {
+        key: copy.deepcopy(identity[key])
+        for key in (
+            "git_commit",
+            "git_dirty",
+            "config",
+            "code_hashes",
+            "code_tree_sha256",
+            "dataset",
+            "bindings",
+            "runtime_fingerprint",
+            "thread_fingerprint",
+            "representation_cache",
+            "statistics",
+            "evaluation_authority",
+        )
+    }
+    for field, expected in (
+        ("schema_version", SCHEMA_VERSION),
+        ("status", STATUS),
+        ("run_id", identity["run_id"]),
+        ("attestation", expected_attestation),
+        ("probability_class_order", identity["probability_class_order"]),
+        ("metric_label_order", identity["metric_label_order"]),
+        ("work_universe", identity["work_universe"]),
+        ("tested_inventory", identity["tested_inventory"]),
+        ("singleton_train_only", identity["singleton_train_only"]),
     ):
-        raise TrueLoboError("existing final true-LOBO artifact is invalid or belongs to another run")
+        _require_exact_structure(
+            artifact[field],
+            expected,
+            path=f"artifact.{field}",
+        )
+    if not isinstance(artifact["cells"], list) or len(
+        artifact["cells"]
+    ) != len(CELL_ORDER):
+        raise TrueLoboError("artifact.cells must contain exact A0/A4/A1 order")
+    cells = {
+        cell: _validate_final_cell(record, identity, cell)
+        for cell, record in zip(
+            CELL_ORDER, artifact["cells"], strict=True
+        )
+    }
+    receipt = _validate_final_gate_receipt(
+        artifact["a0_frozen_parity"], identity, cells["A0"]
+    )
+    stats = identity["statistics"]
+    comparisons = {
+        "A1_minus_A0": paired_analysis(
+            cells["A1"],
+            cells["A0"],
+            iterations=stats["iterations"],
+            seed=stats["seed"],
+            level=stats["level"],
+            include_leave_one_author_out=True,
+        ),
+        "A4_minus_A0": paired_analysis(
+            cells["A4"],
+            cells["A0"],
+            iterations=stats["iterations"],
+            seed=stats["seed"],
+            level=stats["level"],
+            include_leave_one_author_out=True,
+        ),
+        "A1_minus_A4": paired_analysis(
+            cells["A1"],
+            cells["A4"],
+            iterations=stats["iterations"],
+            seed=stats["seed"],
+            level=stats["level"],
+            include_leave_one_author_out=False,
+        ),
+    }
+    _require_exact_structure(
+        artifact["comparisons"],
+        comparisons,
+        path="artifact.comparisons",
+    )
+    primary_ci = comparisons["A4_minus_A0"][
+        "author_clustered_percentile_ci"
+    ]
+    primary_gate = {
+        "estimand": "stylo_A4_minus_A0_accuracy",
+        "margin": float(stats["noninferiority_margin"]),
+        "ci_lo": float(primary_ci["lo"]),
+        "ci_hi": float(primary_ci["hi"]),
+        "decision": primary_a4_gate(
+            float(primary_ci["lo"]),
+            float(primary_ci["hi"]),
+            float(stats["noninferiority_margin"]),
+        ),
+        "scope": "exploratory artifact only; no headline mutation",
+    }
+    _require_exact_structure(
+        artifact["primary_A4_noninferiority_gate"],
+        primary_gate,
+        path="artifact.primary_A4_noninferiority_gate",
+    )
+    _require_exact_structure(
+        artifact["checkpoint_inventory"],
+        _expected_checkpoint_inventory_from_cells(identity, cells),
+        path="artifact.checkpoint_inventory",
+    )
+    _require_exact_structure(
+        artifact["runtime"],
+        _expected_final_runtime(cells),
+        path="artifact.runtime",
+    )
+    expected_scope = (
+        "target-protocol validation on the known corpus; not independent external replication, "
+        "not an authorship proof, and not a headline/publication artifact"
+    )
+    _require_exact_structure(
+        artifact["interpretation_scope"],
+        expected_scope,
+        path="artifact.interpretation_scope",
+    )
+    # Keep the receipt live in the validation graph rather than merely
+    # checking it in isolation.
+    if receipt["a0_result_sha256"] != cells["A0"]["result_sha256"]:
+        raise TrueLoboError("A0 receipt is detached from the validated cell")
+
+
+def project_legacy_final_artifact_read_only(
+    artifact: dict[str, Any],
+) -> dict[str, Any]:
+    """Project historical v1/v2 output for inspection, never for resume."""
+
+    value = _validate_legacy_self_hashed_payload(
+        artifact,
+        schemas=frozenset({LEGACY_FINAL_SCHEMA_V1, LEGACY_FINAL_SCHEMA_V2}),
+        noun="final artifact",
+    )
+    cells = value.get("cells")
+    if not isinstance(cells, list):
+        raise TrueLoboError("legacy final artifact cells are malformed")
+    summaries = []
+    for index, cell in enumerate(cells):
+        if not isinstance(cell, dict) or any(
+            key not in cell
+            for key in ("cell", "metrics", "result_sha256")
+        ):
+            raise TrueLoboError(
+                f"legacy final artifact cell {index} is malformed"
+            )
+        summaries.append(
+            {
+                "cell": copy.deepcopy(cell["cell"]),
+                "metrics": copy.deepcopy(cell["metrics"]),
+                "result_sha256": copy.deepcopy(cell["result_sha256"]),
+            }
+        )
+    projection = {
+        "schema_version": LEGACY_FINAL_PROJECTION_SCHEMA_VERSION,
+        "read_only": True,
+        "source_schema_version": value["schema_version"],
+        "source_self_hash": value["self_hash"],
+        "status": copy.deepcopy(value.get("status")),
+        "run_id": copy.deepcopy(value.get("run_id")),
+        "cells": summaries,
+    }
+    projection["self_hash"] = artifact_self_hash(projection)
+    return projection
+
+
+def validate_legacy_final_artifact_read_only(
+    artifact: dict[str, Any],
+) -> None:
+    project_legacy_final_artifact_read_only(artifact)
 
 
 def _progress(progress: Callable[[dict[str, Any]], None] | None, event: str, **fields) -> None:
@@ -1932,6 +2837,12 @@ __all__ = [
     "STATUS",
     "SCHEMA_VERSION",
     "CHECKPOINT_SCHEMA_VERSION",
+    "LEGACY_FINAL_SCHEMA_V1",
+    "LEGACY_FINAL_SCHEMA_V2",
+    "LEGACY_CHECKPOINT_SCHEMA_V1",
+    "LEGACY_CHECKPOINT_SCHEMA_V2",
+    "LEGACY_FINAL_PROJECTION_SCHEMA_VERSION",
+    "LEGACY_CHECKPOINT_PROJECTION_SCHEMA_VERSION",
     "LEGACY_RUN_SCHEMA_VERSION",
     "OLDER_RUN_SCHEMA_VERSION",
     "RUN_SCHEMA_VERSION",
@@ -1963,6 +2874,8 @@ __all__ = [
     "validate_run_identity",
     "build_checkpoint",
     "validate_checkpoint",
+    "project_legacy_checkpoint_read_only",
+    "validate_legacy_checkpoint_read_only",
     "checkpoint_filename",
     "CheckpointStore",
     "assemble_cell",
@@ -1970,6 +2883,8 @@ __all__ = [
     "paired_analysis",
     "primary_a4_gate",
     "assemble_artifact",
+    "project_legacy_final_artifact_read_only",
+    "validate_legacy_final_artifact_read_only",
     "run_true_lobo",
     "run_synthetic_true_lobo",
     "format_compact_table",

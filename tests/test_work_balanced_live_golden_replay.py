@@ -54,6 +54,13 @@ from stylo.eval.dispatch import fit_estimator  # noqa: E402
 from stylo.eval.lobo import make_factory_for_ablation  # noqa: E402
 from stylo.eval.work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION  # noqa: E402
 from stylo.features.reps import make_rep_cache  # noqa: E402
+from stylo.models.stacked_clf import (  # noqa: E402
+    STACK_PASSPORT_SCHEMA_V1,
+    STACK_PASSPORT_SCHEMA_V2,
+    STACK_SELECTION_EVIDENCE_STATUS,
+    project_stack_passport_compatibility,
+    validate_withdrawn_internal_selection_diagnostic,
+)
 from stylo.vectorizer import StyloVectorizer  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -268,6 +275,22 @@ def test_frozen_contract_is_reproduced(cfg, model_key, spec, panel_key, corner, 
         # literal capture semantics: fit receives np.array(dtype=object); extract/predict the list
         fit_estimator(est, np.array(texts, dtype=object), y, groups)
         state = _extract(spec, est, texts)
+    if spec == "stylo_stack":
+        # The current safety wrapper is independently authoritative: a historical
+        # comparison is allowed only after proving the live scores remain explicitly
+        # withdrawn and ineligible as unbiased evidence.
+        safety = state["passport"]["inner_oof_book_top1"]
+        validate_withdrawn_internal_selection_diagnostic(safety)
+        assert safety["status"] == STACK_SELECTION_EVIDENCE_STATUS
+        assert safety["eligible_as_unbiased_evidence"] is False
+        state["passport"] = project_stack_passport_compatibility(
+            state["passport"],
+            source_schema_version=STACK_PASSPORT_SCHEMA_V2,
+            target_schema_version=STACK_PASSPORT_SCHEMA_V1,
+        )
+        # Only the wrapper is projected. Its exact live numerical values remain
+        # exposed to the unchanged v1 fixture comparison below.
+        assert state["passport"]["inner_oof_book_top1"] == safety["descriptive_only"]
     reconstructed = {"requested_axes": {"W": on, "F": on, "R": on}, "fit_trace": trace, **state}
     want = _FIX["models"][model_key][corner]
     # exact whole-contract equality: vocab/IDF/weights/coef digests, Delta z-state, calibration

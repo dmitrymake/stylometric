@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from copy import deepcopy
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -55,6 +56,84 @@ class EvaluationOnlyEstimatorError(RuntimeError):
 STACK_SELECTION_EVIDENCE_STATUS = (
     "withdrawn_biased_global_calibration_reuse"
 )
+STACK_PASSPORT_SCHEMA_V1 = "stylo.stack.passport.v1"
+STACK_PASSPORT_SCHEMA_V2 = "stylo.stack.passport.v2"
+
+_STACK_PASSPORT_KEYS_V2 = {
+    "mode",
+    "inner_oof_book_top1",
+    "calibration",
+    "calibration_disabled",
+}
+_STACK_SELECTION_DIAGNOSTIC_KEYS_V2 = {
+    "status",
+    "eligible_as_unbiased_evidence",
+    "descriptive_only",
+}
+_STACK_SELECTION_DESCRIPTIVE_KEYS_V1 = {"equal", "stacked"}
+
+
+def validate_withdrawn_internal_selection_diagnostic(payload: Dict) -> None:
+    """Validate the current safety wrapper around the withdrawn OOF scores.
+
+    Historical stack passports exposed the two descriptive scores directly.
+    The current payload deliberately makes their withdrawn and ineligible
+    status impossible to miss.  Compatibility code must validate this wrapper
+    before projecting its descriptive values for a frozen-v1 comparison.
+    """
+
+    if type(payload) is not dict or set(payload) != _STACK_SELECTION_DIAGNOSTIC_KEYS_V2:
+        raise ValueError("current stack selection diagnostic has invalid keys")
+    if payload["status"] != STACK_SELECTION_EVIDENCE_STATUS:
+        raise ValueError("stack selection diagnostic is not explicitly withdrawn")
+    if payload["eligible_as_unbiased_evidence"] is not False:
+        raise ValueError("stack selection diagnostic must be ineligible as evidence")
+
+    descriptive = payload["descriptive_only"]
+    if type(descriptive) is not dict or set(descriptive) != _STACK_SELECTION_DESCRIPTIVE_KEYS_V1:
+        raise ValueError("stack selection diagnostic has invalid descriptive payload")
+    for name in ("equal", "stacked"):
+        value = descriptive[name]
+        if name == "stacked" and value is None:
+            continue
+        if type(value) is not float or not np.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError(
+                f"stack selection diagnostic {name} must be a finite float in [0,1]"
+            )
+
+
+def project_stack_passport_compatibility(
+    passport: Dict,
+    *,
+    source_schema_version: str,
+    target_schema_version: str,
+) -> Dict:
+    """Project only the withdrawn diagnostic for an exact frozen-v1 replay.
+
+    This is intentionally a single, explicit v2-to-v1 compatibility edge.  It
+    preserves every other passport field byte-for-byte at the value level, so
+    calibration or numerical drift remains visible to the fixture comparison.
+    Historical v1 payloads are never accepted as current safety wrappers.
+    """
+
+    if source_schema_version != STACK_PASSPORT_SCHEMA_V2:
+        raise ValueError("stack passport compatibility source must be current v2")
+    if target_schema_version != STACK_PASSPORT_SCHEMA_V1:
+        raise ValueError("stack passport compatibility target must be historical v1")
+    if type(passport) is not dict or set(passport) != _STACK_PASSPORT_KEYS_V2:
+        raise ValueError("current stack passport has invalid keys")
+    if passport["mode"] not in {"equal", "stacked"}:
+        raise ValueError("current stack passport has invalid mode")
+    if type(passport["calibration"]) is not dict:
+        raise ValueError("current stack passport calibration must be an object")
+    if type(passport["calibration_disabled"]) is not bool:
+        raise ValueError("current stack passport calibration_disabled must be boolean")
+
+    diagnostic = passport["inner_oof_book_top1"]
+    validate_withdrawn_internal_selection_diagnostic(diagnostic)
+    projected = deepcopy(passport)
+    projected["inner_oof_book_top1"] = deepcopy(diagnostic["descriptive_only"])
+    return projected
 
 
 def withdrawn_internal_selection_diagnostic(
@@ -75,7 +154,7 @@ def withdrawn_internal_selection_diagnostic(
         for value in values
     ):
         raise ValueError("internal selection accuracies must be finite floats in [0,1]")
-    return {
+    payload = {
         "status": STACK_SELECTION_EVIDENCE_STATUS,
         "eligible_as_unbiased_evidence": False,
         "descriptive_only": {
@@ -87,6 +166,8 @@ def withdrawn_internal_selection_diagnostic(
             ),
         },
     }
+    validate_withdrawn_internal_selection_diagnostic(payload)
+    return payload
 
 
 def _plain_scalar(value):

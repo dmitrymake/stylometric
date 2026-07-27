@@ -663,6 +663,207 @@ def test_checkpoint_rejects_rehashed_semantic_tamper_extra_and_metadata_mismatch
         tl.CheckpointStore(tmp_path / "checkpoints", other)
 
 
+@pytest.mark.parametrize(
+    "case",
+    (
+        "top_extra",
+        "missing_timing",
+        "missing_probability",
+        "split_extra",
+        "result_extra",
+        "timing_extra",
+        "probability_string",
+        "probability_int",
+        "probability_bool",
+        "probability_nan",
+        "probability_inf",
+        "bool_pred_label",
+        "bool_fold_index",
+        "float_rank",
+        "malformed_result",
+        "wrong_width",
+    ),
+)
+def test_checkpoint_v3_rejects_rehashed_noncanonical_nested_payloads(
+    tiny_target,
+    case,
+):
+    _, dataset, inventory = tiny_target
+    identity = _identity(dataset, inventory)
+    fold = identity["tested_inventory"][0]
+    checkpoint = tl.build_checkpoint(
+        identity, "A0", fold, _evaluated(identity, "A0", fold)
+    )
+    bad = copy.deepcopy(checkpoint)
+    if case == "top_extra":
+        bad["extra"] = None
+    elif case == "missing_timing":
+        del bad["timing"]
+    elif case == "missing_probability":
+        del bad["result"]["probabilities"]
+    elif case == "split_extra":
+        bad["split"]["extra"] = 0
+    elif case == "result_extra":
+        bad["result"]["extra"] = 0
+    elif case == "timing_extra":
+        bad["timing"]["extra"] = 0.0
+    elif case == "probability_string":
+        bad["result"]["probabilities"][0] = str(
+            bad["result"]["probabilities"][0]
+        )
+    elif case == "probability_int":
+        bad["result"]["probabilities"][0] = 0
+    elif case == "probability_bool":
+        bad["result"]["probabilities"][0] = True
+    elif case == "probability_nan":
+        bad["result"]["probabilities"][0] = float("nan")
+    elif case == "probability_inf":
+        bad["result"]["probabilities"][0] = float("inf")
+    elif case == "bool_pred_label":
+        bad["result"]["pred_label"] = True
+    elif case == "bool_fold_index":
+        bad["fold_index"] = False
+    elif case == "float_rank":
+        bad["result"]["rank"] = float(bad["result"]["rank"])
+    elif case == "malformed_result":
+        bad["result"] = []
+    elif case == "wrong_width":
+        bad["result"]["probabilities"].pop()
+    bad["self_hash"] = tl.artifact_self_hash(bad)
+    with pytest.raises(tl.TrueLoboError):
+        tl.validate_checkpoint(bad, identity, "A0", fold)
+
+
+def _complete_artifact(identity):
+    checkpoint_sets = {}
+    cells = {}
+    for cell in tl.CELL_ORDER:
+        checkpoints = {}
+        for fold in identity["tested_inventory"]:
+            index = int(fold["fold_index"])
+            checkpoints[index] = tl.build_checkpoint(
+                identity, cell, fold, _evaluated(identity, cell, fold)
+            )
+        checkpoint_sets[cell] = checkpoints
+        cells[cell] = tl.assemble_cell(identity, cell, checkpoints)
+    gate = tl._a0_receipt(identity, cells["A0"], _reference(identity))
+    return tl.assemble_artifact(identity, cells, gate, checkpoint_sets)
+
+
+@pytest.mark.parametrize(
+    "case",
+    (
+        "top_extra",
+        "cell_extra",
+        "work_extra",
+        "probability_string",
+        "timing_bool",
+        "timing_nan",
+        "derived_metric",
+        "derived_comparison",
+        "malformed_comparisons",
+        "derived_gate",
+        "derived_inventory",
+        "derived_runtime",
+        "class_order",
+        "missing_cells",
+        "missing_nested",
+    ),
+)
+def test_final_v3_rejects_rehashed_nested_and_derived_tamper(
+    tiny_target,
+    case,
+):
+    _, dataset, inventory = tiny_target
+    identity = _identity(dataset, inventory)
+    bad = _complete_artifact(identity)
+    if case == "top_extra":
+        bad["extra"] = None
+    elif case == "cell_extra":
+        bad["cells"][0]["extra"] = None
+    elif case == "work_extra":
+        bad["cells"][0]["works"][0]["extra"] = None
+    elif case == "probability_string":
+        bad["cells"][0]["works"][0]["probabilities"][0] = "0.8"
+    elif case == "timing_bool":
+        bad["cells"][0]["works"][0]["timing"]["fit_wall_seconds"] = True
+    elif case == "timing_nan":
+        bad["cells"][0]["works"][0]["timing"]["fit_wall_seconds"] = float(
+            "nan"
+        )
+    elif case == "derived_metric":
+        bad["cells"][0]["metrics"]["accuracy"] += 0.01
+    elif case == "derived_comparison":
+        bad["comparisons"]["A4_minus_A0"]["delta_accuracy"] += 0.01
+    elif case == "malformed_comparisons":
+        bad["comparisons"] = "not-an-object"
+    elif case == "derived_gate":
+        bad["primary_A4_noninferiority_gate"]["decision"] = "forged"
+    elif case == "derived_inventory":
+        bad["checkpoint_inventory"]["cells"]["A0"]["count"] -= 1
+    elif case == "derived_runtime":
+        bad["runtime"]["total_cpu_seconds"] += 1.0
+    elif case == "class_order":
+        bad["probability_class_order"] = list(
+            reversed(bad["probability_class_order"])
+        )
+    elif case == "missing_cells":
+        del bad["cells"]
+    elif case == "missing_nested":
+        del bad["cells"][0]["works"][0]["timing"]["total_cpu_seconds"]
+    bad["self_hash"] = tl.artifact_self_hash(bad)
+    with pytest.raises(tl.TrueLoboError):
+        tl._validate_final_artifact(bad, identity)
+
+
+def test_current_v3_validates_fully_while_v1_v2_are_read_only_only(
+    tiny_target,
+    tmp_path,
+):
+    _, dataset, inventory = tiny_target
+    identity = _identity(dataset, inventory)
+    fold = identity["tested_inventory"][0]
+    checkpoint = tl.build_checkpoint(
+        identity, "A0", fold, _evaluated(identity, "A0", fold)
+    )
+    artifact = _complete_artifact(identity)
+    tl.validate_checkpoint(checkpoint, identity, "A0", fold)
+    tl._validate_final_artifact(artifact, identity)
+
+    legacy_checkpoint = copy.deepcopy(checkpoint)
+    legacy_checkpoint["schema_version"] = tl.LEGACY_CHECKPOINT_SCHEMA_V2
+    legacy_checkpoint["self_hash"] = tl.artifact_self_hash(legacy_checkpoint)
+    checkpoint_projection = tl.project_legacy_checkpoint_read_only(
+        legacy_checkpoint
+    )
+    assert checkpoint_projection["read_only"] is True
+    assert checkpoint_projection["source_self_hash"] == legacy_checkpoint["self_hash"]
+    with pytest.raises(tl.CheckpointError, match="metadata|read-only"):
+        tl.validate_checkpoint(legacy_checkpoint, identity, "A0", fold)
+
+    legacy_artifact = copy.deepcopy(artifact)
+    legacy_artifact["schema_version"] = tl.LEGACY_FINAL_SCHEMA_V2
+    legacy_artifact["self_hash"] = tl.artifact_self_hash(legacy_artifact)
+    final_projection = tl.project_legacy_final_artifact_read_only(
+        legacy_artifact
+    )
+    assert final_projection["read_only"] is True
+    assert final_projection["source_self_hash"] == legacy_artifact["self_hash"]
+    with pytest.raises(tl.TrueLoboError):
+        tl._validate_final_artifact(legacy_artifact, identity)
+
+    legacy_identity = copy.deepcopy(identity)
+    legacy_identity["schema_version"] = tl.PREVIOUS_RUN_SCHEMA_VERSION
+    legacy_identity["run_id"] = tl.canonical_hash(
+        tl._run_id_material(legacy_identity)
+    )
+    legacy_identity["self_hash"] = tl.artifact_self_hash(legacy_identity)
+    root = tmp_path / "legacy-must-remain-read-only"
+    with pytest.raises(tl.CheckpointError, match="read-only"):
+        tl.CheckpointStore(root, legacy_identity)
+    assert not root.exists()
+
+
 def test_concurrent_conflicting_checkpoint_writers_never_overwrite(
         tiny_target, tmp_path, monkeypatch):
     _, dataset, inventory = tiny_target
