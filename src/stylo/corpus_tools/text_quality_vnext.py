@@ -67,6 +67,10 @@ _TRANSPORT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             re.IGNORECASE,
         ),
     ),
+    (
+        "rendered_redirect_notice",
+        re.compile(r"\bперенаправлени[ея]\b", re.IGNORECASE),
+    ),
     ("web_url", re.compile(r"https?://|www\.", re.IGNORECASE)),
 )
 _TAIL_APPARATUS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (

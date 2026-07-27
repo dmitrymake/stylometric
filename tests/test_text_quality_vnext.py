@@ -44,6 +44,10 @@ def test_clean_exact_inventory_passes_deterministically():
         ("[[Категория:Романы]]", "wiki_link"),
         ("https://example.test/source", "web_url"),
         ("'''ГЛАВА'''", "wiki_bold_italic"),
+        (
+            "перенаправление Война и мир (Толстой)/Том 1",
+            "rendered_redirect_notice",
+        ),
         ("--------------------------------", "source_separator"),
     ],
 )
