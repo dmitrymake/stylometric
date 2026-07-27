@@ -610,3 +610,95 @@ def test_v3_candidate_repair_contract_is_strict_before_cache_or_network(
     ):
         discovery.DiscoveryCandidate.from_dict(raw)
     assert not (tmp_path / "cache").exists()
+
+
+@pytest.mark.parametrize(
+    ("status", "disposition"),
+    [
+        (
+            discovery.EXTERNAL_PROVIDER_WORK_STATUS,
+            "pinned_external_provider",
+        ),
+        (
+            discovery.SOURCE_QUALITY_REJECTED_WORK_STATUS,
+            "exclude_source_quality",
+        ),
+    ],
+)
+def test_explicit_non_wikisource_dispositions_are_ready_but_never_fetched(
+    tmp_path,
+    status,
+    disposition,
+):
+    included = _work("author/included", number=1)
+    excluded = _work("author/excluded", number=2)
+    excluded.update(
+        {
+            "include_in_corpus": False,
+            "selection_status": status,
+            "issues": [
+                {
+                    "chosen_disposition": disposition,
+                    "kind": "source_disposition",
+                    "reason": "exact regression disposition",
+                }
+            ],
+        }
+    )
+    raw = _candidate(
+        [included, excluded],
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+    )
+    raw["selection_contract"]["selected_work_count"] = 1
+    raw["summary"]["blocked_work_count"] = 1
+    candidate = discovery.DiscoveryCandidate.from_dict(_rehash(raw))
+    transport = _Transport(included["parts"])  # type: ignore[arg-type]
+
+    result = discovery.pin_discovery_candidate(
+        candidate,
+        cache_dir=tmp_path / "cache",
+        transport=transport,
+    )
+
+    assert result.campaign_spec.work_ids == ("author/included",)
+    assert {int(call.get("oldid", call.get("revids", 0))) for call in transport.calls} == {
+        101
+    }
+
+
+def test_non_wikisource_disposition_must_be_exact_before_network(tmp_path):
+    included = _work("author/included", number=1)
+    excluded = _work("author/excluded", number=2)
+    excluded.update(
+        {
+            "include_in_corpus": False,
+            "selection_status": discovery.SOURCE_QUALITY_REJECTED_WORK_STATUS,
+            "issues": [
+                {
+                    "chosen_disposition": "selected_candidate",
+                    "kind": "source_disposition",
+                    "reason": "wrong regression disposition",
+                }
+            ],
+        }
+    )
+    raw = _candidate(
+        [included, excluded],
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+    )
+    raw["selection_contract"]["selected_work_count"] = 1
+    raw["summary"]["blocked_work_count"] = 1
+    candidate = discovery.DiscoveryCandidate.from_dict(_rehash(raw))
+    calls = []
+
+    with pytest.raises(
+        discovery.WikisourceDiscoveryError,
+        match="source-quality exclusion disposition",
+    ):
+        discovery.pin_discovery_candidate(
+            candidate,
+            cache_dir=tmp_path / "cache",
+            transport=lambda params: calls.append(params),
+        )
+    assert calls == []
+    assert not (tmp_path / "cache").exists()

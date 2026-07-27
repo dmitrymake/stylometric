@@ -75,6 +75,8 @@ PINNING_CACHE_SCHEMA_VERSION = "stylo.wikisource.pinning-response-cache.v1"
 READY_STATUS = "ready_for_pinning"
 BLOCKED_STATUS = "blocked"
 SELECTED_WORK_STATUS = "selected"
+EXTERNAL_PROVIDER_WORK_STATUS = "external_provider_selected"
+SOURCE_QUALITY_REJECTED_WORK_STATUS = "source_quality_rejected"
 RESOLVED_PART_STATUS = "resolved"
 PARSE_OLDID_STRATEGY = "parse_oldid"
 RENDERED_OLDID_MATERIALIZATION = (
@@ -219,6 +221,8 @@ _ALLOWED_WORK_STATUSES = frozenset(
         "content_boundary_unresolved",
         "source_incomplete",
         "authorship_rejected",
+        EXTERNAL_PROVIDER_WORK_STATUS,
+        SOURCE_QUALITY_REJECTED_WORK_STATUS,
     }
 )
 
@@ -1123,6 +1127,26 @@ class DiscoveryCandidate:
                 )
             if work.include_in_corpus and not work.parts:
                 blockers.append(f"{work.work_id}: no ordered parts")
+            if work.selection_status == EXTERNAL_PROVIDER_WORK_STATUS:
+                if not work.issues or any(
+                    issue.chosen_disposition
+                    != "pinned_external_provider"
+                    for issue in work.issues
+                ):
+                    blockers.append(
+                        f"{work.work_id}: external provider disposition "
+                        "is not exact"
+                    )
+            if work.selection_status == SOURCE_QUALITY_REJECTED_WORK_STATUS:
+                if not work.issues or any(
+                    issue.chosen_disposition
+                    != "exclude_source_quality"
+                    for issue in work.issues
+                ):
+                    blockers.append(
+                        f"{work.work_id}: source-quality exclusion "
+                        "disposition is not exact"
+                    )
             if work.include_in_corpus:
                 for issue in work.issues:
                     if issue.chosen_disposition != "selected_candidate":
@@ -1884,6 +1908,7 @@ __all__ = [
     "DiscoveryPart",
     "DiscoverySource",
     "DiscoveryWork",
+    "EXTERNAL_PROVIDER_WORK_STATUS",
     "PARSE_OLDID_STRATEGY",
     "PINNING_CACHE_SCHEMA_VERSION",
     "PinnedDiscoveryCampaign",
@@ -1891,6 +1916,7 @@ __all__ = [
     "RENDERED_OLDID_MATERIALIZATION",
     "RESOLVED_PART_STATUS",
     "SELECTED_WORK_STATUS",
+    "SOURCE_QUALITY_REJECTED_WORK_STATUS",
     "SelectionContract",
     "RejectedWorkReceipt",
     "TRUSTED_API",
