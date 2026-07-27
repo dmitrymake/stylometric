@@ -464,4 +464,6 @@ not change the normative ledger or frozen evidence.
   independently rederived execution receipts, exact primary/baseline campaign
   bindings, an external digest-bound owner-decision gate, and strict paired
   checkpoint/final validation. Public evidence, frozen evidence, scientific
-  approvals and confirmatory execution remain unauthorized.
+  approvals and confirmatory execution remain unauthorized. The live preflight
+  also version-binds the repository Git object format and validates SHA-1 or
+  SHA-256 commit IDs at their exact canonical length.

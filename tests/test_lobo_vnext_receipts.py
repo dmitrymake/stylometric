@@ -251,7 +251,11 @@ def test_executable_closure_is_live_file_and_commit_derived(
             else (
                 ""
                 if args[:2] == ("status", "--porcelain=v1")
-                else f"{'a' * 64}\n"
+                else (
+                    "sha1\n"
+                    if args[:2] == ("rev-parse", "--show-object-format")
+                    else f"{'a' * 40}\n"
+                )
             )
         ),
     )
@@ -273,6 +277,59 @@ def test_executable_closure_is_live_file_and_commit_derived(
     assert first.kind == "executable_sources"
     assert first.observation_count == 3
     assert first.digest != second.digest
+
+
+@pytest.mark.parametrize(
+    ("object_format", "commit"),
+    (
+        ("sha1", "a" * 64),
+        ("sha256", "a" * 40),
+        ("sha512", "a" * 128),
+        ("sha1", "A" * 40),
+    ),
+)
+def test_executable_closure_rejects_git_object_format_length_mismatch(
+    tmp_path: Path,
+    monkeypatch,
+    object_format: str,
+    commit: str,
+):
+    monkeypatch.setattr(
+        receipts,
+        "_git",
+        lambda _root, *args: (
+            "main\n"
+            if args[:3] == ("symbolic-ref", "--quiet", "--short")
+            else (
+                ""
+                if args[:2] == ("status", "--porcelain=v1")
+                else (
+                    f"{object_format}\n"
+                    if args[:2] == ("rev-parse", "--show-object-format")
+                    else f"{commit}\n"
+                )
+            )
+        ),
+    )
+
+    with pytest.raises(
+        receipts.RealReceiptError,
+        match="git object format|git commit",
+    ):
+        receipts.derive_executable_source_observation(tmp_path)
+
+
+def test_git_object_id_accepts_exact_sha1_and_sha256_lengths():
+    assert receipts._require_git_object_id(
+        "a" * 40,
+        object_format="sha1",
+        label="git commit",
+    ) == "a" * 40
+    assert receipts._require_git_object_id(
+        "b" * 64,
+        object_format="sha256",
+        label="git commit",
+    ) == "b" * 64
 
 
 def test_executable_closure_rejects_dirty_and_forbidden_branch(

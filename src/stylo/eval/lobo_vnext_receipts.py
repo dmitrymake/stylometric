@@ -47,7 +47,7 @@ from .paired_audit.run_plan import (
 
 OBSERVATION_SCHEMA_VERSION = "stylo.lobo-vnext.derived-observation.v1"
 EXECUTABLE_CLOSURE_DERIVATION_VERSION = (
-    "stylo.lobo-vnext.executable-source-closure.v1"
+    "stylo.lobo-vnext.executable-source-closure.v2"
 )
 DEPENDENCY_DERIVATION_VERSION = "stylo.lobo-vnext.dependencies.v1"
 RUNTIME_DERIVATION_VERSION = "stylo.lobo-vnext.runtime.v1"
@@ -63,6 +63,7 @@ REQUIRED_THREAD_ENV = {
 }
 
 _HEX64 = frozenset("0123456789abcdef")
+_GIT_OBJECT_ID_LENGTHS = {"sha1": 40, "sha256": 64}
 
 
 class RealReceiptError(VNextContractError):
@@ -84,6 +85,32 @@ def _require_sha256(value: object, label: str) -> str:
         or any(char not in _HEX64 for char in value)
     ):
         raise RealReceiptError(f"{label} must be 64 lowercase hex characters")
+    return value
+
+
+def _require_git_object_id(
+    value: object,
+    *,
+    object_format: object,
+    label: str,
+) -> str:
+    if (
+        type(object_format) is not str
+        or object_format not in _GIT_OBJECT_ID_LENGTHS
+    ):
+        raise RealReceiptError(
+            "git object format must be exactly 'sha1' or 'sha256'"
+        )
+    expected_length = _GIT_OBJECT_ID_LENGTHS[object_format]
+    if (
+        type(value) is not str
+        or len(value) != expected_length
+        or any(char not in _HEX64 for char in value)
+    ):
+        raise RealReceiptError(
+            f"{label} must be {expected_length} lowercase hex characters "
+            f"for Git object format {object_format}"
+        )
     return value
 
 
@@ -290,7 +317,12 @@ def derive_executable_source_observation(
             "real LOBO-vNext execution requires a clean scientific worktree"
         )
     commit = _git(root, "rev-parse", "--verify", "HEAD^{commit}").strip()
-    _require_sha256(commit, "git commit")
+    object_format = _git(root, "rev-parse", "--show-object-format").strip()
+    _require_git_object_id(
+        commit,
+        object_format=object_format,
+        label="git commit",
+    )
 
     try:
         report = check_source_inventory(root, require_git=True)
@@ -353,6 +385,7 @@ def derive_executable_source_observation(
         )
     evidence = {
         "schema_version": EXECUTABLE_CLOSURE_DERIVATION_VERSION,
+        "git_object_format": object_format,
         "git_commit": commit,
         "git_branch": branch,
         "release_path_count": report.snapshot.file_count,
