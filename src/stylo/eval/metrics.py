@@ -1,14 +1,13 @@
 """Strict book-level point metrics and author-clustered primary uncertainty."""
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Sequence, Tuple
 
 import numpy as np
 from sklearn.metrics import f1_score
 
+from ..jsonio import canonical_hash
 from .metric_contract import (
     MetricContractError,
     assert_labels_in_universe,
@@ -176,15 +175,7 @@ class AuthorClusteredInferenceSpec:
             confidence_level_value=confidence_level,
             seed=seed,
         )
-        self_hash = hashlib.sha256(
-            json.dumps(
-                payload,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            ).encode("utf-8")
-        ).hexdigest()
+        self_hash = canonical_hash(payload)
         return cls(**payload, self_hash=self_hash)
 
     def validate(self) -> "AuthorClusteredInferenceSpec":

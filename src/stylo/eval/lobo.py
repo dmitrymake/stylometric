@@ -14,8 +14,6 @@ bow_lr/majority) — все дают predict_proba(texts) и .classes_, выро
 from __future__ import annotations
 
 import dataclasses
-import hashlib
-import json
 import logging
 import os
 from typing import Callable, Dict, List, Optional, Tuple
@@ -25,6 +23,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from ..corpus import Dataset
+from ..jsonio import canonical_hash
 from ..lang import display_name
 from ..models.baselines import CharCosineBaseline, MajorityBaseline, build_bow_lr
 from ..models.delta import BurrowsDelta
@@ -115,15 +114,7 @@ class GenericLoboFoldManifest:
 
 
 def _canonical_manifest_hash(payload: dict[str, object]) -> str:
-    return hashlib.sha256(
-        json.dumps(
-            payload,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8")
-    ).hexdigest()
+    return canonical_hash(payload)
 
 
 def _build_generic_lobo_fold_manifest_from_payload(

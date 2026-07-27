@@ -18,7 +18,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ..jsonio import StrictJSONError, load_strict, loads_strict
+from ..jsonio import StrictJSONError, dumps_strict, load_strict, loads_strict
 
 CORPUS_VNEXT_SCHEMA_VERSION = "stylo.lobo-vnext.corpus-manifest.v1"
 CONTENT_COMPONENT_SCHEMA_VERSION = "stylo.lobo-vnext.content-components.v1"
@@ -62,12 +62,11 @@ def canonical_json_bytes(value: object) -> bytes:
 
     _validate_json_value(value, "$")
     try:
-        return json.dumps(
+        return dumps_strict(
             value,
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
-            allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise VNextContractError(f"value is not canonical strict JSON: {exc}") from exc

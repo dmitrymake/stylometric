@@ -7,8 +7,6 @@ accuracy — кластер-робастная honest-значимость), и 
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from typing import Dict, List
 
@@ -17,6 +15,7 @@ import pandas as pd
 
 from ..claims import ClaimStatus
 from ..corpus import Dataset
+from ..jsonio import canonical_hash
 from ..lang import display_name
 from ..models.registry import (
     CALIBRATION_MODEL_SPECS,
@@ -104,15 +103,7 @@ def _provenance_block(
         "model_specs": list(specs),
         "inference_spec_self_hash": inference_spec.self_hash,
     }
-    run_id = hashlib.sha256(
-        json.dumps(
-            identity,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8")
-    ).hexdigest()
+    run_id = canonical_hash(identity)
     return {
         "suite_weighting": weighting,
         "dataset_contract": getattr(prov, "loader_kind", None),

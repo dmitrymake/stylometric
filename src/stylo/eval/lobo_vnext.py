@@ -19,7 +19,6 @@ from __future__ import annotations
 import concurrent.futures
 import dataclasses
 import hashlib
-import json
 import math
 import os
 import pathlib
@@ -31,7 +30,7 @@ from typing import Any, NoReturn
 
 import numpy as np
 
-from ..jsonio import load_strict
+from ..jsonio import dumps_strict, load_strict
 from ..domain.prediction_contract import (
     PREDICTION_CONTRACT_VERSION,
     PredictionContractError,
@@ -159,12 +158,11 @@ def _strict_json_tree(value: Any, *, path: str = "value") -> None:
 def _canonical_bytes(value: Any) -> bytes:
     _strict_json_tree(value)
     try:
-        text = json.dumps(
+        text = dumps_strict(
             value,
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
-            allow_nan=False,
         )
     except (TypeError, ValueError) as exc:  # defensive after _strict_json_tree
         raise LoboVNextError(f"value is not canonical JSON: {exc}") from exc
@@ -2687,12 +2685,11 @@ def _load_embedded_specs(
         loads_model_spec,
     )
 
-    encoded = lambda value: json.dumps(  # noqa: E731 - narrow local adapter
+    encoded = lambda value: dumps_strict(  # noqa: E731 - narrow local adapter
         value,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
-        allow_nan=False,
     )
     try:
         return (
