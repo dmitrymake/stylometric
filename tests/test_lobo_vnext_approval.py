@@ -279,9 +279,9 @@ def test_self_hash_cannot_be_relabelled_as_owner_authentication(field, value):
 @pytest.mark.parametrize(
     "path",
     [
-        "/home/dmake/private/corpus.json",
-        "C:/Users/owner/corpus.json",
-        r"C:\Users\owner\corpus.json",
+        "/srv/stylo-private/corpus.json",
+        "C:/stylo-private/corpus.json",
+        r"C:\stylo-private\corpus.json",
         "~/private/corpus.json",
         "../private/corpus.json",
         "research//candidate.json",
@@ -301,8 +301,8 @@ def test_reviewed_evidence_rejects_host_absolute_or_noncanonical_paths(path):
 @pytest.mark.parametrize(
     ("owner_field", "value"),
     [
-        ("owner_id", "/home/dmake/private"),
-        ("owner_role", r"C:\Users\owner"),
+        ("owner_id", "/srv/stylo-private/owner"),
+        ("owner_role", r"C:\stylo-private\owner"),
         ("owner_role", "~/private"),
     ],
 )
@@ -378,7 +378,7 @@ def test_affected_contract_versions_are_required_path_free_and_unique():
             ["stylo.lobo-vnext.corpus-manifest.v1"] * 2,
             "sorted and duplicate-free",
         ),
-        (["/home/dmake/protocol.json"], "path-free canonical token"),
+        (["/srv/stylo-private/protocol.json"], "path-free canonical token"),
     ):
         raw = copy.deepcopy(_record().to_dict())
         raw["affected_contract_versions"] = versions
