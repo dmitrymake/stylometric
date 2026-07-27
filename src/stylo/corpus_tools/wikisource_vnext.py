@@ -39,15 +39,41 @@ from ..jsonio import (
 
 
 API = "https://ru.wikisource.org/w/api.php"
-PINNED_WORK_SPEC_SCHEMA_VERSION = "stylo.wikisource.pinned-work-spec.v1"
-PINNED_PART_RECEIPT_SCHEMA_VERSION = (
+PINNED_WORK_SPEC_SCHEMA_VERSION_V1 = "stylo.wikisource.pinned-work-spec.v1"
+PINNED_WORK_SPEC_SCHEMA_VERSION_V2 = "stylo.wikisource.pinned-work-spec.v2"
+PINNED_PART_RECEIPT_SCHEMA_VERSION_V1 = (
     "stylo.wikisource.pinned-part-receipt.v1"
 )
-WHOLE_WORK_RECEIPT_SCHEMA_VERSION = "stylo.wikisource.whole-work-receipt.v1"
+PINNED_PART_RECEIPT_SCHEMA_VERSION_V2 = (
+    "stylo.wikisource.pinned-part-receipt.v2"
+)
+WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1 = (
+    "stylo.wikisource.whole-work-receipt.v1"
+)
+WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2 = (
+    "stylo.wikisource.whole-work-receipt.v2"
+)
+# These aliases deliberately remain v1.  Existing pinned specs and receipts
+# are read-only compatibility inputs; new discovery code must opt into the
+# explicit *_V2 constants and body-boundary builder below.
+PINNED_WORK_SPEC_SCHEMA_VERSION = PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+PINNED_PART_RECEIPT_SCHEMA_VERSION = PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
+WHOLE_WORK_RECEIPT_SCHEMA_VERSION = WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
 ASSEMBLY_POLICY_VERSION = "stylo.wikisource.ordered-parts-lf.v1"
 EXTRACTION_POLICY_VERSION = "stylo.wikisource.rendered-html-text.v1"
 RESIDUE_POLICY_VERSION = "stylo.wikisource.residue-reject.v1"
 WORD_COUNT_POLICY_VERSION = "stylo.unicode-word-count.v1"
+BODY_BOUNDARY_POLICY_VERSION_V2 = (
+    "stylo.wikisource.exact-rendered-line-boundary.v2"
+)
+BODY_DISPOSITIONS = frozenset(
+    {
+        "whole_rendered_body",
+        "strip_leading_apparatus",
+        "strip_trailing_apparatus",
+        "strip_both_apparatus",
+    }
+)
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _WIKI_SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -386,6 +412,137 @@ def resolve_page(title: str, *, transport: JSONTransport) -> PageResolution:
     )
 
 
+_BODY_BOUNDARY_V2_KEYS = frozenset(
+    {
+        "full_plain_byte_size",
+        "full_plain_sha256",
+        "full_word_count",
+        "full_line_count",
+        "start_line",
+        "end_line_exclusive",
+        "first_selected_nonblank_line_sha256",
+        "last_selected_nonblank_line_sha256",
+        "body_disposition",
+    }
+)
+
+
+def _body_disposition(value: object, label: str) -> str:
+    disposition = _exact_str(value, label)
+    if disposition not in BODY_DISPOSITIONS:
+        raise WikisourceAcquisitionError(
+            f"{label} must be one of {sorted(BODY_DISPOSITIONS)!r}"
+        )
+    return disposition
+
+
+@dataclasses.dataclass(frozen=True)
+class _PinnedBodyBoundaryV2:
+    full_plain_byte_size: int
+    full_plain_sha256: str
+    full_word_count: int
+    full_line_count: int
+    start_line: int
+    end_line_exclusive: int
+    first_selected_nonblank_line_sha256: str
+    last_selected_nonblank_line_sha256: str
+    body_disposition: str
+
+    @classmethod
+    def from_part_dict(
+        cls,
+        raw: Mapping[str, object],
+        *,
+        label: str,
+    ) -> "_PinnedBodyBoundaryV2":
+        full_line_count = _exact_int(
+            raw["full_line_count"],
+            f"{label}.full_line_count",
+            minimum=1,
+        )
+        start = _exact_int(
+            raw["start_line"],
+            f"{label}.start_line",
+            minimum=0,
+        )
+        end = _exact_int(
+            raw["end_line_exclusive"],
+            f"{label}.end_line_exclusive",
+            minimum=1,
+        )
+        if start >= end or end > full_line_count:
+            raise WikisourceAcquisitionError(
+                f"{label} body boundary must be a non-empty in-range span"
+            )
+        disposition = _body_disposition(
+            raw["body_disposition"],
+            f"{label}.body_disposition",
+        )
+        expected_span = {
+            "whole_rendered_body": (
+                start == 0 and end == full_line_count
+            ),
+            "strip_leading_apparatus": (
+                start > 0 and end == full_line_count
+            ),
+            "strip_trailing_apparatus": (
+                start == 0 and end < full_line_count
+            ),
+            "strip_both_apparatus": (
+                start > 0 and end < full_line_count
+            ),
+        }[disposition]
+        if not expected_span:
+            raise WikisourceAcquisitionError(
+                f"{label} body_disposition conflicts with body boundary"
+            )
+        return cls(
+            _exact_int(
+                raw["full_plain_byte_size"],
+                f"{label}.full_plain_byte_size",
+                minimum=1,
+            ),
+            _sha256(
+                raw["full_plain_sha256"],
+                f"{label}.full_plain_sha256",
+            ),
+            _exact_int(
+                raw["full_word_count"],
+                f"{label}.full_word_count",
+                minimum=1,
+            ),
+            full_line_count,
+            start,
+            end,
+            _sha256(
+                raw["first_selected_nonblank_line_sha256"],
+                f"{label}.first_selected_nonblank_line_sha256",
+            ),
+            _sha256(
+                raw["last_selected_nonblank_line_sha256"],
+                f"{label}.last_selected_nonblank_line_sha256",
+            ),
+            disposition,
+        )
+
+    def to_part_fields(self) -> dict[str, object]:
+        return {
+            "full_plain_byte_size": self.full_plain_byte_size,
+            "full_plain_sha256": self.full_plain_sha256,
+            "full_word_count": self.full_word_count,
+            "full_line_count": self.full_line_count,
+            "start_line": self.start_line,
+            "end_line_exclusive": self.end_line_exclusive,
+            "first_selected_nonblank_line_sha256": (
+                self.first_selected_nonblank_line_sha256
+            ),
+            "last_selected_nonblank_line_sha256": (
+                self.last_selected_nonblank_line_sha256
+            ),
+            "body_disposition": self.body_disposition,
+        }
+
+
 @dataclasses.dataclass(frozen=True)
 class PinnedPartSpec:
     ordinal: int
@@ -400,25 +557,58 @@ class PinnedPartSpec:
     plain_byte_size: int
     plain_sha256: str
     word_count: int
+    body_boundary_v2: _PinnedBodyBoundaryV2 | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
 
     @classmethod
-    def from_dict(cls, value: object) -> "PinnedPartSpec":
+    def from_dict(
+        cls,
+        value: object,
+        *,
+        schema_version: str | None = None,
+    ) -> "PinnedPartSpec":
+        base_keys = {
+            "ordinal",
+            "requested_title",
+            "resolved_title",
+            "redirect_chain",
+            "page_id",
+            "revision_id",
+            "mediawiki_sha1",
+            "wikitext_sha256",
+            "rendered_html_sha256",
+            "plain_byte_size",
+            "plain_sha256",
+            "word_count",
+        }
+        if schema_version is None:
+            if type(value) is not dict:
+                raise WikisourceAcquisitionError(
+                    "pinned part spec must be an exact JSON object"
+                )
+            actual_keys = set(value)
+            if actual_keys == base_keys:
+                schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+            elif actual_keys == base_keys | set(_BODY_BOUNDARY_V2_KEYS):
+                schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+            else:
+                schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+        if schema_version not in {
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V1,
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+        }:
+            raise WikisourceAcquisitionError(
+                "pinned part spec schema is unsupported"
+            )
         raw = _exact_object(
             value,
-            {
-                "ordinal",
-                "requested_title",
-                "resolved_title",
-                "redirect_chain",
-                "page_id",
-                "revision_id",
-                "mediawiki_sha1",
-                "wikitext_sha256",
-                "rendered_html_sha256",
-                "plain_byte_size",
-                "plain_sha256",
-                "word_count",
-            },
+            (
+                base_keys
+                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+                else base_keys | set(_BODY_BOUNDARY_V2_KEYS)
+            ),
             "pinned part spec",
         )
         requested = _title(
@@ -429,6 +619,44 @@ class PinnedPartSpec:
             raw["resolved_title"],
             "pinned part spec.resolved_title",
         )
+        plain_size = _exact_int(
+            raw["plain_byte_size"],
+            "pinned part spec.plain_byte_size",
+            minimum=1,
+        )
+        plain_sha256 = _sha256(
+            raw["plain_sha256"],
+            "pinned part spec.plain_sha256",
+        )
+        word_count = _exact_int(
+            raw["word_count"],
+            "pinned part spec.word_count",
+            minimum=1,
+        )
+        boundary = (
+            None
+            if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+            else _PinnedBodyBoundaryV2.from_part_dict(
+                raw,
+                label="pinned part spec",
+            )
+        )
+        if boundary is not None:
+            if (
+                plain_size > boundary.full_plain_byte_size
+                or word_count > boundary.full_word_count
+            ):
+                raise WikisourceAcquisitionError(
+                    "pinned part spec selected identity exceeds full identity"
+                )
+            if boundary.body_disposition == "whole_rendered_body" and (
+                plain_size != boundary.full_plain_byte_size
+                or plain_sha256 != boundary.full_plain_sha256
+                or word_count != boundary.full_word_count
+            ):
+                raise WikisourceAcquisitionError(
+                    "pinned part spec whole-body selected/full identity mismatch"
+                )
         return cls(
             _exact_int(
                 raw["ordinal"],
@@ -465,24 +693,14 @@ class PinnedPartSpec:
                 raw["rendered_html_sha256"],
                 "pinned part spec.rendered_html_sha256",
             ),
-            _exact_int(
-                raw["plain_byte_size"],
-                "pinned part spec.plain_byte_size",
-                minimum=1,
-            ),
-            _sha256(
-                raw["plain_sha256"],
-                "pinned part spec.plain_sha256",
-            ),
-            _exact_int(
-                raw["word_count"],
-                "pinned part spec.word_count",
-                minimum=1,
-            ),
+            plain_size,
+            plain_sha256,
+            word_count,
+            boundary,
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "ordinal": self.ordinal,
             "requested_title": self.requested_title,
             "resolved_title": self.resolved_title,
@@ -496,15 +714,20 @@ class PinnedPartSpec:
             "plain_sha256": self.plain_sha256,
             "word_count": self.word_count,
         }
+        if self.body_boundary_v2 is not None:
+            payload.update(self.body_boundary_v2.to_part_fields())
+        return payload
 
 
 @dataclasses.dataclass(frozen=True)
 class PinnedWorkSpec:
+    schema_version: str
     work_id: str
     assembly_policy_version: str
     extraction_policy_version: str
     residue_policy_version: str
     word_count_policy_version: str
+    body_boundary_policy_version: str | None
     parts: tuple[PinnedPartSpec, ...]
     output_relative_path: str
     output_byte_size: int
@@ -514,6 +737,19 @@ class PinnedWorkSpec:
 
     @classmethod
     def from_dict(cls, value: object) -> "PinnedWorkSpec":
+        if type(value) is not dict:
+            raise WikisourceAcquisitionError(
+                "pinned work spec must be an exact JSON object"
+            )
+        schema_version = value.get("schema_version")
+        if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V1:
+            versioned_keys: set[str] = set()
+        elif schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2:
+            versioned_keys = {"body_boundary_policy_version"}
+        else:
+            raise WikisourceAcquisitionError(
+                "pinned work spec is legacy or unsupported"
+            )
         raw = _exact_object(
             value,
             {
@@ -529,20 +765,21 @@ class PinnedWorkSpec:
                 "output_sha256",
                 "word_count",
                 "self_hash",
-            },
+            }
+            | versioned_keys,
             "pinned work spec",
         )
         _self_hashed_payload(raw, "pinned work spec")
-        if raw["schema_version"] != PINNED_WORK_SPEC_SCHEMA_VERSION:
-            raise WikisourceAcquisitionError(
-                "pinned work spec is legacy or unsupported"
-            )
         policy_values = {
             "assembly_policy_version": ASSEMBLY_POLICY_VERSION,
             "extraction_policy_version": EXTRACTION_POLICY_VERSION,
             "residue_policy_version": RESIDUE_POLICY_VERSION,
             "word_count_policy_version": WORD_COUNT_POLICY_VERSION,
         }
+        if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2:
+            policy_values["body_boundary_policy_version"] = (
+                BODY_BOUNDARY_POLICY_VERSION_V2
+            )
         for key, expected in policy_values.items():
             if raw[key] != expected:
                 raise WikisourceAcquisitionError(
@@ -550,7 +787,7 @@ class PinnedWorkSpec:
                 )
         work = _work_id(raw["work_id"])
         parts = tuple(
-            PinnedPartSpec.from_dict(item)
+            PinnedPartSpec.from_dict(item, schema_version=schema_version)
             for item in _exact_list(
                 raw["parts"],
                 "pinned work spec.parts",
@@ -578,11 +815,17 @@ class PinnedWorkSpec:
                 "pinned work output path must be exactly raw/<work_id>.txt"
             )
         return cls(
+            schema_version,
             work,
             ASSEMBLY_POLICY_VERSION,
             EXTRACTION_POLICY_VERSION,
             RESIDUE_POLICY_VERSION,
             WORD_COUNT_POLICY_VERSION,
+            (
+                BODY_BOUNDARY_POLICY_VERSION_V2
+                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+                else None
+            ),
             parts,
             output_relative,
             _exact_int(
@@ -603,8 +846,8 @@ class PinnedWorkSpec:
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "schema_version": PINNED_WORK_SPEC_SCHEMA_VERSION,
+        payload: dict[str, object] = {
+            "schema_version": self.schema_version,
             "work_id": self.work_id,
             "assembly_policy_version": self.assembly_policy_version,
             "extraction_policy_version": self.extraction_policy_version,
@@ -617,6 +860,11 @@ class PinnedWorkSpec:
             "word_count": self.word_count,
             "self_hash": self.self_hash,
         }
+        if self.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2:
+            payload["body_boundary_policy_version"] = (
+                self.body_boundary_policy_version
+            )
+        return payload
 
     def validate(self) -> "PinnedWorkSpec":
         if PinnedWorkSpec.from_dict(self.to_dict()) != self:
@@ -816,6 +1064,150 @@ def extract_rendered_html(rendered_html: str) -> str:
     return plain
 
 
+@dataclasses.dataclass(frozen=True)
+class BodySelectionV2:
+    """Deterministic v2 selection plus JSON fields for a pinned part."""
+
+    selected_plain: str
+    full_plain_byte_size: int
+    full_plain_sha256: str
+    full_word_count: int
+    full_line_count: int
+    start_line: int
+    end_line_exclusive: int
+    first_selected_nonblank_line_sha256: str
+    last_selected_nonblank_line_sha256: str
+    body_disposition: str
+    plain_byte_size: int
+    plain_sha256: str
+    word_count: int
+
+    def boundary(self) -> _PinnedBodyBoundaryV2:
+        return _PinnedBodyBoundaryV2(
+            self.full_plain_byte_size,
+            self.full_plain_sha256,
+            self.full_word_count,
+            self.full_line_count,
+            self.start_line,
+            self.end_line_exclusive,
+            self.first_selected_nonblank_line_sha256,
+            self.last_selected_nonblank_line_sha256,
+            self.body_disposition,
+        )
+
+    def to_part_fields(self) -> dict[str, object]:
+        return {
+            **self.boundary().to_part_fields(),
+            "plain_byte_size": self.plain_byte_size,
+            "plain_sha256": self.plain_sha256,
+            "word_count": self.word_count,
+        }
+
+
+def build_body_selection_v2(
+    full_plain: str,
+    *,
+    start_line: int,
+    end_line_exclusive: int,
+    body_disposition: str,
+) -> BodySelectionV2:
+    """Build the exact, reviewable v2 body boundary for one rendered part.
+
+    This helper belongs to discovery/pinning.  Runtime materialisation applies
+    only these exact LF line coordinates and never runs regex trimming or
+    searches for an apparatus marker.
+    """
+
+    if (
+        type(full_plain) is not str
+        or not full_plain
+        or full_plain != full_plain.strip()
+        or "\r" in full_plain
+    ):
+        raise WikisourceAcquisitionError(
+            "full rendered plain text must be exact non-empty stripped LF text"
+        )
+    lines = full_plain.split("\n")
+    # Parse all boundary values through the same exact schema validation used
+    # by persisted specs, including the disposition/span relationship.
+    boundary_raw: dict[str, object] = {
+        "full_plain_byte_size": len(full_plain.encode("utf-8")),
+        "full_plain_sha256": _sha256_bytes(full_plain.encode("utf-8")),
+        "full_word_count": count_words(full_plain),
+        "full_line_count": len(lines),
+        "start_line": start_line,
+        "end_line_exclusive": end_line_exclusive,
+        "first_selected_nonblank_line_sha256": "0" * 64,
+        "last_selected_nonblank_line_sha256": "0" * 64,
+        "body_disposition": body_disposition,
+    }
+    preliminary = _PinnedBodyBoundaryV2.from_part_dict(
+        boundary_raw,
+        label="body selection v2",
+    )
+    selected_lines = lines[
+        preliminary.start_line : preliminary.end_line_exclusive
+    ]
+    nonblank = [line for line in selected_lines if line]
+    if not nonblank:
+        raise WikisourceAcquisitionError(
+            "body selection v2 must contain a nonblank line"
+        )
+    selected = "\n".join(selected_lines)
+    if not selected or selected != selected.strip():
+        raise WikisourceAcquisitionError(
+            "body selection v2 must start and end on nonblank lines"
+        )
+    first_anchor = _sha256_bytes(nonblank[0].encode("utf-8"))
+    last_anchor = _sha256_bytes(nonblank[-1].encode("utf-8"))
+    boundary_raw["first_selected_nonblank_line_sha256"] = first_anchor
+    boundary_raw["last_selected_nonblank_line_sha256"] = last_anchor
+    boundary = _PinnedBodyBoundaryV2.from_part_dict(
+        boundary_raw,
+        label="body selection v2",
+    )
+    selected_payload = selected.encode("utf-8")
+    selected_word_count = count_words(selected)
+    if selected_word_count == 0:
+        raise WikisourceAcquisitionError(
+            "body selection v2 must contain at least one word"
+        )
+    return BodySelectionV2(
+        selected,
+        boundary.full_plain_byte_size,
+        boundary.full_plain_sha256,
+        boundary.full_word_count,
+        boundary.full_line_count,
+        boundary.start_line,
+        boundary.end_line_exclusive,
+        boundary.first_selected_nonblank_line_sha256,
+        boundary.last_selected_nonblank_line_sha256,
+        boundary.body_disposition,
+        len(selected_payload),
+        _sha256_bytes(selected_payload),
+        selected_word_count,
+    )
+
+
+def _apply_body_boundary_v2(
+    full_plain: str,
+    expected: _PinnedBodyBoundaryV2,
+    *,
+    label: str,
+) -> BodySelectionV2:
+    observed = build_body_selection_v2(
+        full_plain,
+        start_line=expected.start_line,
+        end_line_exclusive=expected.end_line_exclusive,
+        body_disposition=expected.body_disposition,
+    )
+    if observed.boundary() != expected:
+        raise WikisourceAcquisitionError(
+            f"{label} full plain text or body-boundary anchor drifted"
+        )
+    return observed
+
+
 _RESIDUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "redirect",
@@ -914,6 +1306,7 @@ def assemble_plain_parts(parts: Sequence[str]) -> bytes:
 
 @dataclasses.dataclass(frozen=True)
 class PinnedPartReceipt:
+    schema_version: str
     ordinal: int
     requested_title: str
     resolved_title: str
@@ -933,6 +1326,10 @@ class PinnedPartReceipt:
     output_byte_start: int
     output_byte_end: int
     self_hash: str
+    body_boundary_v2: _PinnedBodyBoundaryV2 | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
 
     @classmethod
     def build(
@@ -943,12 +1340,39 @@ class PinnedPartReceipt:
         timestamp: str,
         wikitext_payload: bytes,
         rendered_html_payload: bytes,
+        full_plain_payload: bytes,
         plain_payload: bytes,
         output_byte_start: int,
         output_byte_end: int,
     ) -> "PinnedPartReceipt":
+        if spec.body_boundary_v2 is None:
+            schema_version = PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
+            if full_plain_payload != plain_payload:
+                raise WikisourceAcquisitionError(
+                    "v1 part receipt cannot select a plain-text subset"
+                )
+            boundary = None
+        else:
+            schema_version = PINNED_PART_RECEIPT_SCHEMA_VERSION_V2
+            try:
+                full_plain = full_plain_payload.decode("utf-8")
+                selected_plain = plain_payload.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise WikisourceAcquisitionError(
+                    "v2 part receipt plain text is not strict UTF-8"
+                ) from exc
+            observed = _apply_body_boundary_v2(
+                full_plain,
+                spec.body_boundary_v2,
+                label=f"pinned part {spec.ordinal}",
+            )
+            if observed.selected_plain != selected_plain:
+                raise WikisourceAcquisitionError(
+                    "v2 part receipt selected plain text differs from boundary"
+                )
+            boundary = observed.boundary()
         payload: dict[str, object] = {
-            "schema_version": PINNED_PART_RECEIPT_SCHEMA_VERSION,
+            "schema_version": schema_version,
             "ordinal": spec.ordinal,
             "requested_title": spec.requested_title,
             "resolved_title": spec.resolved_title,
@@ -970,10 +1394,25 @@ class PinnedPartReceipt:
             "output_byte_start": output_byte_start,
             "output_byte_end": output_byte_end,
         }
+        if boundary is not None:
+            payload.update(boundary.to_part_fields())
         return cls.from_dict({**payload, "self_hash": canonical_hash(payload)})
 
     @classmethod
     def from_dict(cls, value: object) -> "PinnedPartReceipt":
+        if type(value) is not dict:
+            raise WikisourceAcquisitionError(
+                "pinned part receipt must be an exact JSON object"
+            )
+        schema_version = value.get("schema_version")
+        if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V1:
+            versioned_keys: set[str] = set()
+        elif schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V2:
+            versioned_keys = set(_BODY_BOUNDARY_V2_KEYS)
+        else:
+            raise WikisourceAcquisitionError(
+                "pinned part receipt is legacy or unsupported"
+            )
         keys = {
             "schema_version",
             "ordinal",
@@ -995,13 +1434,9 @@ class PinnedPartReceipt:
             "output_byte_start",
             "output_byte_end",
             "self_hash",
-        }
+        } | versioned_keys
         raw = _exact_object(value, keys, "pinned part receipt")
         _self_hashed_payload(raw, "pinned part receipt")
-        if raw["schema_version"] != PINNED_PART_RECEIPT_SCHEMA_VERSION:
-            raise WikisourceAcquisitionError(
-                "pinned part receipt is legacy or unsupported"
-            )
         requested = _title(
             raw["requested_title"],
             "pinned part receipt.requested_title",
@@ -1029,7 +1464,41 @@ class PinnedPartReceipt:
             raise WikisourceAcquisitionError(
                 "pinned part receipt output span/size mismatch"
             )
+        plain_sha256 = _sha256(
+            raw["plain_sha256"],
+            "pinned part receipt.plain_sha256",
+        )
+        word_count = _exact_int(
+            raw["word_count"],
+            "pinned part receipt.word_count",
+            minimum=1,
+        )
+        boundary = (
+            None
+            if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
+            else _PinnedBodyBoundaryV2.from_part_dict(
+                raw,
+                label="pinned part receipt",
+            )
+        )
+        if boundary is not None:
+            if (
+                plain_size > boundary.full_plain_byte_size
+                or word_count > boundary.full_word_count
+            ):
+                raise WikisourceAcquisitionError(
+                    "pinned part receipt selected identity exceeds full identity"
+                )
+            if boundary.body_disposition == "whole_rendered_body" and (
+                plain_size != boundary.full_plain_byte_size
+                or plain_sha256 != boundary.full_plain_sha256
+                or word_count != boundary.full_word_count
+            ):
+                raise WikisourceAcquisitionError(
+                    "pinned part receipt whole-body identity mismatch"
+                )
         return cls(
+            schema_version,
             _exact_int(raw["ordinal"], "pinned part receipt.ordinal"),
             requested,
             resolved,
@@ -1081,26 +1550,20 @@ class PinnedPartReceipt:
                 "pinned part receipt.rendered_html_sha256",
             ),
             plain_size,
-            _sha256(
-                raw["plain_sha256"],
-                "pinned part receipt.plain_sha256",
-            ),
-            _exact_int(
-                raw["word_count"],
-                "pinned part receipt.word_count",
-                minimum=1,
-            ),
+            plain_sha256,
+            word_count,
             start,
             end,
             _sha256(
                 raw["self_hash"],
                 "pinned part receipt.self_hash",
             ),
+            boundary,
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "schema_version": PINNED_PART_RECEIPT_SCHEMA_VERSION,
+        payload: dict[str, object] = {
+            "schema_version": self.schema_version,
             "ordinal": self.ordinal,
             "requested_title": self.requested_title,
             "resolved_title": self.resolved_title,
@@ -1121,16 +1584,25 @@ class PinnedPartReceipt:
             "output_byte_end": self.output_byte_end,
             "self_hash": self.self_hash,
         }
+        if self.schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V2:
+            if self.body_boundary_v2 is None:
+                raise WikisourceAcquisitionError(
+                    "v2 pinned part receipt has no body boundary"
+                )
+            payload.update(self.body_boundary_v2.to_part_fields())
+        return payload
 
 
 @dataclasses.dataclass(frozen=True)
 class WholeWorkReceipt:
+    schema_version: str
     work_id: str
     pinned_work_spec_sha256: str
     assembly_policy_version: str
     extraction_policy_version: str
     residue_policy_version: str
     word_count_policy_version: str
+    body_boundary_policy_version: str | None
     parts: tuple[PinnedPartReceipt, ...]
     output_relative_path: str
     output_byte_size: int
@@ -1146,8 +1618,13 @@ class WholeWorkReceipt:
         parts: Sequence[PinnedPartReceipt],
         output_payload: bytes,
     ) -> "WholeWorkReceipt":
+        schema_version = (
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+            if spec.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+            else WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
+        )
         payload: dict[str, object] = {
-            "schema_version": WHOLE_WORK_RECEIPT_SCHEMA_VERSION,
+            "schema_version": schema_version,
             "work_id": spec.work_id,
             "pinned_work_spec_sha256": spec.self_hash,
             "assembly_policy_version": ASSEMBLY_POLICY_VERSION,
@@ -1160,10 +1637,29 @@ class WholeWorkReceipt:
             "output_sha256": _sha256_bytes(output_payload),
             "word_count": count_words(output_payload.decode("utf-8")),
         }
+        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+            payload["body_boundary_policy_version"] = (
+                BODY_BOUNDARY_POLICY_VERSION_V2
+            )
         return cls.from_dict({**payload, "self_hash": canonical_hash(payload)})
 
     @classmethod
     def from_dict(cls, value: object) -> "WholeWorkReceipt":
+        if type(value) is not dict:
+            raise WikisourceAcquisitionError(
+                "whole-work receipt must be an exact JSON object"
+            )
+        schema_version = value.get("schema_version")
+        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1:
+            versioned_keys: set[str] = set()
+            expected_part_schema = PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
+        elif schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+            versioned_keys = {"body_boundary_policy_version"}
+            expected_part_schema = PINNED_PART_RECEIPT_SCHEMA_VERSION_V2
+        else:
+            raise WikisourceAcquisitionError(
+                "whole-work receipt is legacy or unsupported"
+            )
         raw = _exact_object(
             value,
             {
@@ -1180,20 +1676,21 @@ class WholeWorkReceipt:
                 "output_sha256",
                 "word_count",
                 "self_hash",
-            },
+            }
+            | versioned_keys,
             "whole-work receipt",
         )
         _self_hashed_payload(raw, "whole-work receipt")
-        if raw["schema_version"] != WHOLE_WORK_RECEIPT_SCHEMA_VERSION:
-            raise WikisourceAcquisitionError(
-                "whole-work receipt is legacy or unsupported"
-            )
         policies = {
             "assembly_policy_version": ASSEMBLY_POLICY_VERSION,
             "extraction_policy_version": EXTRACTION_POLICY_VERSION,
             "residue_policy_version": RESIDUE_POLICY_VERSION,
             "word_count_policy_version": WORD_COUNT_POLICY_VERSION,
         }
+        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+            policies["body_boundary_policy_version"] = (
+                BODY_BOUNDARY_POLICY_VERSION_V2
+            )
         for key, expected in policies.items():
             if raw[key] != expected:
                 raise WikisourceAcquisitionError(
@@ -1208,6 +1705,10 @@ class WholeWorkReceipt:
                 nonempty=True,
             )
         )
+        if any(part.schema_version != expected_part_schema for part in parts):
+            raise WikisourceAcquisitionError(
+                "whole-work receipt contains a mismatched part schema"
+            )
         if tuple(part.ordinal for part in parts) != tuple(range(len(parts))):
             raise WikisourceAcquisitionError(
                 "whole-work receipt parts are not in contiguous manifest order"
@@ -1238,6 +1739,7 @@ class WholeWorkReceipt:
                 "whole-work receipt output path is noncanonical"
             )
         return cls(
+            schema_version,
             work,
             _sha256(
                 raw["pinned_work_spec_sha256"],
@@ -1247,6 +1749,11 @@ class WholeWorkReceipt:
             EXTRACTION_POLICY_VERSION,
             RESIDUE_POLICY_VERSION,
             WORD_COUNT_POLICY_VERSION,
+            (
+                BODY_BOUNDARY_POLICY_VERSION_V2
+                if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+                else None
+            ),
             parts,
             relative,
             output_size,
@@ -1263,8 +1770,8 @@ class WholeWorkReceipt:
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "schema_version": WHOLE_WORK_RECEIPT_SCHEMA_VERSION,
+        payload: dict[str, object] = {
+            "schema_version": self.schema_version,
             "work_id": self.work_id,
             "pinned_work_spec_sha256": self.pinned_work_spec_sha256,
             "assembly_policy_version": self.assembly_policy_version,
@@ -1278,6 +1785,11 @@ class WholeWorkReceipt:
             "word_count": self.word_count,
             "self_hash": self.self_hash,
         }
+        if self.schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+            payload["body_boundary_policy_version"] = (
+                self.body_boundary_policy_version
+            )
+        return payload
 
     def validate_for(
         self,
@@ -1289,8 +1801,14 @@ class WholeWorkReceipt:
                 "receipt validation requires exactly PinnedWorkSpec"
             )
         spec.validate()
+        expected_receipt_schema = (
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+            if spec.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+            else WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
+        )
         if (
-            self.work_id != spec.work_id
+            self.schema_version != expected_receipt_schema
+            or self.work_id != spec.work_id
             or self.pinned_work_spec_sha256 != spec.self_hash
             or self.output_relative_path != spec.output_relative_path
             or self.output_byte_size != len(output_payload)
@@ -1324,6 +1842,8 @@ class WholeWorkReceipt:
                 or observed.plain_byte_size != expected.plain_byte_size
                 or observed.plain_sha256 != expected.plain_sha256
                 or observed.word_count != expected.word_count
+                or observed.body_boundary_v2
+                != expected.body_boundary_v2
             ):
                 raise WikisourceAcquisitionError(
                     "whole-work part receipt differs from pinned expectations"
@@ -1376,6 +1896,7 @@ class _FetchedPart:
     timestamp: str
     wikitext_payload: bytes
     rendered_html_payload: bytes
+    full_plain: str
     plain: str
 
 
@@ -1507,7 +2028,15 @@ def _fetch_pinned_part(
         raise WikisourceAcquisitionError(
             f"pinned part {part.ordinal} rendered HTML drifted"
         )
-    plain = extract_rendered_html(rendered_html)
+    full_plain = extract_rendered_html(rendered_html)
+    if part.body_boundary_v2 is None:
+        plain = full_plain
+    else:
+        plain = _apply_body_boundary_v2(
+            full_plain,
+            part.body_boundary_v2,
+            label=f"pinned part {part.ordinal}",
+        ).selected_plain
     _assert_no_residue(plain, label=f"pinned part {part.ordinal}")
     plain_payload = plain.encode("utf-8")
     if (
@@ -1524,6 +2053,7 @@ def _fetch_pinned_part(
         timestamp,
         wikitext_payload,
         rendered_payload,
+        full_plain,
         plain,
     )
 
@@ -1680,6 +2210,7 @@ def materialize_pinned_work(
                 timestamp=row.timestamp,
                 wikitext_payload=row.wikitext_payload,
                 rendered_html_payload=row.rendered_html_payload,
+                full_plain_payload=row.full_plain.encode("utf-8"),
                 plain_payload=plain_payload,
                 output_byte_start=start,
                 output_byte_end=end,
@@ -1736,10 +2267,17 @@ def materialize_pinned_work(
 __all__ = [
     "API",
     "ASSEMBLY_POLICY_VERSION",
+    "BODY_BOUNDARY_POLICY_VERSION_V2",
+    "BODY_DISPOSITIONS",
+    "BodySelectionV2",
     "EXTRACTION_POLICY_VERSION",
     "MaterializedWork",
     "PINNED_PART_RECEIPT_SCHEMA_VERSION",
+    "PINNED_PART_RECEIPT_SCHEMA_VERSION_V1",
+    "PINNED_PART_RECEIPT_SCHEMA_VERSION_V2",
     "PINNED_WORK_SPEC_SCHEMA_VERSION",
+    "PINNED_WORK_SPEC_SCHEMA_VERSION_V1",
+    "PINNED_WORK_SPEC_SCHEMA_VERSION_V2",
     "PageResolution",
     "PinnedPartReceipt",
     "PinnedPartSpec",
@@ -1747,10 +2285,13 @@ __all__ = [
     "RESIDUE_POLICY_VERSION",
     "RedirectHop",
     "WHOLE_WORK_RECEIPT_SCHEMA_VERSION",
+    "WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1",
+    "WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2",
     "WORD_COUNT_POLICY_VERSION",
     "WholeWorkReceipt",
     "WikisourceAcquisitionError",
     "assemble_plain_parts",
+    "build_body_selection_v2",
     "count_words",
     "extract_rendered_html",
     "load_pinned_work_spec",

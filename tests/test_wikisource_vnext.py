@@ -95,6 +95,39 @@ def _part_spec(record: dict[str, object]) -> dict[str, object]:
     return {key: record[key] for key in keys}
 
 
+def _part_spec_v2(
+    record: dict[str, object],
+    *,
+    start_line: int,
+    end_line_exclusive: int,
+    body_disposition: str,
+) -> tuple[dict[str, object], str]:
+    selection = ws.build_body_selection_v2(
+        str(record["plain"]),
+        start_line=start_line,
+        end_line_exclusive=end_line_exclusive,
+        body_disposition=body_disposition,
+    )
+    identity_keys = {
+        "ordinal",
+        "requested_title",
+        "resolved_title",
+        "redirect_chain",
+        "page_id",
+        "revision_id",
+        "mediawiki_sha1",
+        "wikitext_sha256",
+        "rendered_html_sha256",
+    }
+    return (
+        {
+            **{key: record[key] for key in identity_keys},
+            **selection.to_part_fields(),
+        },
+        selection.selected_plain,
+    )
+
+
 def _spec_raw(
     records: list[dict[str, object]],
     *,
@@ -111,6 +144,46 @@ def _spec_raw(
         "residue_policy_version": ws.RESIDUE_POLICY_VERSION,
         "word_count_policy_version": ws.WORD_COUNT_POLICY_VERSION,
         "parts": [_part_spec(record) for record in records],
+        "output_relative_path": f"raw/{work_id}.txt",
+        "output_byte_size": len(output),
+        "output_sha256": _sha(output),
+        "word_count": ws.count_words(output.decode("utf-8")),
+    }
+    return {**payload, "self_hash": canonical_hash(payload)}
+
+
+def _spec_raw_v2(
+    records: list[dict[str, object]],
+    boundaries: list[tuple[int, int, str]],
+    *,
+    work_id: str = "author/work",
+) -> dict[str, object]:
+    if len(records) != len(boundaries):
+        raise AssertionError("test records and boundaries differ")
+    built = [
+        _part_spec_v2(
+            record,
+            start_line=start,
+            end_line_exclusive=end,
+            body_disposition=disposition,
+        )
+        for record, (start, end, disposition) in zip(
+            records,
+            boundaries,
+            strict=True,
+        )
+    ]
+    parts = [row[0] for row in built]
+    output = ws.assemble_plain_parts([row[1] for row in built])
+    payload: dict[str, object] = {
+        "schema_version": ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+        "work_id": work_id,
+        "assembly_policy_version": ws.ASSEMBLY_POLICY_VERSION,
+        "extraction_policy_version": ws.EXTRACTION_POLICY_VERSION,
+        "residue_policy_version": ws.RESIDUE_POLICY_VERSION,
+        "word_count_policy_version": ws.WORD_COUNT_POLICY_VERSION,
+        "body_boundary_policy_version": ws.BODY_BOUNDARY_POLICY_VERSION_V2,
+        "parts": parts,
         "output_relative_path": f"raw/{work_id}.txt",
         "output_byte_size": len(output),
         "output_sha256": _sha(output),
@@ -595,3 +668,263 @@ def test_assembled_output_expectation_mismatch_never_publishes(tmp_path):
             transport=_Transport(records),
         )
     assert not (tmp_path / spec.self_hash).exists()
+
+
+def _record_with_trailing_colophon() -> dict[str, object]:
+    record = _record(0, "Роман")
+    rendered_html = (
+        '<div class="mw-parser-output">'
+        "<p>Первая строка авторского повествования начинается здесь.</p>"
+        "<p>Последняя авторская строка завершает произведение.</p>"
+        "<p>Редакционный колофон: подготовка электронной публикации.</p>"
+        "</div>"
+    )
+    plain = ws.extract_rendered_html(rendered_html)
+    assert len(plain.split("\n")) == 3
+    record.update(
+        {
+            "rendered_html": rendered_html,
+            "rendered_html_sha256": _sha(rendered_html.encode("utf-8")),
+            "plain": plain,
+            "plain_byte_size": len(plain.encode("utf-8")),
+            "plain_sha256": _sha(plain.encode("utf-8")),
+            "word_count": ws.count_words(plain),
+        }
+    )
+    return record
+
+
+def test_v2_pinned_boundary_alone_removes_trailing_colophon(tmp_path):
+    record = _record_with_trailing_colophon()
+    full_lines = str(record["plain"]).split("\n")
+    v1 = ws.PinnedWorkSpec.from_dict(_spec_raw([record], work_id="author/v1"))
+    v2 = ws.PinnedWorkSpec.from_dict(
+        _spec_raw_v2(
+            [record],
+            [(0, 2, "strip_trailing_apparatus")],
+            work_id="author/v2",
+        )
+    )
+
+    v1_result = ws.materialize_pinned_work(
+        v1,
+        output_parent=tmp_path / "v1",
+        transport=_Transport([record]),
+    )
+    v2_result = ws.materialize_pinned_work(
+        v2,
+        output_parent=tmp_path / "v2",
+        transport=_Transport([record]),
+    )
+
+    assert "Редакционный колофон" in v1_result.output_path.read_text()
+    assert v2_result.output_path.read_text() == "\n".join(full_lines[:2]) + "\n"
+    assert "Редакционный колофон" not in v2_result.output_path.read_text()
+    part = v2_result.receipt.parts[0]
+    assert part.schema_version == ws.PINNED_PART_RECEIPT_SCHEMA_VERSION_V2
+    assert part.body_boundary_v2 == v2.parts[0].body_boundary_v2
+    receipt_part = part.to_dict()
+    assert receipt_part["full_plain_sha256"] == record["plain_sha256"]
+    assert receipt_part["start_line"] == 0
+    assert receipt_part["end_line_exclusive"] == 2
+    assert receipt_part["plain_sha256"] == v2.parts[0].plain_sha256
+    assert (
+        v2_result.receipt.schema_version
+        == ws.WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+    )
+
+
+def test_v2_whole_body_round_trips_with_exact_full_and_selected_identity(
+    tmp_path,
+):
+    record = _record(0, "Целый")
+    full = str(record["plain"])
+    line_count = len(full.split("\n"))
+    raw = _spec_raw_v2(
+        [record],
+        [(0, line_count, "whole_rendered_body")],
+    )
+
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+    assert spec.to_dict() == raw
+    boundary = spec.parts[0].body_boundary_v2
+    assert boundary is not None
+    assert spec.parts[0].plain_sha256 == boundary.full_plain_sha256
+    result = ws.materialize_pinned_work(
+        spec,
+        output_parent=tmp_path,
+        transport=_Transport([record]),
+    )
+
+    assert result.output_path.read_text() == full + "\n"
+    assert result.receipt.to_dict()["body_boundary_policy_version"] == (
+        ws.BODY_BOUNDARY_POLICY_VERSION_V2
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutator", "message"),
+    [
+        (
+            lambda part: part.__setitem__("unexpected_boundary_key", 1),
+            "keys must be exact",
+        ),
+        (
+            lambda part: part.pop("last_selected_nonblank_line_sha256"),
+            "keys must be exact",
+        ),
+        (
+            lambda part: part.__setitem__("full_line_count", True),
+            "exact integer",
+        ),
+        (
+            lambda part: part.__setitem__(
+                "body_disposition",
+                "guess_by_regex",
+            ),
+            "must be one of",
+        ),
+    ],
+)
+def test_v2_spec_rejects_extra_missing_or_noncanonical_boundary_fields(
+    mutator,
+    message,
+):
+    record = _record(0, "Строгий")
+    full = str(record["plain"])
+    raw = _spec_raw_v2(
+        [record],
+        [(0, len(full.split("\n")), "whole_rendered_body")],
+    )
+    mutator(raw["parts"][0])
+    payload = {key: value for key, value in raw.items() if key != "self_hash"}
+    raw["self_hash"] = canonical_hash(payload)
+
+    with pytest.raises(ws.WikisourceAcquisitionError, match=message):
+        ws.PinnedWorkSpec.from_dict(raw)
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        lambda part: part.__setitem__("full_plain_sha256", "0" * 64),
+        lambda part: part.__setitem__(
+            "first_selected_nonblank_line_sha256",
+            "0" * 64,
+        ),
+        lambda part: (
+            part.__setitem__("start_line", 1),
+            part.__setitem__("body_disposition", "strip_both_apparatus"),
+        ),
+        lambda part: part.__setitem__(
+            "full_line_count",
+            int(part["full_line_count"]) + 1,
+        ),
+    ],
+)
+def test_v2_rehashed_full_identity_anchor_or_line_change_is_rejected(
+    tmp_path,
+    mutator,
+):
+    record = _record_with_trailing_colophon()
+    raw = _spec_raw_v2(
+        [record],
+        [(0, 2, "strip_trailing_apparatus")],
+    )
+    mutator(raw["parts"][0])
+    payload = {key: value for key, value in raw.items() if key != "self_hash"}
+    raw["self_hash"] = canonical_hash(payload)
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+
+    with pytest.raises(
+        ws.WikisourceAcquisitionError,
+        match="full plain text or body-boundary anchor drifted",
+    ):
+        ws.materialize_pinned_work(
+            spec,
+            output_parent=tmp_path,
+            transport=_Transport([record]),
+        )
+    assert not (tmp_path / spec.self_hash).exists()
+
+
+@pytest.mark.parametrize(
+    ("full_plain", "start", "end", "disposition", "message"),
+    [
+        (
+            "Авторская строка.",
+            0,
+            0,
+            "whole_rendered_body",
+            "exact integer",
+        ),
+        (
+            "Авторская строка.",
+            0,
+            2,
+            "whole_rendered_body",
+            "non-empty in-range span",
+        ),
+        (
+            "Первая строка.\n\nПоследняя строка.",
+            1,
+            2,
+            "strip_both_apparatus",
+            "contain a nonblank line",
+        ),
+        (
+            "Первая строка.\nПоследняя строка.",
+            True,
+            2,
+            "whole_rendered_body",
+            "exact integer",
+        ),
+        (
+            "Первая строка.\nПоследняя строка.",
+            0,
+            1,
+            "whole_rendered_body",
+            "conflicts with body boundary",
+        ),
+    ],
+)
+def test_v2_builder_rejects_empty_out_of_range_or_inconsistent_span(
+    full_plain,
+    start,
+    end,
+    disposition,
+    message,
+):
+    with pytest.raises(ws.WikisourceAcquisitionError, match=message):
+        ws.build_body_selection_v2(
+            full_plain,
+            start_line=start,
+            end_line_exclusive=end,
+            body_disposition=disposition,
+        )
+
+
+def test_v1_spec_and_receipt_remain_explicitly_usable(tmp_path):
+    record = _record(0, "Совместимость")
+    raw = _spec_raw([record])
+    assert raw["schema_version"] == ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+    result = ws.materialize_pinned_work(
+        spec,
+        output_parent=tmp_path,
+        transport=_Transport([record]),
+    )
+
+    assert spec.schema_version == ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+    assert spec.body_boundary_policy_version is None
+    assert (
+        result.receipt.schema_version
+        == ws.WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
+    )
+    assert (
+        result.receipt.parts[0].schema_version
+        == ws.PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
+    )
+    assert result.receipt.parts[0].body_boundary_v2 is None
+    assert "full_plain_sha256" not in result.receipt.parts[0].to_dict()
