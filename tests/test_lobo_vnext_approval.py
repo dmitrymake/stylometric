@@ -7,6 +7,7 @@ import pytest
 
 from stylo.domain.lobo_vnext import canonical_sha256
 from stylo.domain.lobo_vnext_approval import (
+    AUTHORIZATION_BASIS,
     EXPLORATORY_CHOSEN_OPTION,
     OWNER_DECISION_SCHEMA_VERSION,
     REAL_CORPUS_EXPLORATORY_SCOPE,
@@ -48,8 +49,6 @@ def _record(
         decision_id="lobo-vnext-dry-run-2026-07-27",
         decision_revision=1,
         decision_date="2026-07-27",
-        owner_id="owner:dmitrymake",
-        owner_role="scientific owner",
         bindings=bindings or _bindings(),
         reviewed_evidence=(
             ReviewedEvidence(
@@ -81,6 +80,10 @@ def test_build_round_trip_binds_every_digest_and_encodes_non_authentication(
     raw = record.to_dict()
 
     assert raw["schema_version"] == OWNER_DECISION_SCHEMA_VERSION
+    assert raw["authorization_basis"] == AUTHORIZATION_BASIS
+    assert "owner" not in raw
+    assert "owner_id" not in raw
+    assert "owner_role" not in raw
     assert raw["scope"] == REAL_CORPUS_EXPLORATORY_SCOPE
     assert raw["chosen_option"] == EXPLORATORY_CHOSEN_OPTION
     assert raw["approved_for_exploratory"] is True
@@ -97,7 +100,7 @@ def test_build_round_trip_binds_every_digest_and_encodes_non_authentication(
     assert all(value is False for value in raw["safety"].values())
     assert raw["integrity_contract"] == {
         "self_hash_semantics": SELF_HASH_SEMANTICS,
-        "cryptographic_owner_authentication": False,
+        "cryptographic_authentication": False,
     }
     assert [row["relative_path"] for row in raw["reviewed_evidence"]] == [
         "research/candidates/corpus.json",
@@ -142,8 +145,6 @@ def test_builder_rejects_string_as_a_sequence(field, value):
         "decision_id": "lobo-vnext-dry-run-2026-07-27",
         "decision_revision": 1,
         "decision_date": "2026-07-27",
-        "owner_id": "owner:dmitrymake",
-        "owner_role": "scientific owner",
         "bindings": _bindings(),
         "reviewed_evidence": [
             ReviewedEvidence("research/candidate.json", _digest("candidate"))
@@ -213,6 +214,11 @@ def test_bool_is_not_accepted_as_integer_revision_after_valid_rehash():
 @pytest.mark.parametrize(
     ("field", "value", "match"),
     [
+        (
+            "authorization_basis",
+            "implicit_or_delegated_authorization",
+            "authorization_basis must be the exact literal",
+        ),
         ("scope", "confirmatory", "scope must be the exact literal"),
         (
             "chosen_option",
@@ -263,11 +269,11 @@ def test_every_unsafe_authorization_flag_must_be_exact_false(flag, value):
     ("field", "value"),
     [
         ("self_hash_semantics", "signed_by_owner"),
-        ("cryptographic_owner_authentication", True),
-        ("cryptographic_owner_authentication", 0),
+        ("cryptographic_authentication", True),
+        ("cryptographic_authentication", 0),
     ],
 )
-def test_self_hash_cannot_be_relabelled_as_owner_authentication(field, value):
+def test_self_hash_cannot_be_relabelled_as_authentication(field, value):
     raw = copy.deepcopy(_record().to_dict())
     raw["integrity_contract"][field] = value
     _rehash(raw)
@@ -298,21 +304,68 @@ def test_reviewed_evidence_rejects_host_absolute_or_noncanonical_paths(path):
         ExploratoryOwnerDecisionRecord.from_dict(raw)
 
 
-@pytest.mark.parametrize(
-    ("owner_field", "value"),
-    [
-        ("owner_id", "/srv/stylo-private/owner"),
-        ("owner_role", r"C:\stylo-private\owner"),
-        ("owner_role", "~/private"),
-    ],
-)
-def test_owner_fields_reject_absolute_host_paths(owner_field, value):
+@pytest.mark.parametrize("personal_field", ["owner", "owner_id", "owner_role"])
+def test_personal_fields_are_rejected_even_when_rehashed(personal_field):
     raw = copy.deepcopy(_record().to_dict())
-    raw["owner"][owner_field] = value
+    raw[personal_field] = (
+        {"owner_id": "person", "owner_role": "role"}
+        if personal_field == "owner"
+        else "person"
+    )
     _rehash(raw)
 
-    with pytest.raises(OwnerDecisionContractError, match="absolute host path"):
+    with pytest.raises(OwnerDecisionContractError, match="keys must be exact"):
         ExploratoryOwnerDecisionRecord.from_dict(raw)
+
+
+def test_builder_signature_rejects_personal_fields():
+    kwargs = {
+        "decision_id": "lobo-vnext-dry-run-2026-07-27",
+        "decision_revision": 1,
+        "decision_date": "2026-07-27",
+        "bindings": _bindings(),
+        "reviewed_evidence": (
+            ReviewedEvidence(
+                "research/candidate.json", _digest("candidate")
+            ),
+        ),
+        "affected_contract_versions": (
+            "stylo.lobo-vnext.corpus-manifest.v1",
+        ),
+        "owner_id": "person",
+        "owner_role": "role",
+    }
+
+    with pytest.raises(TypeError, match="unexpected keyword"):
+        build_owner_decision_record(**kwargs)
+
+
+def test_legacy_v1_is_rejected_for_new_execution():
+    raw = copy.deepcopy(_record().to_dict())
+    raw["schema_version"] = (
+        "stylo.lobo-vnext.exploratory-owner-decision.v1"
+    )
+    del raw["authorization_basis"]
+    raw["owner"] = {
+        "owner_id": "historical-person",
+        "owner_role": "historical-role",
+    }
+    raw["integrity_contract"] = {
+        "self_hash_semantics": (
+            "canonical_sha256_integrity_only_not_owner_authentication"
+        ),
+        "cryptographic_owner_authentication": False,
+    }
+    _rehash(raw)
+
+    with pytest.raises(
+        OwnerDecisionContractError, match="legacy or unsupported"
+    ):
+        ExploratoryOwnerDecisionRecord.from_dict(raw)
+    with pytest.raises(
+        OwnerDecisionContractError, match="legacy or unsupported"
+    ):
+        loads_owner_decision_record(json.dumps(raw))
 
 
 @pytest.mark.parametrize(
@@ -389,8 +442,11 @@ def test_affected_contract_versions_are_required_path_free_and_unique():
 
 def test_stale_and_semantically_rehashed_tampering_are_both_rejected():
     stale = copy.deepcopy(_record().to_dict())
-    stale["owner"]["owner_role"] = "different owner role"
-    with pytest.raises(OwnerDecisionContractError, match="self_hash mismatch"):
+    stale["decision_date"] = "2026-07-28"
+    with pytest.raises(
+        OwnerDecisionContractError,
+        match="self_hash mismatch",
+    ):
         ExploratoryOwnerDecisionRecord.from_dict(stale)
 
     unsafe = copy.deepcopy(_record().to_dict())

@@ -1,10 +1,10 @@
-"""Strict owner-decision record for a bounded real-corpus LOBO-vNext dry run.
+"""Strict non-personal authorization for a bounded LOBO-vNext dry run.
 
-The record binds an owner's explicitly scoped exploratory decision to exact
-content-addressed inputs.  Its canonical SHA-256 self-hash detects accidental or
-unreviewed byte changes; it is deliberately *not* a signature and does not
-cryptographically authenticate the claimed owner.  Authentication, if ever
-required, must be supplied by a separate versioned authority.
+The record binds an explicit interactive user authorization to exact
+content-addressed inputs.  It intentionally contains no personal identity or
+role fields.  Its canonical SHA-256 self-hash detects accidental or unreviewed
+byte changes; it is not a signature and does not authenticate authorization.
+Authentication, if ever required, needs a separate versioned authority.
 """
 
 from __future__ import annotations
@@ -22,12 +22,13 @@ from ..jsonio import StrictJSONError, canonical_hash, loads_strict
 
 
 OWNER_DECISION_SCHEMA_VERSION = (
-    "stylo.lobo-vnext.exploratory-owner-decision.v1"
+    "stylo.lobo-vnext.exploratory-authorization.v2"
 )
+AUTHORIZATION_BASIS = "explicit_interactive_user_authorization"
 REAL_CORPUS_EXPLORATORY_SCOPE = "real_corpus_exploratory_dry_run_only"
 EXPLORATORY_CHOSEN_OPTION = "authorize_exact_bound_exploratory_dry_run"
 SELF_HASH_SEMANTICS = (
-    "canonical_sha256_integrity_only_not_owner_authentication"
+    "canonical_sha256_integrity_only_not_authorization_authentication"
 )
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -40,7 +41,7 @@ _TOP_LEVEL_KEYS = frozenset(
         "decision_id",
         "decision_revision",
         "decision_date",
-        "owner",
+        "authorization_basis",
         "scope",
         "chosen_option",
         "approved_for_exploratory",
@@ -52,7 +53,6 @@ _TOP_LEVEL_KEYS = frozenset(
         "self_hash",
     }
 )
-_OWNER_KEYS = frozenset({"owner_id", "owner_role"})
 _BINDING_KEYS = frozenset(
     {
         "corpus_manifest_digest",
@@ -75,7 +75,7 @@ _SAFETY_KEYS = frozenset(
     }
 )
 _INTEGRITY_KEYS = frozenset(
-    {"self_hash_semantics", "cryptographic_owner_authentication"}
+    {"self_hash_semantics", "cryptographic_authentication"}
 )
 
 
@@ -172,15 +172,6 @@ def _looks_like_absolute_host_path(value: str) -> bool:
         value.startswith(("/", "\\", "~"))
         or _WINDOWS_ABSOLUTE_RE.match(value) is not None
     )
-
-
-def _human_text(value: object, label: str) -> str:
-    text = _exact_string(value, label)
-    if _looks_like_absolute_host_path(text):
-        raise OwnerDecisionContractError(
-            f"{label} must not contain an absolute host path"
-        )
-    return text
 
 
 def _token(value: object, label: str) -> str:
@@ -330,8 +321,7 @@ class ExploratoryOwnerDecisionRecord:
     decision_id: str
     decision_revision: int
     decision_date: str
-    owner_id: str
-    owner_role: str
+    authorization_basis: str
     scope: str
     chosen_option: str
     approved_for_exploratory: bool
@@ -343,7 +333,7 @@ class ExploratoryOwnerDecisionRecord:
     headline_update_authorized: bool
     frozen_evidence_mutation_authorized: bool
     self_hash_semantics: str
-    cryptographic_owner_authentication: bool
+    cryptographic_authentication: bool
     self_hash: str
 
     @classmethod
@@ -353,8 +343,6 @@ class ExploratoryOwnerDecisionRecord:
         decision_id: str,
         decision_revision: int,
         decision_date: str,
-        owner_id: str,
-        owner_role: str,
         bindings: DecisionBindings,
         reviewed_evidence: Sequence[ReviewedEvidence],
         affected_contract_versions: Sequence[str],
@@ -394,7 +382,7 @@ class ExploratoryOwnerDecisionRecord:
             "decision_id": decision_id,
             "decision_revision": decision_revision,
             "decision_date": decision_date,
-            "owner": {"owner_id": owner_id, "owner_role": owner_role},
+            "authorization_basis": AUTHORIZATION_BASIS,
             "scope": REAL_CORPUS_EXPLORATORY_SCOPE,
             "chosen_option": EXPLORATORY_CHOSEN_OPTION,
             "approved_for_exploratory": True,
@@ -415,21 +403,32 @@ class ExploratoryOwnerDecisionRecord:
             },
             "integrity_contract": {
                 "self_hash_semantics": SELF_HASH_SEMANTICS,
-                "cryptographic_owner_authentication": False,
+                "cryptographic_authentication": False,
             },
         }
         return cls._from_payload(payload, _canonical_sha256(payload))
 
     @classmethod
     def from_dict(cls, value: object) -> "ExploratoryOwnerDecisionRecord":
-        raw = _exact_object(value, _TOP_LEVEL_KEYS, "owner decision record")
+        if (
+            type(value) is dict
+            and value.get("schema_version") != OWNER_DECISION_SCHEMA_VERSION
+        ):
+            raise OwnerDecisionContractError(
+                "exploratory authorization is legacy or unsupported"
+            )
+        raw = _exact_object(
+            value, _TOP_LEVEL_KEYS, "exploratory authorization record"
+        )
         recorded_hash = _sha256(raw["self_hash"], "self_hash")
         payload = {
             key: child for key, child in raw.items() if key != "self_hash"
         }
         record = cls._from_payload(payload, recorded_hash)
         if record.self_hash != _canonical_sha256(payload):
-            raise OwnerDecisionContractError("owner decision self_hash mismatch")
+            raise OwnerDecisionContractError(
+                "exploratory authorization self_hash mismatch"
+            )
         return record
 
     @classmethod
@@ -442,9 +441,8 @@ class ExploratoryOwnerDecisionRecord:
         _exact_object(
             payload,
             frozenset(expected_payload_keys),
-            "owner decision payload",
+            "exploratory authorization payload",
         )
-        owner = _exact_object(payload["owner"], _OWNER_KEYS, "owner")
         bindings = DecisionBindings.from_dict(payload["bindings"])
         evidence_raw = payload["reviewed_evidence"]
         if type(evidence_raw) is not list or not evidence_raw:
@@ -478,8 +476,9 @@ class ExploratoryOwnerDecisionRecord:
                 minimum=1,
             ),
             _decision_date(payload["decision_date"]),
-            _human_text(owner["owner_id"], "owner.owner_id"),
-            _human_text(owner["owner_role"], "owner.owner_role"),
+            _exact_string(
+                payload["authorization_basis"], "authorization_basis"
+            ),
             _exact_string(payload["scope"], "scope"),
             _exact_string(payload["chosen_option"], "chosen_option"),
             _exact_bool(
@@ -510,8 +509,8 @@ class ExploratoryOwnerDecisionRecord:
                 "integrity_contract.self_hash_semantics",
             ),
             _exact_bool(
-                integrity["cryptographic_owner_authentication"],
-                "integrity_contract.cryptographic_owner_authentication",
+                integrity["cryptographic_authentication"],
+                "integrity_contract.cryptographic_authentication",
             ),
             _sha256(self_hash, "self_hash"),
         )
@@ -524,10 +523,7 @@ class ExploratoryOwnerDecisionRecord:
             "decision_id": self.decision_id,
             "decision_revision": self.decision_revision,
             "decision_date": self.decision_date,
-            "owner": {
-                "owner_id": self.owner_id,
-                "owner_role": self.owner_role,
-            },
+            "authorization_basis": self.authorization_basis,
             "scope": self.scope,
             "chosen_option": self.chosen_option,
             "approved_for_exploratory": self.approved_for_exploratory,
@@ -554,8 +550,8 @@ class ExploratoryOwnerDecisionRecord:
             },
             "integrity_contract": {
                 "self_hash_semantics": self.self_hash_semantics,
-                "cryptographic_owner_authentication": (
-                    self.cryptographic_owner_authentication
+                "cryptographic_authentication": (
+                    self.cryptographic_authentication
                 ),
             },
         }
@@ -577,8 +573,11 @@ class ExploratoryOwnerDecisionRecord:
         _token(self.decision_id, "decision_id")
         _exact_int(self.decision_revision, "decision_revision", minimum=1)
         _decision_date(self.decision_date)
-        _human_text(self.owner_id, "owner.owner_id")
-        _human_text(self.owner_role, "owner.owner_role")
+        _literal(
+            self.authorization_basis,
+            AUTHORIZATION_BASIS,
+            "authorization_basis",
+        )
         _literal(self.scope, REAL_CORPUS_EXPLORATORY_SCOPE, "scope")
         _literal(
             self.chosen_option,
@@ -641,13 +640,15 @@ class ExploratoryOwnerDecisionRecord:
             "integrity_contract.self_hash_semantics",
         )
         _literal(
-            self.cryptographic_owner_authentication,
+            self.cryptographic_authentication,
             False,
-            "integrity_contract.cryptographic_owner_authentication",
+            "integrity_contract.cryptographic_authentication",
         )
         _sha256(self.self_hash, "self_hash")
         if self.self_hash != _canonical_sha256(self._payload()):
-            raise OwnerDecisionContractError("owner decision self_hash mismatch")
+            raise OwnerDecisionContractError(
+                "exploratory authorization self_hash mismatch"
+            )
         return self
 
 
@@ -658,7 +659,7 @@ def loads_owner_decision_record(text: str) -> ExploratoryOwnerDecisionRecord:
         raw = loads_strict(text)
     except (StrictJSONError, TypeError) as exc:
         raise OwnerDecisionContractError(
-            f"owner decision is not strict JSON: {exc}"
+            f"exploratory authorization is not strict JSON: {exc}"
         ) from exc
     return ExploratoryOwnerDecisionRecord.from_dict(raw)
 
@@ -668,8 +669,6 @@ def build_owner_decision_record(
     decision_id: str,
     decision_revision: int,
     decision_date: str,
-    owner_id: str,
-    owner_role: str,
     bindings: DecisionBindings,
     reviewed_evidence: Sequence[ReviewedEvidence],
     affected_contract_versions: Sequence[str],
@@ -680,8 +679,6 @@ def build_owner_decision_record(
         decision_id=decision_id,
         decision_revision=decision_revision,
         decision_date=decision_date,
-        owner_id=owner_id,
-        owner_role=owner_role,
         bindings=bindings,
         reviewed_evidence=reviewed_evidence,
         affected_contract_versions=affected_contract_versions,
@@ -695,12 +692,13 @@ def load_owner_decision_record(
         text = Path(path).read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
         raise OwnerDecisionContractError(
-            f"cannot read owner decision record: {exc}"
+            f"cannot read exploratory authorization record: {exc}"
         ) from exc
     return loads_owner_decision_record(text)
 
 
 __all__ = [
+    "AUTHORIZATION_BASIS",
     "EXPLORATORY_CHOSEN_OPTION",
     "OWNER_DECISION_SCHEMA_VERSION",
     "REAL_CORPUS_EXPLORATORY_SCOPE",

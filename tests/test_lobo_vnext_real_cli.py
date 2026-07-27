@@ -21,9 +21,13 @@ class _FakeExecution:
     headline_update_authorized = False
     frozen_evidence_mutation_authorized = False
 
-    def __init__(self, digest: str, owner_calls: list[object] | None = None):
+    def __init__(
+        self,
+        digest: str,
+        approval_calls: list[object] | None = None,
+    ):
         self.self_hash = digest
-        self._owner_calls = owner_calls
+        self._approval_calls = approval_calls
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -46,9 +50,9 @@ class _FakeExecution:
             "self_hash": self.self_hash,
         }
 
-    def assert_owner_decision(self, owner: object) -> "_FakeExecution":
-        if self._owner_calls is not None:
-            self._owner_calls.append(owner)
+    def assert_owner_decision(self, approval: object) -> "_FakeExecution":
+        if self._approval_calls is not None:
+            self._approval_calls.append(approval)
         return self
 
 
@@ -77,6 +81,19 @@ def _packet() -> SimpleNamespace:
     )
 
 
+def _approval(**overrides: object) -> SimpleNamespace:
+    values = {
+        "authorization_basis": "explicit_interactive_user_authorization",
+        "approved_for_exploratory": True,
+        "confirmatory_execution_authorized": False,
+        "public_evidence_update_authorized": False,
+        "headline_update_authorized": False,
+        "frozen_evidence_mutation_authorized": False,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
 @pytest.fixture
 def real_cli_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -97,9 +114,9 @@ def _files(root: Path) -> dict[str, Path]:
         "packet_root": packet_root,
         "config": root / "config.yaml",
         "execution": root / "execution.json",
-        "owner": root / "owner.json",
+        "approval": root / "approval.json",
     }
-    for key in ("config", "execution", "owner"):
+    for key in ("config", "execution", "approval"):
         paths[key].write_text("{}\n", encoding="utf-8")
     return paths
 
@@ -119,8 +136,8 @@ def _real_argv(
         str(paths["config"]),
         "--execution-spec",
         str(paths["execution"]),
-        "--owner-decision",
-        str(paths["owner"]),
+        "--approval-record",
+        str(paths["approval"]),
         "--output-namespace",
         str(
             output
@@ -140,7 +157,7 @@ def _patch_valid_loaders(
     *,
     packet: SimpleNamespace,
     execution: _FakeExecution,
-    owner: object,
+    approval: object,
     cfg: object,
     observations: tuple[object, ...] = ("observations",),
 ) -> None:
@@ -148,7 +165,7 @@ def _patch_valid_loaders(
     monkeypatch.setattr(cli, "_load_real_config", lambda _: cfg)
     monkeypatch.setattr(cli, "_load_real_execution", lambda _: execution)
     monkeypatch.setattr(
-        cli, "_load_real_owner_decision", lambda _: owner
+        cli, "_load_real_approval_record", lambda _: approval
     )
     monkeypatch.setattr(
         cli,
@@ -181,7 +198,7 @@ def test_real_parsers_have_no_scientific_defaults_and_require_every_input():
         "packet_root",
         "config",
         "execution_spec",
-        "owner_decision",
+        "approval_record",
         "output_namespace",
         "n_jobs",
     }
@@ -210,7 +227,7 @@ def test_modes_are_mutually_exclusive_before_any_loader(
         )
 
 
-def test_real_preflight_writes_immutable_owner_free_spec_without_evaluator(
+def test_real_preflight_writes_immutable_approval_free_spec_without_evaluator(
     real_cli_root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -230,8 +247,10 @@ def test_real_preflight_writes_immutable_owner_free_spec_without_evaluator(
     )
     monkeypatch.setattr(
         cli,
-        "_load_real_owner_decision",
-        lambda _: pytest.fail("preflight attempted to load an owner record"),
+        "_load_real_approval_record",
+        lambda _: pytest.fail(
+            "preflight attempted to load an approval record"
+        ),
     )
     monkeypatch.setattr(
         cli,
@@ -264,7 +283,7 @@ def test_real_preflight_writes_immutable_owner_free_spec_without_evaluator(
         "execution_spec_digest": "a" * 64,
         "packet_self_hash": packet.packet_manifest.self_hash,
         "campaign_manifest_digest": packet.campaign_manifest.self_hash,
-        "owner_decision_present": False,
+        "approval_record_present": False,
         "fit_performed": False,
         "confirmatory_authorized": False,
     }
@@ -315,19 +334,84 @@ def test_wrong_real_mode_or_gkf_is_rejected_before_assembly_and_eval(
         cli.run(_real_argv(real_cli_root, paths))
 
 
-@pytest.mark.parametrize(
-    "owner_id,owner_role",
-    [
-        ("…", "scientific owner"),
-        ("owner:real", "..."),
-        ("placeholder", "scientific owner"),
-    ],
-)
-def test_placeholder_owner_is_rejected_before_live_assembly_or_eval(
+@pytest.mark.parametrize("personal_field", ["owner", "owner_id", "owner_role"])
+def test_personal_approval_fields_are_rejected_before_assembly_or_eval(
     real_cli_root: Path,
     monkeypatch: pytest.MonkeyPatch,
-    owner_id: str,
-    owner_role: str,
+    personal_field: str,
+):
+    paths = _files(real_cli_root)
+    execution = _FakeExecution("c" * 64)
+    approval = _approval(**{personal_field: "legacy-personal-value"})
+    monkeypatch.setattr(cli, "_load_real_packet", lambda _: _packet())
+    monkeypatch.setattr(cli, "_load_real_config", lambda _: object())
+    monkeypatch.setattr(cli, "_load_real_execution", lambda _: execution)
+    monkeypatch.setattr(
+        cli,
+        "_load_real_approval_record",
+        lambda _: approval,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_assemble_real_execution",
+        lambda **_: pytest.fail("personal approval reached assembly"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_run_real_entrypoint",
+        lambda **_: pytest.fail("personal approval reached evaluator"),
+    )
+
+    with pytest.raises(cli.VNextCLIError, match="personal field"):
+        cli.run(_real_argv(real_cli_root, paths))
+
+
+def test_personal_wire_keys_are_rejected_by_strict_v2_loader_before_eval(
+    real_cli_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    paths = _files(real_cli_root)
+    paths["approval"].write_text(
+        '{"schema_version":"stylo.lobo-vnext.exploratory-authorization.v2",'
+        '"owner":{"owner_id":"legacy","owner_role":"legacy"}}\n',
+        encoding="utf-8",
+    )
+    execution = _FakeExecution("c" * 64)
+    monkeypatch.setattr(cli, "_load_real_packet", lambda _: _packet())
+    monkeypatch.setattr(cli, "_load_real_config", lambda _: object())
+    monkeypatch.setattr(cli, "_load_real_execution", lambda _: execution)
+    monkeypatch.setattr(
+        cli,
+        "_assemble_real_execution",
+        lambda **_: pytest.fail("personal wire keys reached assembly"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_run_real_entrypoint",
+        lambda **_: pytest.fail("personal wire keys reached evaluator"),
+    )
+
+    with pytest.raises(cli.VNextCLIError, match="keys must be exact"):
+        cli.run(_real_argv(real_cli_root, paths))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("authorization_basis", "claimed_owner_authorization"),
+        ("approved_for_exploratory", False),
+        ("approved_for_exploratory", 1),
+        ("confirmatory_execution_authorized", True),
+        ("public_evidence_update_authorized", True),
+        ("headline_update_authorized", True),
+        ("frozen_evidence_mutation_authorized", True),
+    ],
+)
+def test_approval_authorization_and_safety_are_exact_before_assembly(
+    real_cli_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
 ):
     paths = _files(real_cli_root)
     execution = _FakeExecution("c" * 64)
@@ -336,44 +420,56 @@ def test_placeholder_owner_is_rejected_before_live_assembly_or_eval(
     monkeypatch.setattr(cli, "_load_real_execution", lambda _: execution)
     monkeypatch.setattr(
         cli,
-        "_load_real_owner_decision",
-        lambda _: SimpleNamespace(
-            owner_id=owner_id,
-            owner_role=owner_role,
-        ),
+        "_load_real_approval_record",
+        lambda _: _approval(**{field: value}),
     )
     monkeypatch.setattr(
         cli,
         "_assemble_real_execution",
-        lambda **_: pytest.fail("placeholder owner reached assembly"),
+        lambda **_: pytest.fail("unsafe approval reached assembly"),
     )
     monkeypatch.setattr(
         cli,
         "_run_real_entrypoint",
-        lambda **_: pytest.fail("placeholder owner reached evaluator"),
+        lambda **_: pytest.fail("unsafe approval reached evaluator"),
     )
 
-    with pytest.raises(cli.VNextCLIError, match="placeholder"):
+    with pytest.raises(cli.VNextCLIError, match=field):
         cli.run(_real_argv(real_cli_root, paths))
 
 
-def test_execution_drift_is_rejected_before_owner_binding_and_eval(
+def test_legacy_owner_decision_flag_is_not_an_alias_or_resumable_path(
     real_cli_root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
     paths = _files(real_cli_root)
-    owner_calls: list[object] = []
-    supplied = _FakeExecution("d" * 64, owner_calls)
-    assembled = _FakeExecution("e" * 64, owner_calls)
-    owner = SimpleNamespace(
-        owner_id="owner:real",
-        owner_role="scientific owner",
+    argv = _real_argv(real_cli_root, paths)
+    index = argv.index("--approval-record")
+    argv[index] = "--owner-decision"
+    monkeypatch.setattr(
+        cli,
+        "_load_real_packet",
+        lambda _: pytest.fail("legacy flag reached packet loader"),
     )
+
+    with pytest.raises(SystemExit):
+        cli.run(argv)
+
+
+def test_execution_drift_is_rejected_before_approval_binding_and_eval(
+    real_cli_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    paths = _files(real_cli_root)
+    approval_calls: list[object] = []
+    supplied = _FakeExecution("d" * 64, approval_calls)
+    assembled = _FakeExecution("e" * 64, approval_calls)
+    approval = _approval()
     _patch_valid_loaders(
         monkeypatch,
         packet=_packet(),
         execution=supplied,
-        owner=owner,
+        approval=approval,
         cfg=object(),
     )
     monkeypatch.setattr(
@@ -389,7 +485,7 @@ def test_execution_drift_is_rejected_before_owner_binding_and_eval(
 
     with pytest.raises(cli.VNextCLIError, match="differs.*live"):
         cli.run(_real_argv(real_cli_root, paths))
-    assert owner_calls == []
+    assert approval_calls == []
 
 
 def test_real_output_namespace_must_equal_exact_ignored_root_before_load(
@@ -421,17 +517,14 @@ def test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts(
     packet = _packet()
     cfg = object()
     observations = (object(), object())
-    owner_calls: list[object] = []
-    execution = _FakeExecution("f" * 64, owner_calls)
-    owner = SimpleNamespace(
-        owner_id="owner:real",
-        owner_role="scientific owner",
-    )
+    approval_calls: list[object] = []
+    execution = _FakeExecution("f" * 64, approval_calls)
+    approval = _approval()
     _patch_valid_loaders(
         monkeypatch,
         packet=packet,
         execution=execution,
-        owner=owner,
+        approval=approval,
         cfg=cfg,
         observations=observations,
     )
@@ -450,7 +543,7 @@ def test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts(
 
     receipt = cli.run(_real_argv(real_cli_root, paths, n_jobs=4))
 
-    assert owner_calls == [owner]
+    assert approval_calls == [approval]
     assert len(calls) == 1
     call = calls[0]
     assert call == {
@@ -469,7 +562,7 @@ def test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts(
         "model_role_manifest": packet.model_role_manifest,
         "campaign_manifest": packet.campaign_manifest,
         "execution_spec": execution,
-        "owner_decision": owner,
+        "owner_decision": approval,
         "representation_receipt": packet.representation_receipt,
         "cfg": cfg,
         "observations": observations,

@@ -452,8 +452,6 @@ def _harness(tmp_path: Path) -> Harness:
         decision_id="test-r1-owner-decision",
         decision_revision=1,
         decision_date="2026-07-27",
-        owner_id="test-owner",
-        owner_role="scientific-owner",
         bindings=DecisionBindings(
             corpus_manifest_digest=corpus.self_hash,
             content_component_manifest_digest=content.self_hash,
@@ -652,7 +650,9 @@ def synthetic_bytes(value: dict) -> bytes:
     return _canonical_bytes(value)
 
 
-def test_owner_binding_blocks_before_rows_factory_fit_and_output(tmp_path):
+def test_authorization_binding_blocks_before_rows_factory_fit_and_output(
+    tmp_path,
+):
     harness = _harness(tmp_path / "fixture")
     calls = {"rows": 0, "factory": 0}
     raw = harness.owner.to_dict()

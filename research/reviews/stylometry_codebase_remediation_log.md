@@ -467,3 +467,7 @@ not change the normative ledger or frozen evidence.
   approvals and confirmatory execution remain unauthorized. The live preflight
   also version-binds the repository Git object format and validates SHA-1 or
   SHA-256 commit IDs at their exact canonical length.
+- 2026-07-27: Replaced mandatory personal `owner_id`/`owner_role` fields with a
+  strict non-personal authorization v2 that records the explicit interactive
+  permission and exact execution digest only. It makes no identity or
+  authentication claim; exploratory safety limits remain unchanged.

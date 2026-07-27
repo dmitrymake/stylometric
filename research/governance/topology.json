@@ -135,14 +135,14 @@
     {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
-      "responsibility": "owner_selected_r1_lobo_vnext_packet_preparation",
+      "responsibility": "explicitly_selected_r1_lobo_vnext_packet_preparation",
       "public_surface": "explicit exploratory packet builder; no cache, factory, fit, prediction, public evidence or confirmatory authority"
     },
     {
       "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
       "status": "canonical_bounded_exploratory",
-      "responsibility": "digest_bound_owner_selected_r1_lobo_vnext_dry_run",
-      "public_surface": "explicit synthetic harness or owner-bound R1 exploratory dry-run; public and confirmatory execution unauthorized"
+      "responsibility": "interactive_exact_digest_authorized_r1_lobo_vnext_dry_run",
+      "public_surface": "explicit synthetic harness or non-personal interactive-authorization-bound R1 exploratory dry-run; the record makes no identity or authentication claim, and public and confirmatory execution remain unauthorized"
     },
     {
       "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
@@ -293,12 +293,12 @@
     {
       "namespace": "docs/exploratory/lobo_vnext/packets/<generation-id>/**",
       "owner": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "contract": "ignored_immutable_owner_selected_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
+      "contract": "ignored_immutable_explicitly_selected_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/lobo_vnext/<run-namespace>/<run-id>/**",
       "owner": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "contract": "ignored_immutable_bounded_exploratory_result; real R1 execution requires an exact packet and external digest-bound owner-decision record; no public evidence or confirmatory authority"
+      "contract": "ignored_immutable_bounded_exploratory_result; real R1 execution requires an exact packet and an explicit non-personal interactive authorization bound to the complete execution digest; the record makes no identity or authentication claim and grants no public-evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",

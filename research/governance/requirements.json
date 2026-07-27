@@ -198,14 +198,14 @@
     },
     {
       "id": "LVN-REAL-EXECUTION-AND-RESUME",
-      "description": "The owner-bound two-model R1 evaluator preserves exact shared folds and paired draws, and rejects owner, checkpoint, or final-artifact drift before unsafe work.",
+      "description": "The explicit-interactive-authorization-bound two-model R1 evaluator preserves exact shared folds and paired draws, and rejects authorization, checkpoint, or final-artifact drift before unsafe work. The non-personal authorization makes no identity or authentication claim.",
       "code": [
         {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "preflight_lobo_vnext_real"},
         {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "run_lobo_vnext_real"},
         {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "validate_real_final_artifact"}
       ],
       "tests": [
-        "tests/test_lobo_vnext_real.py::test_owner_binding_blocks_before_rows_factory_fit_and_output",
+        "tests/test_lobo_vnext_real.py::test_authorization_binding_blocks_before_rows_factory_fit_and_output",
         "tests/test_lobo_vnext_real.py::test_serial_parallel_resume_are_byte_identical_and_paired",
         "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>0]",
         "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>1]",
@@ -221,16 +221,22 @@
     },
     {
       "id": "LVN-REAL-CLI-AUTHORIZATION",
-      "description": "The real CLI has no scientific defaults, emits an owner-free immutable preflight spec, and requires the exact live execution, non-placeholder external owner decision, output root, and LOBO strategy before evaluator handoff.",
+      "description": "The real CLI has no scientific defaults, emits an authorization-free immutable preflight spec, and requires an explicit non-personal interactive authorization bound to the exact live execution, plus the exact output root and LOBO strategy, before evaluator handoff. It makes no identity or authentication claim.",
       "code": [
+        {"path": "src/stylo/domain/lobo_vnext_approval.py", "symbol": "AUTHORIZATION_BASIS"},
         {"path": "scripts/evaluation/run_stylo_lobo_vnext.py", "symbol": "_run_real_preflight"},
         {"path": "scripts/evaluation/run_stylo_lobo_vnext.py", "symbol": "_run_real_exploratory"}
       ],
       "tests": [
+        "tests/test_lobo_vnext_approval.py::test_build_round_trip_binds_every_digest_and_encodes_non_authentication",
+        "tests/test_lobo_vnext_approval.py::test_builder_signature_rejects_personal_fields",
+        "tests/test_lobo_vnext_approval.py::test_legacy_v1_is_rejected_for_new_execution",
         "tests/test_lobo_vnext_real_cli.py::test_real_parsers_have_no_scientific_defaults_and_require_every_input",
         "tests/test_lobo_vnext_real_cli.py::test_modes_are_mutually_exclusive_before_any_loader",
-        "tests/test_lobo_vnext_real_cli.py::test_real_preflight_writes_immutable_owner_free_spec_without_evaluator",
-        "tests/test_lobo_vnext_real_cli.py::test_execution_drift_is_rejected_before_owner_binding_and_eval",
+        "tests/test_lobo_vnext_real_cli.py::test_real_preflight_writes_immutable_approval_free_spec_without_evaluator",
+        "tests/test_lobo_vnext_real_cli.py::test_personal_wire_keys_are_rejected_by_strict_v2_loader_before_eval",
+        "tests/test_lobo_vnext_real_cli.py::test_approval_authorization_and_safety_are_exact_before_assembly[approved_for_exploratory-False]",
+        "tests/test_lobo_vnext_real_cli.py::test_execution_drift_is_rejected_before_approval_binding_and_eval",
         "tests/test_lobo_vnext_real_cli.py::test_real_output_namespace_must_equal_exact_ignored_root_before_load",
         "tests/test_lobo_vnext_real_cli.py::test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts"
       ]

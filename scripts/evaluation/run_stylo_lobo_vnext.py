@@ -4,9 +4,9 @@
 This entry point is deliberately only a control-plane adapter.  It has no
 corpus, model, inference, scheduling, or output defaults and it never routes to
 the historical A0/A1/A4 runner.  Synthetic fixtures retain their original CLI
-surface.  Real-corpus operation has two separate explicit modes: an owner-free,
-fit-free execution-spec preflight and an exact owner-bound bounded exploratory
-dry run.
+surface.  Real-corpus operation has two separate explicit modes: an
+authorization-free, fit-free execution-spec preflight and an exact
+interactive-authorization-bound bounded exploratory dry run.
 """
 from __future__ import annotations
 
@@ -58,19 +58,6 @@ _MODE_FLAGS = {
     "--real-preflight": "real_preflight",
     "--real-exploratory-dry-run": "real_exploratory",
 }
-_PLACEHOLDER_OWNER_VALUES = frozenset(
-    {
-        "...",
-        "placeholder",
-        "tbd",
-        "todo",
-        "unknown",
-        "<owner_id>",
-        "<owner_role>",
-    }
-)
-
-
 def _candidate_path(value: pathlib.Path | str) -> pathlib.Path:
     path = pathlib.Path(value)
     return path if path.is_absolute() else ROOT / path
@@ -308,7 +295,7 @@ def _real_preflight_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Reload an immutable R1 packet, derive live clean-repository "
-            "identity, and create an owner-unbound ExecutionSpec v2. "
+            "identity, and create an authorization-unbound ExecutionSpec v2. "
             "This mode cannot construct a model factory or fit."
         )
     )
@@ -324,7 +311,7 @@ def _real_preflight_parser() -> argparse.ArgumentParser:
 def _real_exploratory_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Run/resume the exact owner-bound bounded real-corpus R1 "
+            "Run/resume the exact authorization-bound bounded real-corpus R1 "
             "exploratory campaign.  Confirmatory and public output are "
             "not authorised."
         )
@@ -335,7 +322,7 @@ def _real_exploratory_parser() -> argparse.ArgumentParser:
     parser.add_argument("--packet-root", type=pathlib.Path, required=True)
     parser.add_argument("--config", type=pathlib.Path, required=True)
     parser.add_argument("--execution-spec", type=pathlib.Path, required=True)
-    parser.add_argument("--owner-decision", type=pathlib.Path, required=True)
+    parser.add_argument("--approval-record", type=pathlib.Path, required=True)
     parser.add_argument("--output-namespace", type=pathlib.Path, required=True)
     parser.add_argument("--n-jobs", type=int, required=True)
     return parser
@@ -422,10 +409,10 @@ def _load_real_execution(execution_spec_path: pathlib.Path):
     return load_real_execution_spec(execution_spec_path)
 
 
-def _load_real_owner_decision(owner_decision_path: pathlib.Path):
+def _load_real_approval_record(approval_record_path: pathlib.Path):
     from stylo.domain.lobo_vnext_approval import load_owner_decision_record
 
-    return load_owner_decision_record(owner_decision_path)
+    return load_owner_decision_record(approval_record_path)
 
 
 def _assemble_real_execution(*, packet, cfg):
@@ -466,23 +453,27 @@ def _validate_real_execution_literals(execution: Any) -> None:
             )
 
 
-def _reject_placeholder_owner(owner_decision: Any) -> None:
-    for field in ("owner_id", "owner_role"):
-        value = getattr(owner_decision, field, None)
-        if type(value) is not str:
+def _validate_real_approval_record(approval_record: Any) -> None:
+    for personal_field in ("owner", "owner_id", "owner_role"):
+        if hasattr(approval_record, personal_field):
             raise VNextCLIError(
-                f"owner decision {field} must be an exact non-empty string"
+                "approval record must use the non-personal v2 schema; "
+                f"legacy personal field {personal_field!r} is forbidden"
             )
-        normalised = value.strip().casefold()
-        if (
-            not normalised
-            or "…" in normalised
-            or "..." in normalised
-            or normalised in _PLACEHOLDER_OWNER_VALUES
-        ):
+    required = {
+        "authorization_basis": "explicit_interactive_user_authorization",
+        "approved_for_exploratory": True,
+        "confirmatory_execution_authorized": False,
+        "public_evidence_update_authorized": False,
+        "headline_update_authorized": False,
+        "frozen_evidence_mutation_authorized": False,
+    }
+    for field, expected in required.items():
+        observed = getattr(approval_record, field, None)
+        if type(observed) is not type(expected) or observed != expected:
             raise VNextCLIError(
-                f"owner decision {field} is a placeholder; an exact owner "
-                "identity and role are required"
+                f"approval record {field} must be the exact literal "
+                f"{expected!r}, got {observed!r}"
             )
 
 
@@ -641,7 +632,7 @@ def _run_real_preflight(argv: Sequence[str]) -> Mapping[str, Any]:
         "execution_spec_digest": execution.self_hash,
         "packet_self_hash": packet.packet_manifest.self_hash,
         "campaign_manifest_digest": packet.campaign_manifest.self_hash,
-        "owner_decision_present": False,
+        "approval_record_present": False,
         "fit_performed": False,
         "confirmatory_authorized": False,
     }
@@ -658,8 +649,8 @@ def _run_real_exploratory(argv: Sequence[str]) -> Mapping[str, Any]:
     execution_path = _require_input_file(
         args.execution_spec, label="real execution spec"
     )
-    owner_path = _require_input_file(
-        args.owner_decision, label="owner decision"
+    approval_path = _require_input_file(
+        args.approval_record, label="approval record"
     )
     output_namespace = _require_real_output_namespace(
         args.output_namespace
@@ -669,8 +660,8 @@ def _run_real_exploratory(argv: Sequence[str]) -> Mapping[str, Any]:
         cfg = _load_real_config(config_path)
         supplied_execution = _load_real_execution(execution_path)
         _validate_real_execution_literals(supplied_execution)
-        owner_decision = _load_real_owner_decision(owner_path)
-        _reject_placeholder_owner(owner_decision)
+        approval_record = _load_real_approval_record(approval_path)
+        _validate_real_approval_record(approval_record)
         assembled_execution, observations = _assemble_real_execution(
             packet=packet,
             cfg=cfg,
@@ -681,7 +672,7 @@ def _run_real_exploratory(argv: Sequence[str]) -> Mapping[str, Any]:
                 "supplied ExecutionSpec v2 differs from the exact live "
                 "clean-repository assembly"
             )
-        supplied_execution.assert_owner_decision(owner_decision)
+        supplied_execution.assert_owner_decision(approval_record)
         outcome = _run_real_entrypoint(
             packet_root=packet_root,
             packet_manifest=packet.packet_manifest,
@@ -698,7 +689,7 @@ def _run_real_exploratory(argv: Sequence[str]) -> Mapping[str, Any]:
             model_role_manifest=packet.model_role_manifest,
             campaign_manifest=packet.campaign_manifest,
             execution_spec=supplied_execution,
-            owner_decision=owner_decision,
+            owner_decision=approval_record,
             representation_receipt=packet.representation_receipt,
             cfg=cfg,
             observations=observations,

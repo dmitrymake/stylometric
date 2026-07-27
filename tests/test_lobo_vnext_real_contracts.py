@@ -663,8 +663,6 @@ def test_external_owner_decision_binds_complete_execution_without_hash_cycle():
         decision_id="ruaa-r1-bounded-exploratory-2026-07-27",
         decision_revision=1,
         decision_date="2026-07-27",
-        owner_id="owner:test",
-        owner_role="scientific owner",
         bindings=DecisionBindings(
             corpus_manifest_digest=execution.bindings.corpus_manifest_digest,
             content_component_manifest_digest=(
@@ -706,8 +704,6 @@ def test_owner_decision_cannot_bind_a_different_execution_contract():
         decision_id="ruaa-r1-bounded-exploratory-2026-07-27",
         decision_revision=1,
         decision_date="2026-07-27",
-        owner_id="owner:test",
-        owner_role="scientific owner",
         bindings=DecisionBindings(
             corpus_manifest_digest=preliminary.bindings.corpus_manifest_digest,
             content_component_manifest_digest=(
