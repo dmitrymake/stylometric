@@ -76,7 +76,7 @@ from .wikisource_vnext import (
 
 
 R1_ACQUISITION_MANIFEST_SCHEMA_VERSION = (
-    "stylo.ruaa-r1.hybrid-acquisition-manifest.v1"
+    "stylo.ruaa-r1.hybrid-acquisition-manifest.v2"
 )
 R1_ACQUISITION_RECEIPT_SCHEMA_VERSION = (
     "stylo.ruaa-r1.hybrid-acquisition-receipt.v1"
@@ -433,6 +433,8 @@ class R1Exclusion:
 def _manifest_core(
     *,
     wikisource_campaign: WikisourceCampaignSpec,
+    wikisource_discovery_candidate_sha256: str,
+    source_curation_receipt_sha256: str,
     feb_work_spec: PinnedFEBWorkSpec,
     included_work_ids: Sequence[str],
     exclusions: Sequence[R1Exclusion],
@@ -442,6 +444,10 @@ def _manifest_core(
         "schema_version": R1_ACQUISITION_MANIFEST_SCHEMA_VERSION,
         "acquisition_kind": R1_ACQUISITION_KIND,
         "wikisource_campaign": wikisource_campaign.to_dict(),
+        "wikisource_discovery_candidate_sha256": (
+            wikisource_discovery_candidate_sha256
+        ),
+        "source_curation_receipt_sha256": source_curation_receipt_sha256,
         "feb_work_spec": feb_work_spec.to_dict(),
         "included_work_ids": list(included_work_ids),
         "exclusions": [row.to_dict() for row in exclusions],
@@ -455,6 +461,8 @@ def _manifest_core(
 @dataclasses.dataclass(frozen=True)
 class R1AcquisitionManifest:
     wikisource_campaign: WikisourceCampaignSpec
+    wikisource_discovery_candidate_sha256: str
+    source_curation_receipt_sha256: str
     feb_work_spec: PinnedFEBWorkSpec
     included_work_ids: tuple[str, ...]
     exclusions: tuple[R1Exclusion, ...]
@@ -467,6 +475,8 @@ class R1AcquisitionManifest:
         cls,
         *,
         wikisource_campaign: WikisourceCampaignSpec,
+        wikisource_discovery_candidate_sha256: str,
+        source_curation_receipt_sha256: str,
         feb_work_spec: PinnedFEBWorkSpec,
         included_work_ids: Sequence[str],
         collection_umbrella_evidence_sha256: str,
@@ -504,8 +514,18 @@ class R1AcquisitionManifest:
             )
         )
         quality = R1TextQualitySpec.build()
+        candidate_hash = _sha256(
+            wikisource_discovery_candidate_sha256,
+            "wikisource_discovery_candidate_sha256",
+        )
+        curation_hash = _sha256(
+            source_curation_receipt_sha256,
+            "source_curation_receipt_sha256",
+        )
         core = _manifest_core(
             wikisource_campaign=wikisource_campaign,
+            wikisource_discovery_candidate_sha256=candidate_hash,
+            source_curation_receipt_sha256=curation_hash,
             feb_work_spec=feb_work_spec,
             included_work_ids=included,
             exclusions=exclusions,
@@ -525,6 +545,8 @@ class R1AcquisitionManifest:
                 "schema_version",
                 "acquisition_kind",
                 "wikisource_campaign",
+                "wikisource_discovery_candidate_sha256",
+                "source_curation_receipt_sha256",
                 "feb_work_spec",
                 "included_work_ids",
                 "exclusions",
@@ -632,12 +654,23 @@ class R1AcquisitionManifest:
                 "R1 included and excluded inventories overlap"
             )
         quality = R1TextQualitySpec.from_dict(raw["text_quality_spec"])
+        candidate_hash = _sha256(
+            raw["wikisource_discovery_candidate_sha256"],
+            "R1 acquisition manifest."
+            "wikisource_discovery_candidate_sha256",
+        )
+        curation_hash = _sha256(
+            raw["source_curation_receipt_sha256"],
+            "R1 acquisition manifest.source_curation_receipt_sha256",
+        )
         generation = _sha256(
             raw["generation_id"],
             "R1 acquisition manifest.generation_id",
         )
         core = _manifest_core(
             wikisource_campaign=wikisource,
+            wikisource_discovery_candidate_sha256=candidate_hash,
+            source_curation_receipt_sha256=curation_hash,
             feb_work_spec=feb,
             included_work_ids=included,
             exclusions=exclusions,
@@ -649,6 +682,8 @@ class R1AcquisitionManifest:
             )
         return cls(
             wikisource,
+            candidate_hash,
+            curation_hash,
             feb,
             included,
             exclusions,
@@ -663,6 +698,12 @@ class R1AcquisitionManifest:
     def to_dict(self) -> dict[str, object]:
         core = _manifest_core(
             wikisource_campaign=self.wikisource_campaign,
+            wikisource_discovery_candidate_sha256=(
+                self.wikisource_discovery_candidate_sha256
+            ),
+            source_curation_receipt_sha256=(
+                self.source_curation_receipt_sha256
+            ),
             feb_work_spec=self.feb_work_spec,
             included_work_ids=self.included_work_ids,
             exclusions=self.exclusions,

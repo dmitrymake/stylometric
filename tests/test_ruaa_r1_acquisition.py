@@ -249,6 +249,8 @@ def _harness(*, audit_blocker: bool = False) -> _Harness:
     )
     manifest = r1.R1AcquisitionManifest.build(
         wikisource_campaign=campaign,
+        wikisource_discovery_candidate_sha256="d" * 64,
+        source_curation_receipt_sha256="e" * 64,
         feb_work_spec=feb,
         included_work_ids=tuple(
             sorted((*campaign.work_ids, feb.work_id))
@@ -269,6 +271,8 @@ def test_manifest_binds_exact_hybrid_inventory_and_exclusions(harness):
     manifest = harness.manifest
     rebuilt = r1.R1AcquisitionManifest.build(
         wikisource_campaign=manifest.wikisource_campaign,
+        wikisource_discovery_candidate_sha256="d" * 64,
+        source_curation_receipt_sha256="e" * 64,
         feb_work_spec=manifest.feb_work_spec,
         included_work_ids=manifest.included_work_ids,
         collection_umbrella_evidence_sha256="a" * 64,
@@ -291,7 +295,21 @@ def test_manifest_binds_exact_hybrid_inventory_and_exclusions(harness):
     encoded = json.dumps(manifest.to_dict(), ensure_ascii=False)
     assert "owner_id" not in encoded
     assert "owner_role" not in encoded
+    assert manifest.wikisource_discovery_candidate_sha256 == "d" * 64
+    assert manifest.source_curation_receipt_sha256 == "e" * 64
     assert manifest.generation_id == rebuilt.generation_id
+
+    changed_selection = r1.R1AcquisitionManifest.build(
+        wikisource_campaign=manifest.wikisource_campaign,
+        wikisource_discovery_candidate_sha256="f" * 64,
+        source_curation_receipt_sha256="e" * 64,
+        feb_work_spec=manifest.feb_work_spec,
+        included_work_ids=manifest.included_work_ids,
+        collection_umbrella_evidence_sha256="a" * 64,
+        authorship_mismatch_evidence_sha256="b" * 64,
+        authorship_mismatch_receipt_sha256="c" * 64,
+    )
+    assert changed_selection.generation_id != manifest.generation_id
 
 
 def test_manifest_rejects_inventory_mismatch_provider_overlap_and_extra_keys(
@@ -300,6 +318,8 @@ def test_manifest_rejects_inventory_mismatch_provider_overlap_and_extra_keys(
     with pytest.raises(r1.R1AcquisitionError, match="differ from embedded"):
         r1.R1AcquisitionManifest.build(
             wikisource_campaign=harness.manifest.wikisource_campaign,
+            wikisource_discovery_candidate_sha256="d" * 64,
+            source_curation_receipt_sha256="e" * 64,
             feb_work_spec=harness.manifest.feb_work_spec,
             included_work_ids=harness.manifest.included_work_ids[:-1],
             collection_umbrella_evidence_sha256="a" * 64,
@@ -320,6 +340,8 @@ def test_manifest_rejects_inventory_mismatch_provider_overlap_and_extra_keys(
     with pytest.raises(r1.R1AcquisitionError, match="overlap"):
         r1.R1AcquisitionManifest.build(
             wikisource_campaign=overlapping_campaign,
+            wikisource_discovery_candidate_sha256="d" * 64,
+            source_curation_receipt_sha256="e" * 64,
             feb_work_spec=harness.manifest.feb_work_spec,
             included_work_ids=tuple(
                 sorted(
