@@ -348,6 +348,35 @@ def test_blocked_or_legacy_candidate_stops_before_cache_and_transport(tmp_path):
         assert not (tmp_path / mutation).exists()
 
 
+@pytest.mark.parametrize("disposition", ["blocked", "manual"])
+def test_included_work_issue_requires_exact_selected_disposition(
+    tmp_path,
+    disposition,
+):
+    raw = _candidate()
+    raw["works"][0]["issues"] = [  # type: ignore[index, union-attr]
+        {
+            "chosen_disposition": disposition,
+            "kind": "composition",
+            "reason": "explicit regression",
+        }
+    ]
+    candidate = discovery.DiscoveryCandidate.from_dict(_rehash(raw))
+    calls = []
+
+    with pytest.raises(
+        discovery.WikisourceDiscoveryError,
+        match="chosen_disposition",
+    ):
+        discovery.pin_discovery_candidate(
+            candidate,
+            cache_dir=tmp_path / disposition,
+            transport=lambda params: calls.append(params),
+        )
+    assert calls == []
+    assert not (tmp_path / disposition).exists()
+
+
 @pytest.mark.parametrize(
     ("mutate", "message"),
     [

@@ -1085,6 +1085,14 @@ class DiscoveryCandidate:
                 )
             if work.include_in_corpus and not work.parts:
                 blockers.append(f"{work.work_id}: no ordered parts")
+            if work.include_in_corpus:
+                for issue in work.issues:
+                    if issue.chosen_disposition != "selected_candidate":
+                        blockers.append(
+                            f"{work.work_id}: included issue "
+                            "chosen_disposition="
+                            f"{issue.chosen_disposition!r}"
+                        )
             for part in work.parts:
                 if part.status != RESOLVED_PART_STATUS:
                     blockers.append(
