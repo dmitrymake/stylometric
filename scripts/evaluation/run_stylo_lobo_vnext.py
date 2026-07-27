@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Run the fail-closed LOBO-vNext synthetic exploratory harness.
+"""Run the fail-closed LOBO-vNext exploratory harness.
 
 This entry point is deliberately only a control-plane adapter.  It has no
 corpus, model, inference, scheduling, or output defaults and it never routes to
-the historical A0/A1/A4 runner.  The only executable mode in this implementation
-pass is an explicitly authorised synthetic dry run.
+the historical A0/A1/A4 runner.  Synthetic fixtures retain their original CLI
+surface.  Real-corpus operation has two separate explicit modes: an owner-free,
+fit-free execution-spec preflight and an exact owner-bound bounded exploratory
+dry run.
 """
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -22,6 +26,9 @@ from stylo.jsonio import StrictJSONError, dumps_strict, load_strict  # noqa: E40
 
 
 OUTPUT_ROOT = ROOT / "docs" / "exploratory" / "lobo_vnext"
+REAL_OUTPUT_RELATIVE = pathlib.PurePosixPath(
+    "docs/exploratory/lobo_vnext/real_corpus"
+)
 EXPECTED_SCHEMAS = {
     "corpus_manifest": "stylo.lobo-vnext.corpus-manifest.v1",
     "content_manifest": "stylo.lobo-vnext.content-components.v1",
@@ -44,6 +51,24 @@ _GKF_NAMES = frozenset(
 
 class VNextCLIError(ValueError):
     """The CLI or evaluator rejected a noncanonical/unauthorised request."""
+
+
+_MODE_FLAGS = {
+    "--synthetic-dry-run": "synthetic",
+    "--real-preflight": "real_preflight",
+    "--real-exploratory-dry-run": "real_exploratory",
+}
+_PLACEHOLDER_OWNER_VALUES = frozenset(
+    {
+        "...",
+        "placeholder",
+        "tbd",
+        "todo",
+        "unknown",
+        "<owner_id>",
+        "<owner_role>",
+    }
+)
 
 
 def _candidate_path(value: pathlib.Path | str) -> pathlib.Path:
@@ -240,7 +265,25 @@ def _validate_control_plane(
     return payloads
 
 
+def _requested_mode(argv: Sequence[str]) -> str:
+    selected = [
+        mode for flag, mode in _MODE_FLAGS.items() if flag in argv
+    ]
+    if len(selected) > 1:
+        raise VNextCLIError(
+            "exactly one execution mode must be selected; "
+            "synthetic and real modes cannot be combined"
+        )
+    if selected:
+        return selected[0]
+    # Preserve the original parser's required --synthetic-dry-run diagnostic
+    # when no mode was supplied.
+    return "synthetic"
+
+
 def _parser() -> argparse.ArgumentParser:
+    """Return the original synthetic-only parser unchanged."""
+
     parser = argparse.ArgumentParser(
         description=(
             "Run/resume the LOBO-vNext synthetic exploratory dry-run harness. "
@@ -261,6 +304,252 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _real_preflight_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Reload an immutable R1 packet, derive live clean-repository "
+            "identity, and create an owner-unbound ExecutionSpec v2. "
+            "This mode cannot construct a model factory or fit."
+        )
+    )
+    parser.add_argument("--real-preflight", action="store_true", required=True)
+    parser.add_argument("--packet-root", type=pathlib.Path, required=True)
+    parser.add_argument("--config", type=pathlib.Path, required=True)
+    parser.add_argument(
+        "--execution-spec-output", type=pathlib.Path, required=True
+    )
+    return parser
+
+
+def _real_exploratory_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run/resume the exact owner-bound bounded real-corpus R1 "
+            "exploratory campaign.  Confirmatory and public output are "
+            "not authorised."
+        )
+    )
+    parser.add_argument(
+        "--real-exploratory-dry-run", action="store_true", required=True
+    )
+    parser.add_argument("--packet-root", type=pathlib.Path, required=True)
+    parser.add_argument("--config", type=pathlib.Path, required=True)
+    parser.add_argument("--execution-spec", type=pathlib.Path, required=True)
+    parser.add_argument("--owner-decision", type=pathlib.Path, required=True)
+    parser.add_argument("--output-namespace", type=pathlib.Path, required=True)
+    parser.add_argument("--n-jobs", type=int, required=True)
+    return parser
+
+
+def _require_packet_root(value: pathlib.Path | str) -> pathlib.Path:
+    candidate = _candidate_path(value)
+    _reject_symlink_components(candidate, label="prepared packet root")
+    if candidate.is_symlink() or not candidate.is_dir():
+        raise VNextCLIError(
+            "prepared packet root must be a real non-symlink directory: "
+            f"{candidate}"
+        )
+    return candidate.resolve(strict=True)
+
+
+def _exact_real_output_root() -> pathlib.Path:
+    return ROOT.joinpath(*REAL_OUTPUT_RELATIVE.parts).resolve(strict=False)
+
+
+def _require_real_output_namespace(
+    value: pathlib.Path | str,
+) -> pathlib.Path:
+    candidate = _candidate_path(value)
+    _reject_symlink_components(candidate, label="real output namespace")
+    resolved = candidate.resolve(strict=False)
+    expected = _exact_real_output_root()
+    if resolved != expected:
+        raise VNextCLIError(
+            "real output namespace must equal the exact ignored exploratory "
+            f"root {expected}, got {resolved}"
+        )
+    if resolved.exists() and not resolved.is_dir():
+        raise VNextCLIError(
+            f"real output namespace is not a directory: {resolved}"
+        )
+    return resolved
+
+
+def _require_real_execution_output(
+    value: pathlib.Path | str,
+) -> pathlib.Path:
+    candidate = _candidate_path(value)
+    _reject_symlink_components(candidate, label="execution spec output")
+    resolved = candidate.resolve(strict=False)
+    expected_root = _exact_real_output_root()
+    try:
+        relative = resolved.relative_to(expected_root)
+    except ValueError as exc:
+        raise VNextCLIError(
+            "execution spec output must stay below the exact ignored "
+            f"exploratory root {expected_root}: {resolved}"
+        ) from exc
+    if not relative.parts:
+        raise VNextCLIError(
+            "execution spec output must name a JSON file below the real "
+            "exploratory root"
+        )
+    if resolved.suffix != ".json":
+        raise VNextCLIError("execution spec output must use a .json filename")
+    if resolved.exists() or resolved.is_symlink():
+        raise VNextCLIError(
+            "execution spec output is immutable create-if-absent and already "
+            f"exists: {resolved}"
+        )
+    return resolved
+
+
+def _load_real_packet(packet_root: pathlib.Path):
+    from stylo.eval.lobo_vnext_control import load_prepared_r1_packet
+
+    return load_prepared_r1_packet(packet_root)
+
+
+def _load_real_config(config_path: pathlib.Path):
+    from stylo.config import load_config
+
+    return load_config(config_path)
+
+
+def _load_real_execution(execution_spec_path: pathlib.Path):
+    from stylo.domain.lobo_vnext_real import load_real_execution_spec
+
+    return load_real_execution_spec(execution_spec_path)
+
+
+def _load_real_owner_decision(owner_decision_path: pathlib.Path):
+    from stylo.domain.lobo_vnext_approval import load_owner_decision_record
+
+    return load_owner_decision_record(owner_decision_path)
+
+
+def _assemble_real_execution(*, packet, cfg):
+    from stylo.eval.lobo_vnext_control import assemble_real_execution_spec
+
+    return assemble_real_execution_spec(
+        packet=packet,
+        cfg=cfg,
+        repository_root=ROOT,
+    )
+
+
+def _validate_real_execution_literals(execution: Any) -> None:
+    required = {
+        "schema_version": "stylo.lobo-vnext.execution-spec.v2",
+        "execution_mode": "real_corpus",
+        "authorization_scope": (
+            "owner_bound_real_corpus_exploratory_dry_run_only"
+        ),
+        "evaluation_strategy": "lobo",
+        "confirmatory_execution_authorized": False,
+        "public_evidence_update_authorized": False,
+        "headline_update_authorized": False,
+        "frozen_evidence_mutation_authorized": False,
+    }
+    for field, expected in required.items():
+        observed = getattr(execution, field, None)
+        if type(observed) is not type(expected) or observed != expected:
+            if field == "evaluation_strategy" and type(observed) is str:
+                if observed.strip().lower() in _GKF_NAMES:
+                    raise VNextCLIError(
+                        "real execution requests forbidden GKF strategy; "
+                        "GKF is not LOBO"
+                    )
+            raise VNextCLIError(
+                f"real execution {field} must be the exact literal "
+                f"{expected!r}, got {observed!r}"
+            )
+
+
+def _reject_placeholder_owner(owner_decision: Any) -> None:
+    for field in ("owner_id", "owner_role"):
+        value = getattr(owner_decision, field, None)
+        if type(value) is not str:
+            raise VNextCLIError(
+                f"owner decision {field} must be an exact non-empty string"
+            )
+        normalised = value.strip().casefold()
+        if (
+            not normalised
+            or "…" in normalised
+            or "..." in normalised
+            or normalised in _PLACEHOLDER_OWNER_VALUES
+        ):
+            raise VNextCLIError(
+                f"owner decision {field} is a placeholder; an exact owner "
+                "identity and role are required"
+            )
+
+
+def _write_execution_spec_create_if_absent(
+    path: pathlib.Path,
+    execution: Any,
+) -> None:
+    to_dict = getattr(execution, "to_dict", None)
+    if not callable(to_dict):
+        raise VNextCLIError(
+            "assembled real execution spec is not canonically serializable"
+        )
+    encoded = (
+        dumps_strict(
+            to_dict(),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _reject_symlink_components(path, label="execution spec output")
+        temporary: pathlib.Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=".execution-spec.",
+                suffix=".tmp",
+                dir=path.parent,
+                delete=False,
+            ) as stream:
+                temporary = pathlib.Path(stream.name)
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.chmod(temporary, 0o644)
+            os.link(temporary, path, follow_symlinks=False)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    except FileExistsError as exc:
+        raise VNextCLIError(
+            "execution spec output is immutable create-if-absent and already "
+            f"exists: {path}"
+        ) from exc
+    except (OSError, UnicodeError, TypeError, ValueError) as exc:
+        raise VNextCLIError(
+            f"cannot publish immutable execution spec {path}: {exc}"
+        ) from exc
+
+
+def _run_real_entrypoint(**kwargs):
+    from stylo.eval.lobo_vnext_real import (
+        RealLoboVNextError,
+        run_lobo_vnext_real,
+    )
+
+    try:
+        return run_lobo_vnext_real(**kwargs)
+    except RealLoboVNextError as exc:
+        raise VNextCLIError(
+            f"real vNext evaluator rejected the request: {exc}"
+        ) from exc
+
+
 def _run_public_entrypoint(**kwargs):
     # This is intentionally the sole hand-off from the CLI into evaluation.
     # Importing it only after local control-plane checks also keeps malformed or
@@ -273,7 +562,7 @@ def _run_public_entrypoint(**kwargs):
         raise VNextCLIError(f"vNext evaluator rejected the request: {exc}") from exc
 
 
-def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
+def _run_synthetic(argv: Sequence[str]) -> Mapping[str, Any]:
     args = _parser().parse_args(argv)
     if type(args.n_jobs) is not int or args.n_jobs <= 0:
         raise VNextCLIError("--n-jobs must be an explicit positive integer")
@@ -327,18 +616,160 @@ def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
     return result
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def _run_real_preflight(argv: Sequence[str]) -> Mapping[str, Any]:
+    args = _real_preflight_parser().parse_args(argv)
+    packet_root = _require_packet_root(args.packet_root)
+    config_path = _require_input_file(args.config, label="real config")
+    output_path = _require_real_execution_output(
+        args.execution_spec_output
+    )
     try:
-        result = run(argv)
+        packet = _load_real_packet(packet_root)
+        cfg = _load_real_config(config_path)
+        execution, _observations = _assemble_real_execution(
+            packet=packet,
+            cfg=cfg,
+        )
+        _validate_real_execution_literals(execution)
+        _write_execution_spec_create_if_absent(output_path, execution)
+    except VNextCLIError:
+        raise
+    except (OSError, UnicodeError, TypeError, ValueError) as exc:
+        raise VNextCLIError(f"real preflight rejected: {exc}") from exc
+    return {
+        "status": "real_corpus_execution_spec_preflight_complete_no_fit",
+        "execution_spec_digest": execution.self_hash,
+        "packet_self_hash": packet.packet_manifest.self_hash,
+        "campaign_manifest_digest": packet.campaign_manifest.self_hash,
+        "owner_decision_present": False,
+        "fit_performed": False,
+        "confirmatory_authorized": False,
+    }
+
+
+def _run_real_exploratory(argv: Sequence[str]) -> Mapping[str, Any]:
+    args = _real_exploratory_parser().parse_args(argv)
+    if type(args.n_jobs) is not int or not 1 <= args.n_jobs <= 8:
+        raise VNextCLIError(
+            "--n-jobs must be an explicit integer in [1, 8] for real R1"
+        )
+    packet_root = _require_packet_root(args.packet_root)
+    config_path = _require_input_file(args.config, label="real config")
+    execution_path = _require_input_file(
+        args.execution_spec, label="real execution spec"
+    )
+    owner_path = _require_input_file(
+        args.owner_decision, label="owner decision"
+    )
+    output_namespace = _require_real_output_namespace(
+        args.output_namespace
+    )
+    try:
+        packet = _load_real_packet(packet_root)
+        cfg = _load_real_config(config_path)
+        supplied_execution = _load_real_execution(execution_path)
+        _validate_real_execution_literals(supplied_execution)
+        owner_decision = _load_real_owner_decision(owner_path)
+        _reject_placeholder_owner(owner_decision)
+        assembled_execution, observations = _assemble_real_execution(
+            packet=packet,
+            cfg=cfg,
+        )
+        _validate_real_execution_literals(assembled_execution)
+        if supplied_execution != assembled_execution:
+            raise VNextCLIError(
+                "supplied ExecutionSpec v2 differs from the exact live "
+                "clean-repository assembly"
+            )
+        supplied_execution.assert_owner_decision(owner_decision)
+        outcome = _run_real_entrypoint(
+            packet_root=packet_root,
+            packet_manifest=packet.packet_manifest,
+            corpus_manifest=packet.corpus_manifest,
+            content_policy_spec=packet.content_policy,
+            candidate_inventory=packet.candidate_inventory,
+            content_manifest=packet.content_manifest,
+            fold_manifest=packet.fold_manifest,
+            primary_inner_cv_plan=packet.primary_inner_cv_plan,
+            baseline_inner_cv_plan=packet.baseline_inner_cv_plan,
+            primary_model_spec=packet.primary_model_spec,
+            baseline_model_spec=packet.baseline_model_spec,
+            inference_spec=packet.inference_spec,
+            model_role_manifest=packet.model_role_manifest,
+            campaign_manifest=packet.campaign_manifest,
+            execution_spec=supplied_execution,
+            owner_decision=owner_decision,
+            representation_receipt=packet.representation_receipt,
+            cfg=cfg,
+            observations=observations,
+            output_namespace=output_namespace,
+            n_jobs=args.n_jobs,
+        )
+    except VNextCLIError:
+        raise
+    except (OSError, UnicodeError, TypeError, ValueError) as exc:
+        raise VNextCLIError(
+            f"real exploratory dry run rejected before completion: {exc}"
+        ) from exc
+    artifact = getattr(outcome, "artifact", None)
+    run_id = getattr(outcome, "run_id", None)
+    if (
+        type(artifact) is not dict
+        or type(artifact.get("self_hash")) is not str
+        or type(run_id) is not str
+    ):
+        raise VNextCLIError(
+            "real vNext evaluator returned a noncanonical outcome"
+        )
+    computed = getattr(outcome, "computed_checkpoints", None)
+    resumed = getattr(outcome, "resumed_checkpoints", None)
+    if (
+        type(computed) is not int
+        or computed < 0
+        or type(resumed) is not int
+        or resumed < 0
+    ):
+        raise VNextCLIError(
+            "real vNext evaluator returned invalid checkpoint counts"
+        )
+    return {
+        "status": "bounded_real_corpus_exploratory_dry_run_complete",
+        "run_id": run_id,
+        "artifact_self_hash": artifact["self_hash"],
+        "computed_checkpoints": computed,
+        "resumed_checkpoints": resumed,
+        "confirmatory_authorized": False,
+        "public_update_authorized": False,
+    }
+
+
+def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
+    actual_argv = tuple(sys.argv[1:] if argv is None else argv)
+    mode = _requested_mode(actual_argv)
+    if mode == "real_preflight":
+        return _run_real_preflight(actual_argv)
+    if mode == "real_exploratory":
+        return _run_real_exploratory(actual_argv)
+    return _run_synthetic(actual_argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    actual_argv = tuple(sys.argv[1:] if argv is None else argv)
+    try:
+        mode = _requested_mode(actual_argv)
+        result = run(actual_argv)
     except VNextCLIError as exc:
         print(f"LOBO-vNext rejected: {exc}", file=sys.stderr)
         return 2
 
-    receipt = {
-        "status": "exploratory_synthetic_dry_run_complete",
-        "run_id": result.get("run_id"),
-        "artifact_self_hash": result.get("self_hash"),
-    }
+    if mode == "synthetic":
+        receipt = {
+            "status": "exploratory_synthetic_dry_run_complete",
+            "run_id": result.get("run_id"),
+            "artifact_self_hash": result.get("self_hash"),
+        }
+    else:
+        receipt = dict(result)
     print(
         dumps_strict(
             receipt,

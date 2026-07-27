@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 292,
-  "release_python_paths_sha256": "3e59d2a8071c2568f88aa87d2b85e83aedc452fa9723c7b10e35b45cec9a7641",
+  "release_python_file_count": 308,
+  "release_python_paths_sha256": "cdb280eb182be38e01c05c9e5afa777edb0d4d1fae0fad68bd98cd97f25cc682",
   "local_only_python_files": [
     "scripts/_fetch_tmp/clean.py",
     "scripts/_fetch_tmp/extract_letters.py",
@@ -84,7 +84,7 @@
   ],
   "sha256_bindings": {
     ".gitattributes": "011974aa454a9e015165d4dd00b077336c45df55971db59b40153722647b5c3a",
-    ".github/workflows/ci.yml": "a02c4dbeadaf1eeac17a5cf1a2e1c589a206291b7168b92d908f585ec8817c85",
+    ".github/workflows/ci.yml": "a136bd75332f1463848cd276ac31c37e30a1d832a4e0e9200cfa072cb553ea18",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "README.md": "675595e53c23b2c4ad02ac106dfba53db224054bebf836a1b3a9ae15d1e64788",
     "docs/ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
@@ -97,10 +97,10 @@
     "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/models/stacked_clf.py": "c03141e3f7e6b9c9f02bc14a103769d406905a70619020a78a6fa8d73b65534f",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json": "f5b3eda337dce7b7bf2c691b92c72c8445331b53c3716cf53349061764423bc5",
     "research/evidence/withdrawn_certificates_v1/manifest.json": "d1b7a2528783a515f73f4de8610ab46dcbbf7156998a95a52168984a461b72f0",
-    "research/governance/requirements.json": "031ba20b15b00330c6ccf4a1ff3e0bebdb85c256c185b39397ef34e2dd1bd659",
-    "research/governance/runner_catalog.json": "66faf20215978b437babf3cda3a53b90fb053f0de49fa300513513ed39a0c1af",
+    "research/governance/requirements.json": "735fbb3e738cc751a185f58bad8443517d0479f57b0dab4fddd3eb2d4b1db6db",
+    "research/governance/runner_catalog.json": "5fd2dfeb183e68e4786355b1ba92182eca695e37be7fd4b293220a5b0480bcfe",
     "research/governance/status_ledger.json": "363bdeb3905742f8c30741811772de5eb616d5881e7da2a109f02590ca9579b3",
-    "research/governance/topology.json": "1c921805dcbe2e6bf82d8f4d4b3b56e96e41f0ba6aa49b770bb9bf4fd1779afe",
+    "research/governance/topology.json": "b131ffc77f3ffeb4fc0b8d5aeeb18d1cdcf25d995b1cb8709aa872cfc14ebda2",
     "research/reviews/stylometry_owner_decision_memo.md": "241c393ac42e4d8201d2ee328dd0d814c92a46406f0486f9ab8bbafec55ce8a5",
     "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",
     "scripts/check_release_hygiene.py": "69534811b444999cedfbebb840f66fc9b72ad0609dc5cf3c4ccbea2d2d2284e5",

@@ -792,6 +792,7 @@ def _build_nlp_identity(
     nlp,
     max_length: int,
     package_identity: tuple[str, str] | None = None,
+    disabled_pipes: Sequence[str] = _DISABLE,
 ) -> ResolvedNLPIdentity:
     version, record_sha = (
         package_identity
@@ -805,7 +806,7 @@ def _build_nlp_identity(
         "package_version": version,
         "package_record_sha256": record_sha,
         "spacy_version": spacy.__version__,
-        "disabled_pipes": sorted(_DISABLE),
+        "disabled_pipes": sorted(disabled_pipes),
         "active_pipes": list(nlp.pipe_names),
         "max_length": max_length,
     }
@@ -819,7 +820,7 @@ def _build_nlp_identity(
         package_version=version,
         package_record_sha256=record_sha,
         spacy_version=spacy.__version__,
-        disabled_pipes=tuple(sorted(_DISABLE)),
+        disabled_pipes=tuple(sorted(disabled_pipes)),
         active_pipes=tuple(nlp.pipe_names),
         max_length=max_length,
         identity_sha256=digest,
@@ -902,12 +903,20 @@ def load_ner(model: str, fallback: Optional[str] = None):
     key = ("ner", model, fallback, 5_000_000, tuple(disable))
     if key in _NLP_CACHE:
         return _NLP_CACHE[key]
-    nlp, _resolved, _package_identity = _verified_spacy_load(
+    nlp, resolved, package_identity = _verified_spacy_load(
         model,
         fallback,
         disable=disable,
     )
     nlp.max_length = 5_000_000
+    _NLP_IDENTITIES[id(nlp)] = _build_nlp_identity(
+        requested=model,
+        resolved=resolved,
+        nlp=nlp,
+        max_length=5_000_000,
+        package_identity=package_identity,
+        disabled_pipes=disable,
+    )
     _NLP_CACHE[key] = nlp
     return nlp
 

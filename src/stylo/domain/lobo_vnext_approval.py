@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
-import hashlib
-import json
 import math
 import os
 import re
@@ -20,7 +18,7 @@ from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ..jsonio import StrictJSONError, loads_strict
+from ..jsonio import StrictJSONError, canonical_hash, loads_strict
 
 
 OWNER_DECISION_SCHEMA_VERSION = (
@@ -112,18 +110,11 @@ def _validate_json_value(value: object, path: str) -> None:
 def _canonical_sha256(value: object) -> str:
     _validate_json_value(value, "$")
     try:
-        encoded = json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8")
-    except (TypeError, ValueError) as exc:
+        return canonical_hash(value)
+    except (StrictJSONError, TypeError, ValueError) as exc:
         raise OwnerDecisionContractError(
             f"value is not canonical strict JSON: {exc}"
         ) from exc
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _exact_object(

@@ -20,6 +20,7 @@
       "src/stylo/eval/segmentation.py",
       "scripts/run_benchmark.py",
       "scripts/evaluation/run_stylo_lobo_validation.py",
+      "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "scripts/evaluation/run_stylo_lobo_vnext.py",
       "scripts/evaluation/run_work_balanced_ablation_screen.py"
     ],
@@ -132,10 +133,16 @@
       "public_surface": "explicit research runner"
     },
     {
+      "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
+      "status": "canonical_preparation_only",
+      "responsibility": "owner_selected_r1_lobo_vnext_packet_preparation",
+      "public_surface": "explicit exploratory packet builder; no cache, factory, fit, prediction, public evidence or confirmatory authority"
+    },
+    {
       "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "status": "implemented_dry_run_only",
-      "responsibility": "synthetic_lobo_vnext_contract_harness",
-      "public_surface": "explicit synthetic exploratory dry-run; confirmatory execution unauthorized"
+      "status": "canonical_bounded_exploratory",
+      "responsibility": "digest_bound_owner_selected_r1_lobo_vnext_dry_run",
+      "public_surface": "explicit synthetic harness or owner-bound R1 exploratory dry-run; public and confirmatory execution unauthorized"
     },
     {
       "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
@@ -284,9 +291,14 @@
       "contract": "ignored_identity_bound_exploratory_artifact"
     },
     {
+      "namespace": "docs/exploratory/lobo_vnext/packets/<generation-id>/**",
+      "owner": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
+      "contract": "ignored_immutable_owner_selected_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
+    },
+    {
       "namespace": "docs/exploratory/lobo_vnext/<run-namespace>/<run-id>/**",
       "owner": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "contract": "ignored_immutable_synthetic_dry_run_only; no public evidence or confirmatory authority"
+      "contract": "ignored_immutable_bounded_exploratory_result; real R1 execution requires an exact packet and external digest-bound owner-decision record; no public evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",

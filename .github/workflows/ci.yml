@@ -60,10 +60,20 @@ jobs:
           tests/test_stack_class_coverage.py
           tests/test_stack_passport_compatibility.py
           tests/test_stylo_lobo_validation.py
+          tests/test_lobo_vnext_approval.py
+          tests/test_lobo_vnext_cli.py
+          tests/test_lobo_vnext_control.py
           tests/test_lobo_vnext_findings.py
           tests/test_lobo_vnext_manifests.py
+          tests/test_lobo_vnext_models.py
+          tests/test_lobo_vnext_packet.py
+          tests/test_lobo_vnext_policy.py
+          tests/test_lobo_vnext_prepare.py
+          tests/test_lobo_vnext_real.py
+          tests/test_lobo_vnext_real_cli.py
+          tests/test_lobo_vnext_real_contracts.py
+          tests/test_lobo_vnext_receipts.py
           tests/test_lobo_vnext.py
-          tests/test_lobo_vnext_cli.py
           -q -p no:cacheprovider
 
   package-wheel:
@@ -102,8 +112,17 @@ jobs:
               assert importlib.resources.files("stylo.resources").joinpath(name).is_file()
           for module in (
               "stylo.domain.lobo_vnext",
+              "stylo.domain.lobo_vnext_approval",
+              "stylo.domain.lobo_vnext_packet",
+              "stylo.domain.lobo_vnext_policy",
+              "stylo.domain.lobo_vnext_real",
               "stylo.eval.certificates",
               "stylo.eval.lobo_vnext",
+              "stylo.eval.lobo_vnext_control",
+              "stylo.eval.lobo_vnext_models",
+              "stylo.eval.lobo_vnext_prepare",
+              "stylo.eval.lobo_vnext_real",
+              "stylo.eval.lobo_vnext_receipts",
               "stylo.eval.stylo_lobo_validation",
               "stylo.eval.work_balanced_ablation_screen",
               "stylo.models.equal_channel_ensemble",

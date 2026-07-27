@@ -459,3 +459,9 @@ not change the normative ledger or frozen evidence.
   corpus assembly; unresolved candidates remain non-executable. Decision
   self-hashes provide integrity only, not owner authentication. No corpus,
   model, inference or confirmatory selection was made.
+- 2026-07-27: Activated the owner-selected RuAA R1 path as a bounded
+  exploratory-only LOBO-vNext implementation: immutable packet preparation,
+  independently rederived execution receipts, exact primary/baseline campaign
+  bindings, an external digest-bound owner-decision gate, and strict paired
+  checkpoint/final validation. Public evidence, frozen evidence, scientific
+  approvals and confirmatory execution remain unauthorized.

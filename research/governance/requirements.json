@@ -158,6 +158,82 @@
         "tests/test_work_balanced_ablation_goldens.py::test_fixture_matches_pinned_full_sha",
         "tests/test_work_balanced_ablation_config.py::test_make_factory_weighting_contract_unchanged"
       ]
+    },
+    {
+      "id": "LVN-R1-PACKET-PREFIT-CLOSURE",
+      "description": "The exact 136-work constituents-only R1 packet is path-independent, create-if-absent, byte-bound, and constructed without estimator reachability.",
+      "code": [
+        {"path": "src/stylo/eval/lobo_vnext_prepare.py", "symbol": "prepare_r1_packet"},
+        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1PacketManifest"},
+        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "CanonicalRepresentationReceipt"}
+      ],
+      "tests": [
+        "tests/test_lobo_vnext_prepare.py::test_prepare_module_has_no_estimator_factory_fit_or_runner_reachability",
+        "tests/test_lobo_vnext_prepare.py::test_source_catalog_is_exact_and_r1_selection_is_136_constituents_only",
+        "tests/test_lobo_vnext_prepare.py::test_unreviewed_or_missing_candidate_blocks_packet_preparation",
+        "tests/test_lobo_vnext_prepare.py::test_packet_is_path_independent_and_create_if_absent",
+        "tests/test_lobo_vnext_packet.py::test_raw_byte_mutation_requires_a_new_corpus_and_receipt_namespace",
+        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[missing]",
+        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[extra]",
+        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[tamper]",
+        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[symlink]"
+      ]
+    },
+    {
+      "id": "LVN-REAL-CONTROL-PLANE",
+      "description": "The real control plane reloads the complete strict packet and independently derives every execution receipt before rows, cache, factory, or fit.",
+      "code": [
+        {"path": "src/stylo/eval/lobo_vnext_control.py", "symbol": "load_prepared_r1_packet"},
+        {"path": "src/stylo/eval/lobo_vnext_control.py", "symbol": "assemble_real_execution_spec"},
+        {"path": "src/stylo/eval/lobo_vnext_receipts.py", "symbol": "derive_executable_source_observation"}
+      ],
+      "tests": [
+        "tests/test_lobo_vnext_control.py::test_control_plane_has_no_cache_factory_fit_or_prediction_reachability",
+        "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[extra]",
+        "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[raw]",
+        "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[canonical]",
+        "tests/test_lobo_vnext_control.py::test_execution_assembly_binds_packet_selection_and_exact_15_receipts",
+        "tests/test_lobo_vnext_control.py::test_dirty_or_drifted_executable_source_stops_before_other_live_receipts"
+      ]
+    },
+    {
+      "id": "LVN-REAL-EXECUTION-AND-RESUME",
+      "description": "The owner-bound two-model R1 evaluator preserves exact shared folds and paired draws, and rejects owner, checkpoint, or final-artifact drift before unsafe work.",
+      "code": [
+        {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "preflight_lobo_vnext_real"},
+        {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "run_lobo_vnext_real"},
+        {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "validate_real_final_artifact"}
+      ],
+      "tests": [
+        "tests/test_lobo_vnext_real.py::test_owner_binding_blocks_before_rows_factory_fit_and_output",
+        "tests/test_lobo_vnext_real.py::test_serial_parallel_resume_are_byte_identical_and_paired",
+        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>0]",
+        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>1]",
+        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>2]",
+        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>3]",
+        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>4]",
+        "tests/test_lobo_vnext_real.py::test_extra_checkpoint_blocks_resume_before_row_loading",
+        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>0]",
+        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>1]",
+        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>2]",
+        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>3]"
+      ]
+    },
+    {
+      "id": "LVN-REAL-CLI-AUTHORIZATION",
+      "description": "The real CLI has no scientific defaults, emits an owner-free immutable preflight spec, and requires the exact live execution, non-placeholder external owner decision, output root, and LOBO strategy before evaluator handoff.",
+      "code": [
+        {"path": "scripts/evaluation/run_stylo_lobo_vnext.py", "symbol": "_run_real_preflight"},
+        {"path": "scripts/evaluation/run_stylo_lobo_vnext.py", "symbol": "_run_real_exploratory"}
+      ],
+      "tests": [
+        "tests/test_lobo_vnext_real_cli.py::test_real_parsers_have_no_scientific_defaults_and_require_every_input",
+        "tests/test_lobo_vnext_real_cli.py::test_modes_are_mutually_exclusive_before_any_loader",
+        "tests/test_lobo_vnext_real_cli.py::test_real_preflight_writes_immutable_owner_free_spec_without_evaluator",
+        "tests/test_lobo_vnext_real_cli.py::test_execution_drift_is_rejected_before_owner_binding_and_eval",
+        "tests/test_lobo_vnext_real_cli.py::test_real_output_namespace_must_equal_exact_ignored_root_before_load",
+        "tests/test_lobo_vnext_real_cli.py::test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts"
+      ]
     }
   ]
 }
