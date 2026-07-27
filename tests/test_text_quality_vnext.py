@@ -77,8 +77,10 @@ def test_transport_residue_blocks_with_exact_line_evidence(body, kind):
         "См. также",
     ],
 )
-def test_high_confidence_tail_apparatus_blocks(tail):
-    payload = _text("alpha").decode().replace("alpha end", tail).encode()
+@pytest.mark.parametrize("at_start", [False, True])
+def test_high_confidence_boundary_apparatus_blocks(tail, at_start):
+    marker = "alpha title" if at_start else "alpha end"
+    payload = _text("alpha").decode().replace(marker, tail).encode()
 
     report = audit_corpus_texts(
         {"alpha/one": payload},
@@ -86,7 +88,7 @@ def test_high_confidence_tail_apparatus_blocks(tail):
     )
 
     assert report.status == "blocked"
-    assert report.payload["works"][0]["tail_apparatus_findings"]
+    assert report.payload["works"][0]["boundary_apparatus_findings"]
 
 
 def test_short_stub_and_noncanonical_bytes_fail_closed():

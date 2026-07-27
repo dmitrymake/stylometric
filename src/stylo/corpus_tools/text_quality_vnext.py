@@ -29,8 +29,8 @@ from ..jsonio import canonical_hash
 from .wikisource_vnext import count_words
 
 
-TEXT_QUALITY_AUDIT_SCHEMA_VERSION = "stylo.corpus-text-quality-audit.v1"
-TEXT_QUALITY_POLICY_VERSION = "stylo.corpus-text-quality-policy.v1"
+TEXT_QUALITY_AUDIT_SCHEMA_VERSION = "stylo.corpus-text-quality-audit.v2"
+TEXT_QUALITY_POLICY_VERSION = "stylo.corpus-text-quality-policy.v2"
 DEFAULT_MINIMUM_WORDS = 200
 DEFAULT_CONTAINMENT_THRESHOLD = Fraction(9, 10)
 DEFAULT_MINIMUM_SHINGLES = 20
@@ -168,7 +168,8 @@ def _line_findings(
     lines: Sequence[str],
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     transport: list[dict[str, object]] = []
-    tail_apparatus: list[dict[str, object]] = []
+    boundary_apparatus: list[dict[str, object]] = []
+    head_end = min(len(lines), 100)
     tail_start = max(0, len(lines) - 100)
     for index, line in enumerate(lines):
         line_number = index + 1
@@ -189,17 +190,17 @@ def _line_findings(
                     line=line,
                 )
             )
-        if index >= tail_start:
+        if index < head_end or index >= tail_start:
             for kind, pattern in _TAIL_APPARATUS_PATTERNS:
                 if pattern.search(line):
-                    tail_apparatus.append(
+                    boundary_apparatus.append(
                         _finding(
                             kind=kind,
                             line_number=line_number,
                             line=line,
                         )
                     )
-    return transport, tail_apparatus
+    return transport, boundary_apparatus
 
 
 def _tokenize(text: str) -> tuple[str, ...]:
@@ -390,7 +391,7 @@ class CorpusTextAuditReport:
             "last_nonblank_line",
             "last_nonblank_line_sha256",
             "transport_residue_findings",
-            "tail_apparatus_findings",
+            "boundary_apparatus_findings",
             "internal_duplication_findings",
         }
         observed_words = 0
@@ -438,7 +439,7 @@ class CorpusTextAuditReport:
                     )
             for key in (
                 "transport_residue_findings",
-                "tail_apparatus_findings",
+                "boundary_apparatus_findings",
             ):
                 findings = value[key]
                 if type(findings) is not list:
@@ -668,7 +669,7 @@ def audit_corpus_texts(
             "last_nonblank_line": nonblank[-1],
             "last_nonblank_line_sha256": _line_sha256(nonblank[-1]),
             "transport_residue_findings": transport,
-            "tail_apparatus_findings": apparatus,
+            "boundary_apparatus_findings": apparatus,
             "internal_duplication_findings": (
                 [] if internal is None else [internal]
             ),
@@ -692,7 +693,7 @@ def audit_corpus_texts(
             )
         for label, findings in (
             ("transport_residue", transport),
-            ("tail_apparatus", apparatus),
+            ("boundary_apparatus", apparatus),
         ):
             if findings:
                 blockers.append(
