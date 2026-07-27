@@ -3,6 +3,81 @@
   "directory": "scripts/evaluation",
   "runners": [
     {
+      "path": "scripts/evaluation/acquire_feb_corpus_vnext.py",
+      "status": "canonical_source_acquisition_only",
+      "claim_scope": "Materialize one exact pinned FEB work in an ignored exploratory source namespace; no cache, model, fit, metric, public evidence, or confirmatory authority.",
+      "output_contract": "Create-if-absent exact raw source bytes and receipt below docs/exploratory/lobo_vnext/corpora/feb.",
+      "identity_bindings": [
+        "pinned_feb_work_spec",
+        "literal_response_bytes",
+        "source_boundaries",
+        "raw_output_sha256"
+      ],
+      "required_nodeids": [
+        "tests/test_feb_vnext.py::test_exact_feb_extraction_keeps_eight_chapters_and_stops_before_notes",
+        "tests/test_feb_vnext.py::test_materialization_and_resume_are_immutable_and_network_free",
+        "tests/test_feb_vnext.py::test_cli_uses_only_pinned_spec_and_fixed_exploratory_namespace"
+      ]
+    },
+    {
+      "path": "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
+      "status": "canonical_source_acquisition_only",
+      "claim_scope": "Assemble and content-audit one exact pinned hybrid R1 source corpus in an ignored exploratory namespace; no representation cache, model, fit, metric, public evidence, or confirmatory authority.",
+      "output_contract": "Create-if-absent provider receipts, literal raw inventory, strict content-quality audit, and hybrid acquisition receipt below docs/exploratory/lobo_vnext/corpora/ruaa_r1_hybrid.",
+      "identity_bindings": [
+        "wikisource_discovery_candidate",
+        "source_curation_receipt",
+        "wikisource_campaign_spec",
+        "pinned_feb_work_spec",
+        "literal_raw_inventory",
+        "text_quality_policy",
+        "hybrid_generation_id"
+      ],
+      "required_nodeids": [
+        "tests/test_ruaa_r1_acquisition.py::test_manifest_binds_exact_hybrid_inventory_and_exclusions",
+        "tests/test_ruaa_r1_acquisition.py::test_materialization_resume_and_all_tamper_modes_are_fail_closed",
+        "tests/test_ruaa_r1_acquisition.py::test_audit_blocker_prevents_publish_and_provider_resume_is_network_free",
+        "tests/test_ruaa_r1_acquisition.py::test_cli_requires_manifest_and_uses_only_fixed_ignored_namespace"
+      ]
+    },
+    {
+      "path": "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
+      "status": "canonical_source_acquisition_only",
+      "claim_scope": "Materialize one exact pinned Wikisource campaign in an ignored exploratory source namespace; no representation cache, model, fit, metric, public evidence, or confirmatory authority.",
+      "output_contract": "Create-if-absent literal work bytes and strict campaign/work receipts below docs/exploratory/lobo_vnext/corpora.",
+      "identity_bindings": [
+        "pinned_campaign_spec",
+        "exact_revision_inventory",
+        "body_boundary_policy",
+        "raw_output_inventory"
+      ],
+      "required_nodeids": [
+        "tests/test_wikisource_campaign.py::test_campaign_spec_is_strict_sorted_self_hashed_and_generation_derived",
+        "tests/test_wikisource_campaign.py::test_serial_materialization_is_deterministic_path_independent_and_resumable",
+        "tests/test_wikisource_campaign.py::test_cli_materializes_only_pinned_spec_in_fixed_exploratory_namespace"
+      ]
+    },
+    {
+      "path": "scripts/evaluation/pin_wikisource_campaign.py",
+      "status": "canonical_source_pinning_only",
+      "claim_scope": "Verify a reviewed, fully resolved source candidate against exact Wikisource revisions and write one immutable campaign specification; no corpus publication, model, fit, metric, public evidence, or confirmatory authority.",
+      "output_contract": "Create-if-absent strict campaign specification plus an ignored or external immutable exact-response cache.",
+      "identity_bindings": [
+        "discovery_candidate_hash",
+        "exact_revision_metadata",
+        "literal_wikitext_sha256",
+        "rendered_html_sha256",
+        "body_boundary_policy",
+        "campaign_generation_id"
+      ],
+      "required_nodeids": [
+        "tests/test_wikisource_discovery.py::test_ready_candidate_pins_v2_campaign_and_exact_order",
+        "tests/test_wikisource_discovery.py::test_response_cache_replays_without_network_and_rejects_tampering",
+        "tests/test_wikisource_discovery.py::test_blocked_or_legacy_candidate_stops_before_cache_and_transport",
+        "tests/test_wikisource_discovery.py::test_included_work_issue_requires_exact_selected_disposition[blocked]"
+      ]
+    },
+    {
       "path": "scripts/evaluation/prepare_paired_audit_inputs.py",
       "status": "preparation_only_unapproved",
       "claim_scope": "Build and verify an immutable audit-corpus and freeze candidate; no estimator, headline, or publication.",
