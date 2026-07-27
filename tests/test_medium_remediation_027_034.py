@@ -289,14 +289,25 @@ def test_aud030_equal_lazy_contract_has_repeat_batch_parity(monkeypatch):
 
 
 def test_aud031_summary_uses_frozen_author_order_not_prediction_union():
-    from stylo.eval.metrics import summarize_book_results
+    from stylo.eval.metrics import (
+        AuthorClusteredInferenceSpec,
+        summarize_book_results,
+    )
+
+    inference_spec = AuthorClusteredInferenceSpec.build(
+        iterations=20,
+        confidence_level=0.95,
+        seed=42,
+    )
 
     summary = summarize_book_results(
         np.asarray([0, 0]),
         np.asarray([0, 0]),
         np.asarray([1, 1]),
-        ["a", "b"],
-        iters=20,
+        probability_class_order=["a", "b"],
+        metric_label_order=[0, 1],
+        book_authors=["a", "a"],
+        inference_spec=inference_spec,
     )
     assert summary["macro_f1"].point == pytest.approx(0.5)
     with pytest.raises(MetricContractError):
@@ -304,8 +315,10 @@ def test_aud031_summary_uses_frozen_author_order_not_prediction_union():
             np.asarray([0, 1]),
             np.asarray([0, 2]),
             np.asarray([1, 2]),
-            ["a", "b"],
-            iters=20,
+            probability_class_order=["a", "b"],
+            metric_label_order=[0, 1],
+            book_authors=["a", "b"],
+            inference_spec=inference_spec,
         )
 
 

@@ -236,19 +236,42 @@ def main(argv: Optional[List[str]] = None) -> int:
         from .pipeline import predict
         predict.run(cfg, expected_bundle_token=args.model_bundle_token)
     elif args.cmd == "lobo":
-        from .eval.lobo import lobo_evaluate, format_top_candidates
-        from .eval.metrics import summarize_book_results
+        from .eval.lobo import (
+            build_generic_lobo_fold_manifest,
+            format_top_candidates,
+            lobo_evaluate,
+            validate_generic_lobo_result,
+        )
+        from .eval.metrics import (
+            AuthorClusteredInferenceSpec,
+            summarize_book_results,
+        )
         from .domain.work_weighting import resolve_training_weighting
         from .dataset import resolve_dataset
         weighting = resolve_training_weighting(cfg.get_path("evaluation.training_weighting"))
         ds = resolve_dataset(cfg, weighting,
                              exclude_authors=set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or []),
                              unknown_name=cfg.get_path("corpus_policy.unknown_dir_name", "unknown"))
+        fold_manifest = build_generic_lobo_fold_manifest(
+            ds,
+            max_books=args.max_books,
+        )
+        inference_spec = AuthorClusteredInferenceSpec.build(
+            iterations=cfg.get_path("evaluation.bootstrap_iters", 1000),
+            confidence_level=cfg.get_path("evaluation.ci_level", 0.95),
+            seed=cfg.get_path("seed", 42),
+        )
         df, _, _ = lobo_evaluate(cfg, ds, spec=args.model, max_books=args.max_books, weighting=weighting)
-        s = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
-                                   df["rank"].to_numpy(), ds.authors,
-                                   iters=cfg.get_path("evaluation.bootstrap_iters", 1000),
-                                   seed=cfg.get_path("seed", 42))
+        validate_generic_lobo_result(df, fold_manifest)
+        s = summarize_book_results(
+            df["true_label"].to_numpy(),
+            df["pred_label"].to_numpy(),
+            df["rank"].to_numpy(),
+            probability_class_order=fold_manifest.probability_class_order,
+            metric_label_order=fold_manifest.metric_label_order,
+            book_authors=fold_manifest.book_authors,
+            inference_spec=inference_spec,
+        )
         print(f"\nLOBO[{args.model}]: acc={s['accuracy']} macroF1={s['macro_f1']} top2={s['top2']}")
     elif args.cmd == "sweep":
         from .eval.sweep import run_sweep, format_sweep_table

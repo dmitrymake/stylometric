@@ -13,6 +13,9 @@ bow_lr/majority) — все дают predict_proba(texts) и .classes_, выро
 """
 from __future__ import annotations
 
+import dataclasses
+import hashlib
+import json
 import logging
 import os
 from typing import Callable, Dict, List, Optional, Tuple
@@ -53,6 +56,298 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
 log = logging.getLogger("stylo.eval.lobo")
 MAX_GENERIC_LOBO_WORKERS = 8
+GENERIC_LOBO_FOLD_MANIFEST_VERSION = "stylo.generic-lobo-fold-manifest.v2"
+
+
+@dataclasses.dataclass(frozen=True)
+class GenericLoboFold:
+    work_id: str
+    true_label: int
+    true_author: str
+
+
+@dataclasses.dataclass(frozen=True)
+class GenericLoboFoldManifest:
+    """Frozen generic LOBO test universe built before cache/factory/fit."""
+
+    schema_version: str
+    probability_class_order: tuple[str, ...]
+    metric_label_order: tuple[int, ...]
+    folds: tuple[GenericLoboFold, ...]
+    self_hash: str
+
+    def _payload(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "probability_class_order": list(self.probability_class_order),
+            "metric_label_order": list(self.metric_label_order),
+            "folds": [
+                {
+                    "work_id": fold.work_id,
+                    "true_label": fold.true_label,
+                    "true_author": fold.true_author,
+                }
+                for fold in self.folds
+            ],
+        }
+
+    def validate(self) -> "GenericLoboFoldManifest":
+        if type(self) is not GenericLoboFoldManifest:
+            raise ValueError(
+                "fold_manifest must be exactly GenericLoboFoldManifest"
+            )
+        rebuilt = _build_generic_lobo_fold_manifest_from_payload(
+            self._payload()
+        )
+        if rebuilt != self:
+            raise ValueError(
+                "generic LOBO fold manifest is noncanonical or rehashed"
+            )
+        return self
+
+    def as_dict(self) -> dict[str, object]:
+        self.validate()
+        return {**self._payload(), "self_hash": self.self_hash}
+
+    @property
+    def book_authors(self) -> tuple[str, ...]:
+        return tuple(fold.true_author for fold in self.folds)
+
+
+def _canonical_manifest_hash(payload: dict[str, object]) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _build_generic_lobo_fold_manifest_from_payload(
+    payload: dict[str, object],
+) -> GenericLoboFoldManifest:
+    if type(payload) is not dict or set(payload) != {
+        "schema_version",
+        "probability_class_order",
+        "metric_label_order",
+        "folds",
+    }:
+        raise ValueError("generic LOBO fold manifest payload has wrong keys")
+    if payload["schema_version"] != GENERIC_LOBO_FOLD_MANIFEST_VERSION:
+        raise ValueError("generic LOBO fold manifest schema mismatch")
+    raw_probability_order = payload["probability_class_order"]
+    if (
+        type(raw_probability_order) is not list
+        or not raw_probability_order
+        or any(
+            type(author) is not str or not author
+            for author in raw_probability_order
+        )
+        or len(set(raw_probability_order)) != len(raw_probability_order)
+    ):
+        raise ValueError("probability_class_order is malformed")
+    raw_metric_order = payload["metric_label_order"]
+    if (
+        type(raw_metric_order) is not list
+        or not raw_metric_order
+        or any(type(label) is not int for label in raw_metric_order)
+        or len(set(raw_metric_order)) != len(raw_metric_order)
+    ):
+        raise ValueError("metric_label_order is malformed")
+    probability_labels = tuple(range(len(raw_probability_order)))
+    if (
+        any(label not in probability_labels for label in raw_metric_order)
+        or [
+            label
+            for label in probability_labels
+            if label in frozenset(raw_metric_order)
+        ]
+        != raw_metric_order
+    ):
+        raise ValueError(
+            "metric_label_order must be a P-ordered subset"
+        )
+    raw_folds = payload["folds"]
+    if type(raw_folds) is not list or not raw_folds:
+        raise ValueError("generic LOBO folds must be a nonempty list")
+    folds: list[GenericLoboFold] = []
+    for raw_fold in raw_folds:
+        if type(raw_fold) is not dict or set(raw_fold) != {
+            "work_id",
+            "true_label",
+            "true_author",
+        }:
+            raise ValueError("generic LOBO fold has wrong keys")
+        work_id = raw_fold["work_id"]
+        true_label = raw_fold["true_label"]
+        true_author = raw_fold["true_author"]
+        if (
+            type(work_id) is not str
+            or not work_id
+            or type(true_label) is not int
+            or true_label not in probability_labels
+            or type(true_author) is not str
+            or true_author != raw_probability_order[true_label]
+        ):
+            raise ValueError("generic LOBO fold is malformed")
+        folds.append(GenericLoboFold(work_id, true_label, true_author))
+    if [fold.work_id for fold in folds] != sorted(
+        fold.work_id for fold in folds
+    ) or len({fold.work_id for fold in folds}) != len(folds):
+        raise ValueError("generic LOBO folds must have unique sorted work ids")
+    if (
+        tuple(
+            label
+            for label in probability_labels
+            if any(fold.true_label == label for fold in folds)
+        )
+        != tuple(raw_metric_order)
+    ):
+        raise ValueError(
+            "metric_label_order does not match the frozen tested folds"
+        )
+    canonical_payload = {
+        "schema_version": payload["schema_version"],
+        "probability_class_order": list(raw_probability_order),
+        "metric_label_order": list(raw_metric_order),
+        "folds": [
+            {
+                "work_id": fold.work_id,
+                "true_label": fold.true_label,
+                "true_author": fold.true_author,
+            }
+            for fold in folds
+        ],
+    }
+    return GenericLoboFoldManifest(
+        schema_version=GENERIC_LOBO_FOLD_MANIFEST_VERSION,
+        probability_class_order=tuple(raw_probability_order),
+        metric_label_order=tuple(raw_metric_order),
+        folds=tuple(folds),
+        self_hash=_canonical_manifest_hash(canonical_payload),
+    )
+
+
+def build_generic_lobo_fold_manifest(
+    dataset,
+    *,
+    max_books: int = 0,
+) -> GenericLoboFoldManifest:
+    """Freeze P, M and exact tested work order without observing predictions."""
+
+    if type(max_books) is not int or max_books < 0:
+        raise ValueError("max_books must be an exact non-negative integer")
+    authors = tuple(dataset.authors)
+    if (
+        not authors
+        or any(type(author) is not str or not author for author in authors)
+        or len(set(authors)) != len(authors)
+    ):
+        raise ValueError("dataset authors are malformed")
+    groups = np.asarray(dataset.groups, dtype=object)
+    labels = np.asarray(dataset.y, dtype=object)
+    if groups.ndim != 1 or labels.ndim != 1 or groups.shape != labels.shape:
+        raise ValueError("dataset groups/y must be aligned one-dimensional arrays")
+    if any(type(group) is not str or not group for group in groups.tolist()):
+        raise ValueError("dataset groups must contain exact nonempty strings")
+    if any(
+        isinstance(label, (bool, np.bool_))
+        or not isinstance(label, (int, np.integer))
+        for label in labels.tolist()
+    ):
+        raise ValueError("dataset labels must contain non-bool integers")
+    normalized_labels = np.asarray(
+        [int(label) for label in labels.tolist()],
+        dtype=np.int64,
+    )
+    work_to_label: dict[str, int] = {}
+    for group, raw_label in zip(groups.tolist(), normalized_labels, strict=True):
+        label = int(raw_label)
+        if not 0 <= label < len(authors):
+            raise ValueError("dataset label lies outside probability class order")
+        existing = work_to_label.setdefault(group, label)
+        if existing != label:
+            raise ValueError(f"work {group!r} contains multiple truth labels")
+        if group.split("/", 1)[0] != authors[label]:
+            raise ValueError(
+                f"work {group!r} does not match its registered author"
+            )
+    ordered_works = sorted(work_to_label)
+    selected_works = (
+        ordered_works[:max_books] if max_books > 0 else ordered_works
+    )
+    work_counts = {
+        label: sum(
+            int(work_label == label)
+            for work_label in work_to_label.values()
+        )
+        for label in range(len(authors))
+    }
+    folds = [
+        GenericLoboFold(
+            work_id=work_id,
+            true_label=work_to_label[work_id],
+            true_author=authors[work_to_label[work_id]],
+        )
+        for work_id in selected_works
+        if work_counts[work_to_label[work_id]] >= 2
+    ]
+    if not folds:
+        raise ValueError("generic LOBO fold manifest has no feasible tested works")
+    metric_order = [
+        label
+        for label in range(len(authors))
+        if any(fold.true_label == label for fold in folds)
+    ]
+    return _build_generic_lobo_fold_manifest_from_payload(
+        {
+            "schema_version": GENERIC_LOBO_FOLD_MANIFEST_VERSION,
+            "probability_class_order": list(authors),
+            "metric_label_order": metric_order,
+            "folds": [
+                {
+                    "work_id": fold.work_id,
+                    "true_label": fold.true_label,
+                    "true_author": fold.true_author,
+                }
+                for fold in folds
+            ],
+        }
+    )
+
+
+def validate_generic_lobo_result(
+    frame: pd.DataFrame,
+    manifest: GenericLoboFoldManifest,
+) -> None:
+    manifest = manifest.validate()
+    expected = tuple(
+        (fold.work_id, fold.true_label)
+        for fold in manifest.folds
+    )
+    required_columns = {
+        "test_author",
+        "test_book",
+        "true_label",
+        "pred_label",
+        "rank",
+    }
+    if not required_columns.issubset(frame.columns):
+        raise ValueError("generic LOBO result is missing required columns")
+    observed = tuple(
+        (
+            f"{row.test_author}/{row.test_book}",
+            int(row.true_label),
+        )
+        for row in frame.itertuples()
+    )
+    if observed != expected:
+        raise ValueError(
+            "generic LOBO result does not match its frozen fold manifest"
+        )
 
 
 def _bounded_lobo_workers(cfg, requested: Optional[int]) -> int:
@@ -385,6 +680,8 @@ def _lobo_run(
     enabled_override,
     max_books,
     n_jobs,
+    *,
+    fold_manifest: GenericLoboFoldManifest | None = None,
 ):
     """Internal LOBO worker.
 
@@ -396,9 +693,20 @@ def _lobo_run(
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
     n_jobs = _bounded_lobo_workers(cfg, n_jobs)
 
-    books = sorted(set(dataset.groups.tolist()))
-    if max_books and max_books > 0:
-        books = books[:max_books]
+    live_manifest = build_generic_lobo_fold_manifest(
+        dataset,
+        max_books=max_books,
+    )
+    if fold_manifest is not None:
+        fold_manifest = fold_manifest.validate()
+        if fold_manifest != live_manifest:
+            raise ValueError(
+                "supplied generic LOBO fold manifest does not match "
+                "the sealed dataset"
+            )
+    else:
+        fold_manifest = live_manifest
+    books = [fold.work_id for fold in fold_manifest.folds]
     log.info("LOBO[%s/%s]: %d книг, n_jobs=%s", spec, weighting, len(books), n_jobs)
 
     factory = make_factory(spec, cfg, enabled_override, weighting=weighting)
@@ -423,12 +731,16 @@ def _lobo_run(
                           dataset.authors, g, factory, top_k)
         for g in books
     )
-    rows = [r for r in res if r is not None]
-    if not rows:
-        raise RuntimeError(f"LOBO[{spec}] не дал результатов (мало книг на автора?)")
+    if any(row is None for row in res):
+        raise RuntimeError(
+            f"LOBO[{spec}] produced a runtime skip outside the frozen manifest"
+        )
+    rows = list(res)
 
     prob_matrix = np.vstack([r.pop("_prob") for r in rows])
     df = pd.DataFrame(rows)
+    validate_generic_lobo_result(df, fold_manifest)
+    df.attrs["generic_lobo_fold_manifest"] = fold_manifest.as_dict()
     y_true = df["true_label"].to_numpy()
     return df, prob_matrix, y_true
 

@@ -1,6 +1,7 @@
 """Stable, evaluation-independent scientific data contracts."""
 
 from .corpus_identity import (
+    CONTENT_OVERLAP_POLICY_VERSION,
     DIGEST_VERSION,
     LEGACY_RECURSIVE,
     WORK_BALANCED_MANIFEST,
@@ -18,6 +19,7 @@ from .corpus_identity import (
 )
 
 __all__ = [
+    "CONTENT_OVERLAP_POLICY_VERSION",
     "DIGEST_VERSION",
     "LEGACY_RECURSIVE",
     "WORK_BALANCED_MANIFEST",

@@ -7,6 +7,8 @@ accuracy — кластер-робастная honest-значимость), и 
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import Dict, List
 
@@ -20,9 +22,19 @@ from ..models.registry import (
     CALIBRATION_MODEL_SPECS,
     DEFAULT_EXPLORATORY_SPECS,
 )
-from .lobo import _lobo_run, make_factory
-from .metrics import (accuracy, expected_calibration_error, macro_f1,
-                      summarize_book_results)
+from .lobo import (
+    _lobo_run,
+    build_generic_lobo_fold_manifest,
+    make_factory,
+    validate_generic_lobo_result,
+)
+from .metrics import (
+    AuthorClusteredInferenceSpec,
+    accuracy,
+    expected_calibration_error,
+    macro_f1,
+    summarize_book_results,
+)
 from .provenance import (
     UnsupportedVariantError,
     VariantRole,
@@ -74,12 +86,41 @@ def _estimator_weighting(spec: str, weighting: str) -> str:
     return weighting
 
 
-def _provenance_block(dataset: Dataset, weighting: str, specs: List[str]) -> Dict:
+def _provenance_block(
+    dataset,
+    weighting: str,
+    specs: List[str],
+    *,
+    fold_manifest,
+    inference_spec: AuthorClusteredInferenceSpec,
+) -> Dict:
     prov = getattr(dataset, "provenance", None)
+    identity = {
+        "schema_version": "stylo.generic-final-run-identity.v2",
+        "rows_digest": getattr(prov, "rows_digest", None),
+        "training_weighting": weighting,
+        "overlap_policy_version": dataset.isolation_contract_version,
+        "fold_manifest_self_hash": fold_manifest.self_hash,
+        "model_specs": list(specs),
+        "inference_spec_self_hash": inference_spec.self_hash,
+    }
+    run_id = hashlib.sha256(
+        json.dumps(
+            identity,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
     return {
         "suite_weighting": weighting,
         "dataset_contract": getattr(prov, "loader_kind", None),
         "rows_digest": getattr(prov, "rows_digest", None),
+        "overlap_policy_version": dataset.isolation_contract_version,
+        "fold_manifest": fold_manifest.as_dict(),
+        "inference_spec": inference_spec.as_dict(),
+        "run_identity": {**identity, "run_id": run_id},
         "claim_status": ClaimStatus.EXPLORATORY_INTERNAL.value,
         "per_spec": {
             spec: {
@@ -113,13 +154,19 @@ def run_final(cfg, dataset: Dataset, specs: List[str] | None = None,
         raise UnsupportedVariantError("bow_lr_ref_legacy is forbidden in the legacy arm")
     if "stylo" not in specs:
         raise ValueError("run_final requires 'stylo' (the paired-comparison reference)")
+    iters = cfg.get_path("evaluation.bootstrap_iters", 1000)
+    level = cfg.get_path("evaluation.ci_level", 0.95)
+    seed = cfg.get_path("seed", 42)
+    inference_spec = AuthorClusteredInferenceSpec.build(
+        iterations=iters,
+        confidence_level=level,
+        seed=seed,
+    )
+    fold_manifest = build_generic_lobo_fold_manifest(context)
     # preflight the WHOLE run-plan BEFORE the first fit: build every factory so a bad spec fails
     # before any expensive LOBO runs (no partial suite left behind)
     for spec in specs:
         make_factory(spec, cfg, weighting=weighting)()   # actually INSTANTIATE (catches e.g. delta.metric=bogus)
-    iters = cfg.get_path("evaluation.bootstrap_iters", 1000)
-    level = cfg.get_path("evaluation.ci_level", 0.95)
-    seed = cfg.get_path("seed", 42)
 
     results: Dict[str, Dict] = {}
     for spec in specs:
@@ -131,10 +178,18 @@ def run_final(cfg, dataset: Dataset, specs: List[str] | None = None,
             None,
             0,
             n_jobs,
+            fold_manifest=fold_manifest,
         )  # provenance + content isolation verified once above
-        summ = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
-                                      df["rank"].to_numpy(), dataset.authors,
-                                      iters=iters, level=level, seed=seed)
+        validate_generic_lobo_result(df, fold_manifest)
+        summ = summarize_book_results(
+            df["true_label"].to_numpy(),
+            df["pred_label"].to_numpy(),
+            df["rank"].to_numpy(),
+            probability_class_order=fold_manifest.probability_class_order,
+            metric_label_order=fold_manifest.metric_label_order,
+            book_authors=fold_manifest.book_authors,
+            inference_spec=inference_spec,
+        )
         ece = expected_calibration_error(probs, ytrue) if spec in ECE_SPECS else None
         results[spec] = {"df": df, "summary": summ, "ece": ece, "probs": probs, "ytrue": ytrue}
 
@@ -182,7 +237,13 @@ def run_final(cfg, dataset: Dataset, specs: List[str] | None = None,
     table = pd.DataFrame(rows)
     # provenance is a SEPARATE block (never columns on the byte-parity headline table)
     return {"table": table, "results": results,
-            "weighting": weighting, "provenance": _provenance_block(dataset, weighting, specs)}
+            "weighting": weighting, "provenance": _provenance_block(
+                dataset,
+                weighting,
+                specs,
+                fold_manifest=fold_manifest,
+                inference_spec=inference_spec,
+            )}
 
 
 def format_final(table: pd.DataFrame, results: Dict) -> str:

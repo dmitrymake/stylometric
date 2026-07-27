@@ -54,7 +54,7 @@ class UnsupportedVariantError(RuntimeError):
 
 
 SCIENTIFIC_ISOLATION_CONTRACT_VERSION = (
-    "stylo.cross-work-content-isolation.word5.v1"
+    _corpus_identity.CONTENT_OVERLAP_POLICY_VERSION
 )
 _SCIENTIFIC_CONTEXT_SEAL = object()
 

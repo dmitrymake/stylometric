@@ -22,9 +22,18 @@ from ..corpus import Dataset
 from ..features.registry import BLOCK_ORDER
 from ..features.syntax import SUBBLOCK_ORDER
 from .groupkfold import _gkf_run
-from .lobo import _lobo_run
+from .lobo import (
+    _lobo_run,
+    build_generic_lobo_fold_manifest,
+    validate_generic_lobo_result,
+)
 from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
-from .metrics import accuracy, macro_f1, summarize_book_results
+from .metrics import (
+    AuthorClusteredInferenceSpec,
+    accuracy,
+    macro_f1,
+    summarize_book_results,
+)
 from .significance import mcnemar
 
 log = logging.getLogger("stylo.eval.sweep")
@@ -77,7 +86,20 @@ def _evaluate_case(
     if case.subblock_override:
         eval_cfg = _clone_with(cfg, {f"features.syntax.subblocks.{k}": v
                                      for k, v in case.subblock_override.items()})
+    inference_spec = AuthorClusteredInferenceSpec.build(
+        iterations=cfg.get_path("evaluation.bootstrap_iters", 1000),
+        confidence_level=cfg.get_path("evaluation.ci_level", 0.95),
+        seed=cfg.get_path("seed", 42),
+    )
+    probability_class_order = tuple(dataset.authors)
     if strategy == "gkf":
+        present_labels = frozenset(int(label) for label in dataset.y)
+        metric_label_order = tuple(
+            label
+            for label in range(len(probability_class_order))
+            if label in present_labels
+        )
+        lobo_manifest = None
         df, probs, ytrue = _gkf_run(
             eval_cfg,
             dataset,
@@ -87,6 +109,8 @@ def _evaluate_case(
             panel,
         )
     elif strategy == "lobo":
+        lobo_manifest = build_generic_lobo_fold_manifest(dataset)
+        metric_label_order = lobo_manifest.metric_label_order
         df, probs, ytrue = _lobo_run(
             eval_cfg,
             dataset,
@@ -94,14 +118,27 @@ def _evaluate_case(
             case.enabled_override,
             0,
             n_jobs,
+            fold_manifest=lobo_manifest,
         )
     else:
         raise ValueError(f"unknown sweep strategy {strategy!r} (expected 'gkf' or 'lobo')")
-    summ = summarize_book_results(df["true_label"].to_numpy(), df["pred_label"].to_numpy(),
-                                  df["rank"].to_numpy(), dataset.authors,
-                                  iters=cfg.get_path("evaluation.bootstrap_iters", 1000),
-                                  level=cfg.get_path("evaluation.ci_level", 0.95),
-                                  seed=cfg.get_path("seed", 42))
+    if lobo_manifest is not None:
+        validate_generic_lobo_result(df, lobo_manifest)
+        book_authors = lobo_manifest.book_authors
+    else:
+        book_authors = tuple(
+            probability_class_order[int(label)]
+            for label in df["true_label"].to_numpy()
+        )
+    summ = summarize_book_results(
+        df["true_label"].to_numpy(),
+        df["pred_label"].to_numpy(),
+        df["rank"].to_numpy(),
+        probability_class_order=probability_class_order,
+        metric_label_order=metric_label_order,
+        book_authors=book_authors,
+        inference_spec=inference_spec,
+    )
     return {"label": case.label, "df": df, "probs": probs, "summary": summ}
 
 
@@ -228,7 +265,7 @@ def run_sweep(cfg, dataset: Dataset, strategy: str = "gkf",
             "accuracy": s["accuracy"].point,
             "acc_ci": f"[{s['accuracy'].lo:.3f},{s['accuracy'].hi:.3f}]",
             "macro_f1": s["macro_f1"].point,
-            "f1_ci": f"[{s['macro_f1'].lo:.3f},{s['macro_f1'].hi:.3f}]",
+            "macro_f1_uncertainty": s["macro_f1"].uncertainty,
             "top2": s["top2"].point,
             "delta_acc_vs_full": s["accuracy"].point - ref_acc,
         }

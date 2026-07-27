@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import math
 import numbers
 import re
 from collections import defaultdict
 from collections.abc import Sequence
+from decimal import Decimal
+from fractions import Fraction
 from typing import Optional
 
 import numpy as np
@@ -34,6 +37,9 @@ _SHINGLE_FACTORS = np.asarray(
 DIGEST_VERSION = "b2.prov.v2"
 LEGACY_RECURSIVE = "legacy_recursive"
 WORK_BALANCED_MANIFEST = "work_balanced_manifest"
+CONTENT_OVERLAP_POLICY_VERSION = (
+    "stylo.cross-work-content-isolation.word5.v2"
+)
 
 
 class ProvenanceError(ValueError):
@@ -566,6 +572,31 @@ def _sample(values: np.ndarray, size: int) -> np.ndarray:
     return values[indexes]
 
 
+def _threshold_fraction(value: object) -> Fraction:
+    """Canonical decimal/rational threshold used by overlap contract v2."""
+
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("containment_threshold must be finite")
+        threshold = Fraction(str(value))
+    elif type(value) is int:
+        threshold = Fraction(value, 1)
+    elif type(value) is Decimal:
+        if not value.is_finite():
+            raise ValueError("containment_threshold must be finite")
+        threshold = Fraction(value)
+    elif type(value) is Fraction:
+        threshold = value
+    else:
+        raise TypeError(
+            "containment_threshold must be an exact int, float, Decimal, "
+            "or Fraction"
+        )
+    if not Fraction(0, 1) < threshold <= Fraction(1, 1):
+        raise ValueError("containment_threshold must be in (0, 1]")
+    return threshold
+
+
 def find_cross_work_content_overlaps(
     texts: Sequence[str] | np.ndarray,
     groups: Sequence[object] | np.ndarray,
@@ -585,8 +616,7 @@ def find_cross_work_content_overlaps(
 
     if len(texts) != len(groups):
         raise ValueError("texts and groups must have equal length")
-    if not 0.0 < containment_threshold <= 1.0:
-        raise ValueError("containment_threshold must be in (0, 1]")
+    threshold = _threshold_fraction(containment_threshold)
     if type(min_shingles) is not int or min_shingles <= 0:
         raise ValueError("min_shingles must be a positive exact integer")
     if type(sample_size) is not int or sample_size <= 0:
@@ -636,8 +666,9 @@ def find_cross_work_content_overlaps(
             # Reject through the prefilter only after observing more misses
             # than a >=threshold overlap could possibly contain.  This bound
             # makes the filter exact rather than heuristic.
-            allowed_misses = int(
-                np.floor((1.0 - containment_threshold) * len(short))
+            allowed_misses = (
+                (threshold.denominator - threshold.numerator) * len(short)
+                // threshold.denominator
             )
             probe = _sample(short, max(sample_size, allowed_misses + 1))
             locations = np.searchsorted(long, probe)
@@ -647,8 +678,11 @@ def find_cross_work_content_overlaps(
             if int((~in_long).sum()) > allowed_misses:
                 continue
             common = int(np.intersect1d(short, long, assume_unique=True).size)
-            ratio = common / len(short)
-            if ratio >= containment_threshold:
+            if (
+                common * threshold.denominator
+                >= len(short) * threshold.numerator
+            ):
+                ratio = common / len(short)
                 overlaps.append(
                     ContentOverlap(
                         left_work=short_work,
@@ -677,6 +711,7 @@ __all__ = [
     "DIGEST_VERSION",
     "LEGACY_RECURSIVE",
     "WORK_BALANCED_MANIFEST",
+    "CONTENT_OVERLAP_POLICY_VERSION",
     "CorpusPolicyProvenance",
     "DataContract",
     "DatasetProvenance",
