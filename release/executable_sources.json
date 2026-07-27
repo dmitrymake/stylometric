@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 288,
-  "release_python_paths_sha256": "6c5db1a4fa318a36073048c3fb0b719b84b6ac7b2ecd24411e7076fd52cbe308",
+  "release_python_file_count": 292,
+  "release_python_paths_sha256": "3e59d2a8071c2568f88aa87d2b85e83aedc452fa9723c7b10e35b45cec9a7641",
   "local_only_python_files": [
     "scripts/_fetch_tmp/clean.py",
     "scripts/_fetch_tmp/extract_letters.py",

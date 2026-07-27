@@ -453,3 +453,9 @@ not change the normative ledger or frozen evidence.
   canonical CLI rejects real, legacy, GKF and unauthorized execution before
   representation/factory/fit; corpus/model/inference owner selections remain
   absent and confirmatory execution is not authorized.
+- 2026-07-27: Added strict pre-execution LOBO-vNext policy, unresolved-candidate
+  inventory and exploratory owner-decision record contracts. Candidate drafts
+  bind the raw/work identity and exact policy inputs before final component and
+  corpus assembly; unresolved candidates remain non-executable. Decision
+  self-hashes provide integrity only, not owner authentication. No corpus,
+  model, inference or confirmatory selection was made.
