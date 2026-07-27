@@ -41,17 +41,24 @@ from ..jsonio import (
 API = "https://ru.wikisource.org/w/api.php"
 PINNED_WORK_SPEC_SCHEMA_VERSION_V1 = "stylo.wikisource.pinned-work-spec.v1"
 PINNED_WORK_SPEC_SCHEMA_VERSION_V2 = "stylo.wikisource.pinned-work-spec.v2"
+PINNED_WORK_SPEC_SCHEMA_VERSION_V3 = "stylo.wikisource.pinned-work-spec.v3"
 PINNED_PART_RECEIPT_SCHEMA_VERSION_V1 = (
     "stylo.wikisource.pinned-part-receipt.v1"
 )
 PINNED_PART_RECEIPT_SCHEMA_VERSION_V2 = (
     "stylo.wikisource.pinned-part-receipt.v2"
 )
+PINNED_PART_RECEIPT_SCHEMA_VERSION_V3 = (
+    "stylo.wikisource.pinned-part-receipt.v3"
+)
 WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1 = (
     "stylo.wikisource.whole-work-receipt.v1"
 )
 WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2 = (
     "stylo.wikisource.whole-work-receipt.v2"
+)
+WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3 = (
+    "stylo.wikisource.whole-work-receipt.v3"
 )
 # These aliases deliberately remain v1.  Existing pinned specs and receipts
 # are read-only compatibility inputs; new discovery code must opt into the
@@ -65,6 +72,9 @@ RESIDUE_POLICY_VERSION = "stylo.wikisource.residue-reject.v2"
 WORD_COUNT_POLICY_VERSION = "stylo.unicode-word-count.v1"
 BODY_BOUNDARY_POLICY_VERSION_V2 = (
     "stylo.wikisource.exact-rendered-line-boundary.v2"
+)
+SOURCE_REPAIR_POLICY_VERSION_V1 = (
+    "stylo.wikisource.reviewed-literal-source-repair.v1"
 )
 BODY_DISPOSITIONS = frozenset(
     {
@@ -425,6 +435,24 @@ _BODY_BOUNDARY_V2_KEYS = frozenset(
         "body_disposition",
     }
 )
+_SOURCE_REPAIR_V1_KEYS = frozenset(
+    {
+        "policy_version",
+        "literal",
+        "replacement",
+        "expected_count",
+        "occurrence_line_sha256",
+        "review_receipt_sha256",
+    }
+)
+_SOURCE_REPAIR_V1_PART_KEYS = frozenset(
+    {
+        "pre_repair_plain_byte_size",
+        "pre_repair_plain_sha256",
+        "pre_repair_word_count",
+        "source_repair",
+    }
+)
 
 
 def _body_disposition(value: object, label: str) -> str:
@@ -543,6 +571,158 @@ class _PinnedBodyBoundaryV2:
         }
 
 
+def _exact_text_fragment(
+    value: object,
+    label: str,
+    *,
+    nonempty: bool,
+) -> str:
+    if type(value) is not str or (nonempty and not value):
+        qualifier = " non-empty" if nonempty else ""
+        raise WikisourceAcquisitionError(
+            f"{label} must be an exact{qualifier} string"
+        )
+    if "\x00" in value or "\r" in value or "\n" in value:
+        raise WikisourceAcquisitionError(
+            f"{label} must be one NUL-free line"
+        )
+    return value
+
+
+@dataclasses.dataclass(frozen=True)
+class ReviewedLiteralSourceRepairV1:
+    """One exact, evidence-bound source-markup repair.
+
+    The repair is deliberately narrower than a cleanup regex.  It replaces one
+    reviewed literal only when its exact count and the SHA-256 of every
+    containing source line match the pinned receipt.
+    """
+
+    literal: str
+    replacement: str
+    expected_count: int
+    occurrence_line_sha256: tuple[str, ...]
+    review_receipt_sha256: str
+
+    @classmethod
+    def from_dict(
+        cls,
+        value: object,
+        *,
+        label: str = "reviewed literal source repair",
+    ) -> "ReviewedLiteralSourceRepairV1":
+        raw = _exact_object(value, _SOURCE_REPAIR_V1_KEYS, label)
+        if raw["policy_version"] != SOURCE_REPAIR_POLICY_VERSION_V1:
+            raise WikisourceAcquisitionError(
+                f"{label}.policy_version must be "
+                f"{SOURCE_REPAIR_POLICY_VERSION_V1!r}"
+            )
+        literal = _exact_text_fragment(
+            raw["literal"],
+            f"{label}.literal",
+            nonempty=True,
+        )
+        replacement = _exact_text_fragment(
+            raw["replacement"],
+            f"{label}.replacement",
+            nonempty=False,
+        )
+        if literal == replacement:
+            raise WikisourceAcquisitionError(
+                f"{label} must change the reviewed literal"
+            )
+        count = _exact_int(
+            raw["expected_count"],
+            f"{label}.expected_count",
+            minimum=1,
+        )
+        line_hashes = tuple(
+            _sha256(item, f"{label}.occurrence_line_sha256[{index}]")
+            for index, item in enumerate(
+                _exact_list(
+                    raw["occurrence_line_sha256"],
+                    f"{label}.occurrence_line_sha256",
+                    nonempty=True,
+                )
+            )
+        )
+        if len(line_hashes) != count:
+            raise WikisourceAcquisitionError(
+                f"{label}.occurrence_line_sha256 length must equal "
+                "expected_count"
+            )
+        return cls(
+            literal,
+            replacement,
+            count,
+            line_hashes,
+            _sha256(
+                raw["review_receipt_sha256"],
+                f"{label}.review_receipt_sha256",
+            ),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "policy_version": SOURCE_REPAIR_POLICY_VERSION_V1,
+            "literal": self.literal,
+            "replacement": self.replacement,
+            "expected_count": self.expected_count,
+            "occurrence_line_sha256": list(self.occurrence_line_sha256),
+            "review_receipt_sha256": self.review_receipt_sha256,
+        }
+
+
+def _literal_occurrence_line_hashes(
+    text: str,
+    literal: str,
+) -> tuple[str, ...]:
+    hashes: list[str] = []
+    for line in text.split("\n"):
+        count = line.count(literal)
+        hashes.extend(
+            _sha256_bytes(line.encode("utf-8")) for _ in range(count)
+        )
+    return tuple(hashes)
+
+
+def apply_reviewed_source_repair_v1(
+    text: str,
+    repair: ReviewedLiteralSourceRepairV1,
+    *,
+    label: str,
+) -> str:
+    """Apply one exact reviewed repair and reject any source drift."""
+
+    if type(text) is not str or not text or text != text.strip() or "\r" in text:
+        raise WikisourceAcquisitionError(
+            f"{label} pre-repair text must be exact stripped LF text"
+        )
+    if type(repair) is not ReviewedLiteralSourceRepairV1:
+        raise WikisourceAcquisitionError(
+            f"{label} requires exactly ReviewedLiteralSourceRepairV1"
+        )
+    observed = _literal_occurrence_line_hashes(text, repair.literal)
+    if (
+        len(observed) != repair.expected_count
+        or observed != repair.occurrence_line_sha256
+    ):
+        raise WikisourceAcquisitionError(
+            f"{label} reviewed literal count or source-line identity drifted"
+        )
+    repaired = text.replace(repair.literal, repair.replacement)
+    if (
+        not repaired
+        or repaired != repaired.strip()
+        or "\r" in repaired
+        or repair.literal in repaired
+    ):
+        raise WikisourceAcquisitionError(
+            f"{label} produced noncanonical repaired text"
+        )
+    return repaired
+
+
 @dataclasses.dataclass(frozen=True)
 class PinnedPartSpec:
     ordinal: int
@@ -558,6 +738,22 @@ class PinnedPartSpec:
     plain_sha256: str
     word_count: int
     body_boundary_v2: _PinnedBodyBoundaryV2 | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    pre_repair_plain_byte_size: int | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    pre_repair_plain_sha256: str | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    pre_repair_word_count: int | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    source_repair_v1: ReviewedLiteralSourceRepairV1 | None = dataclasses.field(
         default=None,
         repr=False,
     )
@@ -593,11 +789,18 @@ class PinnedPartSpec:
                 schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V1
             elif actual_keys == base_keys | set(_BODY_BOUNDARY_V2_KEYS):
                 schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+            elif actual_keys == (
+                base_keys
+                | set(_BODY_BOUNDARY_V2_KEYS)
+                | set(_SOURCE_REPAIR_V1_PART_KEYS)
+            ):
+                schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V3
             else:
                 schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V1
         if schema_version not in {
             PINNED_WORK_SPEC_SCHEMA_VERSION_V1,
             PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
         }:
             raise WikisourceAcquisitionError(
                 "pinned part spec schema is unsupported"
@@ -605,9 +808,16 @@ class PinnedPartSpec:
         raw = _exact_object(
             value,
             (
-                base_keys
-                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V1
-                else base_keys | set(_BODY_BOUNDARY_V2_KEYS)
+                (
+                    base_keys
+                    if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V1
+                    else base_keys | set(_BODY_BOUNDARY_V2_KEYS)
+                )
+                | (
+                    set(_SOURCE_REPAIR_V1_PART_KEYS)
+                    if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+                    else set()
+                )
             ),
             "pinned part spec",
         )
@@ -641,18 +851,75 @@ class PinnedPartSpec:
                 label="pinned part spec",
             )
         )
+        if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3:
+            pre_size = _exact_int(
+                raw["pre_repair_plain_byte_size"],
+                "pinned part spec.pre_repair_plain_byte_size",
+                minimum=1,
+            )
+            pre_sha256 = _sha256(
+                raw["pre_repair_plain_sha256"],
+                "pinned part spec.pre_repair_plain_sha256",
+            )
+            pre_words = _exact_int(
+                raw["pre_repair_word_count"],
+                "pinned part spec.pre_repair_word_count",
+                minimum=1,
+            )
+            raw_repair = raw["source_repair"]
+            repair = (
+                None
+                if raw_repair is None
+                else ReviewedLiteralSourceRepairV1.from_dict(
+                    raw_repair,
+                    label="pinned part spec.source_repair",
+                )
+            )
+            if repair is None:
+                if (
+                    pre_size != plain_size
+                    or pre_sha256 != plain_sha256
+                    or pre_words != word_count
+                ):
+                    raise WikisourceAcquisitionError(
+                        "unrepaired v3 pinned part pre/final identity mismatch"
+                    )
+            elif pre_sha256 == plain_sha256:
+                raise WikisourceAcquisitionError(
+                    "reviewed source repair must change the selected bytes"
+                )
+        else:
+            pre_size = None
+            pre_sha256 = None
+            pre_words = None
+            repair = None
         if boundary is not None:
+            selected_size = (
+                pre_size
+                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+                else plain_size
+            )
+            selected_sha256 = (
+                pre_sha256
+                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+                else plain_sha256
+            )
+            selected_words = (
+                pre_words
+                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+                else word_count
+            )
             if (
-                plain_size > boundary.full_plain_byte_size
-                or word_count > boundary.full_word_count
+                selected_size > boundary.full_plain_byte_size
+                or selected_words > boundary.full_word_count
             ):
                 raise WikisourceAcquisitionError(
                     "pinned part spec selected identity exceeds full identity"
                 )
             if boundary.body_disposition == "whole_rendered_body" and (
-                plain_size != boundary.full_plain_byte_size
-                or plain_sha256 != boundary.full_plain_sha256
-                or word_count != boundary.full_word_count
+                selected_size != boundary.full_plain_byte_size
+                or selected_sha256 != boundary.full_plain_sha256
+                or selected_words != boundary.full_word_count
             ):
                 raise WikisourceAcquisitionError(
                     "pinned part spec whole-body selected/full identity mismatch"
@@ -697,6 +964,10 @@ class PinnedPartSpec:
             plain_sha256,
             word_count,
             boundary,
+            pre_size,
+            pre_sha256,
+            pre_words,
+            repair,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -716,6 +987,28 @@ class PinnedPartSpec:
         }
         if self.body_boundary_v2 is not None:
             payload.update(self.body_boundary_v2.to_part_fields())
+        if self.pre_repair_plain_byte_size is not None:
+            if (
+                self.pre_repair_plain_sha256 is None
+                or self.pre_repair_word_count is None
+            ):
+                raise WikisourceAcquisitionError(
+                    "v3 pinned part has incomplete pre-repair identity"
+                )
+            payload.update(
+                {
+                    "pre_repair_plain_byte_size": (
+                        self.pre_repair_plain_byte_size
+                    ),
+                    "pre_repair_plain_sha256": self.pre_repair_plain_sha256,
+                    "pre_repair_word_count": self.pre_repair_word_count,
+                    "source_repair": (
+                        None
+                        if self.source_repair_v1 is None
+                        else self.source_repair_v1.to_dict()
+                    ),
+                }
+            )
         return payload
 
 
@@ -728,6 +1021,7 @@ class PinnedWorkSpec:
     residue_policy_version: str
     word_count_policy_version: str
     body_boundary_policy_version: str | None
+    source_repair_policy_version: str | None
     parts: tuple[PinnedPartSpec, ...]
     output_relative_path: str
     output_byte_size: int
@@ -746,6 +1040,11 @@ class PinnedWorkSpec:
             versioned_keys: set[str] = set()
         elif schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2:
             versioned_keys = {"body_boundary_policy_version"}
+        elif schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3:
+            versioned_keys = {
+                "body_boundary_policy_version",
+                "source_repair_policy_version",
+            }
         else:
             raise WikisourceAcquisitionError(
                 "pinned work spec is legacy or unsupported"
@@ -779,6 +1078,17 @@ class PinnedWorkSpec:
         if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2:
             policy_values["body_boundary_policy_version"] = (
                 BODY_BOUNDARY_POLICY_VERSION_V2
+            )
+        elif schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3:
+            policy_values.update(
+                {
+                    "body_boundary_policy_version": (
+                        BODY_BOUNDARY_POLICY_VERSION_V2
+                    ),
+                    "source_repair_policy_version": (
+                        SOURCE_REPAIR_POLICY_VERSION_V1
+                    ),
+                }
             )
         for key, expected in policy_values.items():
             if raw[key] != expected:
@@ -823,7 +1133,16 @@ class PinnedWorkSpec:
             WORD_COUNT_POLICY_VERSION,
             (
                 BODY_BOUNDARY_POLICY_VERSION_V2
-                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+                if schema_version
+                in {
+                    PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+                    PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+                }
+                else None
+            ),
+            (
+                SOURCE_REPAIR_POLICY_VERSION_V1
+                if schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3
                 else None
             ),
             parts,
@@ -860,9 +1179,16 @@ class PinnedWorkSpec:
             "word_count": self.word_count,
             "self_hash": self.self_hash,
         }
-        if self.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2:
+        if self.schema_version in {
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+        }:
             payload["body_boundary_policy_version"] = (
                 self.body_boundary_policy_version
+            )
+        if self.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3:
+            payload["source_repair_policy_version"] = (
+                self.source_repair_policy_version
             )
         return payload
 
@@ -1331,6 +1657,22 @@ class PinnedPartReceipt:
         default=None,
         repr=False,
     )
+    pre_repair_plain_byte_size: int | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    pre_repair_plain_sha256: str | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    pre_repair_word_count: int | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
+    source_repair_v1: ReviewedLiteralSourceRepairV1 | None = dataclasses.field(
+        default=None,
+        repr=False,
+    )
 
     @classmethod
     def build(
@@ -1342,36 +1684,87 @@ class PinnedPartReceipt:
         wikitext_payload: bytes,
         rendered_html_payload: bytes,
         full_plain_payload: bytes,
+        pre_repair_plain_payload: bytes,
         plain_payload: bytes,
         output_byte_start: int,
         output_byte_end: int,
     ) -> "PinnedPartReceipt":
         if spec.body_boundary_v2 is None:
             schema_version = PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
-            if full_plain_payload != plain_payload:
+            if (
+                spec.body_boundary_v2 is not None
+                or full_plain_payload != pre_repair_plain_payload
+                or pre_repair_plain_payload != plain_payload
+            ):
                 raise WikisourceAcquisitionError(
                     "v1 part receipt cannot select a plain-text subset"
                 )
             boundary = None
+            repair = None
+            pre_repair_fields: dict[str, object] = {}
         else:
-            schema_version = PINNED_PART_RECEIPT_SCHEMA_VERSION_V2
+            schema_version = (
+                PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
+                if spec.pre_repair_plain_byte_size is not None
+                else PINNED_PART_RECEIPT_SCHEMA_VERSION_V2
+            )
+            if spec.body_boundary_v2 is None:
+                raise WikisourceAcquisitionError(
+                    "versioned part receipt requires a body boundary"
+                )
             try:
                 full_plain = full_plain_payload.decode("utf-8")
-                selected_plain = plain_payload.decode("utf-8")
+                pre_repair_plain = pre_repair_plain_payload.decode("utf-8")
+                final_plain = plain_payload.decode("utf-8")
             except UnicodeDecodeError as exc:
                 raise WikisourceAcquisitionError(
-                    "v2 part receipt plain text is not strict UTF-8"
+                    "versioned part receipt plain text is not strict UTF-8"
                 ) from exc
             observed = _apply_body_boundary_v2(
                 full_plain,
                 spec.body_boundary_v2,
                 label=f"pinned part {spec.ordinal}",
             )
-            if observed.selected_plain != selected_plain:
+            if observed.selected_plain != pre_repair_plain:
                 raise WikisourceAcquisitionError(
-                    "v2 part receipt selected plain text differs from boundary"
+                    "versioned part receipt selected plain text differs "
+                    "from boundary"
                 )
             boundary = observed.boundary()
+            repair = spec.source_repair_v1
+            if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V2:
+                if repair is not None or pre_repair_plain != final_plain:
+                    raise WikisourceAcquisitionError(
+                        "v2 part receipt cannot apply a source repair"
+                    )
+                pre_repair_fields = {}
+            else:
+                repaired = (
+                    pre_repair_plain
+                    if repair is None
+                    else apply_reviewed_source_repair_v1(
+                        pre_repair_plain,
+                        repair,
+                        label=f"pinned part {spec.ordinal}",
+                    )
+                )
+                if repaired != final_plain:
+                    raise WikisourceAcquisitionError(
+                        "v3 part receipt final text differs from reviewed "
+                        "source repair"
+                    )
+                pre_repair_fields = {
+                    "pre_repair_plain_byte_size": len(
+                        pre_repair_plain_payload
+                    ),
+                    "pre_repair_plain_sha256": _sha256_bytes(
+                        pre_repair_plain_payload
+                    ),
+                    "pre_repair_word_count": count_words(pre_repair_plain),
+                    "source_repair": (
+                        None if repair is None else repair.to_dict()
+                    ),
+                }
         payload: dict[str, object] = {
             "schema_version": schema_version,
             "ordinal": spec.ordinal,
@@ -1397,6 +1790,7 @@ class PinnedPartReceipt:
         }
         if boundary is not None:
             payload.update(boundary.to_part_fields())
+        payload.update(pre_repair_fields)
         return cls.from_dict({**payload, "self_hash": canonical_hash(payload)})
 
     @classmethod
@@ -1410,6 +1804,11 @@ class PinnedPartReceipt:
             versioned_keys: set[str] = set()
         elif schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V2:
             versioned_keys = set(_BODY_BOUNDARY_V2_KEYS)
+        elif schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V3:
+            versioned_keys = (
+                set(_BODY_BOUNDARY_V2_KEYS)
+                | set(_SOURCE_REPAIR_V1_PART_KEYS)
+            )
         else:
             raise WikisourceAcquisitionError(
                 "pinned part receipt is legacy or unsupported"
@@ -1482,18 +1881,74 @@ class PinnedPartReceipt:
                 label="pinned part receipt",
             )
         )
+        if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V3:
+            pre_size = _exact_int(
+                raw["pre_repair_plain_byte_size"],
+                "pinned part receipt.pre_repair_plain_byte_size",
+                minimum=1,
+            )
+            pre_sha256 = _sha256(
+                raw["pre_repair_plain_sha256"],
+                "pinned part receipt.pre_repair_plain_sha256",
+            )
+            pre_words = _exact_int(
+                raw["pre_repair_word_count"],
+                "pinned part receipt.pre_repair_word_count",
+                minimum=1,
+            )
+            raw_repair = raw["source_repair"]
+            repair = (
+                None
+                if raw_repair is None
+                else ReviewedLiteralSourceRepairV1.from_dict(
+                    raw_repair,
+                    label="pinned part receipt.source_repair",
+                )
+            )
+            if repair is None and (
+                pre_size != plain_size
+                or pre_sha256 != plain_sha256
+                or pre_words != word_count
+            ):
+                raise WikisourceAcquisitionError(
+                    "unrepaired v3 part receipt pre/final identity mismatch"
+                )
+            if repair is not None and pre_sha256 == plain_sha256:
+                raise WikisourceAcquisitionError(
+                    "v3 part receipt repair did not change selected bytes"
+                )
+        else:
+            pre_size = None
+            pre_sha256 = None
+            pre_words = None
+            repair = None
         if boundary is not None:
+            selected_size = (
+                pre_size
+                if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
+                else plain_size
+            )
+            selected_sha256 = (
+                pre_sha256
+                if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
+                else plain_sha256
+            )
+            selected_words = (
+                pre_words
+                if schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
+                else word_count
+            )
             if (
-                plain_size > boundary.full_plain_byte_size
-                or word_count > boundary.full_word_count
+                selected_size > boundary.full_plain_byte_size
+                or selected_words > boundary.full_word_count
             ):
                 raise WikisourceAcquisitionError(
                     "pinned part receipt selected identity exceeds full identity"
                 )
             if boundary.body_disposition == "whole_rendered_body" and (
-                plain_size != boundary.full_plain_byte_size
-                or plain_sha256 != boundary.full_plain_sha256
-                or word_count != boundary.full_word_count
+                selected_size != boundary.full_plain_byte_size
+                or selected_sha256 != boundary.full_plain_sha256
+                or selected_words != boundary.full_word_count
             ):
                 raise WikisourceAcquisitionError(
                     "pinned part receipt whole-body identity mismatch"
@@ -1560,6 +2015,10 @@ class PinnedPartReceipt:
                 "pinned part receipt.self_hash",
             ),
             boundary,
+            pre_size,
+            pre_sha256,
+            pre_words,
+            repair,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -1585,12 +2044,38 @@ class PinnedPartReceipt:
             "output_byte_end": self.output_byte_end,
             "self_hash": self.self_hash,
         }
-        if self.schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V2:
+        if self.schema_version in {
+            PINNED_PART_RECEIPT_SCHEMA_VERSION_V2,
+            PINNED_PART_RECEIPT_SCHEMA_VERSION_V3,
+        }:
             if self.body_boundary_v2 is None:
                 raise WikisourceAcquisitionError(
                     "v2 pinned part receipt has no body boundary"
                 )
             payload.update(self.body_boundary_v2.to_part_fields())
+        if self.schema_version == PINNED_PART_RECEIPT_SCHEMA_VERSION_V3:
+            if (
+                self.pre_repair_plain_byte_size is None
+                or self.pre_repair_plain_sha256 is None
+                or self.pre_repair_word_count is None
+            ):
+                raise WikisourceAcquisitionError(
+                    "v3 pinned part receipt has incomplete pre-repair identity"
+                )
+            payload.update(
+                {
+                    "pre_repair_plain_byte_size": (
+                        self.pre_repair_plain_byte_size
+                    ),
+                    "pre_repair_plain_sha256": self.pre_repair_plain_sha256,
+                    "pre_repair_word_count": self.pre_repair_word_count,
+                    "source_repair": (
+                        None
+                        if self.source_repair_v1 is None
+                        else self.source_repair_v1.to_dict()
+                    ),
+                }
+            )
         return payload
 
 
@@ -1604,6 +2089,7 @@ class WholeWorkReceipt:
     residue_policy_version: str
     word_count_policy_version: str
     body_boundary_policy_version: str | None
+    source_repair_policy_version: str | None
     parts: tuple[PinnedPartReceipt, ...]
     output_relative_path: str
     output_byte_size: int
@@ -1619,11 +2105,17 @@ class WholeWorkReceipt:
         parts: Sequence[PinnedPartReceipt],
         output_payload: bytes,
     ) -> "WholeWorkReceipt":
-        schema_version = (
-            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
-            if spec.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2
-            else WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
-        )
+        schema_version = {
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V1: (
+                WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
+            ),
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V2: (
+                WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+            ),
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V3: (
+                WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3
+            ),
+        }[spec.schema_version]
         payload: dict[str, object] = {
             "schema_version": schema_version,
             "work_id": spec.work_id,
@@ -1638,9 +2130,16 @@ class WholeWorkReceipt:
             "output_sha256": _sha256_bytes(output_payload),
             "word_count": count_words(output_payload.decode("utf-8")),
         }
-        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+        if schema_version in {
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2,
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3,
+        }:
             payload["body_boundary_policy_version"] = (
                 BODY_BOUNDARY_POLICY_VERSION_V2
+            )
+        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3:
+            payload["source_repair_policy_version"] = (
+                SOURCE_REPAIR_POLICY_VERSION_V1
             )
         return cls.from_dict({**payload, "self_hash": canonical_hash(payload)})
 
@@ -1657,6 +2156,12 @@ class WholeWorkReceipt:
         elif schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
             versioned_keys = {"body_boundary_policy_version"}
             expected_part_schema = PINNED_PART_RECEIPT_SCHEMA_VERSION_V2
+        elif schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3:
+            versioned_keys = {
+                "body_boundary_policy_version",
+                "source_repair_policy_version",
+            }
+            expected_part_schema = PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
         else:
             raise WikisourceAcquisitionError(
                 "whole-work receipt is legacy or unsupported"
@@ -1688,9 +2193,16 @@ class WholeWorkReceipt:
             "residue_policy_version": RESIDUE_POLICY_VERSION,
             "word_count_policy_version": WORD_COUNT_POLICY_VERSION,
         }
-        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+        if schema_version in {
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2,
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3,
+        }:
             policies["body_boundary_policy_version"] = (
                 BODY_BOUNDARY_POLICY_VERSION_V2
+            )
+        if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3:
+            policies["source_repair_policy_version"] = (
+                SOURCE_REPAIR_POLICY_VERSION_V1
             )
         for key, expected in policies.items():
             if raw[key] != expected:
@@ -1752,7 +2264,16 @@ class WholeWorkReceipt:
             WORD_COUNT_POLICY_VERSION,
             (
                 BODY_BOUNDARY_POLICY_VERSION_V2
-                if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+                if schema_version
+                in {
+                    WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2,
+                    WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3,
+                }
+                else None
+            ),
+            (
+                SOURCE_REPAIR_POLICY_VERSION_V1
+                if schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3
                 else None
             ),
             parts,
@@ -1786,9 +2307,16 @@ class WholeWorkReceipt:
             "word_count": self.word_count,
             "self_hash": self.self_hash,
         }
-        if self.schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2:
+        if self.schema_version in {
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2,
+            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3,
+        }:
             payload["body_boundary_policy_version"] = (
                 self.body_boundary_policy_version
+            )
+        if self.schema_version == WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3:
+            payload["source_repair_policy_version"] = (
+                self.source_repair_policy_version
             )
         return payload
 
@@ -1802,11 +2330,17 @@ class WholeWorkReceipt:
                 "receipt validation requires exactly PinnedWorkSpec"
             )
         spec.validate()
-        expected_receipt_schema = (
-            WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
-            if spec.schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V2
-            else WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
-        )
+        expected_receipt_schema = {
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V1: (
+                WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
+            ),
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V2: (
+                WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2
+            ),
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V3: (
+                WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3
+            ),
+        }[spec.schema_version]
         if (
             self.schema_version != expected_receipt_schema
             or self.work_id != spec.work_id
@@ -1845,6 +2379,14 @@ class WholeWorkReceipt:
                 or observed.word_count != expected.word_count
                 or observed.body_boundary_v2
                 != expected.body_boundary_v2
+                or observed.pre_repair_plain_byte_size
+                != expected.pre_repair_plain_byte_size
+                or observed.pre_repair_plain_sha256
+                != expected.pre_repair_plain_sha256
+                or observed.pre_repair_word_count
+                != expected.pre_repair_word_count
+                or observed.source_repair_v1
+                != expected.source_repair_v1
             ):
                 raise WikisourceAcquisitionError(
                     "whole-work part receipt differs from pinned expectations"
@@ -1898,6 +2440,7 @@ class _FetchedPart:
     wikitext_payload: bytes
     rendered_html_payload: bytes
     full_plain: str
+    pre_repair_plain: str
     plain: str
 
 
@@ -2031,13 +2574,32 @@ def _fetch_pinned_part(
         )
     full_plain = extract_rendered_html(rendered_html)
     if part.body_boundary_v2 is None:
-        plain = full_plain
+        pre_repair_plain = full_plain
     else:
-        plain = _apply_body_boundary_v2(
+        pre_repair_plain = _apply_body_boundary_v2(
             full_plain,
             part.body_boundary_v2,
             label=f"pinned part {part.ordinal}",
         ).selected_plain
+    plain = (
+        pre_repair_plain
+        if part.source_repair_v1 is None
+        else apply_reviewed_source_repair_v1(
+            pre_repair_plain,
+            part.source_repair_v1,
+            label=f"pinned part {part.ordinal}",
+        )
+    )
+    if part.pre_repair_plain_byte_size is not None:
+        pre_payload = pre_repair_plain.encode("utf-8")
+        if (
+            len(pre_payload) != part.pre_repair_plain_byte_size
+            or _sha256_bytes(pre_payload) != part.pre_repair_plain_sha256
+            or count_words(pre_repair_plain) != part.pre_repair_word_count
+        ):
+            raise WikisourceAcquisitionError(
+                f"pinned part {part.ordinal} pre-repair plain text drifted"
+            )
     _assert_no_residue(plain, label=f"pinned part {part.ordinal}")
     plain_payload = plain.encode("utf-8")
     if (
@@ -2055,6 +2617,7 @@ def _fetch_pinned_part(
         wikitext_payload,
         rendered_payload,
         full_plain,
+        pre_repair_plain,
         plain,
     )
 
@@ -2212,6 +2775,7 @@ def materialize_pinned_work(
                 wikitext_payload=row.wikitext_payload,
                 rendered_html_payload=row.rendered_html_payload,
                 full_plain_payload=row.full_plain.encode("utf-8"),
+                pre_repair_plain_payload=row.pre_repair_plain.encode("utf-8"),
                 plain_payload=plain_payload,
                 output_byte_start=start,
                 output_byte_end=end,
@@ -2276,22 +2840,28 @@ __all__ = [
     "PINNED_PART_RECEIPT_SCHEMA_VERSION",
     "PINNED_PART_RECEIPT_SCHEMA_VERSION_V1",
     "PINNED_PART_RECEIPT_SCHEMA_VERSION_V2",
+    "PINNED_PART_RECEIPT_SCHEMA_VERSION_V3",
     "PINNED_WORK_SPEC_SCHEMA_VERSION",
     "PINNED_WORK_SPEC_SCHEMA_VERSION_V1",
     "PINNED_WORK_SPEC_SCHEMA_VERSION_V2",
+    "PINNED_WORK_SPEC_SCHEMA_VERSION_V3",
     "PageResolution",
     "PinnedPartReceipt",
     "PinnedPartSpec",
     "PinnedWorkSpec",
     "RESIDUE_POLICY_VERSION",
     "RedirectHop",
+    "ReviewedLiteralSourceRepairV1",
+    "SOURCE_REPAIR_POLICY_VERSION_V1",
     "WHOLE_WORK_RECEIPT_SCHEMA_VERSION",
     "WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1",
     "WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V2",
+    "WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3",
     "WORD_COUNT_POLICY_VERSION",
     "WholeWorkReceipt",
     "WikisourceAcquisitionError",
     "assemble_plain_parts",
+    "apply_reviewed_source_repair_v1",
     "build_body_selection_v2",
     "count_words",
     "extract_rendered_html",

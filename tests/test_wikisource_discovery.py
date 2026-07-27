@@ -66,6 +66,10 @@ def _candidate(
 ) -> dict[str, object]:
     rows = works or [_work("author/work", number=1, parts=2)]
     rows = sorted(rows, key=lambda row: str(row["work_id"]))
+    if schema_version == discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3:
+        for work in rows:
+            for part in work["parts"]:  # type: ignore[index]
+                part.setdefault("source_repair", None)
     part_rows = [
         part
         for work in rows
@@ -539,3 +543,70 @@ def test_campaign_output_is_create_if_absent(tmp_path):
             result.campaign_spec,
             output,
         )
+
+
+def test_v3_candidate_pins_exact_reviewed_source_repair(tmp_path):
+    work = _work("author/repaired", number=3)
+    revision = 301
+    full_plain = ws.extract_rendered_html(_html(revision))
+    literal = "Начало части"
+    occurrence_lines = [
+        hashlib.sha256(line.encode("utf-8")).hexdigest()
+        for line in full_plain.split("\n")
+        for _ in range(line.count(literal))
+    ]
+    work["parts"][0]["source_repair"] = {  # type: ignore[index, union-attr]
+        "policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+        "literal": literal,
+        "replacement": "Начало",
+        "expected_count": 1,
+        "occurrence_line_sha256": occurrence_lines,
+        "review_receipt_sha256": "d" * 64,
+    }
+    raw = _candidate(
+        [work],
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+    )
+    candidate = discovery.DiscoveryCandidate.from_dict(raw)
+    transport = _Transport(work["parts"])  # type: ignore[arg-type]
+
+    result = discovery.pin_discovery_candidate(
+        candidate,
+        cache_dir=tmp_path / "cache",
+        transport=transport,
+    )
+
+    pinned = result.campaign_spec.works[0]
+    assert pinned.schema_version == ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+    assert pinned.source_repair_policy_version == (
+        ws.SOURCE_REPAIR_POLICY_VERSION_V1
+    )
+    assert pinned.parts[0].source_repair_v1 is not None
+    output = result.assembled_outputs["author/repaired"].decode("utf-8")
+    assert "Начало 301." in output
+    assert "Начало части 301." not in output
+
+
+def test_v3_candidate_repair_contract_is_strict_before_cache_or_network(
+    tmp_path,
+):
+    raw = _candidate(
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3
+    )
+    raw["works"][0]["parts"][0]["source_repair"] = {  # type: ignore[index, union-attr]
+        "policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+        "literal": "{{}}",
+        "replacement": "",
+        "expected_count": 1,
+        "occurrence_line_sha256": ["0" * 64],
+        "review_receipt_sha256": "d" * 64,
+        "extra": "forbidden",
+    }
+    _rehash(raw)
+
+    with pytest.raises(
+        discovery.WikisourceDiscoveryError,
+        match="keys must be exact",
+    ):
+        discovery.DiscoveryCandidate.from_dict(raw)
+    assert not (tmp_path / "cache").exists()

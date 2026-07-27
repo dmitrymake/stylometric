@@ -192,6 +192,82 @@ def _spec_raw_v2(
     return {**payload, "self_hash": canonical_hash(payload)}
 
 
+def _spec_raw_v3_with_repair(
+    record: dict[str, object],
+    *,
+    literal: str,
+    replacement: str,
+    review_receipt_sha256: str = "d" * 64,
+    work_id: str = "author/repaired-work",
+) -> dict[str, object]:
+    full = str(record["plain"])
+    selection = ws.build_body_selection_v2(
+        full,
+        start_line=0,
+        end_line_exclusive=len(full.split("\n")),
+        body_disposition="whole_rendered_body",
+    )
+    occurrence_line_hashes = [
+        _sha(line.encode("utf-8"))
+        for line in selection.selected_plain.split("\n")
+        for _ in range(line.count(literal))
+    ]
+    repair_raw = {
+        "policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+        "literal": literal,
+        "replacement": replacement,
+        "expected_count": len(occurrence_line_hashes),
+        "occurrence_line_sha256": occurrence_line_hashes,
+        "review_receipt_sha256": review_receipt_sha256,
+    }
+    repair = ws.ReviewedLiteralSourceRepairV1.from_dict(repair_raw)
+    final = ws.apply_reviewed_source_repair_v1(
+        selection.selected_plain,
+        repair,
+        label="test repair",
+    )
+    identity_keys = {
+        "ordinal",
+        "requested_title",
+        "resolved_title",
+        "redirect_chain",
+        "page_id",
+        "revision_id",
+        "mediawiki_sha1",
+        "wikitext_sha256",
+        "rendered_html_sha256",
+    }
+    final_payload = final.encode("utf-8")
+    part = {
+        **{key: record[key] for key in identity_keys},
+        **selection.to_part_fields(),
+        "pre_repair_plain_byte_size": selection.plain_byte_size,
+        "pre_repair_plain_sha256": selection.plain_sha256,
+        "pre_repair_word_count": selection.word_count,
+        "source_repair": repair_raw,
+        "plain_byte_size": len(final_payload),
+        "plain_sha256": _sha(final_payload),
+        "word_count": ws.count_words(final),
+    }
+    output = ws.assemble_plain_parts([final])
+    payload: dict[str, object] = {
+        "schema_version": ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+        "work_id": work_id,
+        "assembly_policy_version": ws.ASSEMBLY_POLICY_VERSION,
+        "extraction_policy_version": ws.EXTRACTION_POLICY_VERSION,
+        "residue_policy_version": ws.RESIDUE_POLICY_VERSION,
+        "word_count_policy_version": ws.WORD_COUNT_POLICY_VERSION,
+        "body_boundary_policy_version": ws.BODY_BOUNDARY_POLICY_VERSION_V2,
+        "source_repair_policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+        "parts": [part],
+        "output_relative_path": f"raw/{work_id}.txt",
+        "output_byte_size": len(output),
+        "output_sha256": _sha(output),
+        "word_count": ws.count_words(output.decode("utf-8")),
+    }
+    return {**payload, "self_hash": canonical_hash(payload)}
+
+
 class _Transport:
     def __init__(self, records: list[dict[str, object]]):
         self.records = {
@@ -929,3 +1005,118 @@ def test_v1_spec_and_receipt_remain_explicitly_usable(tmp_path):
     )
     assert result.receipt.parts[0].body_boundary_v2 is None
     assert "full_plain_sha256" not in result.receipt.parts[0].to_dict()
+
+
+def _record_with_reviewed_empty_template() -> dict[str, object]:
+    record = _record(0, "Исправление")
+    rendered_html = (
+        '<div class="mw-parser-output">'
+        "<p>Корабль Орё{{}}л продолжал движение.</p>"
+        "<p>Последняя авторская строка завершает произведение.</p>"
+        "</div>"
+    )
+    plain = ws.extract_rendered_html(rendered_html)
+    assert plain.count("{{}}") == 1
+    record.update(
+        {
+            "rendered_html": rendered_html,
+            "rendered_html_sha256": _sha(rendered_html.encode("utf-8")),
+            "plain": plain,
+            "plain_byte_size": len(plain.encode("utf-8")),
+            "plain_sha256": _sha(plain.encode("utf-8")),
+            "word_count": ws.count_words(plain),
+        }
+    )
+    return record
+
+
+def test_v3_reviewed_literal_repair_is_exact_receipted_and_replayable(tmp_path):
+    record = _record_with_reviewed_empty_template()
+    raw = _spec_raw_v3_with_repair(
+        record,
+        literal="{{}}",
+        replacement="",
+    )
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+
+    result = ws.materialize_pinned_work(
+        spec,
+        output_parent=tmp_path,
+        transport=_Transport([record]),
+    )
+
+    output = result.output_path.read_text(encoding="utf-8")
+    assert "Орёл" in output
+    assert "{{}}" not in output
+    assert spec.source_repair_policy_version == (
+        ws.SOURCE_REPAIR_POLICY_VERSION_V1
+    )
+    assert spec.parts[0].pre_repair_plain_sha256 == record["plain_sha256"]
+    assert spec.parts[0].plain_sha256 != record["plain_sha256"]
+    assert (
+        result.receipt.schema_version
+        == ws.WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V3
+    )
+    part_receipt = result.receipt.parts[0]
+    assert (
+        part_receipt.schema_version
+        == ws.PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
+    )
+    assert part_receipt.source_repair_v1 == spec.parts[0].source_repair_v1
+
+    resumed = ws.materialize_pinned_work(
+        spec,
+        output_parent=tmp_path,
+        transport=lambda _: pytest.fail("resume reached the network"),
+    )
+    assert resumed.resumed is True
+    assert resumed.receipt == result.receipt
+
+
+@pytest.mark.parametrize(
+    ("mutator", "message"),
+    [
+        (
+            lambda repair: repair.__setitem__("extra", None),
+            "keys must be exact",
+        ),
+        (
+            lambda repair: repair.__setitem__("expected_count", True),
+            "exact integer",
+        ),
+        (
+            lambda repair: repair.__setitem__(
+                "occurrence_line_sha256", ["0" * 64]
+            ),
+            "source-line identity drifted",
+        ),
+    ],
+)
+def test_v3_reviewed_literal_repair_rejects_noncanonical_or_drifted_contract(
+    tmp_path,
+    mutator,
+    message,
+):
+    record = _record_with_reviewed_empty_template()
+    raw = _spec_raw_v3_with_repair(
+        record,
+        literal="{{}}",
+        replacement="",
+    )
+    mutator(raw["parts"][0]["source_repair"])
+    payload = {key: value for key, value in raw.items() if key != "self_hash"}
+    raw["self_hash"] = canonical_hash(payload)
+
+    if message in {"keys must be exact", "exact integer"}:
+        with pytest.raises(ws.WikisourceAcquisitionError, match=message):
+            ws.PinnedWorkSpec.from_dict(raw)
+        return
+
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+    with pytest.raises(ws.WikisourceAcquisitionError, match=message):
+        ws.materialize_pinned_work(
+            spec,
+            output_parent=tmp_path,
+            transport=_Transport([record]),
+        )
+    assert not (tmp_path / spec.self_hash).exists()
