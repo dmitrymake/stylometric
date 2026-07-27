@@ -9,10 +9,11 @@ import pytest
 
 from stylo.config import load_config
 from stylo.domain.corpus_identity import ContentOverlap
-from stylo.domain.lobo_vnext import VNextContractError
+from stylo.domain.lobo_vnext import VNextContractError, canonical_sha256
 from stylo.domain.lobo_vnext_packet import CanonicalRowEntry
 from stylo.eval import lobo_vnext_prepare as prep
 from stylo.jsonio import dump_strict
+from stylo.nlp import ResolvedNLPIdentity
 
 
 def _sha(payload: bytes) -> str:
@@ -94,6 +95,57 @@ def _pin_manifest(monkeypatch, manifest: Path) -> None:
     monkeypatch.setattr(
         prep, "R1_SOURCE_MANIFEST_SHA256", _sha(manifest.read_bytes())
     )
+
+
+def _pin_verified_r1_ner(
+    monkeypatch,
+    *,
+    package_record_sha256: str = "a" * 64,
+) -> ResolvedNLPIdentity:
+    material = {
+        "requested_model": "ru_core_news_lg",
+        "resolved_model": "ru_core_news_lg",
+        "fallback_used": False,
+        "package_version": "3.8.0",
+        "package_record_sha256": package_record_sha256,
+        "spacy_version": prep.spacy.__version__,
+        "disabled_pipes": [
+            "attribute_ruler",
+            "lemmatizer",
+            "morphologizer",
+            "parser",
+            "sentencizer",
+            "tagger",
+            "textcat",
+        ],
+        "active_pipes": ["tok2vec", "ner"],
+        "max_length": 5_000_000,
+    }
+    identity = ResolvedNLPIdentity(
+        requested_model=material["requested_model"],
+        resolved_model=material["resolved_model"],
+        fallback_used=material["fallback_used"],
+        package_version=material["package_version"],
+        package_record_sha256=material["package_record_sha256"],
+        spacy_version=material["spacy_version"],
+        disabled_pipes=tuple(material["disabled_pipes"]),
+        active_pipes=tuple(material["active_pipes"]),
+        max_length=material["max_length"],
+        identity_sha256=canonical_sha256(material),
+    )
+    pipeline = object()
+
+    def load(model: str, fallback: str):
+        assert (model, fallback) == ("ru_core_news_lg", "ru_core_news_md")
+        return pipeline
+
+    def resolve(loaded) -> ResolvedNLPIdentity:
+        assert loaded is pipeline
+        return identity
+
+    monkeypatch.setattr(prep, "load_ner", load)
+    monkeypatch.setattr(prep, "resolved_nlp_identity", resolve)
+    return identity
 
 
 def _catalog(tmp_path: Path, monkeypatch, **kwargs):
@@ -237,7 +289,8 @@ def test_bom_is_hash_bound_source_evidence_but_rejected_by_r1_text_policy(
         prep._read_source_texts(source, works)
 
 
-def test_r1_content_policy_freezes_exact_owner_selected_values():
+def test_r1_content_policy_freezes_exact_owner_selected_values(monkeypatch):
+    identity = _pin_verified_r1_ner(monkeypatch)
     policy, documents = prep.build_r1_content_policy(
         load_config("configs/default.yaml")
     )
@@ -275,6 +328,32 @@ def test_r1_content_policy_freezes_exact_owner_selected_values():
         is True
     )
     assert documents["canonicalizer"]["ocr_correction"] is False
+    assert (
+        documents["canonicalizer"]["resolved_person_model_identity"]
+        == {
+            **identity.to_dict(),
+            "disabled_pipes": list(identity.disabled_pipes),
+            "active_pipes": list(identity.active_pipes),
+        }
+    )
+
+    _pin_verified_r1_ner(monkeypatch, package_record_sha256="b" * 64)
+    changed_policy, _ = prep.build_r1_content_policy(
+        load_config("configs/default.yaml")
+    )
+    assert changed_policy.self_hash != policy.self_hash
+
+
+def test_r1_content_policy_fails_closed_without_verified_ner(monkeypatch):
+    def unavailable(*_args, **_kwargs):
+        raise OSError("no verified R1 NER package")
+
+    monkeypatch.setattr(prep, "load_ner", unavailable)
+    with pytest.raises(
+        prep.R1PacketPreparationError,
+        match="cannot resolve and verify the R1 NER pipeline",
+    ):
+        prep.build_r1_content_policy(load_config("configs/default.yaml"))
 
 
 def test_candidate_drafts_bind_three_exact_word5_evidence_and_manual_relations(
@@ -354,6 +433,7 @@ def test_packet_is_path_independent_and_create_if_absent(
 ):
     source, manifest = _source_fixture(tmp_path / "inputs")
     _pin_manifest(monkeypatch, manifest)
+    _pin_verified_r1_ner(monkeypatch)
     cfg = load_config("configs/default.yaml")
     monkeypatch.setattr(prep, "_canonical_rows", _fake_canonical_rows)
     monkeypatch.setattr(

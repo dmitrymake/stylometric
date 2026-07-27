@@ -21,6 +21,7 @@ from stylo.eval import lobo_vnext_control as control
 from stylo.eval import lobo_vnext_prepare as prep
 from stylo.eval import lobo_vnext_receipts as receipts
 from stylo.jsonio import dump_strict, load_strict
+from stylo.nlp import ResolvedNLPIdentity
 
 
 def _sha(payload: bytes | str) -> str:
@@ -129,6 +130,52 @@ def _fake_canonical_rows(
     return tuple(rows)
 
 
+def _pin_verified_r1_ner(monkeypatch) -> None:
+    material = {
+        "requested_model": "ru_core_news_lg",
+        "resolved_model": "ru_core_news_lg",
+        "fallback_used": False,
+        "package_version": "3.8.0",
+        "package_record_sha256": "a" * 64,
+        "spacy_version": prep.spacy.__version__,
+        "disabled_pipes": [
+            "attribute_ruler",
+            "lemmatizer",
+            "morphologizer",
+            "parser",
+            "sentencizer",
+            "tagger",
+            "textcat",
+        ],
+        "active_pipes": ["tok2vec", "ner"],
+        "max_length": 5_000_000,
+    }
+    identity = ResolvedNLPIdentity(
+        requested_model=material["requested_model"],
+        resolved_model=material["resolved_model"],
+        fallback_used=material["fallback_used"],
+        package_version=material["package_version"],
+        package_record_sha256=material["package_record_sha256"],
+        spacy_version=material["spacy_version"],
+        disabled_pipes=tuple(material["disabled_pipes"]),
+        active_pipes=tuple(material["active_pipes"]),
+        max_length=material["max_length"],
+        identity_sha256=canonical_sha256(material),
+    )
+    pipeline = object()
+
+    def load(model: str, fallback: str):
+        assert (model, fallback) == ("ru_core_news_lg", "ru_core_news_md")
+        return pipeline
+
+    def resolve(loaded) -> ResolvedNLPIdentity:
+        assert loaded is pipeline
+        return identity
+
+    monkeypatch.setattr(prep, "load_ner", load)
+    monkeypatch.setattr(prep, "resolved_nlp_identity", resolve)
+
+
 @pytest.fixture(scope="module")
 def prepared_packet(tmp_path_factory):
     root = tmp_path_factory.mktemp("control-plane")
@@ -153,6 +200,7 @@ def prepared_packet(tmp_path_factory):
         "R1_SOURCE_MANIFEST_SHA256",
         _sha(source_manifest.read_bytes()),
     )
+    _pin_verified_r1_ner(patch)
     patch.setattr(prep, "_canonical_rows", _fake_canonical_rows)
     patch.setattr(
         prep,
@@ -379,6 +427,7 @@ def test_loader_rejects_rehashed_selection_or_evidence_mismatch(
 def test_execution_assembly_binds_packet_selection_and_exact_15_receipts(
     prepared_packet, monkeypatch
 ):
+    _pin_verified_r1_ner(monkeypatch)
     _patch_live_observations(monkeypatch)
 
     execution, observations = control.assemble_real_execution_spec(
