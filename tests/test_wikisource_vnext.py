@@ -568,6 +568,7 @@ def test_redirect_revision_is_rejected_instead_of_becoming_corpus_text(tmp_path)
         "#REDIRECT [[Other]]",
         "{{Шаблон}}",
         "[[Ссылка]]",
+        "'''Жирный текст'''",
         "<pages index='book.pdf' />",
         "<ref>note</ref>",
         "literal nbsp residue",

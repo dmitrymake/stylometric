@@ -61,7 +61,7 @@ PINNED_PART_RECEIPT_SCHEMA_VERSION = PINNED_PART_RECEIPT_SCHEMA_VERSION_V1
 WHOLE_WORK_RECEIPT_SCHEMA_VERSION = WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V1
 ASSEMBLY_POLICY_VERSION = "stylo.wikisource.ordered-parts-lf.v1"
 EXTRACTION_POLICY_VERSION = "stylo.wikisource.rendered-html-text.v1"
-RESIDUE_POLICY_VERSION = "stylo.wikisource.residue-reject.v1"
+RESIDUE_POLICY_VERSION = "stylo.wikisource.residue-reject.v2"
 WORD_COUNT_POLICY_VERSION = "stylo.unicode-word-count.v1"
 BODY_BOUNDARY_POLICY_VERSION_V2 = (
     "stylo.wikisource.exact-rendered-line-boundary.v2"
@@ -1217,6 +1217,7 @@ _RESIDUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("template_close", re.compile(r"\}\}")),
     ("wikilink_open", re.compile(r"\[\[")),
     ("wikilink_close", re.compile(r"\]\]")),
+    ("wiki_bold_italic", re.compile(r"'{3,5}")),
     ("pages_tag", re.compile(r"(?iu)<\s*/?\s*pages\b")),
     ("ref_tag", re.compile(r"(?iu)<\s*/?\s*ref\b")),
     ("html_tag", re.compile(r"(?u)<\s*/?\s*[a-z][^>]*>")),
