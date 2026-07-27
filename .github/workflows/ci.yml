@@ -58,7 +58,12 @@ jobs:
           tests/test_paired_audit_references.py
           tests/test_paired_audit_runner.py
           tests/test_stack_class_coverage.py
+          tests/test_stack_passport_compatibility.py
           tests/test_stylo_lobo_validation.py
+          tests/test_lobo_vnext_findings.py
+          tests/test_lobo_vnext_manifests.py
+          tests/test_lobo_vnext.py
+          tests/test_lobo_vnext_cli.py
           -q -p no:cacheprovider
 
   package-wheel:
@@ -96,7 +101,9 @@ jobs:
           for name in ("default.yaml", "authors.json", "classics.yaml"):
               assert importlib.resources.files("stylo.resources").joinpath(name).is_file()
           for module in (
+              "stylo.domain.lobo_vnext",
               "stylo.eval.certificates",
+              "stylo.eval.lobo_vnext",
               "stylo.eval.stylo_lobo_validation",
               "stylo.eval.work_balanced_ablation_screen",
               "stylo.models.equal_channel_ensemble",

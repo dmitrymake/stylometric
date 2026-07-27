@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 280,
-  "release_python_paths_sha256": "1491901246e81783254dfbe2812c4d4049ad5816559889262ddaae0082a6f8f6",
+  "release_python_file_count": 288,
+  "release_python_paths_sha256": "6c5db1a4fa318a36073048c3fb0b719b84b6ac7b2ecd24411e7076fd52cbe308",
   "local_only_python_files": [
     "scripts/_fetch_tmp/clean.py",
     "scripts/_fetch_tmp/extract_letters.py",
@@ -84,7 +84,7 @@
   ],
   "sha256_bindings": {
     ".gitattributes": "011974aa454a9e015165d4dd00b077336c45df55971db59b40153722647b5c3a",
-    ".github/workflows/ci.yml": "6faa064ecf028138b7e43489daca7c5fe5432950373e7992e93f1451b7d95c16",
+    ".github/workflows/ci.yml": "a02c4dbeadaf1eeac17a5cf1a2e1c589a206291b7168b92d908f585ec8817c85",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "README.md": "675595e53c23b2c4ad02ac106dfba53db224054bebf836a1b3a9ae15d1e64788",
     "docs/ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
@@ -98,9 +98,9 @@
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json": "f5b3eda337dce7b7bf2c691b92c72c8445331b53c3716cf53349061764423bc5",
     "research/evidence/withdrawn_certificates_v1/manifest.json": "d1b7a2528783a515f73f4de8610ab46dcbbf7156998a95a52168984a461b72f0",
     "research/governance/requirements.json": "031ba20b15b00330c6ccf4a1ff3e0bebdb85c256c185b39397ef34e2dd1bd659",
-    "research/governance/runner_catalog.json": "15674ef3660dd74c979102bb28af1fe3629b948279de771628fb333982b632f9",
+    "research/governance/runner_catalog.json": "66faf20215978b437babf3cda3a53b90fb053f0de49fa300513513ed39a0c1af",
     "research/governance/status_ledger.json": "363bdeb3905742f8c30741811772de5eb616d5881e7da2a109f02590ca9579b3",
-    "research/governance/topology.json": "529496d32918f4d29cb0933169192b6b09b5eaad9171be0dc78b7e70e5a05200",
+    "research/governance/topology.json": "1c921805dcbe2e6bf82d8f4d4b3b56e96e41f0ba6aa49b770bb9bf4fd1779afe",
     "research/reviews/stylometry_owner_decision_memo.md": "241c393ac42e4d8201d2ee328dd0d814c92a46406f0486f9ab8bbafec55ce8a5",
     "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",
     "scripts/check_release_hygiene.py": "69534811b444999cedfbebb840f66fc9b72ad0609dc5cf3c4ccbea2d2d2284e5",

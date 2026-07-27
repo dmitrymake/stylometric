@@ -437,3 +437,19 @@ not change the normative ledger or frozen evidence.
   public support paths and digests to `ResearchUpdate` and the generated
   science-pop surface; the 280-file Python path-set identity and all frozen
   scientific evidence remain unchanged.
+- 2026-07-27: Replaced the inclusive cross-work overlap boundary with exact
+  rational/integer v2 semantics, separated generic LOBO probability and fixed
+  metric label orders, and made book-accuracy uncertainty author-clustered.
+  Macro-F1 remains a point-only secondary metric.
+- 2026-07-27: Versioned the current true-LOBO checkpoint/final writers onto
+  strict exact-key schemas with full nested and derived-value validation.
+  Historical schemas are read-only projections. Added a version-aware stack
+  passport projection while preserving the withdrawn/ineligible safety wrapper
+  and unchanged numerical golden payload.
+- 2026-07-27: Added the synthetic-only LOBO-vNext implementation harness with
+  literal-byte corpus identity, recomputed content candidates, model-independent
+  outer FoldSpecs, separate component-aware inner-CV plans, strict immutable
+  resume artifacts and deterministic serial/parallel/resume behavior. The
+  canonical CLI rejects real, legacy, GKF and unauthorized execution before
+  representation/factory/fit; corpus/model/inference owner selections remain
+  absent and confirmatory execution is not authorized.

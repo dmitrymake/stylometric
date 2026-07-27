@@ -39,6 +39,19 @@
       ]
     },
     {
+      "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
+      "status": "implemented_dry_run_only",
+      "claim_scope": "Synthetic implementation-harness execution only. Corpus, primary/baseline ModelSpec and inference owner selections are absent; confirmatory execution is not authorized.",
+      "output_contract": "Immutable strict-schema artifacts below the ignored docs/exploratory/lobo_vnext namespace; every result is marked exploratory and cannot update public evidence, headlines or confirmatory gates.",
+      "identity_bindings": ["generation_id", "raw_inventory", "canonical_model_row_digest", "content_component_manifest", "outer_fold_manifest", "inner_cv_plan", "probability_class_order", "metric_label_order", "model_spec", "inference_spec", "execution_spec", "representation_receipt", "executable_sources", "dependencies", "runtime", "thread_contract"],
+      "required_nodeids": [
+        "tests/test_lobo_vnext.py::test_serial_parallel_resume_are_byte_identical_and_keep_fixed_p_m",
+        "tests/test_lobo_vnext.py::test_raw_byte_mutation_changes_run_and_checkpoint_namespace",
+        "tests/test_lobo_vnext.py::test_historical_model_gate_blocks_before_representation_factory_and_output",
+        "tests/test_lobo_vnext_manifests.py::test_purged_inner_cv_fails_closed_or_uses_whole_components"
+      ]
+    },
+    {
       "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
       "status": "bounded_exploratory_screen",
       "claim_scope": "Frozen-panel W/F/R mechanism screen; it cannot select a confirmatory dataset or headline.",
