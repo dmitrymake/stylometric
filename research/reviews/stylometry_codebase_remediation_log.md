@@ -4,8 +4,10 @@ Started: 2026-07-26 (Europe/Moscow)
 
 Source review:
 
-- `research/reviews/stylometry_codebase_comprehensive_review.md`
-- `research/reviews/stylometry_codebase_inventory.json`
+- The point-in-time review and its inventory are outside the current tree; the
+  remediation they describe is complete. Their last version is preserved in Git
+  history at baseline `d14bd1f1c8e4`.
+- Normative current status: `research/governance/status_ledger.json`.
 
 Working rules:
 

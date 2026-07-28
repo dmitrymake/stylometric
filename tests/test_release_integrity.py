@@ -394,7 +394,6 @@ class TestReleaseHygiene:
         assert {
             "/docs/cases/work_balanced_audit/passports/ export-ignore",
             "/log/experiments/requote_recompute.sh export-ignore",
-            "/research/reviews/stylometry_codebase_inventory.json export-ignore",
         }.issubset(attributes)
 
     def test_archive_hygiene_disables_bytecode_before_local_import(self):
