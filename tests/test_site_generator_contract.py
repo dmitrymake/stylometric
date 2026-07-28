@@ -127,12 +127,14 @@ def test_first_experiment_context_is_honest_and_machine_status_fails_closed():
     assert headline["corpusEligibilityStatus"] == registry["status"]
     assert headline["claimStatus"] == "exploratory_internal"
 
-    notice = RESEARCH_UPDATE.read_text(encoding="utf-8")
+    # разметка переносит строки внутри предложений — сверяем по нормализованным пробелам
+    notice = " ".join(RESEARCH_UPDATE.read_text(encoding="utf-8").split())
     for marker in (
-        "В первом эксперименте",
-        "окончательную точность метода",
-        "пересобрать корпус",
-        "не позволяет выдавать их за финальную оценку",
+        "относятся к первому эксперименту, а не к итоговой оценке",
+        "Такое пересечение может завысить оценку модели",
+        "обучение и проверку разделили по содержанию",
+        "новая итоговая оценка ещё не опубликована",
+        "тексты с тем же содержанием",
     ):
         assert marker in notice
     for internal_marker in (
@@ -231,7 +233,13 @@ def test_static_site_metadata_is_reader_facing_and_uses_production_domain():
     assert "leakage-free LOBO" not in index
     assert "russkykod.com" not in index
     assert index.count("https://stylometry.russkiykod.com/") == 2
-    assert "Стилометрия русской прозы — как язык выдаёт автора" in index
+    assert (
+        index.count(
+            "Стилометрия русской прозы — как сравнивают авторскую манеру"
+        )
+        == 3
+    )
+    assert "как язык выдаёт автора" not in index
     assert "Исторический LOBO headline отозван" not in index
     assert "cross-work content leakage" not in index
     assert 'content="summary"' in index
