@@ -1,64 +1,55 @@
-import { Card, Stat, Badge } from "@dmitrymake/rk-ui";
+import { Card, Badge } from "@dmitrymake/rk-ui";
 import MeterBar from "../components/MeterBar.jsx";
-import { fmtScore, fmtP, fmtRange } from "../format.js";
+import { fmtScore, fmtP } from "../format.js";
 import { LIMITS } from "../segdata.js";
 
-// Честный протокол: метрический урок (единица голоса) + карта режимов
-// (где метод делит руки, где честно отказывает). Все числа — из LIMITS, формат — format.js.
+// Карта режимов контрольных панелей. Гейт выполнимости зарегистрирован заранее и требует двух условий
+// сразу: средняя по классам полнота по работам >= T и перестановочная проверка на уровне работ p <= P_GATE.
+// Числа — из LIMITS, формат — format.js.
 
-const T = LIMITS.threshold; // порог надёжной атрибуции (0.80)
+const T = LIMITS.threshold; // рабочий порог этой карты (0.80) — первое условие гейта
+const P_GATE = 0.05; // второе условие гейта: порог проверки, а не измеренная величина
+const sc = (x) => fmtScore(x, 3); // измеренные доли — три знака, порог печатается как есть
+const raw = (x) => String(x); // зафиксированные калибровочные значения — без округления
 
-const SEP_ACCENT = { sovremennik: "var(--success)", petersburg: "var(--icon-blue)" };
-const LIM_ACCENT = { nekrasov: "var(--cinnabar)", pair: "var(--gold)", kolokol: "var(--gold)", chekhonte: "var(--cosmos)" };
-const LIMIT_REASON = {
-  nekrasov: "тема заслоняет почерк",
-  pair: "слишком похожие руки",
-  kolokol: "слишком похожие руки",
-  chekhonte: "слабая группа сравнения",
+const ACCENT = {
+  sovremennik: "var(--success)", petersburg: "var(--icon-blue)", nekrasov: "var(--cinnabar)",
+  pair: "var(--gold)", kolokol: "var(--gold)", chekhonte: "var(--cosmos)",
 };
 
-// русское склонение существительного после числа: форма следует за данными, а не хардкодится под падеж
-const plural = (n, one, few, many) => {
-  const t = Math.abs(n) % 100, o = t % 10;
-  if (t >= 11 && t <= 14) return many;
-  if (o === 1) return one;
-  if (o >= 2 && o <= 4) return few;
-  return many;
+// какое условие гейта нарушено — короткая подпись бейджа, без внутренних маркеров прогона
+const GATE_MISS = {
+  nekrasov: "вклад автора и темы не разделён",
+  pair: "разделение не подтверждено",
+  kolokol: "разделение не подтверждено",
+  chekhonte: "полнота ниже рабочего порога",
 };
 
-// оговорки карточек приходят из данных и читаются простым языком: научные обороты
-// заменяются бытовыми словами, а число объёма остаётся из данных — переформатируется
-// только запись «Nk слов» → «N тыс. слов» (сам N берётся из строки, не хардкодится).
-const plainCaveat = (text = "") =>
-  text
-    .replace(
-      "позитив-контроль выполнимости и тай-брейк к филологии по одноавторским передовым",
-      "проверка, что руки в принципе делятся, и дополнительный довод к текстологии по передовым одного автора",
-    )
-    .replace(
-      "не разрешение атрибуции соавторских текстов",
-      "а не установление авторства текстов, написанных вдвоём",
-    )
-    .replace("часть прогона — калибровка", "часть расчёта — калибровочная")
-    .replace(/(\d+)\s*k(?=\s*слов)/gi, "$1 тыс.")
-    .replace("спорного Н.Н.", "спорного фельетона под подписью «Н.Н.»");
+// читательские примечания карточек: по id, компактно, без пересказа внутренних оговорок
+const NOTE = {
+  sovremennik: "Гейт пройден для конкретных критиков этой панели; перенос на «школу как класс» не показан. Боткин представлен одной работой, часть разметки основана на гонорарных ведомостях.",
+  petersburg: "Панель проходит гейт, но спорный фельетон под подписью «Н.Н.» остаётся без атрибуции: его куски делятся 1:1 между публицистикой Достоевского и Панаевым.",
+  nekrasov: "Группы признаков дают разные результаты, но этот дизайн не разделяет вклад автора и темы. Значение по символьным триграммам не читается как доказательство.",
+  pair: "Панель не подтверждает разделение пары учитель ↔ ученик внутри одной школы.",
+  kolokol: "Панель не подтверждает разделение. Невыполненное условие по перестановке не означает доказанного равенства авторов.",
+  chekhonte: "Архивный заказ Курепина относится к заметке 24 мая, а не ко всей подборке из пяти текстов: сильный документальный кандидат в пользу Чехова, но не доказательство авторства всей подборки.",
+};
 
-// что подтверждает разделение в каждом «работает»-кейсе
-const SEP_NOTE = {
-  sovremennik: "Критики двух школ одного журнала и одной эпохи делятся идеально: каждый отложенный на проверку текст уходит к своей школе.",
-  petersburg: "Панель остаётся вычислимой после равного веса работ, но спорный Н.Н. внутри неё остаётся без ответа: один кусок ближе к Достоевскому, другой — к Панаеву.",
+// оба условия гейта читаются вместе: маленькое p само по себе гейт не проходит
+const gateNote = (macro, p) => {
+  if (macro == null || p == null) return null;
+  const okMacro = macro >= T, okP = p <= P_GATE;
+  if (okMacro && okP) return "оба условия гейта выполнены";
+  if (okP) return "условие по перестановке выполнено, но средняя полнота ниже рабочего порога; гейт не пройден";
+  if (okMacro) return "средняя полнота не ниже рабочего порога, но условие по перестановке не выполнено; гейт не пройден";
+  return "ни одно из двух условий гейта не выполнено";
 };
-// почему именно метод отказывает в каждом «предел»-кейсе
-const LIM_NOTE = {
-  nekrasov: "По служебным словам, не зависящим от темы, руки соавторов неразличимы; деление появляется только на содержании — значит несёт тему, а не почерк.",
-  pair: "Пара учитель↔ученик внутри одной школы остаётся ниже порога: 0.70 при p=0.2222. Руки сошлись слишком близко для этой панели.",
-  kolokol: "После того как каждой книге дали равный вес, прежнее разделение исчезло: 0.6857 при p=0.0755. Герцен и Огарёв для этого корпуса формально неразличимы.",
-  chekhonte: "Панель не узнаёт известные руки достаточно надёжно. Номер «Будильника» теперь оцифрован, а точный заказ Курепина сильнее поддерживает Чехова, чем лидер слабой компьютерной проверки — переатрибуции нет.",
-};
+const gatePass = (macro, p) => macro != null && p != null && macro >= T && p <= P_GATE;
+const permColor = (p) => (p <= P_GATE ? "var(--success)" : "var(--cinnabar)"); // цвет — только про условие p
+const pLabel = (p) => `p ${fmtP(p).startsWith("<") ? "" : "= "}${fmtP(p)}`; // без «= < 0.001»
 
 // одна строка метрики внутри карточки
-function Row({ label, value, sub, accent, good, bad }) {
-  const color = bad ? "var(--cinnabar)" : good ? "var(--success)" : accent || "var(--text)";
+function Row({ label, value, sub, color = "var(--text)" }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "baseline", borderTop: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingTop: 8 }}>
       <div style={{ minWidth: 0 }}>
@@ -70,250 +61,184 @@ function Row({ label, value, sub, accent, good, bad }) {
   );
 }
 
-// заголовочная доля с порогом 0.80: строго выше — зелёная «выше», ровно на пороге —
-// нейтральная «у порога», ниже — красная «ниже». Равенство порогу не выдаётся за успех.
+// первое условие гейта: выше порога — зелёная, ровно на пороге — нейтральная, ниже — красная
 function MacroHead({ value, accent }) {
   const at = Math.abs(value - T) < 1e-9;
-  const above = value > T && !at;
+  const above = value > T;
   const color = above ? "var(--success)" : at ? "var(--text)" : "var(--cinnabar)";
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>доля верных опознаний (один текст — один голос)</span>
-        <span className="mono" style={{ fontSize: 15, fontWeight: 700, color }}>
-          {at ? `ровно ${fmtScore(value)} · у порога` : `${fmtScore(value)} · ${above ? "выше" : "ниже"} ${fmtScore(T)}`}
-        </span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
+        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>средняя по классам доля правильно опознанных работ</span>
+        <span className="mono" style={{ fontSize: 15, fontWeight: 700, color }}>{sc(value)} · {at ? "ровно рабочий порог" : above ? "выше рабочего порога" : "ниже рабочего порога"}</span>
       </div>
       <div style={{ position: "relative" }}>
         <MeterBar value={value} max={1} accent={accent} />
-        <span title={`порог ${fmtScore(T)}`} style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
+        <span title={`рабочий порог ${fmtScore(T)}`} style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
       </div>
-      <div className="mono" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-        0 — наугад · {fmtScore(T)} — порог надёжной атрибуции · 1 — всегда верно
-      </div>
+      <div className="mono" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>0 — ни одной правильно опознанной работы · {fmtScore(T)} — рабочий порог этой карты · 1 — все работы опознаны правильно</div>
     </div>
   );
 }
 
 export default function Limits() {
   const cal = LIMITS.calibration;
-  const nCases = LIMITS.separates.length + LIMITS.limitsCases.length;
-  const nModes = LIMITS.limitsCases.length;
+  const sovr = LIMITS.metric.find((m) => m.id === "sovremennik");
   return (
     <section className="section" id="limits">
       <div className="wrap flow">
         {/* ───────────────────────── шапка ───────────────────────── */}
         <div className="section-head reveal">
           <p className="eyebrow">Границы метода</p>
-          <h2>Где метод работает, а где нет</h2>
+          <h2>Что показывают контрольные панели</h2>
           <p className="prose lead muted">
-            Хороший инструмент честно говорит о своих пределах. Один и тот же корпус — а вывод
-            переворачивается, стоит иначе сосчитать голоса. Граница между «можно утверждать»
-            и «может быть интересно» — и есть смысл честного протокола.
+            У каждой контрольной панели заранее записан гейт выполнимости из двух условий: средняя по классам
+            доля правильно опознанных работ не ниже {fmtScore(T)} и проверка на случайность (перестановка ярлыков)
+            на уровне работ с p ≤ {P_GATE}. Обязательны оба. Гейт говорит о панели, а не об отдельном спорном тексте внутри неё.
           </p>
-          <div className="grid cols-2 reveal" style={{ maxWidth: 520 }}>
-            <Stat label={`${plural(nCases, "кейс", "кейса", "кейсов")} на карте`} value={nCases} accent="var(--icon-blue)" parade />
-            <Stat label={`${plural(nModes, "случай", "случая", "случаев")} без уверенного ответа`} value={nModes} accent="var(--cinnabar)" hint="тема вместо почерка · слишком похожие руки · слабая группа сравнения" />
-          </div>
         </div>
 
         {/* ──────────────── метрический урок: единица голоса ──────────────── */}
         <div className="module reveal">
           <h3>Как считать голоса</h3>
           <p className="prose muted">
-            У каждой проверки есть выбор: что считать одной независимой единицей. Можно дать голос
-            каждому отрывку — тогда толстая книга, нарезанная на сотню кусков, голосует
-            сотню раз. А куски одного текста похожи и тянут в одну сторону, раздувая
-            уверенность. И даже при одном test-голосе на текст можно повторить ошибку на
-            обучении, усреднив все куски автора разом. Честный протокол сначала строит
-            профиль каждой работы, затем даёт работам равный вес в авторском центроиде.
-            Разница не косметическая: она переносит вывод через порог.
+            У каждой проверки есть выбор: что считать единицей оценки. Если голос даётся каждому куску,
+            толстая книга, нарезанная на сотню кусков, голосует сотню раз, а куски одного текста похожи и тянут
+            в одну сторону. Протокол этой карты сначала строит профиль каждой работы, затем даёт работам равный вес
+            в усреднённом профиле автора и один голос на проверяемый текст. Метрика гейта — средняя по классам доля
+            правильно опознанных работ, где каждый класс получает одинаковый вес. Значения по кускам остаются
+            диагностикой: в них длинные работы получают больше голосов.
           </p>
 
           <div style={{ display: "grid", gap: 18, marginTop: "var(--beat-group)" }}>
-            {LIMITS.metric.map((m) => {
-              const accent = SEP_ACCENT[m.id] || LIM_ACCENT[m.id] || "var(--icon-blue)";
-              const workAbove = m.work > T;
-              return (
-                <div key={m.id} style={{ display: "grid", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
+            {LIMITS.metric.map((m) => (
+              <div key={m.id} style={{ display: "grid", gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>по работам · метрика гейта</span>
+                  <div style={{ position: "relative" }}>
+                    <MeterBar value={m.work} max={1} accent={ACCENT[m.id] || "var(--icon-blue)"} />
+                    <span style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>по кускам</span>
-                    <MeterBar value={m.chunk} max={1} accent="color-mix(in srgb, var(--text-muted) 55%, transparent)" />
-                    <span className="mono" style={{ fontSize: 13, color: "var(--cinnabar)", whiteSpace: "nowrap" }}>{fmtScore(m.chunk)}</span>
-                    <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>по текстам</span>
-                    <div style={{ position: "relative" }}>
-                      <MeterBar value={m.work} max={1} accent={accent} />
-                      <span style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
-                    </div>
-                    <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: workAbove ? "var(--success)" : "var(--text)", whiteSpace: "nowrap" }}>{fmtScore(m.work)}</span>
-                  </div>
+                  <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: m.work > T ? "var(--success)" : "var(--text)", whiteSpace: "nowrap" }}>{sc(m.work)}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>по кускам · диагностика</span>
+                  <MeterBar value={m.chunk} max={1} accent="color-mix(in srgb, var(--text-muted) 55%, transparent)" />
+                  <span className="mono" style={{ fontSize: 13, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{sc(m.chunk)}</span>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
-          <p className="callout reveal" style={{ marginTop: "var(--beat-group)" }}>
-            Современник по кускам даёт {fmtScore(LIMITS.metric[0].chunk)} — ниже порога,
-            «неубедительно». По текстам — {fmtScore(LIMITS.metric[0].work)}, уверенное
-            разделение. Корпус один; вывод решает единица работы и на оценке,
-            и в обучающем центроиде.
-          </p>
+          {sovr && (
+            <p className="callout reveal" style={{ marginTop: "var(--beat-group)" }}>
+              У «Современника» метрика гейта по работам — {sc(sovr.work)}, диагностика по кускам — {sc(sovr.chunk)}. Корпус один: расходятся единицы счёта. К условиям гейта диагностическое значение не применяется.
+            </p>
+          )}
         </div>
 
-        {/* ──────────────── калибровочная линейка ──────────────── */}
+        {/* ──────────────── опорные примеры протокола ──────────────── */}
         <div className="module reveal">
-          <h3>Как выглядит уверенное разделение</h3>
-          <p className="prose muted">
-            Числам нужна мера. Две пары известных авторов,
-            прогнанные тем же протоколом, задают шкалу. Пары отличаются эпохой и
-            регистром — типом речи: проза, критика, публицистика.
-            Косинус показывает, насколько похожи усреднённые профили: 1 — совпадают,
-            0 — совсем разные. У русской прозы косинусы высоки. Поэтому судить
-            надо по доле верных опознаний, а косинус читать по этой линейке.
-          </p>
+          <h3>Опорные примеры протокола</h3>
           <div className="split" style={{ alignItems: "start", marginTop: "var(--beat-group)" }}>
             <Card padding={24}>
               <div style={{ display: "grid", gap: 20 }}>
-                {[
-                  { tag: "разные эпоха и регистр", accent: "var(--gold)", ...cal.easy },
-                  { tag: "тот же регистр и эпоха", accent: "var(--icon-blue)", ...cal.medium },
-                ].map((r, i) => (
-                  <div key={i} style={{ display: "grid", gap: 6 }}>
+                {[{ tag: "разные эпоха и регистр", accent: "var(--gold)", ...cal.easy }, { tag: "тот же регистр и эпоха", accent: "var(--icon-blue)", ...cal.medium }].map((r) => (
+                  <div key={r.tag} style={{ display: "grid", gap: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: r.accent }}>{r.tag}</span>
-                      <span className="mono" style={{ fontSize: 13, color: "var(--success)" }}>доля {fmtScore(r.macro)}</span>
+                      <span className="mono" style={{ fontSize: 13, color: "var(--success)" }}>доля {raw(r.macro)}</span>
                     </div>
                     <MeterBar value={r.macro} max={1} accent={r.accent} />
-                    <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>косинус профилей {fmtScore(r.cos, 3)}</div>
+                    <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>косинус профилей {raw(r.cos)}</div>
                   </div>
                 ))}
               </div>
             </Card>
             <p className="prose muted" style={{ margin: 0 }}>
-              Обе опорные пары уверенно проходят порог {fmtScore(T)}: доля {fmtScore(cal.easy.macro)}
-              {" "}у авторов разных эпох и {fmtScore(cal.medium.macro)} даже у авторов одного
-              регистра. Это образец уверенного разделения: известные разные руки в одном
-              регистре дают долю примерно {fmtRange(cal.medium.macro, cal.easy.macro)}.
-              С этим сравниваем кейсы карты. Чем ближе доля к этой полосе, тем крепче деление.
-              Где она сползает к порогу {fmtScore(T)} и ниже — метод отказывает.
+              Две пары известных авторов, прогнанные тем же протоколом, — опорные примеры этого протокола, а не
+              универсальная шкала и не источник рабочего порога. Косинус показывает, насколько совпадает направление
+              усреднённых профилей: 1 — одинаковое направление, меньшее значение — менее похожие профили. Это
+              вспомогательная диагностика: гейт читается по средней по классам полноте и перестановочному p.
             </p>
           </div>
         </div>
 
-        {/* ──────────────── карта: метод делит руки ──────────────── */}
+        {/* ──────────────── карта: панель проходит гейт ──────────────── */}
         <div className="reveal">
-          <h3>Где метод делит руки</h3>
+          <h3>Где контрольная панель проходит гейт</h3>
           <p className="prose muted">
-            На честном счёте «один текст — один голос» метод уверенно отделяет одну руку
-            от другой даже там, где профили кажутся почти слитыми. У каждой карточки —
-            вопрос, закрытый круг кандидатов и доля выше порога {fmtScore(T)}.
+            Обе панели выполняют оба условия сразу. Это значит, что панель различает заданные классы
+            на этой закрытой панели, — и ничего не говорит о спорном тексте внутри неё.
           </p>
         </div>
         <div className="grid cols-2 reveal" style={{ marginTop: "var(--beat-group)" }}>
           {LIMITS.separates.map((c) => {
-            const accent = SEP_ACCENT[c.id] || "var(--text-muted)";
+            const accent = ACCENT[c.id] || "var(--text-muted)";
+            const pass = gatePass(c.macro, c.perm);
             return (
               <Card key={c.id} padding={24}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 22, height: 2, background: accent }} />
-                    <Badge className="case-badge" tone="success">различие устойчиво</Badge>
+                    <Badge className="case-badge" tone={pass ? "success" : "warning"}>{pass ? "панель проходит проверку" : "гейт не пройден"}</Badge>
                   </div>
                   <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
-                  <p className="muted" style={{ margin: 0, fontSize: 14.5 }}>{c.question}</p>
-                  <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                    круг кандидатов: {c.candidates}
-                  </div>
+                  <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
                   <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
                     <MacroHead value={c.macro} accent={accent} />
-                    {c.perm != null && <Row label="проверка на случайность" value={`p = ${fmtP(c.perm)}`} sub="перевес устойчив против случайной расстановки ярлыков" good />}
-                    {c.boot != null && <Row label="доля побед при пересборках" value={fmtScore(c.boot)} sub="при каждой случайной пересборке выборки — снова к Достоевскому" accent={accent} />}
-                    {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="руки близки, и метод всё равно их делит" accent="var(--text)" />}
-                    {c.dist != null && <Row label="отрыв от соседей" value={fmtScore(c.dist)} sub="мал — оговорка на близость к центру панели" accent="var(--text)" />}
+                    {c.perm != null && <Row label="проверка на случайность (перестановка ярлыков)" value={pLabel(c.perm)} sub={gateNote(c.macro, c.perm)} color={permColor(c.perm)} />}
+                    {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="ближе к 1 — ближе направление усреднённых профилей" />}
                   </div>
-                  <p className="note" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{SEP_NOTE[c.id]}</p>
-                  {c.caveat && (
-                    <p className="note" style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: "var(--text-muted)", fontStyle: "italic" }}>
-                      Оговорка: {plainCaveat(c.caveat)}
-                    </p>
-                  )}
+                  <p className="note" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
                 </div>
               </Card>
             );
           })}
         </div>
 
-        {/* ──────────────── карта: метод честно отказывает ──────────────── */}
+        {/* ──────────────── карта: панель не проходит гейт ──────────────── */}
         <div className="reveal">
-          <h3>Где метод не различает</h3>
+          <h3>Где контрольная панель не проходит гейт</h3>
           <p className="prose muted">
-            Отказ случается в {nModes} {plural(nModes, "режиме", "режимах", "режимах")} — и метод честно
-            их показывает: когда видимое
-            деление несёт тему, а не почерк; когда руки сошлись слишком близко; и когда
-            сам набор образцов у случайности. Для Чехонте источник теперь доступен,
-            но слабую панель это не превращает в атрибуцию.
+            Здесь нарушено хотя бы одно из двух условий. На карточках показано, какое именно и с какими
+            значениями. Непройденный гейт — это состояние проверки, а не вывод об авторстве.
           </p>
         </div>
         <div className="grid cols-2 reveal" style={{ marginTop: "var(--beat-group)" }}>
           {LIMITS.limitsCases.map((c) => {
-            const accent = LIM_ACCENT[c.id] || "var(--text-muted)";
+            const accent = ACCENT[c.id] || "var(--text-muted)";
             return (
               <Card key={c.id} padding={24}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 22, height: 2, background: accent }} />
-                    <Badge className="case-badge" tone="warning">ответа пока нет · {LIMIT_REASON[c.id] || c.reason}</Badge>
+                    <Badge className="case-badge" tone="warning">гейт не пройден · {GATE_MISS[c.id]}</Badge>
                   </div>
                   <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
-                  <p className="muted" style={{ margin: 0, fontSize: 14.5 }}>{c.question}</p>
-                  <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                    круг кандидатов: {c.candidates}
-                  </div>
+                  <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
                   <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
-                    {/* автор ≡ тема: две дорожки — почерк не делит, содержание делит */}
-                    {c.fwMacro != null && <Row label="по личному почерку (служебные слова)" value={fmtScore(c.fwMacro)} sub="ниже порога — руки соавторов неразличимы" bad />}
-                    {c.fwPerm != null && <Row label="проверка на случайность (почерк)" value={`p = ${fmtP(c.fwPerm)}`} sub="не подтверждает — как при случайном разбиении" accent="var(--text)" />}
-                    {c.char3Macro != null && <Row label="по содержанию (символьные триграммы)" value={fmtScore(c.char3Macro)} sub="делит уверенно — но это тема, не почерк" accent={accent} />}
-                    {c.kappa != null && <Row label="согласие двух признаков (κ)" value={fmtScore(c.kappa, 2)} sub="чуть выше случая: почерк и тема размечают по-разному" accent="var(--text)" />}
-                    {/* учитель↔ученик: ровно у порога, но незначимо */}
+                    {/* две группы признаков — две дорожки, вклад автора и темы не разделён */}
+                    {c.fwMacro != null && <Row label="по служебным словам" value={sc(c.fwMacro)} sub="ниже рабочего порога" color="var(--cinnabar)" />}
+                    {c.fwPerm != null && <Row label="проверка на случайность (служебные слова)" value={pLabel(c.fwPerm)} sub={gateNote(c.fwMacro, c.fwPerm)} color={permColor(c.fwPerm)} />}
+                    {c.char3Macro != null && <Row label="по символьным триграммам" value={sc(c.char3Macro)} sub="другая группа признаков даёт другой результат" color={accent} />}
+                    {c.kappa != null && <Row label="согласие двух групп признаков (κ)" value={sc(c.kappa)} sub="группы признаков размечают тексты по-разному" />}
                     {c.macro != null && <MacroHead value={c.macro} accent={accent} />}
-                    {c.perm != null && <Row label="проверка на случайность" value={`p = ${fmtP(c.perm)}`} sub="перевес у порога не подтверждается" bad />}
-                    {/* панель у случайности */}
-                    {c.recall != null && <Row label="верных опознаний хозяина" value={c.recall} sub="ровно половина отрезков — панель почти не различает авторов" bad />}
-                    {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="профили почти слиты" accent="var(--text)" />}
-                    {c.dist != null && <Row label="отрыв от соседей" value={fmtScore(c.dist)} sub="близко к нулю — текст почти не отличить от соседних" accent="var(--text)" />}
+                    {c.perm != null && <Row label="проверка на случайность (перестановка ярлыков)" value={pLabel(c.perm)} sub={gateNote(c.macro, c.perm)} color={permColor(c.perm)} />}
+                    {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="ближе к 1 — ближе направление усреднённых профилей" />}
                   </div>
-                  <p className="note" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{LIM_NOTE[c.id]}</p>
+                  <p className="note" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
                 </div>
               </Card>
             );
           })}
         </div>
 
-        {/* ──────────────────── финальный вердикт ──────────────────── */}
         <p className="verdict reveal">
-          <strong style={{ color: "var(--text)" }}>Одна книга — один голос.</strong>{" "}
-          Проверяемый текст получает один голос, и каждая обучающая книга вносит
-          равный вклад в профиль автора. После этой
-          проверки школьная ось «Современника» и Петербургская панель сохраняются,
-          а прежнее разделение Герцена и Огарёва снимается. Метод также отказывает
-          там, где тема притворяется почерком, руки сошлись внутри одной школы или
-          сама панель у случайности. Ценность инструмента — в границе между
-          «можно утверждать» и «может быть интересно».
+          <strong style={{ color: "var(--text)" }}>Одна работа — один голос.</strong>{" "}
+          Метрика гейта считается по работам, значения по кускам остаются диагностикой. Гейт требует
+          двух условий сразу и относится к панели, а не к спорному тексту внутри неё.
         </p>
-        <p className="note reveal">
-          Кейсы-пределы остаются открытыми вопросами для архивов и текстологов. Деление по
-          содержанию или перевес у порога — повод присмотреться, а не основание для вывода
-          об авторстве.
-        </p>
-        <p className="note reveal">
-          P-значения на карточках даны без поправки на число одновременных проверок. Для кейсов,
-          где проверок несколько, поправка (метод Холма) посчитана отдельно — <span className="mono">docs/holm_correction.json</span>:
-          часть отдельных проверок после поправки теряет формальную значимость, вердикты кейсов не меняются.
-        </p>
+        <p className="note reveal">Панели без пройденного гейта остаются открытыми вопросами для архивов и текстологов.</p>
       </div>
     </section>
   );
