@@ -56,7 +56,7 @@ export default function App({ initialChapter } = {}) {
             <LogoMark className="rk-brand-mark" size={48} aria-hidden />
               <span className="rk-brand-text">
                 <span className="rk-brand-word">Стилометрия</span>
-                <span className="rk-brand-tagline-line">как язык выдаёт автора</span>
+                <span className="rk-brand-tagline-line">сравнение авторской манеры</span>
             </span>
           </a>
           <div className="chapters" role="tablist">
