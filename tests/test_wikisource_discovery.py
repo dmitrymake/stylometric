@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 
@@ -9,7 +11,7 @@ import pytest
 
 from stylo.corpus_tools import wikisource_discovery as discovery
 from stylo.corpus_tools import wikisource_vnext as ws
-from stylo.jsonio import canonical_hash
+from stylo.jsonio import canonical_hash, dumps_strict
 
 
 def _part(
@@ -66,10 +68,19 @@ def _candidate(
 ) -> dict[str, object]:
     rows = works or [_work("author/work", number=1, parts=2)]
     rows = sorted(rows, key=lambda row: str(row["work_id"]))
-    if schema_version == discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3:
+    if schema_version in {
+        discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+        discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4,
+    }:
         for work in rows:
             for part in work["parts"]:  # type: ignore[index]
-                part.setdefault("source_repair", None)
+                field = (
+                    "source_repair"
+                    if schema_version
+                    == discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3
+                    else "source_repairs"
+                )
+                part.setdefault(field, None if field == "source_repair" else [])
     part_rows = [
         part
         for work in rows
@@ -612,6 +623,201 @@ def test_v3_candidate_repair_contract_is_strict_before_cache_or_network(
     with pytest.raises(
         discovery.WikisourceDiscoveryError,
         match="keys must be exact",
+    ):
+        discovery.DiscoveryCandidate.from_dict(raw)
+    assert not (tmp_path / "cache").exists()
+
+
+def test_v4_candidate_pins_ordered_repairs_and_empty_part_sequence(tmp_path):
+    work = _work("author/ordered-repaired", number=3, parts=2)
+    revision = 301
+    current = ws.extract_rendered_html(_html(revision))
+    replacements = [
+        ("Начало части", "Пролог"),
+        ("Пролог 301.", "Открытие."),
+    ]
+    repairs: list[dict[str, object]] = []
+    for index, (literal, replacement) in enumerate(replacements):
+        occurrence_lines = [
+            hashlib.sha256(line.encode("utf-8")).hexdigest()
+            for line in current.split("\n")
+            for _ in range(line.count(literal))
+        ]
+        repair = {
+            "policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+            "literal": literal,
+            "replacement": replacement,
+            "expected_count": len(occurrence_lines),
+            "occurrence_line_sha256": occurrence_lines,
+            "review_receipt_sha256": f"{index + 1:064x}",
+        }
+        current = ws.apply_reviewed_source_repair_v1(
+            current,
+            ws.ReviewedLiteralSourceRepairV1.from_dict(repair),
+            label=f"test repair {index}",
+        )
+        repairs.append(repair)
+    work["parts"][0]["source_repairs"] = repairs  # type: ignore[index, union-attr]
+    raw = _candidate(
+        [work],
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4,
+    )
+    candidate = discovery.DiscoveryCandidate.from_dict(raw)
+    transport = _Transport(work["parts"])  # type: ignore[arg-type]
+
+    result = discovery.pin_discovery_candidate(
+        candidate,
+        cache_dir=tmp_path / "cache",
+        transport=transport,
+    )
+
+    pinned = result.campaign_spec.works[0]
+    assert pinned.schema_version == ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V4
+    assert len(pinned.parts[0].source_repairs_v1 or ()) == 2
+    assert pinned.parts[1].source_repairs_v1 == ()
+    assert "source_repair" not in pinned.parts[0].to_dict()
+    assert "Открытие." in result.assembled_outputs[
+        "author/ordered-repaired"
+    ].decode("utf-8")
+
+
+@pytest.mark.parametrize("drift", ["revision", "repairs"])
+def test_r1_manifest_builder_rejects_deep_pinned_part_drift(
+    tmp_path,
+    drift,
+):
+    raw = _candidate(
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4
+    )
+    candidate = discovery.DiscoveryCandidate.from_dict(raw)
+    parts = raw["works"][0]["parts"]  # type: ignore[index, union-attr]
+    transport = _Transport(parts)  # type: ignore[arg-type]
+    pinned = discovery.pin_discovery_candidate(
+        candidate,
+        cache_dir=tmp_path / "cache",
+        transport=transport,
+    ).campaign_spec
+
+    script = (
+        Path(__file__).parents[1]
+        / "scripts"
+        / "artifacts"
+        / "build_ruaa_r1_acquisition_manifest.py"
+    )
+    module_spec = importlib.util.spec_from_file_location(
+        "build_ruaa_r1_acquisition_manifest_test",
+        script,
+    )
+    assert module_spec is not None and module_spec.loader is not None
+    builder = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(builder)
+    builder._validate_wikisource_mapping(candidate, pinned)
+
+    work = pinned.works[0]
+    part = work.parts[0]
+    if drift == "revision":
+        changed = dataclasses.replace(
+            part,
+            revision_id=part.revision_id + 1,
+        )
+    else:
+        changed = dataclasses.replace(part, source_repairs_v1=None)
+    drifted_work = dataclasses.replace(
+        work,
+        parts=(changed, *work.parts[1:]),
+    )
+    drifted_campaign = dataclasses.replace(
+        pinned,
+        works=(drifted_work,),
+    )
+
+    with pytest.raises(
+        builder.R1ManifestBuilderError,
+        match="part identity differs",
+    ):
+        builder._validate_wikisource_mapping(
+            candidate,
+            drifted_campaign,
+        )
+
+
+def test_r1_manifest_builder_rejects_rehashed_rendered_html_drift(
+    tmp_path,
+):
+    raw = _candidate(
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4
+    )
+    candidate = discovery.DiscoveryCandidate.from_dict(raw)
+    parts = raw["works"][0]["parts"]  # type: ignore[index, union-attr]
+    pinned = discovery.pin_discovery_candidate(
+        candidate,
+        cache_dir=tmp_path / "cache",
+        transport=_Transport(parts),  # type: ignore[arg-type]
+    ).campaign_spec
+
+    script = (
+        Path(__file__).parents[1]
+        / "scripts"
+        / "artifacts"
+        / "build_ruaa_r1_acquisition_manifest.py"
+    )
+    module_spec = importlib.util.spec_from_file_location(
+        "build_ruaa_r1_acquisition_manifest_identity_test",
+        script,
+    )
+    assert module_spec is not None and module_spec.loader is not None
+    builder = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(builder)
+
+    original_payload = (
+        dumps_strict(pinned.to_dict(), indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    binding = {
+        "file_sha256": hashlib.sha256(original_payload).hexdigest(),
+        "self_hash": pinned.self_hash,
+        "generation_id": pinned.generation_id,
+    }
+    builder._validate_wikisource_campaign_identity(
+        binding=binding,
+        campaign_payload=original_payload,
+        campaign=pinned,
+    )
+
+    work_raw = pinned.works[0].to_dict()
+    work_raw["parts"][0]["rendered_html_sha256"] = "0" * 64
+    work_core = {
+        key: value for key, value in work_raw.items() if key != "self_hash"
+    }
+    work_raw["self_hash"] = canonical_hash(work_core)
+    drifted_work = ws.PinnedWorkSpec.from_dict(work_raw)
+    drifted = pinned.__class__.build((drifted_work,))
+    drifted_payload = (
+        dumps_strict(drifted.to_dict(), indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+
+    with pytest.raises(
+        builder.R1ManifestBuilderError,
+        match="exact identity mismatch",
+    ):
+        builder._validate_wikisource_campaign_identity(
+            binding=binding,
+            campaign_payload=drifted_payload,
+            campaign=drifted,
+        )
+
+
+def test_v4_candidate_requires_exact_repair_array_before_cache_or_network(
+    tmp_path,
+):
+    raw = _candidate(
+        schema_version=discovery.DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4
+    )
+    raw["works"][0]["parts"][0]["source_repairs"] = {}  # type: ignore[index, union-attr]
+    _rehash(raw)
+
+    with pytest.raises(
+        discovery.WikisourceDiscoveryError,
+        match="must be an exact array",
     ):
         discovery.DiscoveryCandidate.from_dict(raw)
     assert not (tmp_path / "cache").exists()

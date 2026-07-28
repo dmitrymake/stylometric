@@ -22,22 +22,26 @@
     {
       "path": "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
       "status": "canonical_source_acquisition_only",
-      "claim_scope": "Assemble and content-audit one exact pinned hybrid R1 source corpus in an ignored exploratory namespace; no representation cache, model, fit, metric, public evidence, or confirmatory authority.",
-      "output_contract": "Create-if-absent provider receipts, literal raw inventory, strict content-quality audit, and hybrid acquisition receipt below docs/exploratory/lobo_vnext/corpora/ruaa_r1_hybrid.",
+      "claim_scope": "Assemble and content-audit one exact pinned hybrid R1 source corpus in an ignored exploratory namespace; the `replay` subcommand is the single canonical offline entrypoint and leaves the tracked tree unchanged; no representation cache, model, fit, metric, public evidence, or confirmatory authority.",
+      "output_contract": "Create-if-absent provider receipts, literal raw inventory, strict content-quality audit, and hybrid acquisition receipt below docs/exploratory/lobo_vnext/corpora/ruaa_r1_hybrid. The `replay` subcommand writes only inside its --output-parent: the exact copy of the tracked reviewed campaign, the generated ready candidate and acquisition manifest, one fresh materialization, the full and selected inventories, both text audits, and the receipt-derived execution contract in that order.",
       "identity_bindings": [
         "wikisource_discovery_candidate",
         "source_curation_receipt",
         "wikisource_campaign_spec",
+        "reviewed_text_campaign_spec",
         "pinned_feb_work_spec",
         "literal_raw_inventory",
         "text_quality_policy",
-        "hybrid_generation_id"
+        "hybrid_generation_id",
+        "execution_contract_self_hash"
       ],
       "required_nodeids": [
         "tests/test_ruaa_r1_acquisition.py::test_manifest_binds_exact_hybrid_inventory_and_exclusions",
         "tests/test_ruaa_r1_acquisition.py::test_materialization_resume_and_all_tamper_modes_are_fail_closed",
         "tests/test_ruaa_r1_acquisition.py::test_audit_blocker_prevents_publish_and_provider_resume_is_network_free",
-        "tests/test_ruaa_r1_acquisition.py::test_cli_requires_manifest_and_uses_only_fixed_ignored_namespace"
+        "tests/test_ruaa_r1_acquisition.py::test_cli_requires_manifest_and_uses_only_fixed_ignored_namespace",
+        "tests/test_ruaa_r1_disk_backed_audit.py::test_replay_builds_fresh_inventories_and_leaves_tracked_tree_alone",
+        "tests/test_ruaa_r1_disk_backed_audit.py::test_excluded_evidence_staging_never_clobbers_a_planted_target"
       ]
     },
     {

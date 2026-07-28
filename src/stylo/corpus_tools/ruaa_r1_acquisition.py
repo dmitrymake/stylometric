@@ -1,18 +1,19 @@
 """Immutable hybrid source acquisition for the bounded RuAA R1 corpus.
 
-This module joins two already-pinned provider contracts; it performs no title
+This module joins already-pinned provider contracts; it performs no title
 discovery and makes no model, inference, approval, or publication decision.
 An exact R1 acquisition manifest contains:
 
 * one explicitly reviewed :class:`WikisourceCampaignSpec`;
 * the one pinned FEB edition of Pushkin's ``История Пугачёва``;
+* in v3, one content-addressed reviewed-text campaign;
 * an explicit sorted inventory equal to the provider union;
-* the two explicit, evidence-bound exclusions; and
+* the exact versioned, evidence-bound exclusions; and
 * the exact content-quality policy run before publication.
 
 Provider outputs are materialized through their own fail-closed contracts and
 then copied into a new create-if-absent hybrid namespace.  A complete existing
-namespace is fully revalidated without invoking either network transport.
+namespace is fully revalidated without invoking a network transport or cache.
 """
 from __future__ import annotations
 
@@ -47,6 +48,15 @@ from .feb_vnext import (
     PinnedFEBWorkSpec,
     materialize_pinned_feb_work,
 )
+from .reviewed_text_vnext import (
+    REVIEWED_TEXT_CAMPAIGN_RECEIPT_NAME,
+    REVIEWED_TEXT_CAMPAIGN_SPEC_NAME,
+    ReviewedTextCampaignReceipt,
+    ReviewedTextCampaignSpec,
+    ReviewedTextMaterializationError,
+    load_reviewed_text_campaign_receipt,
+    materialize_reviewed_text_campaign,
+)
 from .text_quality_vnext import (
     DEFAULT_CONTAINMENT_THRESHOLD,
     DEFAULT_MINIMUM_SHINGLES,
@@ -69,22 +79,39 @@ from .wikisource_campaign import (
 )
 from .wikisource_vnext import (
     PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+    PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+    PINNED_WORK_SPEC_SCHEMA_VERSION_V4,
     WholeWorkReceipt,
     WikisourceAcquisitionError,
     load_whole_work_receipt,
 )
 
 
-R1_ACQUISITION_MANIFEST_SCHEMA_VERSION = (
+R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2 = (
     "stylo.ruaa-r1.hybrid-acquisition-manifest.v2"
 )
-R1_ACQUISITION_RECEIPT_SCHEMA_VERSION = (
+R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3 = (
+    "stylo.ruaa-r1.hybrid-acquisition-manifest.v3"
+)
+R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1 = (
     "stylo.ruaa-r1.hybrid-acquisition-receipt.v1"
+)
+R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2 = (
+    "stylo.ruaa-r1.hybrid-acquisition-receipt.v2"
+)
+# Compatibility aliases deliberately remain on the published two-provider
+# contract.  Callers must opt into v3 by embedding a reviewed-text campaign.
+R1_ACQUISITION_MANIFEST_SCHEMA_VERSION = (
+    R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2
+)
+R1_ACQUISITION_RECEIPT_SCHEMA_VERSION = (
+    R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1
 )
 R1_ACQUISITION_KIND = "bounded_exploratory_source_acquisition_only"
 R1_FEB_WORK_ID = "pushkin/история_пугачёва"
 R1_COLLECTION_UMBRELLA_WORK_ID = "turgenev/записки_охотника"
 R1_AUTHORSHIP_MISMATCH_WORK_ID = "serafimovich/у_нас_и_у_них"
+R1_SOURCE_QUALITY_REJECTED_WORK_ID = "sevsky/дон_на_костылях"
 R1_EXCLUDED_WORK_IDS = tuple(
     sorted(
         (
@@ -92,6 +119,9 @@ R1_EXCLUDED_WORK_IDS = tuple(
             R1_AUTHORSHIP_MISMATCH_WORK_ID,
         )
     )
+)
+R1_EXCLUDED_WORK_IDS_V3 = tuple(
+    sorted((*R1_EXCLUDED_WORK_IDS, R1_SOURCE_QUALITY_REJECTED_WORK_ID))
 )
 
 MANIFEST_NAME = "acquisition-manifest.json"
@@ -104,6 +134,12 @@ WIKISOURCE_WORK_RECEIPT_PREFIX = (
 )
 FEB_SPEC_PATH = "providers/feb/work-spec.json"
 FEB_RECEIPT_PATH = "providers/feb/work-receipt.json"
+REVIEWED_TEXT_SPEC_PATH = (
+    f"providers/reviewed-text/{REVIEWED_TEXT_CAMPAIGN_SPEC_NAME}"
+)
+REVIEWED_TEXT_RECEIPT_PATH = (
+    f"providers/reviewed-text/{REVIEWED_TEXT_CAMPAIGN_RECEIPT_NAME}"
+)
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _FRACTION_RE = re.compile(r"^([1-9][0-9]*)/([1-9][0-9]*)$")
@@ -375,6 +411,23 @@ class R1Exclusion:
         )
 
     @classmethod
+    def source_quality_rejected(
+        cls,
+        *,
+        evidence_sha256: str,
+        receipt_sha256: str,
+    ) -> "R1Exclusion":
+        return cls.from_dict(
+            {
+                "work_id": R1_SOURCE_QUALITY_REJECTED_WORK_ID,
+                "disposition": "exclude_from_corpus",
+                "reason_code": "source_quality_rejected",
+                "evidence_sha256": evidence_sha256,
+                "receipt_sha256": receipt_sha256,
+            }
+        )
+
+    @classmethod
     def from_dict(cls, value: object) -> "R1Exclusion":
         raw = _exact_object(
             value,
@@ -396,10 +449,13 @@ class R1Exclusion:
         expected_reason = {
             R1_COLLECTION_UMBRELLA_WORK_ID: "collection_umbrella",
             R1_AUTHORSHIP_MISMATCH_WORK_ID: "authorship_mismatch",
+            R1_SOURCE_QUALITY_REJECTED_WORK_ID: (
+                "source_quality_rejected"
+            ),
         }.get(work)
         if expected_reason is None or reason != expected_reason:
             raise R1AcquisitionError(
-                "R1 exclusion work/reason is not one of the two frozen "
+                "R1 exclusion work/reason is not one of the frozen "
                 "exclusions"
             )
         evidence = _sha256(
@@ -458,6 +514,36 @@ def _manifest_core(
     }
 
 
+def _manifest_core_v3(
+    *,
+    wikisource_campaign: WikisourceCampaignSpec,
+    wikisource_discovery_candidate_sha256: str,
+    source_curation_receipt_sha256: str,
+    feb_work_spec: PinnedFEBWorkSpec,
+    reviewed_text_campaign: ReviewedTextCampaignSpec,
+    included_work_ids: Sequence[str],
+    exclusions: Sequence[R1Exclusion],
+    text_quality_spec: R1TextQualitySpec,
+) -> dict[str, object]:
+    return {
+        "schema_version": R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3,
+        "acquisition_kind": R1_ACQUISITION_KIND,
+        "wikisource_campaign": wikisource_campaign.to_dict(),
+        "wikisource_discovery_candidate_sha256": (
+            wikisource_discovery_candidate_sha256
+        ),
+        "source_curation_receipt_sha256": source_curation_receipt_sha256,
+        "feb_work_spec": feb_work_spec.to_dict(),
+        "reviewed_text_campaign": reviewed_text_campaign.to_dict(),
+        "included_work_ids": list(included_work_ids),
+        "exclusions": [row.to_dict() for row in exclusions],
+        "text_quality_spec": text_quality_spec.to_dict(),
+        "fit_performed": False,
+        "confirmatory_authorized": False,
+        "public_output_authorized": False,
+    }
+
+
 @dataclasses.dataclass(frozen=True)
 class R1AcquisitionManifest:
     wikisource_campaign: WikisourceCampaignSpec
@@ -469,6 +555,10 @@ class R1AcquisitionManifest:
     text_quality_spec: R1TextQualitySpec
     generation_id: str
     self_hash: str
+    reviewed_text_campaign: ReviewedTextCampaignSpec | None = (
+        dataclasses.field(default=None, repr=False)
+    )
+    schema_version: str = R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2
 
     @classmethod
     def build(
@@ -482,6 +572,9 @@ class R1AcquisitionManifest:
         collection_umbrella_evidence_sha256: str,
         authorship_mismatch_evidence_sha256: str,
         authorship_mismatch_receipt_sha256: str,
+        reviewed_text_campaign: ReviewedTextCampaignSpec | None = None,
+        source_quality_rejected_evidence_sha256: str | None = None,
+        source_quality_rejected_receipt_sha256: str | None = None,
     ) -> "R1AcquisitionManifest":
         if type(wikisource_campaign) is not WikisourceCampaignSpec:
             raise R1AcquisitionError(
@@ -491,27 +584,55 @@ class R1AcquisitionManifest:
             raise R1AcquisitionError(
                 "R1 manifest requires exactly PinnedFEBWorkSpec"
             )
+        is_v3 = reviewed_text_campaign is not None
+        if is_v3:
+            if type(reviewed_text_campaign) is not ReviewedTextCampaignSpec:
+                raise R1AcquisitionError(
+                    "R1 v3 manifest requires exactly "
+                    "ReviewedTextCampaignSpec"
+                )
+            reviewed_text_campaign.validate()
+            if (
+                source_quality_rejected_evidence_sha256 is None
+                or source_quality_rejected_receipt_sha256 is None
+            ):
+                raise R1AcquisitionError(
+                    "R1 v3 manifest requires both source-quality exclusion "
+                    "hashes"
+                )
+        elif (
+            source_quality_rejected_evidence_sha256 is not None
+            or source_quality_rejected_receipt_sha256 is not None
+        ):
+            raise R1AcquisitionError(
+                "R1 v2 manifest cannot bind source-quality exclusion hashes"
+            )
         included = tuple(
             _work_id(item, f"included_work_ids[{index}]")
             for index, item in enumerate(included_work_ids)
         )
-        exclusions = tuple(
-            sorted(
-                (
-                    R1Exclusion.collection_umbrella(
-                        collection_umbrella_evidence_sha256
+        exclusion_rows = [
+            R1Exclusion.collection_umbrella(
+                collection_umbrella_evidence_sha256
+            ),
+            R1Exclusion.authorship_mismatch(
+                evidence_sha256=authorship_mismatch_evidence_sha256,
+                receipt_sha256=authorship_mismatch_receipt_sha256,
+            ),
+        ]
+        if is_v3:
+            exclusion_rows.append(
+                R1Exclusion.source_quality_rejected(
+                    evidence_sha256=(
+                        source_quality_rejected_evidence_sha256
                     ),
-                    R1Exclusion.authorship_mismatch(
-                        evidence_sha256=(
-                            authorship_mismatch_evidence_sha256
-                        ),
-                        receipt_sha256=(
-                            authorship_mismatch_receipt_sha256
-                        ),
+                    receipt_sha256=(
+                        source_quality_rejected_receipt_sha256
                     ),
-                ),
-                key=lambda row: row.work_id,
+                )
             )
+        exclusions = tuple(
+            sorted(exclusion_rows, key=lambda row: row.work_id)
         )
         quality = R1TextQualitySpec.build()
         candidate_hash = _sha256(
@@ -522,15 +643,27 @@ class R1AcquisitionManifest:
             source_curation_receipt_sha256,
             "source_curation_receipt_sha256",
         )
-        core = _manifest_core(
-            wikisource_campaign=wikisource_campaign,
-            wikisource_discovery_candidate_sha256=candidate_hash,
-            source_curation_receipt_sha256=curation_hash,
-            feb_work_spec=feb_work_spec,
-            included_work_ids=included,
-            exclusions=exclusions,
-            text_quality_spec=quality,
-        )
+        if is_v3:
+            core = _manifest_core_v3(
+                wikisource_campaign=wikisource_campaign,
+                wikisource_discovery_candidate_sha256=candidate_hash,
+                source_curation_receipt_sha256=curation_hash,
+                feb_work_spec=feb_work_spec,
+                reviewed_text_campaign=reviewed_text_campaign,
+                included_work_ids=included,
+                exclusions=exclusions,
+                text_quality_spec=quality,
+            )
+        else:
+            core = _manifest_core(
+                wikisource_campaign=wikisource_campaign,
+                wikisource_discovery_candidate_sha256=candidate_hash,
+                source_curation_receipt_sha256=curation_hash,
+                feb_work_spec=feb_work_spec,
+                included_work_ids=included,
+                exclusions=exclusions,
+                text_quality_spec=quality,
+            )
         generation_id = canonical_hash(core)
         payload = {**core, "generation_id": generation_id}
         return cls.from_dict(
@@ -539,31 +672,41 @@ class R1AcquisitionManifest:
 
     @classmethod
     def from_dict(cls, value: object) -> "R1AcquisitionManifest":
-        raw = _exact_object(
-            value,
-            {
-                "schema_version",
-                "acquisition_kind",
-                "wikisource_campaign",
-                "wikisource_discovery_candidate_sha256",
-                "source_curation_receipt_sha256",
-                "feb_work_spec",
-                "included_work_ids",
-                "exclusions",
-                "text_quality_spec",
-                "fit_performed",
-                "confirmatory_authorized",
-                "public_output_authorized",
-                "generation_id",
-                "self_hash",
-            },
-            "R1 acquisition manifest",
-        )
-        payload = _self_hashed_payload(raw, label="R1 acquisition manifest")
-        if raw["schema_version"] != R1_ACQUISITION_MANIFEST_SCHEMA_VERSION:
+        if type(value) is not dict:
+            raise R1AcquisitionError(
+                "R1 acquisition manifest must be an exact JSON object"
+            )
+        schema_version = value.get("schema_version")
+        base_keys = {
+            "schema_version",
+            "acquisition_kind",
+            "wikisource_campaign",
+            "wikisource_discovery_candidate_sha256",
+            "source_curation_receipt_sha256",
+            "feb_work_spec",
+            "included_work_ids",
+            "exclusions",
+            "text_quality_spec",
+            "fit_performed",
+            "confirmatory_authorized",
+            "public_output_authorized",
+            "generation_id",
+            "self_hash",
+        }
+        if schema_version == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2:
+            versioned_keys: set[str] = set()
+        elif schema_version == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3:
+            versioned_keys = {"reviewed_text_campaign"}
+        else:
             raise R1AcquisitionError(
                 "R1 acquisition manifest is legacy or unsupported"
             )
+        raw = _exact_object(
+            value,
+            base_keys | versioned_keys,
+            "R1 acquisition manifest",
+        )
+        _self_hashed_payload(raw, label="R1 acquisition manifest")
         if raw["acquisition_kind"] != R1_ACQUISITION_KIND:
             raise R1AcquisitionError(
                 f"R1 acquisition_kind must be {R1_ACQUISITION_KIND!r}"
@@ -582,28 +725,54 @@ class R1AcquisitionManifest:
                 raw["wikisource_campaign"]
             )
             feb = PinnedFEBWorkSpec.from_dict(raw["feb_work_spec"])
+            reviewed = (
+                ReviewedTextCampaignSpec.from_dict(
+                    raw["reviewed_text_campaign"]
+                )
+                if schema_version
+                == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3
+                else None
+            )
         except (
             WikisourceCampaignError,
             WikisourceAcquisitionError,
             FEBAcquisitionError,
+            ReviewedTextMaterializationError,
         ) as exc:
             raise R1AcquisitionError(
                 f"R1 embedded provider spec is invalid: {exc}"
             ) from exc
+        allowed_wikisource_schemas = (
+            {PINNED_WORK_SPEC_SCHEMA_VERSION_V2}
+            if schema_version
+            == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2
+            else {
+                PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+                PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+                PINNED_WORK_SPEC_SCHEMA_VERSION_V4,
+            }
+        )
         if any(
-            work.schema_version != PINNED_WORK_SPEC_SCHEMA_VERSION_V2
+            work.schema_version not in allowed_wikisource_schemas
             for work in wikisource.works
         ):
             raise R1AcquisitionError(
-                "R1 Wikisource campaign may contain only pinned-work v2 specs"
+                "R1 Wikisource campaign contains a pinned-work schema "
+                "unsupported by this manifest version"
             )
         if feb.work_id != R1_FEB_WORK_ID:
             raise R1AcquisitionError(
                 f"R1 FEB work must be exactly {R1_FEB_WORK_ID!r}"
             )
-        if feb.work_id in set(wikisource.work_ids):
+        wikisource_ids = set(wikisource.work_ids)
+        reviewed_ids = set(reviewed.work_ids) if reviewed is not None else set()
+        if (
+            feb.work_id in wikisource_ids
+            or feb.work_id in reviewed_ids
+            or wikisource_ids.intersection(reviewed_ids)
+        ):
             raise R1AcquisitionError(
-                "R1 provider inventories overlap on the FEB work"
+                "R1 provider inventories overlap"
             )
         raw_ids = _exact_list(
             raw["included_work_ids"],
@@ -627,7 +796,13 @@ class R1AcquisitionManifest:
                 "explicit inventory"
             )
         expected_included = tuple(
-            sorted((*wikisource.work_ids, feb.work_id))
+            sorted(
+                (
+                    *wikisource.work_ids,
+                    feb.work_id,
+                    *(reviewed.work_ids if reviewed is not None else ()),
+                )
+            )
         )
         if included != expected_included:
             raise R1AcquisitionError(
@@ -641,15 +816,18 @@ class R1AcquisitionManifest:
                 nonempty=True,
             )
         )
-        if (
-            tuple(row.work_id for row in exclusions)
-            != R1_EXCLUDED_WORK_IDS
-            or len(exclusions) != 2
-        ):
+        expected_excluded = (
+            R1_EXCLUDED_WORK_IDS
+            if schema_version
+            == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2
+            else R1_EXCLUDED_WORK_IDS_V3
+        )
+        if tuple(row.work_id for row in exclusions) != expected_excluded:
             raise R1AcquisitionError(
-                "R1 exclusions must be the exact sorted two-work inventory"
+                "R1 exclusions must be the exact sorted inventory for the "
+                "manifest version"
             )
-        if set(included).intersection(R1_EXCLUDED_WORK_IDS):
+        if set(included).intersection(expected_excluded):
             raise R1AcquisitionError(
                 "R1 included and excluded inventories overlap"
             )
@@ -667,15 +845,27 @@ class R1AcquisitionManifest:
             raw["generation_id"],
             "R1 acquisition manifest.generation_id",
         )
-        core = _manifest_core(
-            wikisource_campaign=wikisource,
-            wikisource_discovery_candidate_sha256=candidate_hash,
-            source_curation_receipt_sha256=curation_hash,
-            feb_work_spec=feb,
-            included_work_ids=included,
-            exclusions=exclusions,
-            text_quality_spec=quality,
-        )
+        if reviewed is None:
+            core = _manifest_core(
+                wikisource_campaign=wikisource,
+                wikisource_discovery_candidate_sha256=candidate_hash,
+                source_curation_receipt_sha256=curation_hash,
+                feb_work_spec=feb,
+                included_work_ids=included,
+                exclusions=exclusions,
+                text_quality_spec=quality,
+            )
+        else:
+            core = _manifest_core_v3(
+                wikisource_campaign=wikisource,
+                wikisource_discovery_candidate_sha256=candidate_hash,
+                source_curation_receipt_sha256=curation_hash,
+                feb_work_spec=feb,
+                reviewed_text_campaign=reviewed,
+                included_work_ids=included,
+                exclusions=exclusions,
+                text_quality_spec=quality,
+            )
         if canonical_hash(core) != generation:
             raise R1AcquisitionError(
                 "R1 acquisition manifest generation_id mismatch"
@@ -693,22 +883,48 @@ class R1AcquisitionManifest:
                 raw["self_hash"],
                 "R1 acquisition manifest.self_hash",
             ),
+            reviewed,
+            schema_version,
         )
 
     def to_dict(self) -> dict[str, object]:
-        core = _manifest_core(
-            wikisource_campaign=self.wikisource_campaign,
-            wikisource_discovery_candidate_sha256=(
-                self.wikisource_discovery_candidate_sha256
-            ),
-            source_curation_receipt_sha256=(
-                self.source_curation_receipt_sha256
-            ),
-            feb_work_spec=self.feb_work_spec,
-            included_work_ids=self.included_work_ids,
-            exclusions=self.exclusions,
-            text_quality_spec=self.text_quality_spec,
-        )
+        if self.schema_version == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2:
+            core = _manifest_core(
+                wikisource_campaign=self.wikisource_campaign,
+                wikisource_discovery_candidate_sha256=(
+                    self.wikisource_discovery_candidate_sha256
+                ),
+                source_curation_receipt_sha256=(
+                    self.source_curation_receipt_sha256
+                ),
+                feb_work_spec=self.feb_work_spec,
+                included_work_ids=self.included_work_ids,
+                exclusions=self.exclusions,
+                text_quality_spec=self.text_quality_spec,
+            )
+        elif (
+            self.schema_version
+            == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3
+            and self.reviewed_text_campaign is not None
+        ):
+            core = _manifest_core_v3(
+                wikisource_campaign=self.wikisource_campaign,
+                wikisource_discovery_candidate_sha256=(
+                    self.wikisource_discovery_candidate_sha256
+                ),
+                source_curation_receipt_sha256=(
+                    self.source_curation_receipt_sha256
+                ),
+                feb_work_spec=self.feb_work_spec,
+                reviewed_text_campaign=self.reviewed_text_campaign,
+                included_work_ids=self.included_work_ids,
+                exclusions=self.exclusions,
+                text_quality_spec=self.text_quality_spec,
+            )
+        else:
+            raise R1AcquisitionError(
+                "R1 acquisition manifest has inconsistent versioned fields"
+            )
         return {
             **core,
             "generation_id": self.generation_id,
@@ -803,6 +1019,9 @@ class R1AcquisitionReceipt:
     included_work_ids: tuple[str, ...]
     raw_inventory: tuple[R1RawInventoryRow, ...]
     self_hash: str
+    reviewed_text_campaign_spec_sha256: str | None = None
+    reviewed_text_campaign_receipt_sha256: str | None = None
+    schema_version: str = R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1
 
     @classmethod
     def build(
@@ -811,6 +1030,7 @@ class R1AcquisitionReceipt:
         manifest: R1AcquisitionManifest,
         wikisource_receipt: WikisourceCampaignReceipt,
         feb_receipt: FEBWorkReceipt,
+        reviewed_text_receipt: ReviewedTextCampaignReceipt | None = None,
         audit_report: CorpusTextAuditReport,
         raw_payloads: Mapping[str, bytes],
     ) -> "R1AcquisitionReceipt":
@@ -822,6 +1042,22 @@ class R1AcquisitionReceipt:
         if type(feb_receipt) is not FEBWorkReceipt:
             raise R1AcquisitionError(
                 "R1 receipt requires exactly FEBWorkReceipt"
+            )
+        if (
+            manifest.schema_version
+            == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2
+        ):
+            if reviewed_text_receipt is not None:
+                raise R1AcquisitionError(
+                    "R1 v2 receipt cannot bind a reviewed-text receipt"
+                )
+        elif (
+            type(reviewed_text_receipt) is not ReviewedTextCampaignReceipt
+            or manifest.reviewed_text_campaign is None
+        ):
+            raise R1AcquisitionError(
+                "R1 v3 receipt requires exactly "
+                "ReviewedTextCampaignReceipt"
             )
         if type(audit_report) is not CorpusTextAuditReport:
             raise R1AcquisitionError(
@@ -842,8 +1078,25 @@ class R1AcquisitionReceipt:
             R1RawInventoryRow.build(work_id, raw_payloads[work_id])
             for work_id in manifest.included_work_ids
         )
+        if reviewed_text_receipt is not None:
+            try:
+                reviewed_text_receipt.validate_for(
+                    manifest.reviewed_text_campaign,
+                    [
+                        raw_payloads[work.work_id]
+                        for work in manifest.reviewed_text_campaign.works
+                    ],
+                )
+            except ReviewedTextMaterializationError as exc:
+                raise R1AcquisitionError(
+                    f"R1 reviewed-text receipt is invalid: {exc}"
+                ) from exc
         payload: dict[str, object] = {
-            "schema_version": R1_ACQUISITION_RECEIPT_SCHEMA_VERSION,
+            "schema_version": (
+                R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1
+                if reviewed_text_receipt is None
+                else R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2
+            ),
             "acquisition_kind": R1_ACQUISITION_KIND,
             "manifest_sha256": manifest.self_hash,
             "generation_id": manifest.generation_id,
@@ -863,15 +1116,42 @@ class R1AcquisitionReceipt:
             "confirmatory_authorized": False,
             "public_output_authorized": False,
         }
+        if reviewed_text_receipt is not None:
+            payload.update(
+                {
+                    "reviewed_text_campaign_spec_sha256": (
+                        manifest.reviewed_text_campaign.self_hash
+                    ),
+                    "reviewed_text_campaign_receipt_sha256": (
+                        reviewed_text_receipt.self_hash
+                    ),
+                }
+            )
         return cls.from_dict(
             {**payload, "self_hash": canonical_hash(payload)}
         )
 
     @classmethod
     def from_dict(cls, value: object) -> "R1AcquisitionReceipt":
+        if type(value) is not dict:
+            raise R1AcquisitionError(
+                "R1 acquisition receipt must be an exact JSON object"
+            )
+        schema_version = value.get("schema_version")
+        if schema_version == R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1:
+            versioned_keys: set[str] = set()
+        elif schema_version == R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2:
+            versioned_keys = {
+                "reviewed_text_campaign_spec_sha256",
+                "reviewed_text_campaign_receipt_sha256",
+            }
+        else:
+            raise R1AcquisitionError(
+                "R1 acquisition receipt is legacy or unsupported"
+            )
         raw = _exact_object(
             value,
-            {
+            ({
                 "schema_version",
                 "acquisition_kind",
                 "manifest_sha256",
@@ -888,14 +1168,10 @@ class R1AcquisitionReceipt:
                 "confirmatory_authorized",
                 "public_output_authorized",
                 "self_hash",
-            },
+            } | versioned_keys),
             "R1 acquisition receipt",
         )
         _self_hashed_payload(raw, label="R1 acquisition receipt")
-        if raw["schema_version"] != R1_ACQUISITION_RECEIPT_SCHEMA_VERSION:
-            raise R1AcquisitionError(
-                "R1 acquisition receipt is legacy or unsupported"
-            )
         if raw["acquisition_kind"] != R1_ACQUISITION_KIND:
             raise R1AcquisitionError(
                 "R1 acquisition receipt kind is unsupported"
@@ -985,11 +1261,32 @@ class R1AcquisitionReceipt:
                 raw["self_hash"],
                 "R1 acquisition receipt.self_hash",
             ),
+            (
+                _sha256(
+                    raw["reviewed_text_campaign_spec_sha256"],
+                    "R1 acquisition receipt."
+                    "reviewed_text_campaign_spec_sha256",
+                )
+                if schema_version
+                == R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2
+                else None
+            ),
+            (
+                _sha256(
+                    raw["reviewed_text_campaign_receipt_sha256"],
+                    "R1 acquisition receipt."
+                    "reviewed_text_campaign_receipt_sha256",
+                )
+                if schema_version
+                == R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2
+                else None
+            ),
+            schema_version,
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "schema_version": R1_ACQUISITION_RECEIPT_SCHEMA_VERSION,
+        payload: dict[str, object] = {
+            "schema_version": self.schema_version,
             "acquisition_kind": R1_ACQUISITION_KIND,
             "manifest_sha256": self.manifest_sha256,
             "generation_id": self.generation_id,
@@ -1008,8 +1305,30 @@ class R1AcquisitionReceipt:
             "fit_performed": False,
             "confirmatory_authorized": False,
             "public_output_authorized": False,
-            "self_hash": self.self_hash,
         }
+        if self.schema_version == R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2:
+            if (
+                self.reviewed_text_campaign_spec_sha256 is None
+                or self.reviewed_text_campaign_receipt_sha256 is None
+            ):
+                raise R1AcquisitionError(
+                    "R1 v2 receipt has incomplete reviewed-text identities"
+                )
+            payload.update(
+                {
+                    "reviewed_text_campaign_spec_sha256": (
+                        self.reviewed_text_campaign_spec_sha256
+                    ),
+                    "reviewed_text_campaign_receipt_sha256": (
+                        self.reviewed_text_campaign_receipt_sha256
+                    ),
+                }
+            )
+        elif self.schema_version != R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1:
+            raise R1AcquisitionError(
+                "R1 acquisition receipt schema is unsupported"
+            )
+        return {**payload, "self_hash": self.self_hash}
 
     def validate_for(
         self,
@@ -1017,6 +1336,7 @@ class R1AcquisitionReceipt:
         manifest: R1AcquisitionManifest,
         wikisource_receipt: WikisourceCampaignReceipt,
         feb_receipt: FEBWorkReceipt,
+        reviewed_text_receipt: ReviewedTextCampaignReceipt | None = None,
         audit_report: CorpusTextAuditReport,
         raw_payloads: Mapping[str, bytes],
     ) -> "R1AcquisitionReceipt":
@@ -1024,6 +1344,7 @@ class R1AcquisitionReceipt:
             manifest=manifest,
             wikisource_receipt=wikisource_receipt,
             feb_receipt=feb_receipt,
+            reviewed_text_receipt=reviewed_text_receipt,
             audit_report=audit_report,
             raw_payloads=raw_payloads,
         )
@@ -1114,6 +1435,13 @@ def _expected_inventory(
         FEB_SPEC_PATH,
         FEB_RECEIPT_PATH,
     }
+    if manifest.reviewed_text_campaign is not None:
+        files.update(
+            {
+                REVIEWED_TEXT_SPEC_PATH,
+                REVIEWED_TEXT_RECEIPT_PATH,
+            }
+        )
     files.update(f"raw/{work_id}.txt" for work_id in manifest.included_work_ids)
     files.update(
         _work_receipt_path(work_id)
@@ -1214,7 +1542,11 @@ def _provider_receipts(
     root: pathlib.Path,
     manifest: R1AcquisitionManifest,
     raw_payloads: Mapping[str, bytes],
-) -> tuple[WikisourceCampaignReceipt, FEBWorkReceipt]:
+) -> tuple[
+    WikisourceCampaignReceipt,
+    FEBWorkReceipt,
+    ReviewedTextCampaignReceipt | None,
+]:
     work_receipts: list[WholeWorkReceipt] = []
     for spec in manifest.wikisource_campaign.works:
         path = _join(root, _work_receipt_path(spec.work_id))
@@ -1286,7 +1618,35 @@ def _provider_receipts(
         feb_receipt.to_dict(),
         label="R1 FEB work receipt",
     )
-    return campaign_receipt, feb_receipt
+    if manifest.reviewed_text_campaign is None:
+        reviewed_receipt = None
+    else:
+        reviewed_path = _join(root, REVIEWED_TEXT_RECEIPT_PATH)
+        try:
+            reviewed_receipt = load_reviewed_text_campaign_receipt(
+                reviewed_path
+            )
+            reviewed_receipt.validate_for(
+                manifest.reviewed_text_campaign,
+                [
+                    raw_payloads[work.work_id]
+                    for work in manifest.reviewed_text_campaign.works
+                ],
+            )
+        except (
+            OSError,
+            UnicodeError,
+            ReviewedTextMaterializationError,
+        ) as exc:
+            raise R1AcquisitionError(
+                f"R1 reviewed-text campaign receipt is invalid: {exc}"
+            ) from exc
+        _require_canonical_json(
+            reviewed_path,
+            reviewed_receipt.to_dict(),
+            label="R1 reviewed-text campaign receipt",
+        )
+    return campaign_receipt, feb_receipt, reviewed_receipt
 
 
 def _load_existing(
@@ -1321,6 +1681,13 @@ def _load_existing(
         feb_ref = PinnedFEBWorkSpec.from_dict(
             load_strict(_join(root, FEB_SPEC_PATH))
         )
+        reviewed_ref = (
+            ReviewedTextCampaignSpec.from_dict(
+                load_strict(_join(root, REVIEWED_TEXT_SPEC_PATH))
+            )
+            if manifest.reviewed_text_campaign is not None
+            else None
+        )
     except (
         OSError,
         UnicodeError,
@@ -1328,6 +1695,7 @@ def _load_existing(
         WikisourceCampaignError,
         WikisourceAcquisitionError,
         FEBAcquisitionError,
+        ReviewedTextMaterializationError,
     ) as exc:
         raise R1AcquisitionError(
             f"R1 provider spec reference is invalid: {exc}"
@@ -1335,6 +1703,7 @@ def _load_existing(
     if (
         ws_ref != manifest.wikisource_campaign
         or feb_ref != manifest.feb_work_spec
+        or reviewed_ref != manifest.reviewed_text_campaign
     ):
         raise R1AcquisitionError(
             "R1 provider spec references conflict with manifest"
@@ -1349,11 +1718,17 @@ def _load_existing(
         feb_ref.to_dict(),
         label="R1 FEB spec reference",
     )
+    if reviewed_ref is not None:
+        _require_canonical_json(
+            _join(root, REVIEWED_TEXT_SPEC_PATH),
+            reviewed_ref.to_dict(),
+            label="R1 reviewed-text spec reference",
+        )
     raw_payloads = {
         work_id: _join(root, f"raw/{work_id}.txt").read_bytes()
         for work_id in manifest.included_work_ids
     }
-    ws_receipt, feb_receipt = _provider_receipts(
+    ws_receipt, feb_receipt, reviewed_receipt = _provider_receipts(
         root,
         manifest,
         raw_payloads,
@@ -1381,6 +1756,7 @@ def _load_existing(
         manifest=manifest,
         wikisource_receipt=ws_receipt,
         feb_receipt=feb_receipt,
+        reviewed_text_receipt=reviewed_receipt,
         audit_report=stored_audit,
         raw_payloads=raw_payloads,
     )
@@ -1443,6 +1819,7 @@ def materialize_r1_acquisition(
     output_parent: str | os.PathLike[str],
     wikisource_transport: JSONTransport,
     feb_transport: FEBBytesTransport,
+    reviewed_artifact_cache: str | os.PathLike[str] | None = None,
 ) -> MaterializedR1Acquisition:
     """Materialize and audit one exact hybrid R1 source-corpus candidate."""
 
@@ -1467,11 +1844,30 @@ def materialize_r1_acquisition(
     with _publication_lock(parent):
         if target.exists() or target.is_symlink():
             return _load_existing(target, manifest)
-
     # Provider generations are immutable source receipts, not a model or
     # representation cache.  Keeping them allows a failed quality audit to be
     # rerun without repeating network acquisition.
     provider_materializations = parent / ".provider-materializations"
+    reviewed_cache = reviewed_artifact_cache
+    if (
+        manifest.reviewed_text_campaign is not None
+        and reviewed_cache is None
+    ):
+        reviewed_parent = provider_materializations / "reviewed-text"
+        reviewed_generation = (
+            reviewed_parent / manifest.reviewed_text_campaign.self_hash
+        )
+        if not (
+            reviewed_generation.exists()
+            or reviewed_generation.is_symlink()
+        ):
+            raise R1AcquisitionError(
+                "R1 v3 materialization requires a reviewed artifact cache "
+                "until its immutable provider generation exists"
+            )
+        # The reviewed provider validates and returns the immutable generation
+        # before consulting this cache argument.
+        reviewed_cache = reviewed_parent
     try:
         wikisource = materialize_campaign(
             manifest.wikisource_campaign,
@@ -1483,12 +1879,24 @@ def materialize_r1_acquisition(
             output_parent=provider_materializations / "feb",
             transport=feb_transport,
         )
+        reviewed = (
+            materialize_reviewed_text_campaign(
+                manifest.reviewed_text_campaign,
+                artifact_cache=reviewed_cache,
+                output_parent=(
+                    provider_materializations / "reviewed-text"
+                ),
+            )
+            if manifest.reviewed_text_campaign is not None
+            else None
+        )
     except (
         OSError,
         UnicodeError,
         WikisourceCampaignError,
         WikisourceAcquisitionError,
         FEBAcquisitionError,
+        ReviewedTextMaterializationError,
     ) as exc:
         raise R1AcquisitionError(
             f"R1 provider materialization was rejected: {exc}"
@@ -1519,6 +1927,13 @@ def materialize_r1_acquisition(
             sort_keys=True,
             trailing_newline=True,
         )
+        if manifest.reviewed_text_campaign is not None:
+            dump_strict(
+                manifest.reviewed_text_campaign.to_dict(),
+                _join(stage, REVIEWED_TEXT_SPEC_PATH),
+                sort_keys=True,
+                trailing_newline=True,
+            )
         dump_strict(
             wikisource.receipt.to_dict(),
             _join(stage, WIKISOURCE_RECEIPT_PATH),
@@ -1531,6 +1946,13 @@ def materialize_r1_acquisition(
             sort_keys=True,
             trailing_newline=True,
         )
+        if reviewed is not None:
+            dump_strict(
+                reviewed.receipt.to_dict(),
+                _join(stage, REVIEWED_TEXT_RECEIPT_PATH),
+                sort_keys=True,
+                trailing_newline=True,
+            )
         raw_payloads: dict[str, bytes] = {}
         for spec in manifest.wikisource_campaign.works:
             source = _join(wikisource.root, spec.output_relative_path)
@@ -1557,6 +1979,21 @@ def materialize_r1_acquisition(
         feb_target.parent.mkdir(parents=True, exist_ok=True)
         feb_target.write_bytes(feb_payload)
         raw_payloads[manifest.feb_work_spec.work_id] = feb_payload
+        if (
+            reviewed is not None
+            and manifest.reviewed_text_campaign is not None
+        ):
+            for work in manifest.reviewed_text_campaign.works:
+                reviewed_payload = reviewed.output_path(
+                    work.work_id
+                ).read_bytes()
+                reviewed_target = _join(
+                    stage,
+                    work.output_relative_path,
+                )
+                reviewed_target.parent.mkdir(parents=True, exist_ok=True)
+                reviewed_target.write_bytes(reviewed_payload)
+                raw_payloads[work.work_id] = reviewed_payload
 
         audit = _audit(manifest, raw_payloads)
         if audit.status != "passed":
@@ -1580,6 +2017,9 @@ def materialize_r1_acquisition(
             manifest=manifest,
             wikisource_receipt=wikisource.receipt,
             feb_receipt=feb.receipt,
+            reviewed_text_receipt=(
+                None if reviewed is None else reviewed.receipt
+            ),
             audit_report=audit,
             raw_payloads=raw_payloads,
         )
@@ -1615,11 +2055,17 @@ __all__ = [
     "MaterializedR1Acquisition",
     "R1_ACQUISITION_KIND",
     "R1_ACQUISITION_MANIFEST_SCHEMA_VERSION",
+    "R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V2",
+    "R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3",
     "R1_ACQUISITION_RECEIPT_SCHEMA_VERSION",
+    "R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V1",
+    "R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2",
     "R1_AUTHORSHIP_MISMATCH_WORK_ID",
     "R1_COLLECTION_UMBRELLA_WORK_ID",
     "R1_EXCLUDED_WORK_IDS",
+    "R1_EXCLUDED_WORK_IDS_V3",
     "R1_FEB_WORK_ID",
+    "R1_SOURCE_QUALITY_REJECTED_WORK_ID",
     "R1AcquisitionAuditError",
     "R1AcquisitionError",
     "R1AcquisitionManifest",
@@ -1627,6 +2073,8 @@ __all__ = [
     "R1Exclusion",
     "R1RawInventoryRow",
     "R1TextQualitySpec",
+    "REVIEWED_TEXT_RECEIPT_PATH",
+    "REVIEWED_TEXT_SPEC_PATH",
     "WIKISOURCE_RECEIPT_PATH",
     "WIKISOURCE_SPEC_PATH",
     "WIKISOURCE_WORK_RECEIPT_PREFIX",

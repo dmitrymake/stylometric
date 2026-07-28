@@ -23,6 +23,7 @@ from typing import Any
 
 from ..domain.corpus_identity import (
     CONTENT_OVERLAP_POLICY_VERSION,
+    ContentOverlap,
     find_cross_work_content_overlaps,
 )
 from ..jsonio import canonical_hash
@@ -596,6 +597,168 @@ class CorpusTextAuditReport:
         return self
 
 
+def _audit_one_work(
+    payload: bytes,
+    *,
+    work_id: str,
+    minimum_words: int,
+) -> tuple[str, dict[str, object], tuple[dict[str, object], ...]]:
+    """Audit one literal work without evaluating cross-work relationships."""
+
+    text = _canonical_text(payload, work_id=work_id)
+    lines = text.split("\n")
+    nonblank = [line for line in lines if line]
+    words = count_words(text)
+    transport, apparatus = _line_findings(lines)
+    internal = _whole_prefix_repeated_at_tail(text)
+    row: dict[str, object] = {
+        "work_id": work_id,
+        "byte_size": len(payload),
+        "sha256": _sha256_bytes(payload),
+        "word_count": words,
+        "line_count": len(lines),
+        "nonblank_line_count": len(nonblank),
+        "first_nonblank_line": nonblank[0],
+        "first_nonblank_line_sha256": _line_sha256(nonblank[0]),
+        "last_nonblank_line": nonblank[-1],
+        "last_nonblank_line_sha256": _line_sha256(nonblank[-1]),
+        "transport_residue_findings": transport,
+        "boundary_apparatus_findings": apparatus,
+        "internal_duplication_findings": (
+            [] if internal is None else [internal]
+        ),
+    }
+    blockers: list[dict[str, object]] = []
+    if words < minimum_words:
+        blockers.append(
+            {
+                "kind": "work_below_minimum_words",
+                "work_ids": [work_id],
+                "evidence": f"{words} < {minimum_words}",
+            }
+        )
+    if _CONTROL_RE.search(text):
+        blockers.append(
+            {
+                "kind": "control_character",
+                "work_ids": [work_id],
+                "evidence": "non-LF C0/DEL control character present",
+            }
+        )
+    for label, findings in (
+        ("transport_residue", transport),
+        ("boundary_apparatus", apparatus),
+    ):
+        if findings:
+            blockers.append(
+                {
+                    "kind": label,
+                    "work_ids": [work_id],
+                    "evidence": (
+                        f"{len(findings)} finding(s); "
+                        f"first={findings[0]['kind']}@"
+                        f"{findings[0]['line_number']}"
+                    ),
+                }
+            )
+    if internal is not None:
+        blockers.append(
+            {
+                "kind": "internal_whole_text_duplication",
+                "work_ids": [work_id],
+                "evidence": (
+                    f"offset={internal['second_copy_token_offset']}; "
+                    f"tokens={internal['repeated_token_count']}"
+                ),
+            }
+        )
+    return text, row, tuple(blockers)
+
+
+def _assemble_audit_report(
+    expected_work_ids: Sequence[str],
+    *,
+    work_rows: Mapping[str, Mapping[str, object]],
+    one_work_blockers: Mapping[str, Sequence[Mapping[str, object]]],
+    overlaps: Sequence[ContentOverlap],
+    minimum_words: int,
+    containment_threshold: Fraction,
+    minimum_shingles: int,
+    sample_size: int,
+) -> CorpusTextAuditReport:
+    """Assemble the canonical report from one-work findings and overlaps."""
+
+    expected = tuple(expected_work_ids)
+    if (
+        not expected
+        or expected != tuple(sorted(expected))
+        or len(expected) != len(set(expected))
+    ):
+        raise CorpusTextQualityError(
+            "report work ids must be non-empty, sorted, and unique"
+        )
+    if not set(expected).issubset(work_rows) or not set(expected).issubset(
+        one_work_blockers
+    ):
+        raise CorpusTextQualityError(
+            "report rows/blockers do not cover expected work ids"
+        )
+    rows = [dict(work_rows[work_id]) for work_id in expected]
+    blockers = [
+        dict(blocker)
+        for work_id in expected
+        for blocker in one_work_blockers[work_id]
+    ]
+    overlap_rows = [
+        {
+            "left_work": row.left_work,
+            "right_work": row.right_work,
+            "kind": row.kind,
+            "containment": format(row.containment, ".12g"),
+            "evidence": row.evidence,
+        }
+        for row in overlaps
+    ]
+    blockers.extend(
+        {
+            "kind": f"cross_work_{row.kind}",
+            "work_ids": [row.left_work, row.right_work],
+            "evidence": row.evidence,
+        }
+        for row in overlaps
+    )
+    blockers.sort(
+        key=lambda row: (
+            str(row["kind"]),
+            tuple(str(value) for value in row["work_ids"]),
+            str(row["evidence"]),
+        )
+    )
+    payload: dict[str, object] = {
+        "schema_version": TEXT_QUALITY_AUDIT_SCHEMA_VERSION,
+        "policy_version": TEXT_QUALITY_POLICY_VERSION,
+        "content_overlap_policy_version": CONTENT_OVERLAP_POLICY_VERSION,
+        "minimum_words": minimum_words,
+        "containment_threshold": (
+            f"{containment_threshold.numerator}/"
+            f"{containment_threshold.denominator}"
+        ),
+        "minimum_shingles": minimum_shingles,
+        "sample_size": sample_size,
+        "status": "passed" if not blockers else "blocked",
+        "expected_work_ids": list(expected),
+        "work_count": len(expected),
+        "total_word_count": sum(int(row["word_count"]) for row in rows),
+        "works": rows,
+        "cross_work_overlaps": overlap_rows,
+        "blocking_findings": blockers,
+    }
+    report = CorpusTextAuditReport(
+        {**payload, "self_hash": canonical_hash(payload)}
+    )
+    return report.validate()
+
+
 def audit_corpus_texts(
     work_payloads: Mapping[str, bytes],
     *,
@@ -645,79 +808,17 @@ def audit_corpus_texts(
         )
 
     texts: list[str] = []
-    work_rows: list[dict[str, object]] = []
-    blockers: list[dict[str, object]] = []
-    total_words = 0
+    work_rows: dict[str, Mapping[str, object]] = {}
+    one_work_blockers: dict[str, Sequence[Mapping[str, object]]] = {}
     for work_id in expected:
         payload = work_payloads[work_id]
-        text = _canonical_text(payload, work_id=work_id)
-        lines = text.split("\n")
-        nonblank = [line for line in lines if line]
-        words = count_words(text)
-        total_words += words
-        transport, apparatus = _line_findings(lines)
-        internal = _whole_prefix_repeated_at_tail(text)
-        row: dict[str, object] = {
-            "work_id": work_id,
-            "byte_size": len(payload),
-            "sha256": _sha256_bytes(payload),
-            "word_count": words,
-            "line_count": len(lines),
-            "nonblank_line_count": len(nonblank),
-            "first_nonblank_line": nonblank[0],
-            "first_nonblank_line_sha256": _line_sha256(nonblank[0]),
-            "last_nonblank_line": nonblank[-1],
-            "last_nonblank_line_sha256": _line_sha256(nonblank[-1]),
-            "transport_residue_findings": transport,
-            "boundary_apparatus_findings": apparatus,
-            "internal_duplication_findings": (
-                [] if internal is None else [internal]
-            ),
-        }
-        work_rows.append(row)
-        if words < minimum_words:
-            blockers.append(
-                {
-                    "kind": "work_below_minimum_words",
-                    "work_ids": [work_id],
-                    "evidence": f"{words} < {minimum_words}",
-                }
-            )
-        if _CONTROL_RE.search(text):
-            blockers.append(
-                {
-                    "kind": "control_character",
-                    "work_ids": [work_id],
-                    "evidence": "non-LF C0/DEL control character present",
-                }
-            )
-        for label, findings in (
-            ("transport_residue", transport),
-            ("boundary_apparatus", apparatus),
-        ):
-            if findings:
-                blockers.append(
-                    {
-                        "kind": label,
-                        "work_ids": [work_id],
-                        "evidence": (
-                            f"{len(findings)} finding(s); "
-                            f"first={findings[0]['kind']}@"
-                            f"{findings[0]['line_number']}"
-                        ),
-                    }
-                )
-        if internal is not None:
-            blockers.append(
-                {
-                    "kind": "internal_whole_text_duplication",
-                    "work_ids": [work_id],
-                    "evidence": (
-                        f"offset={internal['second_copy_token_offset']}; "
-                        f"tokens={internal['repeated_token_count']}"
-                    ),
-                }
-            )
+        text, row, blockers = _audit_one_work(
+            payload,
+            work_id=work_id,
+            minimum_words=minimum_words,
+        )
+        work_rows[work_id] = row
+        one_work_blockers[work_id] = blockers
         texts.append(text)
 
     overlaps = find_cross_work_content_overlaps(
@@ -727,54 +828,16 @@ def audit_corpus_texts(
         min_shingles=minimum_shingles,
         sample_size=sample_size,
     )
-    overlap_rows = [
-        {
-            "left_work": row.left_work,
-            "right_work": row.right_work,
-            "kind": row.kind,
-            "containment": format(row.containment, ".12g"),
-            "evidence": row.evidence,
-        }
-        for row in overlaps
-    ]
-    blockers.extend(
-        {
-            "kind": f"cross_work_{row.kind}",
-            "work_ids": [row.left_work, row.right_work],
-            "evidence": row.evidence,
-        }
-        for row in overlaps
+    return _assemble_audit_report(
+        expected,
+        work_rows=work_rows,
+        one_work_blockers=one_work_blockers,
+        overlaps=overlaps,
+        minimum_words=minimum_words,
+        containment_threshold=containment_threshold,
+        minimum_shingles=minimum_shingles,
+        sample_size=sample_size,
     )
-    blockers.sort(
-        key=lambda row: (
-            str(row["kind"]),
-            tuple(str(value) for value in row["work_ids"]),
-            str(row["evidence"]),
-        )
-    )
-    payload: dict[str, object] = {
-        "schema_version": TEXT_QUALITY_AUDIT_SCHEMA_VERSION,
-        "policy_version": TEXT_QUALITY_POLICY_VERSION,
-        "content_overlap_policy_version": CONTENT_OVERLAP_POLICY_VERSION,
-        "minimum_words": minimum_words,
-        "containment_threshold": (
-            f"{containment_threshold.numerator}/"
-            f"{containment_threshold.denominator}"
-        ),
-        "minimum_shingles": minimum_shingles,
-        "sample_size": sample_size,
-        "status": "passed" if not blockers else "blocked",
-        "expected_work_ids": list(expected),
-        "work_count": len(expected),
-        "total_word_count": total_words,
-        "works": work_rows,
-        "cross_work_overlaps": overlap_rows,
-        "blocking_findings": blockers,
-    }
-    report = CorpusTextAuditReport(
-        {**payload, "self_hash": canonical_hash(payload)}
-    )
-    return report.validate()
 
 
 def require_text_quality(report: CorpusTextAuditReport) -> None:

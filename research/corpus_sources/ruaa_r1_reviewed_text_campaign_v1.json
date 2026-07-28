@@ -1,0 +1,206 @@
+{
+  "artifact_key_policy_version": "stylo.reviewed-text.sha256-artifact-key.v1",
+  "campaign_kind": "hash_bound_reviewed_final_texts",
+  "schema_version": "stylo.reviewed-text.campaign-spec.v1",
+  "self_hash": "c87deecb01ea9db922e02305efee9cfda9c76fe4e4e03d38e28dc6438eb63f7f",
+  "text_identity_policy_version": "stylo.reviewed-text.canonical-utf8-final-lf.v1",
+  "upstream_inventory_file_sha256": "abcda1abbe6c2ba495fd1d27093d81fc7ad3880c2d73f770adb443c524086cff",
+  "upstream_quality_audit_file_sha256": "63e4da1df7186133aa05b18806ba29390ff0e9b5e3ef996021426942fb705ece",
+  "upstream_quality_audit_self_hash": "3be9ed08062ba68a2411e862a282a87e84b33ed900fb57585af61dc5daa1b5aa",
+  "work_ids": [
+    "korolenko/дети_подземелья",
+    "korolenko/слепой_музыкант",
+    "novikov_priboy/цусима",
+    "prutkov/выдержки_из_записок_деда",
+    "prutkov/плоды_раздумья",
+    "tolstoy/война_и_мир"
+  ],
+  "works": [
+    {
+      "artifact_key": "sha256/9405dd9b1934f872aca097aecc795127997ffcc7af9aa0865d1dcb5f11a36263.txt",
+      "builder_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        }
+      ],
+      "byte_size": 211523,
+      "first_nonblank_line_sha256": "e76b1b0a6b040f66a1ac51b4384a00ed6a12d13c82d381625b3d252348953958",
+      "last_nonblank_line_sha256": "0359bdb72fa3b3ee4adfdfcae848c4b5cc3c889bc7400efc01051e9cd67482c9",
+      "line_count": 923,
+      "provenance_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        }
+      ],
+      "reviewed_part_count": 10,
+      "sha256": "9405dd9b1934f872aca097aecc795127997ffcc7af9aa0865d1dcb5f11a36263",
+      "source_part_count": 1,
+      "word_count": 17725,
+      "work_id": "korolenko/дети_подземелья"
+    },
+    {
+      "artifact_key": "sha256/513681742f9bbfabefd61d8efa1def4fd2dcf9c9f73403ec07002e1c72471a64.txt",
+      "builder_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        }
+      ],
+      "byte_size": 433964,
+      "first_nonblank_line_sha256": "78d359f387030014722ba6c08f7557606efaf5ac41a9885958d18e039ccd337d",
+      "last_nonblank_line_sha256": "e1198db37e6055fbb3d66712ff6d27371db9ebd00f192a628859cff7d448a435",
+      "line_count": 2112,
+      "provenance_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        }
+      ],
+      "reviewed_part_count": 9,
+      "sha256": "513681742f9bbfabefd61d8efa1def4fd2dcf9c9f73403ec07002e1c72471a64",
+      "source_part_count": 1,
+      "word_count": 35701,
+      "work_id": "korolenko/слепой_музыкант"
+    },
+    {
+      "artifact_key": "sha256/90fe2b0a6edfe8999f10a58060a1a383a11ff8823d5e1061798c67d7e946b9bf.txt",
+      "builder_artifacts": [
+        {
+          "byte_size": 4952,
+          "logical_name": "build_stylo_tsushima_sheba_main.py",
+          "sha256": "0350cadcc697f27b79b05d4e28e7bbe7bd57e8ffbca2dc25c2456c002eb78112"
+        },
+        {
+          "byte_size": 14243,
+          "logical_name": "build_stylo_tsushima_sheba_scan_corrected-final-independent.py",
+          "sha256": "cf2552a448e7e4ccdf47b4d3e021cf2c1ac9bb64bee77ce7c45c93e69554d4f7"
+        }
+      ],
+      "byte_size": 2981168,
+      "first_nonblank_line_sha256": "dd7dcc1c9ef42956f8794055ea721e7914be34618f14803b8e242ede352e3ed9",
+      "last_nonblank_line_sha256": "670c41dd807adc7e0f0eb46db61095b75d415e4fc63d737f1a1a72313594886b",
+      "line_count": 13277,
+      "provenance_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        },
+        {
+          "byte_size": 17702,
+          "logical_name": "stylo-tsushima-sheba-1984-main-scan-corrected-final-independent.json",
+          "sha256": "8c9e6ca6200986503c5d687eb4d5c63221a8d1fb4441188db438374595a1a8d9"
+        },
+        {
+          "byte_size": 4545,
+          "logical_name": "stylo-tsushima-sheba-1984-main.json",
+          "sha256": "057d778424a02757741b3980a76530083e9484a418ee7403a02cdbf4ef97a21f"
+        }
+      ],
+      "reviewed_part_count": 10,
+      "sha256": "90fe2b0a6edfe8999f10a58060a1a383a11ff8823d5e1061798c67d7e946b9bf",
+      "source_part_count": 3,
+      "word_count": 237295,
+      "work_id": "novikov_priboy/цусима"
+    },
+    {
+      "artifact_key": "sha256/319de4248c4008be0a849ab576b91a4ccfffc09f7eff538edd65880c99249254.txt",
+      "builder_artifacts": [
+        {
+          "byte_size": 37698,
+          "logical_name": "build_stylo_prutkov_clean_source_probe.py",
+          "sha256": "4b1b6a192a29ceca791566f07b46dd182735430376c0920d3a93fbe699b2c288"
+        }
+      ],
+      "byte_size": 29254,
+      "first_nonblank_line_sha256": "73003687238688f6b290d61d83b13de853cc11dc692b90afaf3d435f852b003d",
+      "last_nonblank_line_sha256": "fa0699ce6e94aed127f0b92ebdc4931436c42913918701dab8666dc6530de482",
+      "line_count": 112,
+      "provenance_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        },
+        {
+          "byte_size": 19443,
+          "logical_name": "stylo-prutkov-clean-source-probe.json",
+          "sha256": "98144bdc172901e9346debd3e12b4b6442d456d2da23046bb19a66bb2c0eadf9"
+        }
+      ],
+      "reviewed_part_count": 2,
+      "sha256": "319de4248c4008be0a849ab576b91a4ccfffc09f7eff538edd65880c99249254",
+      "source_part_count": 1,
+      "word_count": 2295,
+      "work_id": "prutkov/выдержки_из_записок_деда"
+    },
+    {
+      "artifact_key": "sha256/4f755d2d2ea781fa25fbbebfe8114f7e1a78eae44754ad0ab764ccd558a3d523.txt",
+      "builder_artifacts": [
+        {
+          "byte_size": 49860,
+          "logical_name": "build_stylo_prutkov_fruits_rev5658784.py",
+          "sha256": "0ec02017cb1c308b9a8f42888d0f8c6106c1c1e3b2b5144b2a8ceddde8ac2708"
+        }
+      ],
+      "byte_size": 38386,
+      "first_nonblank_line_sha256": "3b563a55bb39f86cac9e106a1c437310c792a862f924d54c2348c7c21d982f67",
+      "last_nonblank_line_sha256": "116b527b3cf9d5baa4260bc993315e0fa2d51f611c7b41e4c6cf075ab878a644",
+      "line_count": 1058,
+      "provenance_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        },
+        {
+          "byte_size": 47559,
+          "logical_name": "stylo-prutkov-fruits-rev5658784.clean-manifest.json",
+          "sha256": "8e37c07b756b26b4497a80bc5cd72304ccfe0ec09dbca910b7c5367ded2ee0bd"
+        }
+      ],
+      "reviewed_part_count": 1,
+      "sha256": "4f755d2d2ea781fa25fbbebfe8114f7e1a78eae44754ad0ab764ccd558a3d523",
+      "source_part_count": 1,
+      "word_count": 3182,
+      "work_id": "prutkov/плоды_раздумья"
+    },
+    {
+      "artifact_key": "sha256/437ae8e1a6ab5bd1c3fb341440fe0459ea69adc80abbfb0149b8b3bdab2e7f6c.txt",
+      "builder_artifacts": [
+        {
+          "byte_size": 31460,
+          "logical_name": "build_stylo_warpeace_tolstoyru_reviewed_final.py",
+          "sha256": "62b2f1713ffe029a91e9611127e9df6414ec206ebe8295cf3e02ee8f0835b340"
+        }
+      ],
+      "byte_size": 5182783,
+      "first_nonblank_line_sha256": "127add5aa69665c2a1696ce1170f65fe5b6234c18dd3dc3cd38e7706d4691e38",
+      "last_nonblank_line_sha256": "bd0c5e556d5f3c20485d266889177286fd22e167ffc2f6b360afa25b1fdda5ed",
+      "line_count": 22533,
+      "provenance_artifacts": [
+        {
+          "byte_size": 10781,
+          "logical_name": "ruaa_r1_reviewed_text_provenance_v1.json",
+          "sha256": "edcd0bfcdc226e07d6afa68b32e0f2f4e3270ce57c57891760fd463ea88fe463"
+        },
+        {
+          "byte_size": 40639,
+          "logical_name": "stylo-warpeace-tolstoyru-reviewed-final.json",
+          "sha256": "3b774afbb7632bbeff99ca1b8539cbc792cd402131e734d70f7651a4ab57c0fe"
+        }
+      ],
+      "reviewed_part_count": 4,
+      "sha256": "437ae8e1a6ab5bd1c3fb341440fe0459ea69adc80abbfb0149b8b3bdab2e7f6c",
+      "source_part_count": 5,
+      "word_count": 448280,
+      "work_id": "tolstoy/война_и_мир"
+    }
+  ]
+}

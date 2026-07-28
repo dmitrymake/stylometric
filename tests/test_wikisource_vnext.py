@@ -268,6 +268,84 @@ def _spec_raw_v3_with_repair(
     return {**payload, "self_hash": canonical_hash(payload)}
 
 
+def _spec_raw_v4_with_repairs(
+    record: dict[str, object],
+    *,
+    replacements: list[tuple[str, str]],
+    work_id: str = "author/ordered-repaired-work",
+) -> dict[str, object]:
+    full = str(record["plain"])
+    selection = ws.build_body_selection_v2(
+        full,
+        start_line=0,
+        end_line_exclusive=len(full.split("\n")),
+        body_disposition="whole_rendered_body",
+    )
+    current = selection.selected_plain
+    repairs_raw: list[dict[str, object]] = []
+    for index, (literal, replacement) in enumerate(replacements):
+        occurrence_line_hashes = [
+            _sha(line.encode("utf-8"))
+            for line in current.split("\n")
+            for _ in range(line.count(literal))
+        ]
+        repair_raw: dict[str, object] = {
+            "policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+            "literal": literal,
+            "replacement": replacement,
+            "expected_count": len(occurrence_line_hashes),
+            "occurrence_line_sha256": occurrence_line_hashes,
+            "review_receipt_sha256": f"{index + 1:064x}",
+        }
+        repair = ws.ReviewedLiteralSourceRepairV1.from_dict(repair_raw)
+        current = ws.apply_reviewed_source_repair_v1(
+            current,
+            repair,
+            label=f"test repair {index}",
+        )
+        repairs_raw.append(repair_raw)
+    identity_keys = {
+        "ordinal",
+        "requested_title",
+        "resolved_title",
+        "redirect_chain",
+        "page_id",
+        "revision_id",
+        "mediawiki_sha1",
+        "wikitext_sha256",
+        "rendered_html_sha256",
+    }
+    final_payload = current.encode("utf-8")
+    part = {
+        **{key: record[key] for key in identity_keys},
+        **selection.to_part_fields(),
+        "pre_repair_plain_byte_size": selection.plain_byte_size,
+        "pre_repair_plain_sha256": selection.plain_sha256,
+        "pre_repair_word_count": selection.word_count,
+        "source_repairs": repairs_raw,
+        "plain_byte_size": len(final_payload),
+        "plain_sha256": _sha(final_payload),
+        "word_count": ws.count_words(current),
+    }
+    output = ws.assemble_plain_parts([current])
+    payload: dict[str, object] = {
+        "schema_version": ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V4,
+        "work_id": work_id,
+        "assembly_policy_version": ws.ASSEMBLY_POLICY_VERSION,
+        "extraction_policy_version": ws.EXTRACTION_POLICY_VERSION,
+        "residue_policy_version": ws.RESIDUE_POLICY_VERSION,
+        "word_count_policy_version": ws.WORD_COUNT_POLICY_VERSION,
+        "body_boundary_policy_version": ws.BODY_BOUNDARY_POLICY_VERSION_V2,
+        "source_repair_policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+        "parts": [part],
+        "output_relative_path": f"raw/{work_id}.txt",
+        "output_byte_size": len(output),
+        "output_sha256": _sha(output),
+        "word_count": ws.count_words(output.decode("utf-8")),
+    }
+    return {**payload, "self_hash": canonical_hash(payload)}
+
+
 class _Transport:
     def __init__(self, records: list[dict[str, object]]):
         self.records = {
@@ -1030,6 +1108,51 @@ def _record_with_reviewed_empty_template() -> dict[str, object]:
     return record
 
 
+def test_reviewed_empty_repair_deletes_exact_whole_line_without_blank_run():
+    literal = "Оригинал здесь: Электронная библиотека."
+    text = (
+        "Заголовок\n\n"
+        f"{literal}\n\n"
+        "Первый авторский абзац.\n\n"
+        "Последний авторский абзац."
+    )
+    line_sha256 = _sha(literal.encode("utf-8"))
+    raw_repair = {
+        "policy_version": ws.SOURCE_REPAIR_POLICY_VERSION_V1,
+        "literal": literal,
+        "replacement": "",
+        "expected_count": 1,
+        "occurrence_line_sha256": [line_sha256],
+        "review_receipt_sha256": "d" * 64,
+    }
+    repair = ws.ReviewedLiteralSourceRepairV1.from_dict(raw_repair)
+
+    repaired = ws.apply_reviewed_source_repair_v1(
+        text,
+        repair,
+        label="whole-line deletion",
+    )
+
+    expected = (
+        "Заголовок\n\n"
+        "Первый авторский абзац.\n\n"
+        "Последний авторский абзац."
+    ).encode("utf-8")
+    assert repaired.encode("utf-8") == expected
+
+    raw_repair["occurrence_line_sha256"] = ["0" * 64]
+    drifted = ws.ReviewedLiteralSourceRepairV1.from_dict(raw_repair)
+    with pytest.raises(
+        ws.WikisourceAcquisitionError,
+        match="source-line identity drifted",
+    ):
+        ws.apply_reviewed_source_repair_v1(
+            text,
+            drifted,
+            label="whole-line deletion",
+        )
+
+
 def test_v3_reviewed_literal_repair_is_exact_receipted_and_replayable(tmp_path):
     record = _record_with_reviewed_empty_template()
     raw = _spec_raw_v3_with_repair(
@@ -1063,6 +1186,8 @@ def test_v3_reviewed_literal_repair_is_exact_receipted_and_replayable(tmp_path):
         == ws.PINNED_PART_RECEIPT_SCHEMA_VERSION_V3
     )
     assert part_receipt.source_repair_v1 == spec.parts[0].source_repair_v1
+    assert spec.to_dict() == raw
+    assert "source_repairs" not in spec.to_dict()["parts"][0]
 
     resumed = ws.materialize_pinned_work(
         spec,
@@ -1120,3 +1245,81 @@ def test_v3_reviewed_literal_repair_rejects_noncanonical_or_drifted_contract(
             transport=_Transport([record]),
         )
     assert not (tmp_path / spec.self_hash).exists()
+
+
+def test_v4_ordered_reviewed_repairs_are_receipted_and_replayable(tmp_path):
+    record = _record_with_reviewed_empty_template()
+    raw = _spec_raw_v4_with_repairs(
+        record,
+        replacements=[("{{}}", ""), ("Орёл", "судно")],
+    )
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+
+    result = ws.materialize_pinned_work(
+        spec,
+        output_parent=tmp_path,
+        transport=_Transport([record]),
+    )
+
+    assert "судно продолжал движение" in result.output_path.read_text(
+        encoding="utf-8"
+    )
+    assert spec.parts[0].source_repair_v1 is None
+    assert len(spec.parts[0].source_repairs_v1 or ()) == 2
+    assert spec.to_dict() == raw
+    assert "source_repair" not in spec.to_dict()["parts"][0]
+    assert (
+        result.receipt.schema_version
+        == ws.WHOLE_WORK_RECEIPT_SCHEMA_VERSION_V4
+    )
+    part_receipt = result.receipt.parts[0]
+    assert (
+        part_receipt.schema_version
+        == ws.PINNED_PART_RECEIPT_SCHEMA_VERSION_V4
+    )
+    assert (
+        part_receipt.source_repairs_v1
+        == spec.parts[0].source_repairs_v1
+    )
+
+    resumed = ws.materialize_pinned_work(
+        spec,
+        output_parent=tmp_path,
+        transport=lambda _: pytest.fail("resume reached the network"),
+    )
+    assert resumed.resumed is True
+    assert resumed.receipt == result.receipt
+
+
+def test_v4_reviewed_repairs_are_applied_strictly_in_order(tmp_path):
+    record = _record_with_reviewed_empty_template()
+    raw = _spec_raw_v4_with_repairs(
+        record,
+        replacements=[("{{}}", ""), ("Орёл", "судно")],
+    )
+    raw["parts"][0]["source_repairs"].reverse()
+    payload = {key: value for key, value in raw.items() if key != "self_hash"}
+    raw["self_hash"] = canonical_hash(payload)
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+
+    with pytest.raises(
+        ws.WikisourceAcquisitionError,
+        match=r"source_repairs\[0\].*source-line identity drifted",
+    ):
+        ws.materialize_pinned_work(
+            spec,
+            output_parent=tmp_path,
+            transport=_Transport([record]),
+        )
+    assert not (tmp_path / spec.self_hash).exists()
+
+
+def test_v4_empty_repair_sequence_preserves_pre_repair_identity():
+    record = _record(0, "БезИсправлений")
+    raw = _spec_raw_v4_with_repairs(record, replacements=[])
+
+    spec = ws.PinnedWorkSpec.from_dict(raw)
+
+    assert spec.parts[0].source_repairs_v1 == ()
+    assert spec.parts[0].pre_repair_plain_sha256 == spec.parts[0].plain_sha256
+    assert spec.to_dict() == raw

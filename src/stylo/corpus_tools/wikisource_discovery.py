@@ -45,6 +45,7 @@ from .wikisource_vnext import (
     EXTRACTION_POLICY_VERSION,
     PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
     PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+    PINNED_WORK_SPEC_SCHEMA_VERSION_V4,
     RESIDUE_POLICY_VERSION,
     SOURCE_REPAIR_POLICY_VERSION_V1,
     WORD_COUNT_POLICY_VERSION,
@@ -55,6 +56,7 @@ from .wikisource_vnext import (
     ReviewedLiteralSourceRepairV1,
     WikisourceAcquisitionError,
     apply_reviewed_source_repair_v1,
+    apply_reviewed_source_repairs_v1,
     assemble_plain_parts,
     build_body_selection_v2,
     count_words,
@@ -70,6 +72,9 @@ DISCOVERY_CANDIDATE_SCHEMA_VERSION_V2 = (
 )
 DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3 = (
     "stylo.ruaa-r1-wikisource-source-spec-candidate.v3"
+)
+DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4 = (
+    "stylo.ruaa-r1-wikisource-source-spec-candidate.v4"
 )
 PINNING_CACHE_SCHEMA_VERSION = "stylo.wikisource.pinning-response-cache.v1"
 READY_STATUS = "ready_for_pinning"
@@ -154,6 +159,7 @@ _PART_BOUNDARY_V2_KEYS = frozenset(
     }
 )
 _PART_REPAIR_V3_KEYS = frozenset({"source_repair"})
+_PART_REPAIRS_V4_KEYS = frozenset({"source_repairs"})
 _SUMMARY_KEYS = frozenset(
     {
         "work_count",
@@ -688,6 +694,7 @@ class DiscoveryPart:
     body_end_line_exclusive: int | None
     body_disposition: str
     source_repair_v1: ReviewedLiteralSourceRepairV1 | None
+    source_repairs_v1: tuple[ReviewedLiteralSourceRepairV1, ...] | None
 
     @classmethod
     def from_dict(
@@ -709,6 +716,11 @@ class DiscoveryPart:
             == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3
         ):
             boundary_keys = _PART_BOUNDARY_V2_KEYS | _PART_REPAIR_V3_KEYS
+        elif (
+            candidate_schema_version
+            == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4
+        ):
+            boundary_keys = _PART_BOUNDARY_V2_KEYS | _PART_REPAIRS_V4_KEYS
         else:  # Guarded at the candidate boundary.
             raise WikisourceDiscoveryError(
                 f"{label} belongs to an unsupported candidate schema"
@@ -736,6 +748,7 @@ class DiscoveryPart:
             body_end: int | None = None
             body_disposition = "whole_rendered_body"
             source_repair = None
+            source_repairs = None
         else:
             body_start = _exact_int(
                 raw["body_start_line"],
@@ -797,8 +810,30 @@ class DiscoveryPart:
                     )
                 except WikisourceAcquisitionError as exc:
                     raise WikisourceDiscoveryError(str(exc)) from exc
+                source_repairs = None
+            elif (
+                candidate_schema_version
+                == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4
+            ):
+                source_repair = None
+                try:
+                    source_repairs = tuple(
+                        ReviewedLiteralSourceRepairV1.from_dict(
+                            item,
+                            label=f"{label}.source_repairs[{index}]",
+                        )
+                        for index, item in enumerate(
+                            _exact_list(
+                                raw["source_repairs"],
+                                f"{label}.source_repairs",
+                            )
+                        )
+                    )
+                except WikisourceAcquisitionError as exc:
+                    raise WikisourceDiscoveryError(str(exc)) from exc
             else:
                 source_repair = None
+                source_repairs = None
         return cls(
             _exact_int(raw["ordinal"], f"{label}.ordinal", minimum=0),
             requested,
@@ -831,6 +866,7 @@ class DiscoveryPart:
             body_end,
             body_disposition,
             source_repair,
+            source_repairs,
         )
 
 
@@ -939,6 +975,7 @@ class DiscoveryCandidate:
             DISCOVERY_CANDIDATE_SCHEMA_VERSION,
             DISCOVERY_CANDIDATE_SCHEMA_VERSION_V2,
             DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+            DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4,
         }:
             raise WikisourceDiscoveryError(
                 "discovery candidate is legacy or unsupported"
@@ -1102,6 +1139,7 @@ class DiscoveryCandidate:
         if self.schema_version not in {
             DISCOVERY_CANDIDATE_SCHEMA_VERSION_V2,
             DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+            DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4,
         }:
             blockers.append(
                 "candidate schema has no explicit v2 body-boundary policy"
@@ -1707,28 +1745,56 @@ def _pin_part(
         body_disposition=part.body_disposition,
     )
     pre_repair_plain = selection.selected_plain
-    final_plain = (
-        pre_repair_plain
-        if part.source_repair_v1 is None
-        else apply_reviewed_source_repair_v1(
+    if part.source_repairs_v1 is not None:
+        final_plain = apply_reviewed_source_repairs_v1(
+            pre_repair_plain,
+            part.source_repairs_v1,
+            label=f"revision {part.revision_id}",
+        )
+    elif part.source_repair_v1 is not None:
+        final_plain = apply_reviewed_source_repair_v1(
             pre_repair_plain,
             part.source_repair_v1,
             label=f"revision {part.revision_id}",
         )
-    )
-    if candidate_schema_version == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3:
-        schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+    else:
+        final_plain = pre_repair_plain
+    if candidate_schema_version in {
+        DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3,
+        DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4,
+    }:
+        schema_version = (
+            PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+            if candidate_schema_version
+            == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3
+            else PINNED_WORK_SPEC_SCHEMA_VERSION_V4
+        )
         pre_payload = pre_repair_plain.encode("utf-8")
         final_payload = final_plain.encode("utf-8")
+        if candidate_schema_version == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3:
+            source_repair_fields: dict[str, object] = {
+                "source_repair": (
+                    None
+                    if part.source_repair_v1 is None
+                    else part.source_repair_v1.to_dict()
+                )
+            }
+        else:
+            if part.source_repairs_v1 is None:
+                raise WikisourceDiscoveryError(
+                    "v4 discovery part has no plural source repairs"
+                )
+            source_repair_fields = {
+                "source_repairs": [
+                    repair.to_dict()
+                    for repair in part.source_repairs_v1
+                ]
+            }
         repair_fields: dict[str, object] = {
             "pre_repair_plain_byte_size": len(pre_payload),
             "pre_repair_plain_sha256": _sha256_bytes(pre_payload),
             "pre_repair_word_count": count_words(pre_repair_plain),
-            "source_repair": (
-                None
-                if part.source_repair_v1 is None
-                else part.source_repair_v1.to_dict()
-            ),
+            **source_repair_fields,
             "plain_byte_size": len(final_payload),
             "plain_sha256": _sha256_bytes(final_payload),
             "word_count": count_words(final_plain),
@@ -1776,11 +1842,12 @@ def _pin_work(
         pinned_parts.append(pinned)
         plain_parts.append(plain)
     output = assemble_plain_parts(plain_parts)
-    pinned_schema_version = (
-        PINNED_WORK_SPEC_SCHEMA_VERSION_V3
-        if candidate_schema_version == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3
-        else PINNED_WORK_SPEC_SCHEMA_VERSION_V2
-    )
+    if candidate_schema_version == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3:
+        pinned_schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V3
+    elif candidate_schema_version == DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4:
+        pinned_schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V4
+    else:
+        pinned_schema_version = PINNED_WORK_SPEC_SCHEMA_VERSION_V2
     payload: dict[str, object] = {
         "schema_version": pinned_schema_version,
         "work_id": work.work_id,
@@ -1795,7 +1862,10 @@ def _pin_work(
         "output_sha256": _sha256_bytes(output),
         "word_count": count_words(output.decode("utf-8")),
     }
-    if pinned_schema_version == PINNED_WORK_SPEC_SCHEMA_VERSION_V3:
+    if pinned_schema_version in {
+        PINNED_WORK_SPEC_SCHEMA_VERSION_V3,
+        PINNED_WORK_SPEC_SCHEMA_VERSION_V4,
+    }:
         payload["source_repair_policy_version"] = (
             SOURCE_REPAIR_POLICY_VERSION_V1
         )
@@ -1903,6 +1973,7 @@ __all__ = [
     "DISCOVERY_CANDIDATE_SCHEMA_VERSION",
     "DISCOVERY_CANDIDATE_SCHEMA_VERSION_V2",
     "DISCOVERY_CANDIDATE_SCHEMA_VERSION_V3",
+    "DISCOVERY_CANDIDATE_SCHEMA_VERSION_V4",
     "DiscoveryCandidate",
     "DiscoveryIssue",
     "DiscoveryPart",

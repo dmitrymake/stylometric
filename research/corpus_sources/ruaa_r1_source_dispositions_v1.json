@@ -1,0 +1,109 @@
+{
+  "expected_inventory": {
+    "feb_work_count": 1,
+    "included_work_count": 134,
+    "reviewed_text_work_count": 6,
+    "source_part_count": 1360,
+    "source_work_count": 136,
+    "wikisource_work_count": 127
+  },
+  "generated_ready_candidate": {
+    "candidate_hash": "1a08416984adb84dcdf4523f32cff1c4a51d1c9cca9efc64c721210f1beba531",
+    "file_sha256": "236dfe586c6307914ec3f47ee85f9be002ab9d04bb463e0d49079076a477be00",
+    "schema_version": "stylo.ruaa-r1-wikisource-source-spec-candidate.v4"
+  },
+  "models_executed": false,
+  "parent_source_audit": {
+    "file_sha256": "ee7e9dcdd466dfdda334df7ef33f7b911b5ab9edb7cb3227deb3ff290ead4177",
+    "self_hash": "a7630ae7c923769fc13d002363e9744b201efbfaa55b8ffe66c117e6b0d8d6b0"
+  },
+  "pinned_wikisource_campaign": {
+    "file_sha256": "e8fd8676de3e0753d786cc66338988113084f2631614ac2945b29763a01c0492",
+    "generation_id": "d78aad53c12fdffc1460175742394f13e7ca46a33e0039f47fbca43c3fc3058a",
+    "self_hash": "dc1a5a3dfd5877e0fe5ac568795246484e49117cb677bc472e8fb4a544c235be"
+  },
+  "reviewed_text_campaign": {
+    "file_sha256": "6ec111c42943412bcefaab0a3b4557973c5df7cede09a8fba1fe9916065eb220",
+    "self_hash": "c87deecb01ea9db922e02305efee9cfda9c76fe4e4e03d38e28dc6438eb63f7f"
+  },
+  "schema_version": "stylo.ruaa-r1.source-dispositions.v1",
+  "self_hash": "9903e3ced1156f42e669d4a199f75ca704e94bbf843ed658c705b428a5c776ed",
+  "source_candidate": {
+    "candidate_hash": "50967141c0b98913a583481288b6ef9a13650186bf2f0a68ab035273a7104dd9",
+    "file_sha256": "91debfaca03b3e4e692b922bc68591a50a12db186e6aeff0eac13bf069db0f0e"
+  },
+  "work_dispositions": [
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "9405dd9b1934f872aca097aecc795127997ffcc7af9aa0865d1dcb5f11a36263",
+      "provider": "reviewed_text",
+      "reason": "reviewed exact ten-leaf 1914 complete-works composition replaces the incomplete root page",
+      "work_id": "korolenko/дети_подземелья"
+    },
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "513681742f9bbfabefd61d8efa1def4fd2dcf9c9f73403ec07002e1c72471a64",
+      "provider": "reviewed_text",
+      "reason": "reviewed exact nine-leaf 1914 complete-works composition replaces the incomplete root page",
+      "work_id": "korolenko/слепой_музыкант"
+    },
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "90fe2b0a6edfe8999f10a58060a1a383a11ff8823d5e1061798c67d7e946b9bf",
+      "provider": "reviewed_text",
+      "reason": "reviewed complete Sheba 1984 main text with forty-six exact scan corrections replaces TOC-like roots",
+      "work_id": "novikov_priboy/цусима"
+    },
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "319de4248c4008be0a849ab576b91a4ccfffc09f7eff538edd65880c99249254",
+      "provider": "reviewed_text",
+      "reason": "reviewed alternate two-page authorial-core composition resolves the blocked work boundary",
+      "work_id": "prutkov/выдержки_из_записок_деда"
+    },
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "4f755d2d2ea781fa25fbbebfe8114f7e1a78eae44754ad0ab764ccd558a3d523",
+      "provider": "reviewed_text",
+      "reason": "reviewed revision 5658784 structural selection and ordered thirty-one-repair manifest",
+      "work_id": "prutkov/плоды_раздумья"
+    },
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "17c95831581d2ef39cfd90e6568286f07bb3ca3854e771722fdfcb66e741a34f",
+      "provider": "feb",
+      "provider_spec_file_sha256": "8ba5f43b9190aece62ad863526ef70068dca3ea63b7c7207c5b0fea67ff98d85",
+      "provider_spec_self_hash": "cd4d54e0714f71df9edf46bd77550e968c16a506c88c9db43d3ab504b84b6750",
+      "reason": "pinned FEB preface-through-chapter-eight narrative replaces the incomplete Wikisource root",
+      "work_id": "pushkin/история_пугачёва"
+    },
+    {
+      "disposition": "exclude_authorship_mismatch",
+      "provider": "excluded",
+      "reason": "the pinned page is a third-person essay signed by G. Neradov, not a work by the labelled author",
+      "rejected_work_receipt_self_hash": "e6329fe27196b16bcca15e58d2812e25a88e006dc6732360e70321bbe28e676c",
+      "work_id": "serafimovich/у_нас_и_у_них"
+    },
+    {
+      "disposition": "exclude_source_quality",
+      "evidence_file_sha256": "2c3946b865420951b10c65f3bb957d38c4aa75a5f74033111aba4ff0f065a642",
+      "evidence_self_hash": "e75514277893478ef37dcb0cc52c3433cddf62accffcbc8b94f4dda4a3915ee4",
+      "provider": "excluded",
+      "reason": "literal HTML-tag-like sic residue remains and no independently identified clean edition was found",
+      "work_id": "sevsky/дон_на_костылях"
+    },
+    {
+      "disposition": "pinned_external_provider",
+      "output_sha256": "437ae8e1a6ab5bd1c3fb341440fe0459ea69adc80abbfb0149b8b3bdab2e7f6c",
+      "provider": "reviewed_text",
+      "reason": "reviewed complete Tolstoy.ru four-volume text replaces incomplete selected roots",
+      "work_id": "tolstoy/война_и_мир"
+    },
+    {
+      "disposition": "exclude_collection_umbrella",
+      "provider": "excluded",
+      "reason": "collection umbrella is represented by its explicit constituent works and is outside the 136-work source candidate",
+      "work_id": "turgenev/записки_охотника"
+    }
+  ]
+}

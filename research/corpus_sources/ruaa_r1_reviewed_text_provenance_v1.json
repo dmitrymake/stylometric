@@ -1,0 +1,300 @@
+{
+  "contract": {
+    "artifact_policy": "content-addressed final UTF-8 text; source and evidence artifacts are hash-bound but not copied into Git",
+    "composition_policy": "source-part and reviewed-part inventories are explicit; no one-to-one part assumption",
+    "repair_policy": "ordered exact reviewed repairs; counts and the authoritative repair manifest are bound per work"
+  },
+  "models_executed": false,
+  "parent_source_audit": {
+    "file_sha256": "ee7e9dcdd466dfdda334df7ef33f7b911b5ab9edb7cb3227deb3ff290ead4177",
+    "parse_error_count": 0,
+    "part_count": 1360,
+    "self_hash": "a7630ae7c923769fc13d002363e9744b201efbfaa55b8ffe66c117e6b0d8d6b0",
+    "work_count": 136
+  },
+  "reviewed_subset_inventory": {
+    "file_sha256": "abcda1abbe6c2ba495fd1d27093d81fc7ad3880c2d73f770adb443c524086cff",
+    "self_hash": "874ed41c5b2c8898dbf1de35a6881ec84638dbd8129c748afdada00f503f8265",
+    "work_count": 7
+  },
+  "reviewed_subset_quality_audit": {
+    "file_sha256": "63e4da1df7186133aa05b18806ba29390ff0e9b5e3ef996021426942fb705ece",
+    "self_hash": "3be9ed08062ba68a2411e862a282a87e84b33ed900fb57585af61dc5daa1b5aa",
+    "status": "passed"
+  },
+  "schema_version": "stylo.ruaa-r1.reviewed-text-provenance.v1",
+  "self_hash": "72164a2582de00dd6da9aa4f704dec6a1d69eb63b45a29b66347e8acd8f8fdf6",
+  "works": [
+    {
+      "builder": {
+        "name": "korolenko_exact_leaf_composition_v1",
+        "recipe": "extract_rendered_html; remove U+200E; rstrip; remove terminal Примечания; ordered double-LF assembly; apply ordered literal repairs"
+      },
+      "composition": {
+        "reviewed_part_count": 10,
+        "source_part_count": 1
+      },
+      "inputs": {
+        "leaf_parse_cache_inventory_sha256": "9284138282afe5bb725f0232d20192d3c38678527a713338724576d6f382f5b0",
+        "revision_ids": [
+          4048003,
+          3076443,
+          1360814,
+          3076693,
+          1360816,
+          1280960,
+          3076641,
+          1360817,
+          1362215,
+          1280963
+        ]
+      },
+      "output": {
+        "byte_size": 211523,
+        "sha256": "9405dd9b1934f872aca097aecc795127997ffcc7af9aa0865d1dcb5f11a36263",
+        "word_count": 17725
+      },
+      "repairs": {
+        "occurrence_count": 1,
+        "records": [
+          {
+            "after": "когда я начинал",
+            "before": "когда а начинал",
+            "expected_occurrences": 1,
+            "repair_id": "KDC-001",
+            "revision_id": 1360814
+          }
+        ]
+      },
+      "work_id": "korolenko/дети_подземелья"
+    },
+    {
+      "builder": {
+        "name": "korolenko_exact_leaf_composition_v1",
+        "recipe": "extract_rendered_html; remove U+200E; rstrip; remove terminal Примечания; ordered double-LF assembly; apply ordered literal repairs"
+      },
+      "composition": {
+        "reviewed_part_count": 9,
+        "source_part_count": 1
+      },
+      "inputs": {
+        "leaf_parse_cache_inventory_sha256": "9284138282afe5bb725f0232d20192d3c38678527a713338724576d6f382f5b0",
+        "revision_ids": [
+          4892783,
+          1312088,
+          3071438,
+          1360808,
+          1264746,
+          3784805,
+          3823948,
+          1265548,
+          1265570
+        ]
+      },
+      "output": {
+        "byte_size": 433964,
+        "sha256": "513681742f9bbfabefd61d8efa1def4fd2dcf9c9f73403ec07002e1c72471a64",
+        "word_count": 35701
+      },
+      "repairs": {
+        "occurrence_count": 2,
+        "records": [
+          {
+            "after": "Петрусь шёл",
+            "before": "Потрусь шёл",
+            "expected_occurrences": 1,
+            "repair_id": "KSM-001",
+            "revision_id": 1360808
+          },
+          {
+            "after": "к великому удивлению всех",
+            "before": "к великому удивлённо всех",
+            "expected_occurrences": 1,
+            "repair_id": "KSM-002",
+            "revision_id": 3823948
+          }
+        ]
+      },
+      "work_id": "korolenko/слепой_музыкант"
+    },
+    {
+      "builder": {
+        "byte_size": 4952,
+        "name": "build_stylo_tsushima_sheba_main.py",
+        "sha256": "0350cadcc697f27b79b05d4e28e7bbe7bd57e8ffbca2dc25c2456c002eb78112"
+      },
+      "composition": {
+        "reviewed_part_count": 10,
+        "source_part_count": 3
+      },
+      "correction_builder": {
+        "byte_size": 14243,
+        "name": "build_stylo_tsushima_sheba_scan_corrected-final-independent.py",
+        "sha256": "cf2552a448e7e4ccdf47b4d3e021cf2c1ac9bb64bee77ce7c45c93e69554d4f7"
+      },
+      "inputs": {
+        "source_fb2_byte_size": 1825472,
+        "source_fb2_sha256": "6e8d7efa9cf9d2e460ead5d6917dac68e050349bb121eb17c6acb001bb5373b5"
+      },
+      "output": {
+        "byte_size": 2981168,
+        "sha256": "90fe2b0a6edfe8999f10a58060a1a383a11ff8823d5e1061798c67d7e946b9bf",
+        "word_count": 237295
+      },
+      "provenance_manifests": [
+        {
+          "byte_size": 4545,
+          "name": "stylo-tsushima-sheba-1984-main.json",
+          "sha256": "057d778424a02757741b3980a76530083e9484a418ee7403a02cdbf4ef97a21f"
+        },
+        {
+          "byte_size": 17702,
+          "name": "stylo-tsushima-sheba-1984-main-scan-corrected-final-independent.json",
+          "sha256": "8c9e6ca6200986503c5d687eb4d5c63221a8d1fb4441188db438374595a1a8d9"
+        }
+      ],
+      "repairs": {
+        "occurrence_count": 46,
+        "record_count": 46,
+        "semantics": "ordered once-only corrections distributed over ten reviewed parts"
+      },
+      "work_id": "novikov_priboy/цусима"
+    },
+    {
+      "builder": {
+        "byte_size": 37698,
+        "name": "build_stylo_prutkov_clean_source_probe.py",
+        "sha256": "4b1b6a192a29ceca791566f07b46dd182735430376c0920d3a93fbe699b2c288"
+      },
+      "composition": {
+        "reviewed_part_count": 2,
+        "source_part_count": 1
+      },
+      "inputs": {
+        "parse_responses": [
+          {
+            "revision_id": 4717631,
+            "sha256": "b2bb7aad93e403a012a433e248a14103849479bcaf27ac30b41efe9ae670a033"
+          },
+          {
+            "revision_id": 5323803,
+            "sha256": "541f2744d92f3ef44b4ae12dcebef9747401e6978bd04ec21ea31e3d998f6cbe"
+          }
+        ]
+      },
+      "output": {
+        "byte_size": 29254,
+        "sha256": "319de4248c4008be0a849ab576b91a4ccfffc09f7eff538edd65880c99249254",
+        "word_count": 2295
+      },
+      "provenance_manifest": {
+        "byte_size": 19443,
+        "name": "stylo-prutkov-clean-source-probe.json",
+        "self_hash": "4629809f15479c152584a6401e7b03a8046ebeecac062c8a3673c94327448372",
+        "sha256": "98144bdc172901e9346debd3e12b4b6442d456d2da23046bb19a66bb2c0eadf9"
+      },
+      "repairs": {
+        "occurrence_count": 0,
+        "record_count": 0,
+        "semantics": "reviewed alternate two-part composition and exact trailing-apparatus boundary"
+      },
+      "work_id": "prutkov/выдержки_из_записок_деда"
+    },
+    {
+      "builder": {
+        "byte_size": 49860,
+        "name": "build_stylo_prutkov_fruits_rev5658784.py",
+        "sha256": "0ec02017cb1c308b9a8f42888d0f8c6106c1c1e3b2b5144b2a8ceddde8ac2708"
+      },
+      "composition": {
+        "reviewed_part_count": 1,
+        "source_part_count": 1
+      },
+      "inputs": {
+        "full_plain_sha256": "7fbb16b40fb0a37ae8d277a47a1b158b8b41ea5a88bb3b1d70e1d26ce4f804b3",
+        "revision_id": 5658784,
+        "selected_unrepaired_sha256": "d383db548c2f62d1f47fefdb16715edef37cbdc6cdb67e15197906fddbf29d34"
+      },
+      "output": {
+        "byte_size": 38386,
+        "sha256": "4f755d2d2ea781fa25fbbebfe8114f7e1a78eae44754ad0ab764ccd558a3d523",
+        "word_count": 3182
+      },
+      "provenance_manifest": {
+        "byte_size": 47559,
+        "name": "stylo-prutkov-fruits-rev5658784.clean-manifest.json",
+        "self_hash": "685ca61f016e4a0611bb6657a2cc91c10b104da2ef82b3d6150de694b483112f",
+        "sha256": "8e37c07b756b26b4497a80bc5cd72304ccfe0ec09dbca910b7c5367ded2ee0bd"
+      },
+      "repairs": {
+        "occurrence_count": 31,
+        "record_count": 31,
+        "semantics": "four sequence-number and twenty-seven exact text repairs, ordered on source part ordinal 0"
+      },
+      "work_id": "prutkov/плоды_раздумья"
+    },
+    {
+      "builder": {
+        "name": "src/stylo/corpus_tools/feb_vnext.py",
+        "policy_version": "stylo.feb.pushkin-pugachev-main-narrative.v1"
+      },
+      "composition": {
+        "reviewed_part_count": 1,
+        "source_part_count": 1
+      },
+      "inputs": {
+        "response_byte_size": 342063,
+        "response_sha256": "8016f5313a561f90c112836d46831ba16ac0e75990e2ea691ebf263a8cb94684"
+      },
+      "output": {
+        "byte_size": 306491,
+        "sha256": "17c95831581d2ef39cfd90e6568286f07bb3ca3854e771722fdfcb66e741a34f",
+        "word_count": 24341
+      },
+      "pinned_provider_spec": {
+        "file_sha256": "8ba5f43b9190aece62ad863526ef70068dca3ea63b7c7207c5b0fea67ff98d85",
+        "name": "research/corpus_sources/ruaa_r1_pushkin_pugachev_feb_v1.json",
+        "self_hash": "cd4d54e0714f71df9edf46bd77550e968c16a506c88c9db43d3ab504b84b6750"
+      },
+      "repairs": {
+        "occurrence_count": 0,
+        "record_count": 0,
+        "semantics": "marker-bound extraction; no literal repair"
+      },
+      "work_id": "pushkin/история_пугачёва"
+    },
+    {
+      "builder": {
+        "byte_size": 31460,
+        "name": "build_stylo_warpeace_tolstoyru_reviewed_final.py",
+        "sha256": "62b2f1713ffe029a91e9611127e9df6414ec206ebe8295cf3e02ee8f0835b340"
+      },
+      "composition": {
+        "reviewed_part_count": 4,
+        "source_part_count": 5
+      },
+      "inputs": {
+        "source_fb2_byte_size": 9517896,
+        "source_fb2_sha256": "9bc4a8ccd88807cc8bc0c97ec7d1e5acee26f7a92e4d8e1de431785c43a14479"
+      },
+      "output": {
+        "byte_size": 5182783,
+        "sha256": "437ae8e1a6ab5bd1c3fb341440fe0459ea69adc80abbfb0149b8b3bdab2e7f6c",
+        "word_count": 448280,
+        "word_count_policy": "stylo.corpus-text-quality-policy.v2"
+      },
+      "provenance_manifest": {
+        "byte_size": 40639,
+        "name": "stylo-warpeace-tolstoyru-reviewed-final.json",
+        "self_hash": "40ba942a3d49066171356741f44c4c8258dfabed12acaa1e92c8a71e0ed1a1c0",
+        "sha256": "3b774afbb7632bbeff99ca1b8539cbc792cd402131e734d70f7651a4ab57c0fe"
+      },
+      "repairs": {
+        "occurrence_count": 147,
+        "record_count": 128,
+        "semantics": "ordered contextual and exact-token corrections plus two structural repairs"
+      },
+      "work_id": "tolstoy/война_и_мир"
+    }
+  ]
+}
