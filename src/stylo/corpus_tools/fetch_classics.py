@@ -4,7 +4,7 @@
 СТРОГИЙ whitelist: качаем только авторов из PUBLIC_DOMAIN (умерли достаточно давно).
 Современные авторы под копирайтом (Сорокин, Акунин, Пелевин, Довлатов…) — НЕ качаем.
 
-Манифест: configs/classics.yaml — список {author, title, source} (source = заголовок
+Манифест: src/stylo/resources/classics.yaml — список {author, title, source} (source = заголовок
 страницы Викитеки). Скачанное кладётся в input/<author>/<slug>.txt (как сырой текст),
 далее проходит обычный clean. Качество проверяйте `stylo validate-corpus`.
 """

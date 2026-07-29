@@ -42,8 +42,6 @@
     ".github/workflows/ci.yml",
     ".github/workflows/deploy-pages.yml",
     "README.md",
-    "configs/authors.json",
-    "configs/classics.yaml",
     "configs/default.yaml",
     "docs/ruaa_bench_leaderboard.md",
     "pyproject.toml",

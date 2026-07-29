@@ -15,11 +15,17 @@ from stylo.pipeline import train
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("name", ["default.yaml", "authors.json", "classics.yaml"])
-def test_runtime_resource_is_packaged_and_matches_reviewed_workspace_copy(name):
+@pytest.mark.parametrize("name", ["authors.json", "classics.yaml"])
+def test_metadata_resource_is_packaged_without_root_copy(name):
     packaged = importlib.resources.files("stylo.resources").joinpath(name)
     assert packaged.is_file()
-    assert packaged.read_bytes() == (ROOT / "configs" / name).read_bytes()
+    assert not (ROOT / "configs" / name).exists()
+
+
+def test_default_config_is_packaged_and_matches_reviewed_workspace_copy():
+    packaged = importlib.resources.files("stylo.resources").joinpath("default.yaml")
+    assert packaged.is_file()
+    assert packaged.read_bytes() == (ROOT / "configs" / "default.yaml").read_bytes()
 
 
 def test_default_config_and_author_metadata_load_from_package_resources():
