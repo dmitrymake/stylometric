@@ -8,7 +8,6 @@ These tests encode the persistent release gate:
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import subprocess
@@ -189,26 +188,12 @@ def test_no_raw_json_dump_in_production_code():
     # writer, so an artifact can never carry a literal NaN/Infinity. Alias-aware AST
     # check: `import json as j; j.dumps(...)` and `from json import dumps` are caught.
     import ast
-    immutable_driver = "scripts/evaluation/run_stack_class_coverage_repair_smoke.py"
-    evidence = jsonio.load_strict(
-        REPO_ROOT
-        / "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json"
-    )
-    immutable_driver_sha = evidence["source_files"][immutable_driver]["sha256"]
     offenders = []
     for root in ("src", "scripts"):
         for path in (REPO_ROOT / root).rglob("*.py"):
             if path.name == "jsonio.py":
                 continue
             relative = path.relative_to(REPO_ROOT).as_posix()
-            # This audit driver predates jsonio and is bound byte-for-byte to the
-            # completed smoke. Its exact implementation uses allow_nan=False;
-            # changing even one byte removes this evidence-backed exception.
-            if (
-                relative == immutable_driver
-                and hashlib.sha256(path.read_bytes()).hexdigest() == immutable_driver_sha
-            ):
-                continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for line in _raw_json_dump_calls(tree):
                 offenders.append(f"{relative}:{line}")

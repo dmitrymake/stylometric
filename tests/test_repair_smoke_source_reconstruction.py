@@ -52,10 +52,7 @@ def test_preserved_repair_smoke_sources_reconstruct_and_compile(tmp_path):
         assert _sha256(reconstructed) == binding["sha256"]
         compile(reconstructed.read_bytes(), original, "exec")
 
-    current_driver = ROOT / DRIVER
-    preserved_driver = ROOT / manifest["source_files"][DRIVER]["preserved_path"]
-    assert current_driver.read_bytes() == preserved_driver.read_bytes()
-    assert _sha256(current_driver) == "5e06df9b39b2b0f1c66640354b84ef969c731128c02b1f3bda35e0a97c56eb55"
+    assert not (ROOT / DRIVER).exists()
 
 
 def test_optional_original_inputs_match_the_preserved_bindings():

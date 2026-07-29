@@ -306,6 +306,11 @@
       "scientific_eligibility": "ineligible_for_new_scientific_runs"
     },
     {
+      "namespace": "docs/exploratory/work_balanced/stylo_equal_channels_repair_smoke_v1.json",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
       "namespace": "docs/exploratory/lobo_vnext/packets/<generation-id>/**",
       "owner": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "contract": "ignored_immutable_explicitly_selected_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
