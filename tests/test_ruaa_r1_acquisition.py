@@ -6,7 +6,6 @@ import importlib.util
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -24,7 +23,7 @@ from stylo.corpus_tools.reviewed_text_vnext import (
     ReviewedTextWorkSpec,
 )
 from stylo.corpus_tools.wikisource_campaign import WikisourceCampaignSpec
-from stylo.jsonio import canonical_hash, dump_strict, dumps_strict
+from stylo.jsonio import canonical_hash, dumps_strict
 
 
 SYNTHETIC_WIKISOURCE_COUNT = 3
@@ -1079,173 +1078,7 @@ def test_manifest_duplicate_keys_are_rejected(harness):
         r1.loads_r1_acquisition_manifest(duplicated)
 
 
-def test_cli_requires_manifest_and_uses_only_fixed_ignored_namespace(
-    tmp_path,
-    harness,
-    monkeypatch,
-):
-    cli = _load_acquisition_cli(
-        "acquire_ruaa_r1_corpus_vnext_test",
-    )
-    fake_root = tmp_path / "repository"
-    fake_output = (
-        fake_root
-        / "docs"
-        / "exploratory"
-        / "lobo_vnext"
-        / "corpora"
-        / "ruaa_r1_hybrid"
-    )
-    manifest_path = tmp_path / "manifest.json"
-    dump_strict(
-        harness.manifest.to_dict(),
-        manifest_path,
-        sort_keys=True,
-    )
-    seen = {}
-
-    def materialize(manifest, **kwargs):
-        seen["manifest"] = manifest
-        seen.update(kwargs)
-        return SimpleNamespace(
-            root=fake_output / manifest.generation_id,
-            receipt=SimpleNamespace(self_hash="d" * 64),
-            audit_report=SimpleNamespace(self_hash="e" * 64),
-            resumed=False,
-        )
-
-    monkeypatch.setattr(cli, "ROOT", fake_root)
-    monkeypatch.setattr(cli, "OUTPUT_PARENT", fake_output)
-    monkeypatch.setattr(
-        cli,
-        "HTTPJSONTransport",
-        lambda **kwargs: ("wikisource", kwargs),
-    )
-    monkeypatch.setattr(
-        cli,
-        "FEBHTTPTransport",
-        lambda **kwargs: ("feb", kwargs),
-    )
-    monkeypatch.setattr(cli, "materialize_r1_acquisition", materialize)
-
-    result = cli.run(
-        [
-            "--manifest",
-            str(manifest_path),
-            "--wikisource-user-agent",
-            "synthetic-wikisource/1",
-            "--feb-user-agent",
-            "synthetic-feb/1",
-        ]
-    )
-
-    assert seen["manifest"] == harness.manifest
-    assert seen["output_parent"] == fake_output
-    assert seen["reviewed_artifact_cache"] is None
-    assert result["status"] == (
-        "exploratory_ruaa_r1_corpus_materialized_no_fit"
-    )
-    assert result["work_count"] == 4
-    assert result["namespace_relative_path"].endswith(
-        harness.manifest.generation_id
-    )
-    assert result["fit_performed"] is False
-    assert result["confirmatory_authorized"] is False
-    assert result["public_output_authorized"] is False
-
-
-def test_cli_requires_safe_reviewed_cache_only_for_manifest_v3(
-    tmp_path,
-    monkeypatch,
-):
-    harness = _v3_harness()
-    cli = _load_acquisition_cli(
-        "acquire_ruaa_r1_corpus_vnext_v3_test",
-    )
-    fake_root = tmp_path / "repository"
-    fake_output = (
-        fake_root
-        / "docs"
-        / "exploratory"
-        / "lobo_vnext"
-        / "corpora"
-        / "ruaa_r1_hybrid"
-    )
-    manifest_path = tmp_path / "manifest-v3.json"
-    dump_strict(
-        harness.manifest.to_dict(),
-        manifest_path,
-        sort_keys=True,
-    )
-    seen = {}
-
-    def materialize(manifest, **kwargs):
-        seen["manifest"] = manifest
-        seen.update(kwargs)
-        return SimpleNamespace(
-            root=fake_output / manifest.generation_id,
-            receipt=SimpleNamespace(self_hash="d" * 64),
-            audit_report=SimpleNamespace(self_hash="e" * 64),
-            resumed=False,
-        )
-
-    monkeypatch.setattr(cli, "ROOT", fake_root)
-    monkeypatch.setattr(cli, "OUTPUT_PARENT", fake_output)
-    monkeypatch.setattr(
-        cli,
-        "HTTPJSONTransport",
-        lambda **kwargs: ("wikisource", kwargs),
-    )
-    monkeypatch.setattr(
-        cli,
-        "FEBHTTPTransport",
-        lambda **kwargs: ("feb", kwargs),
-    )
-    monkeypatch.setattr(cli, "materialize_r1_acquisition", materialize)
-    common = [
-        "--manifest",
-        str(manifest_path),
-        "--wikisource-user-agent",
-        "synthetic-wikisource/1",
-        "--feb-user-agent",
-        "synthetic-feb/1",
-    ]
-
-    with pytest.raises(
-        cli.R1AcquisitionCLIError,
-        match="requires --reviewed-artifact-cache",
-    ):
-        cli.run(common)
-
-    real_cache = tmp_path / "real-reviewed-cache"
-    real_cache.mkdir()
-    linked_cache = tmp_path / "linked-reviewed-cache"
-    linked_cache.symlink_to(real_cache, target_is_directory=True)
-    with pytest.raises(
-        cli.R1AcquisitionCLIError,
-        match="symlink components",
-    ):
-        cli.run(
-            [
-                *common,
-                "--reviewed-artifact-cache",
-                str(linked_cache),
-            ]
-        )
-
-    result = cli.run(
-        [
-            *common,
-            "--reviewed-artifact-cache",
-            str(real_cache),
-        ]
-    )
-    assert seen["manifest"] == harness.manifest
-    assert seen["reviewed_artifact_cache"] == real_cache.resolve()
-    assert result["work_count"] == len(harness.manifest.included_work_ids)
-
-
-def test_replay_dispatch_and_closed_file_transports(
+def test_replay_only_dispatch_and_closed_file_transports(
     tmp_path,
     monkeypatch,
 ):
@@ -1253,20 +1086,23 @@ def test_replay_dispatch_and_closed_file_transports(
     seen = []
     monkeypatch.setattr(
         cli,
-        "_run_live",
-        lambda argv: seen.append(("live", argv)) or {"mode": "live"},
-    )
-    monkeypatch.setattr(
-        cli,
         "_run_replay",
         lambda argv: seen.append(("replay", argv)) or {"mode": "replay"},
     )
-    assert cli.run(["--manifest", "x"]) == {"mode": "live"}
+    with pytest.raises(
+        cli.R1AcquisitionCLIError,
+        match="replay subcommand is required",
+    ):
+        cli.run([])
+    with pytest.raises(
+        cli.R1AcquisitionCLIError,
+        match="only the offline replay subcommand",
+    ):
+        cli.run(["--manifest", "x"])
     assert cli.run(["replay", "--artifact-cache", "x"]) == {
         "mode": "replay"
     }
     assert seen == [
-        ("live", ["--manifest", "x"]),
         ("replay", ["--artifact-cache", "x"]),
     ]
 

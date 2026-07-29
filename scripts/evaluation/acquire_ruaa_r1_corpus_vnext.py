@@ -37,22 +37,16 @@ from stylo.domain import corpus_identity as corpus_identity_module  # noqa: E402
 from stylo.corpus_tools.feb_vnext import (  # noqa: E402
     FEB_CONTENT_TYPE,
     FEB_SOURCE_URL,
-    FEBHTTPTransport,
     FEBHTTPResponse,
 )
 from stylo.corpus_tools.ruaa_r1_acquisition import (  # noqa: E402
     ACQUISITION_RECEIPT_NAME,
     AUDIT_REPORT_NAME,
-    R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3,
     R1_AUTHORSHIP_MISMATCH_WORK_ID,
     R1_SOURCE_QUALITY_REJECTED_WORK_ID,
     R1AcquisitionAuditError,
     R1AcquisitionError,
-    load_r1_acquisition_manifest,
     materialize_r1_acquisition,
-)
-from stylo.corpus_tools.wikisource_campaign import (  # noqa: E402
-    HTTPJSONTransport,
 )
 from stylo.corpus_tools.wikisource_discovery import (  # noqa: E402
     _read_cached_response,
@@ -67,14 +61,6 @@ from stylo.jsonio import (  # noqa: E402
 )
 
 
-OUTPUT_PARENT = (
-    ROOT
-    / "docs"
-    / "exploratory"
-    / "lobo_vnext"
-    / "corpora"
-    / "ruaa_r1_hybrid"
-)
 BASE_COMMIT = "eebc1de4c07da6bccfd048b016b98c729cbfec15"
 CONTRACT_NAME = "ruaa_r1_corpus_contract_execution_v1.json"
 REVIEWED_CAMPAIGN_NAME = "ruaa_r1_reviewed_text_campaign_v1.json"
@@ -160,31 +146,6 @@ def _reject_symlink_components(path: pathlib.Path, *, label: str) -> None:
             raise R1AcquisitionCLIError(
                 f"{label} must not contain symlink components: {component}"
             )
-
-
-def _require_manifest(path: pathlib.Path) -> pathlib.Path:
-    candidate = path if path.is_absolute() else ROOT / path
-    _reject_symlink_components(candidate, label="R1 acquisition manifest")
-    if candidate.is_symlink() or not candidate.is_file():
-        raise R1AcquisitionCLIError(
-            "R1 acquisition manifest must be a regular non-symlink file: "
-            f"{candidate}"
-        )
-    return candidate.resolve(strict=True)
-
-
-def _require_reviewed_artifact_cache(path: pathlib.Path) -> pathlib.Path:
-    candidate = path if path.is_absolute() else ROOT / path
-    _reject_symlink_components(
-        candidate,
-        label="R1 reviewed artifact cache",
-    )
-    if candidate.is_symlink() or not candidate.is_dir():
-        raise R1AcquisitionCLIError(
-            "R1 reviewed artifact cache must be an existing real directory: "
-            f"{candidate}"
-        )
-    return candidate.resolve(strict=True)
 
 
 def _require_file(path: pathlib.Path, *, label: str) -> pathlib.Path:
@@ -310,104 +271,6 @@ class _FEBFileTransport:
         )
 
 
-def _output_parent() -> pathlib.Path:
-    candidate = OUTPUT_PARENT
-    _reject_symlink_components(
-        candidate,
-        label="R1 hybrid exploratory output parent",
-    )
-    allowed = (
-        ROOT
-        / "docs"
-        / "exploratory"
-        / "lobo_vnext"
-        / "corpora"
-        / "ruaa_r1_hybrid"
-    ).resolve(strict=False)
-    if candidate.resolve(strict=False) != allowed:
-        raise R1AcquisitionCLIError(
-            "R1 output parent must be the fixed ignored exploratory "
-            f"namespace {allowed}"
-        )
-    if candidate.exists() and (
-        candidate.is_symlink() or not candidate.is_dir()
-    ):
-        raise R1AcquisitionCLIError(
-            f"R1 output parent must be a real directory: {candidate}"
-        )
-    return candidate
-
-
-def _positive_float(value: str) -> float:
-    try:
-        number = float(value)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("must be a positive number") from exc
-    if not 0 < number <= 300:
-        raise argparse.ArgumentTypeError(
-            "must be in the interval (0, 300]"
-        )
-    return number
-
-
-def _bounded_attempts(value: str) -> int:
-    try:
-        number = int(value, 10)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("must be an integer") from exc
-    if not 1 <= number <= 20:
-        raise argparse.ArgumentTypeError("must be in the interval [1, 20]")
-    return number
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Materialize one exact Wikisource campaign, the one pinned FEB "
-            "work, and an optional reviewed-text campaign; audit every "
-            "explicit literal text, and "
-            "publish one immutable ignored exploratory corpus generation. "
-            "No model, "
-            "representation cache, fit, metric, or public writer is reachable."
-        )
-    )
-    parser.add_argument(
-        "--manifest",
-        required=True,
-        type=pathlib.Path,
-        help="strict self-hashed R1AcquisitionManifest JSON",
-    )
-    parser.add_argument(
-        "--wikisource-user-agent",
-        required=True,
-        help="explicit single-line Wikisource HTTP User-Agent",
-    )
-    parser.add_argument(
-        "--feb-user-agent",
-        required=True,
-        help="explicit single-line FEB HTTP User-Agent",
-    )
-    parser.add_argument(
-        "--reviewed-artifact-cache",
-        type=pathlib.Path,
-        help=(
-            "local content-addressed reviewed-text artifact cache; required "
-            "by R1 manifest v3"
-        ),
-    )
-    parser.add_argument(
-        "--timeout-seconds",
-        type=_positive_float,
-        default=30.0,
-    )
-    parser.add_argument(
-        "--max-attempts",
-        type=_bounded_attempts,
-        default=6,
-    )
-    return parser
-
-
 def _replay_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=f"{pathlib.Path(__file__).name} replay",
@@ -476,77 +339,6 @@ def _replay_parser() -> argparse.ArgumentParser:
         help="existing real directory for bounded shingle arrays",
     )
     return parser
-
-
-def _run_live(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
-    args = _parser().parse_args(argv)
-    try:
-        manifest = load_r1_acquisition_manifest(
-            _require_manifest(args.manifest)
-        )
-        if (
-            manifest.schema_version
-            == R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3
-            and args.reviewed_artifact_cache is None
-        ):
-            raise R1AcquisitionCLIError(
-                "R1 manifest v3 requires --reviewed-artifact-cache"
-            )
-        reviewed_artifact_cache = (
-            None
-            if args.reviewed_artifact_cache is None
-            else _require_reviewed_artifact_cache(
-                args.reviewed_artifact_cache
-            )
-        )
-        materialized = materialize_r1_acquisition(
-            manifest,
-            output_parent=_output_parent(),
-            wikisource_transport=HTTPJSONTransport(
-                user_agent=args.wikisource_user_agent,
-                timeout_seconds=args.timeout_seconds,
-                max_attempts=args.max_attempts,
-            ),
-            feb_transport=FEBHTTPTransport(
-                user_agent=args.feb_user_agent,
-                timeout_seconds=args.timeout_seconds,
-                max_attempts=args.max_attempts,
-            ),
-            reviewed_artifact_cache=reviewed_artifact_cache,
-        )
-    except R1AcquisitionAuditError as exc:
-        relative_report = (
-            exc.report_path.relative_to(ROOT).as_posix()
-            if exc.report_path.is_relative_to(ROOT)
-            else exc.report_path.as_posix()
-        )
-        raise R1AcquisitionCLIError(
-            "R1 hybrid text-quality audit blocked publication; "
-            f"report={relative_report}; report_sha256={exc.report.self_hash}"
-        ) from exc
-    except (
-        OSError,
-        UnicodeError,
-        ValueError,
-        R1AcquisitionError,
-    ) as exc:
-        raise R1AcquisitionCLIError(
-            f"R1 hybrid acquisition rejected: {exc}"
-        ) from exc
-    relative = materialized.root.relative_to(ROOT).as_posix()
-    return {
-        "status": "exploratory_ruaa_r1_corpus_materialized_no_fit",
-        "generation_id": manifest.generation_id,
-        "manifest_sha256": manifest.self_hash,
-        "acquisition_receipt_sha256": materialized.receipt.self_hash,
-        "text_quality_audit_sha256": materialized.audit_report.self_hash,
-        "work_count": len(manifest.included_work_ids),
-        "resumed": materialized.resumed,
-        "namespace_relative_path": relative,
-        "fit_performed": False,
-        "confirmatory_authorized": False,
-        "public_output_authorized": False,
-    }
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -1334,8 +1126,9 @@ def _run_replay(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
     args = _replay_parser().parse_args(argv)
     stage = "input validation"
     try:
-        artifact_cache = _require_reviewed_artifact_cache(
-            args.artifact_cache
+        artifact_cache = _require_directory(
+            args.artifact_cache,
+            label="R1 reviewed artifact cache",
         )
         source_candidate = _require_file(
             args.source_candidate,
@@ -1538,9 +1331,15 @@ def _run_replay(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
 
 def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
     values = list(sys.argv[1:] if argv is None else argv)
-    if values and values[0] == "replay":
-        return _run_replay(values[1:])
-    return _run_live(values)
+    if not values:
+        raise R1AcquisitionCLIError(
+            "the offline replay subcommand is required"
+        )
+    if values[0] != "replay":
+        raise R1AcquisitionCLIError(
+            "only the offline replay subcommand is supported"
+        )
+    return _run_replay(values[1:])
 
 
 def main(argv: Sequence[str] | None = None) -> int:
