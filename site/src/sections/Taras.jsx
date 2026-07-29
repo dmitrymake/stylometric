@@ -462,7 +462,7 @@ export default function Taras() {
             { cite: "Проза Нарежного — az.lib.ru", url: "http://az.lib.ru/n/narezhnyj_w/" },
             { cite: "Проза Гребёнки — az.lib.ru", url: "http://az.lib.ru/g/grebenka_e_p/" },
             { cite: `Контрольные суммы наборов: строгий ${sha(TARAS.manifest.strictSha)}, широкий ${sha(TARAS.manifest.looseSha)}` },
-            { cite: "Полный отчёт по кейсу (спецификации, паспорта, аудит выделения)", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/taras_hardened/reports/dossier.md" },
+            { cite: "Описание кейса, протокол и машинные артефакты", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/taras_hardened/README.md" },
           ]}
           note="Сами тексты в репозиторий не входят — публикуются контрольные суммы и результаты проверок."
         />

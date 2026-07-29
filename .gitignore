@@ -44,7 +44,7 @@ docs/cases/autoscreen2/
 docs/cases/petersburg_hardened/
 scripts/build_petersburg_chronicle_manifest.py
 scripts/build_petersburg_panel.py
-# машинный дубликат паспортов (5k строк): человеку — ranking.md, генераторам — сами паспорта
+# ranking.json — генерируемый машинный индекс, публичное резюме находится в Taras README
 docs/cases/taras_hardened/reports/ranking.json
 # результаты LOBO-прогона: per-book отчёт + форматированная таблица (воспроизводимость/инспекция)
 !docs/lobo_books.txt

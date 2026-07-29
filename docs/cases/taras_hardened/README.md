@@ -15,8 +15,8 @@
 > атрибуционного вывода сейчас нет. Актуальные артефакты:
 > [docs/cases/work_balanced_audit/README.md](../work_balanced_audit/README.md) и
 > [docs/cases/work_balanced_audit/summary.json](../work_balanced_audit/summary.json).
-> Необновлённые ниже таблицы Delta и контрольной батареи — исторические
-> `chunk_weighted_legacy`-диагностики, не основания для headline.
+> Исторический `reports/delta_replication.json` — superseded selected-mass
+> legacy-аудит, а не каноническая Delta Бэрроуза и не основание для headline.
 
 Гипотеза (ревизионистская): крупные добавления редакции «Тараса Бульбы» 1842
 года написал не Гоголь, а редактор/чужая рука (исторические подозреваемые:
@@ -43,9 +43,8 @@
 
 ## Protocol
 
-- Primary feature: `fw_fixed` (закрытый список служебных слов); диагностические
-  каналы: Burrows Delta (`reports/delta_replication.json`), char3 по
-  симметрично NER-маскированным текстам.
+- Primary feature: `fw_fixed` (закрытый список служебных слов);
+  диагностический канал — char3 по симметрично NER-маскированным текстам.
 - Gate: leave-one-work-out, один изъятый текст = один голос; на обучении
   центроид автора есть равновесное среднее L2-нормированных поработных
   профилей. Порог work_macro_recall >= 0.80; значимость: перестановка ярлыков
@@ -70,82 +69,19 @@
 | strict / loose additions | same-period | 0.7876 | 0.0005 | gogol 11/16; 11/17 | **fail; target не интерпретируется** |
 | strict / loose additions | topic-cossack | 0.7875 | 0.0005 | somov 13/16; 16/17 | **fail; target не интерпретируется** |
 
-До аудита плоские центроиды по всем кускам давали 0.8625 на suspects v2 и
-0.8114 на same-period; это явно исторические `chunk_weighted_legacy` числа.
-
-### Corrected Delta full-refit audit
+### Corrected selected-mass Delta full-refit audit
 
 Старый Delta JSON не был независимым подтверждением: его permutation null
 переставлял истинные метки при фиксированных предсказаниях. Исправленный
-equal-work/full-refit отчёт сохранён отдельно в
+legacy selected-mass equal-work/full-refit отчёт сохранён отдельно в
 `../work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json`.
-На suspects оба режима проходят (`delta_fw=0.9500`, `delta_mfw=0.9467`) и
-дают Гоголя. Но на также прошедшей binary Гоголь–Сомов режимы расходятся:
+На его suspects-панели с Пушкиным оба режима проходят (`delta_fw=0.9500`,
+`delta_mfw=0.9467`) и дают Гоголя. Но на также прошедшей binary
+Гоголь–Сомов режимы расходятся:
 fixed FW → Гоголь 13/16, learned MFW → Сомов 9/16. Topic fixed-FW не проходит
 (`0.7312`), topic MFW проходит (`0.9344`) и даёт Гоголя. Все p=0.0005.
-Итог: corrected Delta даёт exploratory перевес Гоголя на части панелей, но
-не восстанавливает cross-feature/panel-invariant headline.
-
-## Контрольная батарея — legacy-диагностика прежней панели
-
-| контроль | status | top | chunks | margin |
-|---|---|---|---|---|
-| изъятые «Путевые записки» Анненкова | **strong** | annenkov | 16/17 | 0.0716 |
-| изъятая «Шинель» | **strong** | gogol | 13/14 | 0.0400 |
-| базовый текст 1835 | **strong** | gogol | 13/14 | 0.0297 |
-| изъятые «Отцы и дети» | moderate | turgenev | 23/35 | 0.0139 |
-
-## Топик-диагностика (историческая legacy-интерпретация)
-
-Функциональные слова несут не только «руку», но и регистр повествования.
-На казачьей панели добавления уходят к Сомову (12/16, margin 0.0095 — втрое
-меньше, чем margin Гоголя на панелях подозреваемых), при этом:
-
-- бесспорный базовый текст 1835 на той же панели идёт к **Гоголю** (12/14,
-  margin 0.0139);
-- «Шинель» на той же панели идёт к Гоголю (13/14; gate 0.7472 — не
-  интерпретируется, направление диагностическое);
-- бинарная панель Гоголь-Сомов проходит (gate 0.925), добавления —
-  somov 12/16 (moderate, margin 0.0095).
-
-Post-audit это не разрешает авторство: направление бинарной панели
-Гоголь-Сомов прямо конфликтует с прошедшей бинарной панелью Гоголь-Анненков,
-а полная topic-cossack панель имеет gate 0.7875 и запрещает чтение target.
-
-**Историческая интерпретация ниже снята исправленным Delta-аудитом.** В legacy
-отчёте методная триангуляция выглядела замкнутой: под Burrows Delta (та же панель,
-те же гейты) добавления идут к **Гоголю и на бинарной паре Гоголь-Сомов, и на
-полной казачьей панели** — в обоих режимах словаря (таблица ниже). Сомовское
-притяжение существует только в канале fw-cosine (сходство с центроидом):
-z-нормировка Delta убирает регистровый сдвиг, который в косинусной геометрии
-доминирует. Прочтение: добавления 1842 отличаются регистром от базового текста
-1835 (эпизация переработки 1839-1842), и один из двух каналов читает этот
-регистр как сомовскую сказовую манеру; свойство канала, не текста. Период-
-диагностика ниже дополняет: fw-пространство вообще не разделяет раннего и
-позднего Гоголя. Corrected full-refit результат приведён выше и показывает
-FW/MFW reversal, поэтому это legacy-объяснение больше не действует.
-
-## Период-диагностика (legacy)
-
-Псевдо-кандидаты gogol_early (1830-35) vs gogol_late (1836-42) + Пушкин:
-gate 0.5833 (< 0.80) — ранний и поздний Гоголь **неразделимы** служебными
-словами. Период-конфаунд не может объяснить сигнал панелей: периодов в этом
-признаковом пространстве не существует как классов.
-
-## Метод-репликация (историческая legacy-диагностика)
-
-Burrows Delta (Manhattan по z-частотам), work-LOO gate + чанк-голосование,
-три панели × два режима словаря (`reports/delta_replication.json`); во всех
-шести комбинациях top = gogol, все гейты пройдены, все p = 0.0005:
-
-| панель | режим | gate | strict | loose | контроль 1835 |
-|---|---|---:|---|---|---|
-| подозреваемые (с Анненковым) | Delta-fw | 0.8967 | gogol 1.000 | gogol 0.941 | gogol 0.929 |
-| подозреваемые | Delta-MFW300 | 0.9100 | gogol 0.688 | gogol 0.765 | gogol 0.786 |
-| Гоголь vs Сомов (binary) | Delta-fw | 0.9688 | gogol 0.938 | gogol 1.000 | gogol 1.000 |
-| Гоголь vs Сомов | Delta-MFW300 | 0.9500 | gogol 0.688 | gogol 0.765 | gogol 0.857 |
-| казачья панель | Delta-fw | 0.9281 | gogol 0.938 | gogol 0.882 | gogol 1.000 |
-| казачья панель | Delta-MFW300 | 0.9344 | gogol 0.750 | gogol 0.882 | gogol 0.857 |
+Итог: corrected selected-mass Delta даёт exploratory перевес Гоголя на части
+панелей, но не восстанавливает cross-feature/panel-invariant headline.
 
 ## Claim
 
@@ -162,8 +98,12 @@ headline «добавления устойчиво ближе к Гоголю» 
 
 ## Artifacts
 
-- `target_manifest.json`, `panel_manifest.json`
-- `specs/*.yaml`, `passports/*.passport.json` (все панели, контроли,
-  диагностики, включая исторические прогоны v1 с Пушкиным)
-- `reports/ranking.md`, `reports/dossier.md`
-- `reports/extraction_audit.json`, `reports/delta_replication.json`
+- [`target_manifest.json`](target_manifest.json) и
+  [`panel_manifest.json`](panel_manifest.json)
+- [`specs/`](specs/) и [`passports/`](passports/) — панели, контроли,
+  диагностики и исторические v1-прогоны
+- [`reports/extraction_audit.json`](reports/extraction_audit.json) и
+  исторический selected-mass
+  [`reports/delta_replication.json`](reports/delta_replication.json)
+- [work-balanced паспорта и сводка](../work_balanced_audit/) и
+  [corrected selected-mass Delta JSON](../work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json)
