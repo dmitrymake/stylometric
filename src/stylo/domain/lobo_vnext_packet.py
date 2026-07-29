@@ -17,7 +17,6 @@ from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from ..eval.lobo_vnext import VNextTextRow
 from ..jsonio import StrictJSONError, load_strict, loads_strict
 from .lobo_vnext import (
     CorpusVNextManifest,
@@ -48,6 +47,18 @@ _HEX64 = frozenset("0123456789abcdef")
 
 class VNextPacketError(VNextContractError):
     """The canonical representation packet is malformed or has drifted."""
+
+
+@dataclasses.dataclass(frozen=True)
+class VNextTextRow:
+    """One deterministic model row selected by a work's ``raw_paths``."""
+
+    row_id: str
+    relative_path: str
+    work_id: str
+    author_id: str
+    text: str
+    raw_sha256: str
 
 
 def _exact_object(value: object, keys: set[str], label: str) -> dict[str, Any]:
@@ -1323,6 +1334,7 @@ __all__ = [
     "R1GenerationMaterial",
     "R1PacketManifest",
     "R1SourceSelectionReceipt",
+    "VNextTextRow",
     "VNextPacketError",
     "load_canonical_representation_receipt",
     "load_canonical_representation_rows",

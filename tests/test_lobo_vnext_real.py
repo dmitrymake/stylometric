@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -585,36 +587,105 @@ def _run(
     )
 
 
+def _run_root_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_fresh_imports_preserve_evaluator_and_domain_boundaries():
+    checks = (
+        (
+            "import sys; import stylo.eval.lobo_vnext_real; "
+            "assert 'stylo.eval.lobo_vnext' not in sys.modules"
+        ),
+        (
+            "import sys; import stylo.domain.lobo_vnext_packet; "
+            "assert not any(name.startswith('stylo.eval') "
+            "for name in sys.modules)"
+        ),
+    )
+    for code in checks:
+        subprocess.run(
+            [sys.executable, "-c", code],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+
 def test_serial_parallel_resume_are_byte_identical_and_paired(tmp_path):
     harness = _harness(tmp_path / "fixture")
     serial_calls: list = []
     parallel_calls: list = []
+    serial_output = _output(tmp_path / "serial")
+    parallel_output = _output(tmp_path / "parallel")
 
     serial = _run(
         harness,
-        _output(tmp_path / "serial"),
+        serial_output,
         n_jobs=1,
         calls=serial_calls,
     )
     parallel = _run(
         harness,
-        _output(tmp_path / "parallel"),
+        parallel_output,
         n_jobs=2,
         calls=parallel_calls,
     )
+    serial_map = _run_root_bytes(serial_output / serial.run_id)
+    parallel_before_resume = _run_root_bytes(
+        parallel_output / parallel.run_id
+    )
     resumed = _run(
         harness,
-        _output(tmp_path / "parallel"),
+        parallel_output,
         n_jobs=1,
         calls=[],
     )
+    parallel_after_resume = _run_root_bytes(
+        parallel_output / resumed.run_id
+    )
 
     assert serial.run_id == parallel.run_id == resumed.run_id
-    assert (
-        synthetic_bytes(serial.artifact)
-        == synthetic_bytes(parallel.artifact)
-        == synthetic_bytes(resumed.artifact)
+    assert serial.run_id == (
+        "fa97912f4cc1ebcc0abc9db7b269b34be"
+        "b0d05094413bac1c826951ca9f13f2b"
     )
+    assert serial.artifact["self_hash"] == (
+        "bae0d0d57f566976473ba3ab0b250e30"
+        "61980bd55709d9e19df7ede96194b0e0"
+    )
+    assert hashlib.sha256(serial.artifact_path.read_bytes()).hexdigest() == (
+        "abf0200b93068364c597fb124fa538611"
+        "48556c60f49d04ed9fb94a2db4adb73"
+    )
+    assert serial.artifact == parallel.artifact == resumed.artifact
+    assert serial_map == parallel_before_resume == parallel_after_resume
+    absolute_identity = copy.deepcopy(serial.artifact["run_identity"])
+    absolute_identity["corpus"]["generation_id"] = "/host/path"
+    run_material = {
+        key: value
+        for key, value in absolute_identity.items()
+        if key not in {"run_id", "self_hash"}
+    }
+    absolute_identity["run_id"] = canonical_sha256(run_material)
+    absolute_identity["self_hash"] = canonical_sha256(
+        {
+            key: value
+            for key, value in absolute_identity.items()
+            if key != "self_hash"
+        }
+    )
+    with pytest.raises(
+        real.RealVNextArtifactError,
+        match="absolute host path",
+    ):
+        real.validate_real_run_identity(absolute_identity)
+    with pytest.raises(real.RealVNextPreflightError):
+        real._output_path_contract(tmp_path / "real-corpus", harness.execution)
     assert resumed.computed_checkpoints == 0
     assert resumed.resumed_checkpoints == 8
     assert "telemetry" not in serial.artifact
@@ -642,13 +713,6 @@ def test_serial_parallel_resume_are_byte_identical_and_paired(tmp_path):
         )
     assert serial.artifact["paired_inference"]["shared_paired_draws"] is True
     assert len(serial_calls) == len(parallel_calls) == 8
-
-
-def synthetic_bytes(value: dict) -> bytes:
-    from stylo.eval.lobo_vnext import _canonical_bytes
-
-    return _canonical_bytes(value)
-
 
 def test_authorization_binding_blocks_before_rows_factory_fit_and_output(
     tmp_path,
@@ -836,5 +900,5 @@ def test_final_validator_recomputes_nested_results(tmp_path, mutation):
             if key != "self_hash"
         }
     )
-    with pytest.raises(Exception):
+    with pytest.raises(real.RealVNextArtifactError):
         real.validate_real_final_artifact(artifact)

@@ -37,7 +37,7 @@ from ..domain.lobo_vnext import (
     canonical_sha256,
 )
 from ..domain.lobo_vnext_approval import ExploratoryOwnerDecisionRecord
-from ..domain.lobo_vnext_packet import R1PacketManifest
+from ..domain.lobo_vnext_packet import R1PacketManifest, VNextTextRow
 from ..domain.lobo_vnext_policy import CandidateInventory, ContentPolicySpec
 from ..domain.lobo_vnext_real import (
     BASELINE_ROLE,
@@ -53,7 +53,7 @@ from ..domain.prediction_contract import (
     stable_top1_and_worst_tie_rank,
     validate_probability_matrix,
 )
-from . import lobo_vnext as synthetic_vnext
+from . import _lobo_vnext_shared as _shared
 from .lobo_vnext_models import (
     make_r1_model_factory,
     r1_scientific_config_sha256,
@@ -180,8 +180,10 @@ def _manifest_dict(value: object, *, label: str) -> dict[str, Any]:
             f"{label}.to_dict() must return an exact object"
         )
     try:
-        synthetic_vnext._require_sha256(
-            raw.get("self_hash"), path=f"{label}.self_hash"
+        _shared._require_sha256(
+            raw.get("self_hash"),
+            path=f"{label}.self_hash",
+            error_type=RealVNextPreflightError,
         )
     except Exception as exc:
         raise RealVNextPreflightError(str(exc)) from exc
@@ -671,9 +673,15 @@ def _build_run_identity(
             REAL_FINAL_ARTIFACT_SCHEMA_VERSION
         ),
     }
-    run_id = synthetic_vnext._canonical_hash(material)
+    run_id = _shared._canonical_hash(
+        material,
+        error_type=RealVNextArtifactError,
+    )
     identity = {**material, "run_id": run_id}
-    identity["self_hash"] = synthetic_vnext._self_hash(identity)
+    identity["self_hash"] = _shared._self_hash(
+        identity,
+        error_type=RealVNextArtifactError,
+    )
     validate_real_run_identity(identity)
     return identity
 
@@ -713,7 +721,7 @@ _IDENTITY_KEYS = {
 
 def validate_real_run_identity(identity: object) -> dict[str, Any]:
     error = RealVNextArtifactError
-    raw = synthetic_vnext._require_exact_dict(
+    raw = _shared._require_exact_dict(
         identity, _IDENTITY_KEYS, path="real_run_identity", error_type=error
     )
     if (
@@ -732,7 +740,7 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         != REAL_FINAL_ARTIFACT_SCHEMA_VERSION
     ):
         raise error("real run identity contract/version mismatch")
-    corpus = synthetic_vnext._require_exact_dict(
+    corpus = _shared._require_exact_dict(
         raw["corpus"],
         {
             "schema_version",
@@ -754,7 +762,7 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         "canonicalizer_policy_version",
         "content_policy_version",
     ):
-        synthetic_vnext._require_str(
+        _shared._require_str(
             corpus[key],
             path=f"real_run_identity.corpus.{key}",
             error_type=error,
@@ -764,7 +772,7 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         "raw_inventory_sha256",
         "canonical_model_row_digest",
     ):
-        synthetic_vnext._require_sha256(
+        _shared._require_sha256(
             corpus[key],
             path=f"real_run_identity.corpus.{key}",
             error_type=error,
@@ -784,29 +792,29 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         "run_id",
         "self_hash",
     ):
-        synthetic_vnext._require_sha256(
+        _shared._require_sha256(
             raw[key], path=f"real_run_identity.{key}", error_type=error
         )
-    fold_hashes = synthetic_vnext._require_list(
+    fold_hashes = _shared._require_list(
         raw["fold_spec_sha256"],
         path="real_run_identity.fold_spec_sha256",
         nonempty=True,
         error_type=error,
     )
     for index, digest in enumerate(fold_hashes):
-        synthetic_vnext._require_sha256(
+        _shared._require_sha256(
             digest,
             path=f"real_run_identity.fold_spec_sha256[{index}]",
             error_type=error,
         )
-    probability_order = synthetic_vnext._require_string_array(
+    probability_order = _shared._require_string_array(
         raw["probability_class_order"],
         path="real_run_identity.probability_class_order",
         nonempty=True,
         unique=True,
         error_type=error,
     )
-    metric_order = synthetic_vnext._require_string_array(
+    metric_order = _shared._require_string_array(
         raw["metric_label_order"],
         path="real_run_identity.metric_label_order",
         nonempty=True,
@@ -817,7 +825,7 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         item for item in probability_order if item in frozenset(metric_order)
     ) != metric_order:
         raise error("real run identity M is not a P-ordered subset")
-    model_roles = synthetic_vnext._require_list(
+    model_roles = _shared._require_list(
         raw["model_roles"],
         path="real_run_identity.model_roles",
         nonempty=True,
@@ -826,7 +834,7 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
     if len(model_roles) != 2:
         raise error("real run identity must contain exactly two model roles")
     for index, (row, role) in enumerate(zip(model_roles, _ROLES, strict=True)):
-        record = synthetic_vnext._require_exact_dict(
+        record = _shared._require_exact_dict(
             row,
             {"role", "model_spec_sha256", "inner_cv_plan_sha256"},
             path=f"real_run_identity.model_roles[{index}]",
@@ -835,7 +843,7 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         if record["role"] != role:
             raise error("real run identity model role order mismatch")
         for field in ("model_spec_sha256", "inner_cv_plan_sha256"):
-            synthetic_vnext._require_sha256(
+            _shared._require_sha256(
                 record[field],
                 path=f"real_run_identity.model_roles[{index}].{field}",
                 error_type=error,
@@ -844,19 +852,19 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         "independent_receipt_sha256",
         "observation_evidence_sha256",
     ):
-        record = synthetic_vnext._require_exact_dict(
+        record = _shared._require_exact_dict(
             raw[field],
             set(REQUIRED_RECEIPT_KINDS),
             path=f"real_run_identity.{field}",
             error_type=error,
         )
         for kind in REQUIRED_RECEIPT_KINDS:
-            synthetic_vnext._require_sha256(
+            _shared._require_sha256(
                 record[kind],
                 path=f"real_run_identity.{field}.{kind}",
                 error_type=error,
             )
-    synthetic_vnext._require_self_hash(
+    _shared._require_self_hash(
         raw, path="real_run_identity", error_type=error
     )
     material = {
@@ -864,10 +872,15 @@ def validate_real_run_identity(identity: object) -> dict[str, Any]:
         for key, value in raw.items()
         if key not in {"run_id", "self_hash"}
     }
-    if raw["run_id"] != synthetic_vnext._canonical_hash(material):
+    if raw["run_id"] != _shared._canonical_hash(
+        material,
+        error_type=error,
+    ):
         raise error("real run identity run_id mismatch")
-    synthetic_vnext._reject_absolute_paths(
-        raw, path="real_run_identity"
+    _shared._reject_absolute_paths(
+        raw,
+        path="real_run_identity",
+        error_type=error,
     )
     return raw
 
@@ -1043,8 +1056,7 @@ def _validate_loaded_rows(
         raise RealVNextPreflightError(
             "canonical row loader must return an exact non-empty tuple"
         )
-    row_type = synthetic_vnext.VNextTextRow
-    if any(type(row) is not row_type for row in rows):
+    if any(type(row) is not VNextTextRow for row in rows):
         raise RealVNextPreflightError(
             "canonical row loader returned a non-VNextTextRow record"
         )
@@ -1238,7 +1250,10 @@ def build_real_checkpoint(
         "split": _split_record(fold),
         "result": result,
     }
-    checkpoint["self_hash"] = synthetic_vnext._self_hash(checkpoint)
+    checkpoint["self_hash"] = _shared._self_hash(
+        checkpoint,
+        error_type=RealVNextCheckpointError,
+    )
     validate_real_checkpoint(
         checkpoint,
         preflight=preflight,
@@ -1258,7 +1273,7 @@ def validate_real_checkpoint(
     fold: FoldSpec,
 ) -> dict[str, Any]:
     error = RealVNextCheckpointError
-    raw = synthetic_vnext._require_exact_dict(
+    raw = _shared._require_exact_dict(
         checkpoint, _CHECKPOINT_KEYS, path="real_checkpoint", error_type=error
     )
     if (
@@ -1287,12 +1302,12 @@ def validate_real_checkpoint(
         "fold_spec_sha256": fold.self_hash,
     }
     for field, expected in expected_hashes.items():
-        synthetic_vnext._require_sha256(
+        _shared._require_sha256(
             raw[field], path=f"real_checkpoint.{field}", error_type=error
         )
         if raw[field] != expected:
             raise error(f"checkpoint identity mismatch for {field}")
-    synthetic_vnext._require_int(
+    _shared._require_int(
         raw["fold_index"],
         path="real_checkpoint.fold_index",
         minimum=0,
@@ -1300,55 +1315,55 @@ def validate_real_checkpoint(
     )
     if raw["fold_index"] != fold_index:
         raise error("checkpoint fold index mismatch")
-    split = synthetic_vnext._require_exact_dict(
+    split = _shared._require_exact_dict(
         raw["split"],
         _SPLIT_KEYS,
         path="real_checkpoint.split",
         error_type=error,
     )
-    synthetic_vnext._require_exact_structure(
+    _shared._require_exact_structure(
         split,
         _split_record(fold),
         path="real_checkpoint.split",
         error_type=error,
     )
-    result = synthetic_vnext._require_exact_dict(
+    result = _shared._require_exact_dict(
         raw["result"],
         _RESULT_KEYS,
         path="real_checkpoint.result",
         error_type=error,
     )
     for field in ("work_id", "true_author_id", "predicted_author_id"):
-        synthetic_vnext._require_str(
+        _shared._require_str(
             result[field],
             path=f"real_checkpoint.result.{field}",
             error_type=error,
         )
     for field in ("true_label", "predicted_label"):
-        synthetic_vnext._require_int(
+        _shared._require_int(
             result[field],
             path=f"real_checkpoint.result.{field}",
             minimum=0,
             error_type=error,
         )
-    synthetic_vnext._require_bool(
+    _shared._require_bool(
         result["correct"],
         path="real_checkpoint.result.correct",
         error_type=error,
     )
-    synthetic_vnext._require_int(
+    _shared._require_int(
         result["true_rank"],
         path="real_checkpoint.result.true_rank",
         minimum=1,
         error_type=error,
     )
-    synthetic_vnext._require_int(
+    _shared._require_int(
         result["chunk_count"],
         path="real_checkpoint.result.chunk_count",
         minimum=1,
         error_type=error,
     )
-    probabilities = synthetic_vnext._require_list(
+    probabilities = _shared._require_list(
         result["probabilities"],
         path="real_checkpoint.result.probabilities",
         nonempty=True,
@@ -1358,7 +1373,7 @@ def validate_real_checkpoint(
     if len(probabilities) != len(order):
         raise error("checkpoint probability width differs from P")
     for index, value in enumerate(probabilities):
-        synthetic_vnext._require_float(
+        _shared._require_float(
             value,
             path=f"real_checkpoint.result.probabilities[{index}]",
             minimum=0.0,
@@ -1391,7 +1406,7 @@ def validate_real_checkpoint(
         )
     except PredictionContractError as exc:
         raise error(f"checkpoint prediction contract failed: {exc}") from exc
-    synthetic_vnext._require_self_hash(
+    _shared._require_self_hash(
         raw, path="real_checkpoint", error_type=error
     )
     return raw
@@ -1609,7 +1624,7 @@ def _derive_paired_inference(
 
 def _validate_paired_inference(value: object) -> dict[str, Any]:
     error = RealVNextArtifactError
-    raw = synthetic_vnext._require_exact_dict(
+    raw = _shared._require_exact_dict(
         value,
         {
             "schema_version",
@@ -1636,14 +1651,14 @@ def _validate_paired_inference(value: object) -> dict[str, Any]:
         if type(raw[field]) is not type(expected) or raw[field] != expected:
             raise error(f"paired inference {field} contract mismatch")
     for field in ("point", "lo", "hi"):
-        synthetic_vnext._require_float(
+        _shared._require_float(
             raw[field],
             path=f"real_final.paired_inference.{field}",
             minimum=-1.0,
             maximum=1.0,
             error_type=error,
         )
-    synthetic_vnext._require_sha256(
+    _shared._require_sha256(
         raw["inference_spec_sha256"],
         path="real_final.paired_inference.inference_spec_sha256",
         error_type=error,
@@ -1660,10 +1675,11 @@ def _derive_role_metrics(
     metrics: dict[str, Any] = {}
     for role in _ROLES:
         try:
-            metrics[role] = synthetic_vnext._derive_metrics(
+            metrics[role] = _shared._derive_metrics(
                 checkpoints_by_role[role],
                 fold_manifest,
                 inference_spec,
+                error_type=RealVNextArtifactError,
             )
         except Exception as exc:
             raise RealVNextArtifactError(
@@ -1751,7 +1767,10 @@ def build_real_final_artifact(
         "metrics_by_role": metrics,
         "paired_inference": paired,
     }
-    artifact["self_hash"] = synthetic_vnext._self_hash(artifact)
+    artifact["self_hash"] = _shared._self_hash(
+        artifact,
+        error_type=RealVNextArtifactError,
+    )
     validate_real_final_artifact(artifact, preflight=preflight)
     return artifact
 
@@ -1854,7 +1873,7 @@ def validate_real_final_artifact(
     preflight: RealVNextPreflight | None = None,
 ) -> dict[str, Any]:
     error = RealVNextArtifactError
-    raw = synthetic_vnext._require_exact_dict(
+    raw = _shared._require_exact_dict(
         artifact, _FINAL_KEYS, path="real_final", error_type=error
     )
     if (
@@ -2087,14 +2106,14 @@ def validate_real_final_artifact(
             ),
         }
         observed = {key: raw[key] for key in expected}
-        synthetic_vnext._require_exact_structure(
+        _shared._require_exact_structure(
             observed,
             expected,
             path="real_final.preflight_bindings",
             error_type=error,
         )
         projected = preflight
-    checkpoint_map = synthetic_vnext._require_exact_dict(
+    checkpoint_map = _shared._require_exact_dict(
         raw["checkpoints"],
         set(_ROLES),
         path="real_final.checkpoints",
@@ -2103,7 +2122,7 @@ def validate_real_final_artifact(
     expected_count = len(objects["fold_manifest"].folds)
     validated_by_role: dict[str, list[dict[str, Any]]] = {}
     for role in _ROLES:
-        rows = synthetic_vnext._require_list(
+        rows = _shared._require_list(
             checkpoint_map[role],
             path=f"real_final.checkpoints.{role}",
             nonempty=True,
@@ -2131,7 +2150,7 @@ def validate_real_final_artifact(
                 raise error(
                     f"invalid final {role} checkpoint[{index}]: {exc}"
                 ) from exc
-    metrics = synthetic_vnext._require_exact_dict(
+    metrics = _shared._require_exact_dict(
         raw["metrics_by_role"],
         set(_ROLES),
         path="real_final.metrics_by_role",
@@ -2143,8 +2162,11 @@ def validate_real_final_artifact(
         inference_spec=objects["inference"],
     )
     for role in _ROLES:
-        synthetic_vnext._validate_metrics_schema(metrics[role])
-        synthetic_vnext._require_exact_structure(
+        _shared._validate_metrics_schema(
+            metrics[role],
+            error_type=error,
+        )
+        _shared._require_exact_structure(
             metrics[role],
             expected_metrics[role],
             path=f"real_final.metrics_by_role.{role}",
@@ -2158,13 +2180,13 @@ def validate_real_final_artifact(
         inference_spec=objects["inference"],
     )
     _validate_paired_inference(raw["paired_inference"])
-    synthetic_vnext._require_exact_structure(
+    _shared._require_exact_structure(
         raw["paired_inference"],
         expected_paired,
         path="real_final.paired_inference",
         error_type=error,
     )
-    synthetic_vnext._require_self_hash(
+    _shared._require_self_hash(
         raw, path="real_final", error_type=error
     )
     return raw
@@ -2175,7 +2197,10 @@ def _output_path_contract(
     execution_spec: RealCorpusExecutionSpec,
 ) -> pathlib.Path:
     path = pathlib.Path(output_namespace)
-    synthetic_vnext._guard_output_namespace(path)
+    _shared._guard_output_namespace(
+        path,
+        error_type=RealVNextPreflightError,
+    )
     required = pathlib.PurePosixPath(
         execution_spec.output_namespace.root_relative_path
     ).parts
@@ -2247,14 +2272,17 @@ class _RealCheckpointStore:
     def inspect_existing(
         self,
     ) -> tuple[dict[tuple[str, int], dict[str, Any]], dict[str, Any] | None]:
-        synthetic_vnext._guard_output_namespace(self.output_namespace)
+        _shared._guard_output_namespace(
+            self.output_namespace,
+            error_type=RealVNextPreflightError,
+        )
         if not self.run_root.exists():
             return {}, None
         if self.run_root.is_symlink() or not self.run_root.is_dir():
             raise RealVNextCheckpointError(
                 "unsafe real checkpoint run directory"
             )
-        identity = synthetic_vnext._load_json_exact(
+        identity = _shared._load_json_exact(
             self.identity_path, error_type=RealVNextCheckpointError
         )
         try:
@@ -2271,7 +2299,7 @@ class _RealCheckpointStore:
         found = self.scan()
         final: dict[str, Any] | None = None
         if self.final_path.exists():
-            final = synthetic_vnext._load_json_exact(
+            final = _shared._load_json_exact(
                 self.final_path, error_type=RealVNextArtifactError
             )
             validate_real_final_artifact(final, preflight=self.preflight)
@@ -2287,7 +2315,10 @@ class _RealCheckpointStore:
         return found, final
 
     def initialize(self) -> None:
-        synthetic_vnext._guard_output_namespace(self.output_namespace)
+        _shared._guard_output_namespace(
+            self.output_namespace,
+            error_type=RealVNextPreflightError,
+        )
         self.output_namespace.mkdir(parents=True, exist_ok=True)
         if self.output_namespace.is_symlink():
             raise RealVNextCheckpointError(
@@ -2298,11 +2329,13 @@ class _RealCheckpointStore:
             raise RealVNextCheckpointError(
                 "symlinked real run directory is forbidden"
             )
-        created = synthetic_vnext._durable_create(
-            self.identity_path, self.preflight.run_identity
+        created = _shared._durable_create(
+            self.identity_path,
+            self.preflight.run_identity,
+            error_type=RealVNextCheckpointError,
         )
         if not created:
-            existing = synthetic_vnext._load_json_exact(
+            existing = _shared._load_json_exact(
                 self.identity_path, error_type=RealVNextCheckpointError
             )
             if existing != self.preflight.run_identity:
@@ -2328,7 +2361,7 @@ class _RealCheckpointStore:
                 path = self._path(role, index)
                 if not path.exists():
                     continue
-                checkpoint = synthetic_vnext._load_json_exact(
+                checkpoint = _shared._load_json_exact(
                     path, error_type=RealVNextCheckpointError
                 )
                 validate_real_checkpoint(
@@ -2369,8 +2402,12 @@ class _RealCheckpointStore:
             fold=fold,
         )
         path = self._path(role, fold_index)
-        if not synthetic_vnext._durable_create(path, checkpoint):
-            existing = synthetic_vnext._load_json_exact(
+        if not _shared._durable_create(
+            path,
+            checkpoint,
+            error_type=RealVNextCheckpointError,
+        ):
+            existing = _shared._load_json_exact(
                 path, error_type=RealVNextCheckpointError
             )
             if existing != checkpoint:
@@ -2380,8 +2417,12 @@ class _RealCheckpointStore:
 
     def publish_final(self, artifact: dict[str, Any]) -> pathlib.Path:
         validate_real_final_artifact(artifact, preflight=self.preflight)
-        if not synthetic_vnext._durable_create(self.final_path, artifact):
-            existing = synthetic_vnext._load_json_exact(
+        if not _shared._durable_create(
+            self.final_path,
+            artifact,
+            error_type=RealVNextArtifactError,
+        ):
+            existing = _shared._load_json_exact(
                 self.final_path, error_type=RealVNextArtifactError
             )
             validate_real_final_artifact(existing, preflight=self.preflight)

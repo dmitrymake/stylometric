@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 315,
-  "release_python_paths_sha256": "cb2728a4fca34349742f0d0cf3d3100883baafac6c1f578a5a17128452a18a36",
+  "release_python_file_count": 316,
+  "release_python_paths_sha256": "001edd1252154aab5d62a5eb24c0672f698c5c2e4ba400ebdc97a7799e2b47b8",
   "local_only_python_files": [
     "scripts/_fetch_tmp/clean.py",
     "scripts/_fetch_tmp/extract_letters.py",
@@ -94,7 +94,7 @@
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json": "f5b3eda337dce7b7bf2c691b92c72c8445331b53c3716cf53349061764423bc5",
     "research/evidence/withdrawn_certificates_v1/manifest.json": "d1b7a2528783a515f73f4de8610ab46dcbbf7156998a95a52168984a461b72f0",
     "research/governance/requirements.json": "b3f9db15c146cc31824d86b04021a810a71cb590f72c63ed9a753a65fd2903a5",
-    "research/governance/runner_catalog.json": "9245a5e4ebbd8a946243a1cc7693108f57d31ce1e7195610da7d1ac75ee4778b",
+    "research/governance/runner_catalog.json": "317773e43484a18300c1d8b17b6e6299c875d255d80cced39e8bd4a9a0567a41",
     "research/governance/status_ledger.json": "363bdeb3905742f8c30741811772de5eb616d5881e7da2a109f02590ca9579b3",
     "research/governance/topology.json": "6cd354a1d434a1ebb008023be9b6d0b220ae81350310fb5f3fe00a2e9a6f4014",
     "research/reviews/stylometry_owner_decision_memo.md": "484ae9e6831596fa5472c38547f459c736171384a1e3480158a64bc9b54f02ba",

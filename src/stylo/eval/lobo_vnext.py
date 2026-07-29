@@ -19,18 +19,16 @@ from __future__ import annotations
 import concurrent.futures
 import dataclasses
 import hashlib
-import math
 import os
 import pathlib
 import re
-import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, NoReturn
 
 import numpy as np
 
-from ..jsonio import dumps_strict, load_strict
+from ..domain.lobo_vnext_packet import VNextTextRow
 from ..domain.prediction_contract import (
     PREDICTION_CONTRACT_VERSION,
     PredictionContractError,
@@ -38,7 +36,8 @@ from ..domain.prediction_contract import (
     validate_prediction_record,
     validate_probability_matrix,
 )
-from .metrics import AuthorClusteredInferenceSpec, summarize_book_results
+from ..jsonio import dumps_strict, load_strict
+from . import _lobo_vnext_shared as _shared
 
 
 EXECUTION_SPEC_SCHEMA_VERSION = "stylo.lobo-vnext.execution-spec.v1"
@@ -89,18 +88,6 @@ class VNextArtifactError(LoboVNextError):
 
 
 @dataclasses.dataclass(frozen=True)
-class VNextTextRow:
-    """One deterministic model row selected by a work's ``raw_paths``."""
-
-    row_id: str
-    relative_path: str
-    work_id: str
-    author_id: str
-    text: str
-    raw_sha256: str
-
-
-@dataclasses.dataclass(frozen=True)
 class VNextPreflight:
     corpus_manifest: Any
     content_manifest: Any
@@ -130,55 +117,41 @@ class VNextRunOutcome:
         return self.artifact["run_identity"]["run_id"]
 
 
-def _strict_json_tree(value: Any, *, path: str = "value") -> None:
-    """Reject coercible/non-finite/non-JSON values before canonical hashing."""
-
-    if value is None or type(value) in (bool, int, str):
-        return
-    if type(value) is float:
-        if not math.isfinite(value):
-            raise LoboVNextError(f"{path} must be finite")
-        return
-    if type(value) is list:
-        for index, item in enumerate(value):
-            _strict_json_tree(item, path=f"{path}[{index}]")
-        return
-    if type(value) is dict:
-        for key, item in value.items():
-            if type(key) is not str:
-                raise LoboVNextError(f"{path} keys must be exact strings")
-            _strict_json_tree(item, path=f"{path}.{key}")
-        return
-    raise LoboVNextError(
-        f"{path} must contain only exact JSON scalar/container types; "
-        f"got {type(value).__name__}"
+def _strict_json_tree(
+    value: Any,
+    *,
+    path: str = "value",
+    error_type: type[LoboVNextError] = LoboVNextError,
+) -> None:
+    _shared._strict_json_tree(
+        value,
+        path=path,
+        error_type=error_type,
     )
 
 
-def _canonical_bytes(value: Any) -> bytes:
-    _strict_json_tree(value)
-    try:
-        text = dumps_strict(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-    except (TypeError, ValueError) as exc:  # defensive after _strict_json_tree
-        raise LoboVNextError(f"value is not canonical JSON: {exc}") from exc
-    return text.encode("utf-8")
+def _canonical_bytes(
+    value: Any,
+    *,
+    error_type: type[LoboVNextError] = LoboVNextError,
+) -> bytes:
+    return _shared._canonical_bytes(value, error_type=error_type)
 
 
-def _canonical_hash(value: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+def _canonical_hash(
+    value: Any,
+    *,
+    error_type: type[LoboVNextError] = LoboVNextError,
+) -> str:
+    return _shared._canonical_hash(value, error_type=error_type)
 
 
-def _self_hash(value: Mapping[str, Any]) -> str:
-    if type(value) is not dict:
-        raise LoboVNextError("self-hashed value must be an exact object")
-    return _canonical_hash(
-        {key: item for key, item in value.items() if key != "self_hash"}
-    )
+def _self_hash(
+    value: Mapping[str, Any],
+    *,
+    error_type: type[LoboVNextError] = LoboVNextError,
+) -> str:
+    return _shared._self_hash(value, error_type=error_type)
 
 
 def _require_exact_dict(
@@ -188,16 +161,12 @@ def _require_exact_dict(
     path: str,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise error_type(f"{path} must be an exact object")
-    observed = set(value)
-    if observed != set(keys):
-        raise error_type(
-            f"{path} key mismatch: "
-            f"missing={sorted(set(keys) - observed)}, "
-            f"extra={sorted(observed - set(keys))}"
-        )
-    return value
+    return _shared._require_exact_dict(
+        value,
+        keys,
+        path=path,
+        error_type=error_type,
+    )
 
 
 def _require_list(
@@ -207,10 +176,12 @@ def _require_list(
     nonempty: bool = False,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = "nonempty exact" if nonempty else "exact"
-        raise error_type(f"{path} must be a {qualifier} array")
-    return value
+    return _shared._require_list(
+        value,
+        path=path,
+        nonempty=nonempty,
+        error_type=error_type,
+    )
 
 
 def _require_str(
@@ -220,9 +191,12 @@ def _require_str(
     nonempty: bool = True,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> str:
-    if type(value) is not str or (nonempty and not value):
-        raise error_type(f"{path} must be an exact nonempty string")
-    return value
+    return _shared._require_str(
+        value,
+        path=path,
+        nonempty=nonempty,
+        error_type=error_type,
+    )
 
 
 def _require_sha256(
@@ -231,9 +205,11 @@ def _require_sha256(
     path: str,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> str:
-    if type(value) is not str or _SHA256_RE.fullmatch(value) is None:
-        raise error_type(f"{path} must be a lowercase SHA-256")
-    return value
+    return _shared._require_sha256(
+        value,
+        path=path,
+        error_type=error_type,
+    )
 
 
 def _require_bool(
@@ -242,9 +218,11 @@ def _require_bool(
     path: str,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> bool:
-    if type(value) is not bool:
-        raise error_type(f"{path} must be an exact bool")
-    return value
+    return _shared._require_bool(
+        value,
+        path=path,
+        error_type=error_type,
+    )
 
 
 def _require_int(
@@ -254,10 +232,12 @@ def _require_int(
     minimum: int | None = None,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> int:
-    if type(value) is not int or (minimum is not None and value < minimum):
-        suffix = "" if minimum is None else f" >= {minimum}"
-        raise error_type(f"{path} must be an exact integer{suffix}")
-    return value
+    return _shared._require_int(
+        value,
+        path=path,
+        minimum=minimum,
+        error_type=error_type,
+    )
 
 
 def _require_float(
@@ -268,13 +248,13 @@ def _require_float(
     maximum: float | None = None,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> float:
-    if type(value) is not float or not math.isfinite(value):
-        raise error_type(f"{path} must be an exact finite float")
-    if minimum is not None and value < minimum:
-        raise error_type(f"{path} must be >= {minimum}")
-    if maximum is not None and value > maximum:
-        raise error_type(f"{path} must be <= {maximum}")
-    return value
+    return _shared._require_float(
+        value,
+        path=path,
+        minimum=minimum,
+        maximum=maximum,
+        error_type=error_type,
+    )
 
 
 def _require_string_array(
@@ -285,14 +265,13 @@ def _require_string_array(
     unique: bool = False,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> tuple[str, ...]:
-    values = _require_list(
-        value, path=path, nonempty=nonempty, error_type=error_type
+    return _shared._require_string_array(
+        value,
+        path=path,
+        nonempty=nonempty,
+        unique=unique,
+        error_type=error_type,
     )
-    if any(type(item) is not str or not item for item in values):
-        raise error_type(f"{path} must contain exact nonempty strings")
-    if unique and len(set(values)) != len(values):
-        raise error_type(f"{path} must not contain duplicates")
-    return tuple(values)
 
 
 def _require_self_hash(
@@ -301,33 +280,24 @@ def _require_self_hash(
     path: str,
     error_type: type[LoboVNextError] = LoboVNextError,
 ) -> None:
-    _require_sha256(value["self_hash"], path=f"{path}.self_hash", error_type=error_type)
-    try:
-        expected = _self_hash(value)
-    except LoboVNextError as exc:
-        raise error_type(f"{path} is not strict canonical JSON: {exc}") from exc
-    if value["self_hash"] != expected:
-        raise error_type(f"{path}.self_hash mismatch")
+    _shared._require_self_hash(
+        value,
+        path=path,
+        error_type=error_type,
+    )
 
 
-def _reject_absolute_paths(value: Any, *, path: str) -> None:
-    """Keep run-bound receipts host-path independent."""
-
-    if type(value) is str:
-        if pathlib.PurePosixPath(value).is_absolute() or re.match(
-            r"^[A-Za-z]:[\\/]", value
-        ):
-            raise VNextPreflightError(
-                f"{path} contains an absolute host path"
-            )
-        return
-    if type(value) is list:
-        for index, item in enumerate(value):
-            _reject_absolute_paths(item, path=f"{path}[{index}]")
-        return
-    if type(value) is dict:
-        for key, item in value.items():
-            _reject_absolute_paths(item, path=f"{path}.{key}")
+def _reject_absolute_paths(
+    value: Any,
+    *,
+    path: str,
+    error_type: type[LoboVNextError] = VNextPreflightError,
+) -> None:
+    _shared._reject_absolute_paths(
+        value,
+        path=path,
+        error_type=error_type,
+    )
 
 
 def build_identity_receipt(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -1573,46 +1543,12 @@ def _require_exact_structure(
     path: str,
     error_type: type[LoboVNextError],
 ) -> None:
-    """Compare JSON without Python's bool/int or int/float equality."""
-
-    if type(observed) is not type(expected):
-        raise error_type(
-            f"{path} type mismatch: expected {type(expected).__name__}, "
-            f"got {type(observed).__name__}"
-        )
-    if type(expected) is dict:
-        _require_exact_dict(
-            observed, set(expected), path=path, error_type=error_type
-        )
-        for key in expected:
-            _require_exact_structure(
-                observed[key],
-                expected[key],
-                path=f"{path}.{key}",
-                error_type=error_type,
-            )
-        return
-    if type(expected) is list:
-        if len(observed) != len(expected):
-            raise error_type(
-                f"{path} length mismatch: expected {len(expected)}, got {len(observed)}"
-            )
-        for index, (left, right) in enumerate(
-            zip(observed, expected, strict=True)
-        ):
-            _require_exact_structure(
-                left,
-                right,
-                path=f"{path}[{index}]",
-                error_type=error_type,
-            )
-        return
-    if type(expected) is float and (
-        not math.isfinite(expected) or not math.isfinite(observed)
-    ):
-        raise error_type(f"{path} must be finite")
-    if observed != expected:
-        raise error_type(f"{path} value mismatch")
+    _shared._require_exact_structure(
+        observed,
+        expected,
+        path=path,
+        error_type=error_type,
+    )
 
 
 def project_legacy_artifact_read_only(payload: Any) -> dict[str, Any]:
@@ -1658,33 +1594,28 @@ def _safe_component(value: str, *, path: str) -> str:
     return value
 
 
-def _canonical_file_bytes(value: dict[str, Any]) -> bytes:
-    return _canonical_bytes(value) + b"\n"
-
-
-def _durable_create(path: pathlib.Path, payload: dict[str, Any]) -> bool:
-    """Atomically create ``path`` without overwrite."""
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    data = _canonical_file_bytes(payload)
-    fd, temporary = tempfile.mkstemp(
-        dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
+def _canonical_file_bytes(
+    value: dict[str, Any],
+    *,
+    error_type: type[LoboVNextError] = LoboVNextError,
+) -> bytes:
+    return _shared._canonical_file_bytes(
+        value,
+        error_type=error_type,
     )
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        try:
-            os.link(temporary, path)
-        except FileExistsError:
-            return False
-        return True
-    finally:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
+
+
+def _durable_create(
+    path: pathlib.Path,
+    payload: dict[str, Any],
+    *,
+    error_type: type[LoboVNextError] = LoboVNextError,
+) -> bool:
+    return _shared._durable_create(
+        path,
+        payload,
+        error_type=error_type,
+    )
 
 
 def _load_json_exact(
@@ -1692,15 +1623,7 @@ def _load_json_exact(
     *,
     error_type: type[LoboVNextError],
 ) -> dict[str, Any]:
-    if path.is_symlink() or not path.is_file():
-        raise error_type(f"missing or symlinked JSON file: {path}")
-    try:
-        value = load_strict(path)
-    except Exception as exc:
-        raise error_type(f"cannot strictly load {path}: {exc}") from exc
-    if type(value) is not dict:
-        raise error_type(f"{path} must contain an exact JSON object")
-    return value
+    return _shared._load_json_exact(path, error_type=error_type)
 
 
 class _VNextCheckpointStore:
@@ -1786,7 +1709,11 @@ class _VNextCheckpointStore:
     def initialize(self) -> None:
         _guard_output_namespace(self.output_namespace)
         self.run_root.mkdir(parents=True, exist_ok=True)
-        if not _durable_create(self.identity_path, self.identity):
+        if not _durable_create(
+            self.identity_path,
+            self.identity,
+            error_type=VNextCheckpointError,
+        ):
             existing = _load_json_exact(
                 self.identity_path, error_type=VNextCheckpointError
             )
@@ -1879,7 +1806,11 @@ class _VNextCheckpointStore:
             fold=fold,
         )
         path = self.path(fold_index, fold)
-        if not _durable_create(path, checkpoint):
+        if not _durable_create(
+            path,
+            checkpoint,
+            error_type=VNextCheckpointError,
+        ):
             existing = _load_json_exact(
                 path, error_type=VNextCheckpointError
             )
@@ -1898,7 +1829,11 @@ class _VNextCheckpointStore:
         return path
 
     def publish_final(self, artifact: dict[str, Any]) -> pathlib.Path:
-        if not _durable_create(self.final_path, artifact):
+        if not _durable_create(
+            self.final_path,
+            artifact,
+            error_type=VNextArtifactError,
+        ):
             existing = _load_json_exact(
                 self.final_path, error_type=VNextArtifactError
             )
@@ -1913,25 +1848,10 @@ class _VNextCheckpointStore:
 
 
 def _guard_output_namespace(path: pathlib.Path) -> None:
-    parts = tuple(part.lower() for part in path.parts)
-    if not any("exploratory" in part for part in parts):
-        raise VNextPreflightError(
-            "vNext dry-run output must use an explicitly exploratory namespace"
-        )
-    forbidden = {"evidence", "frozen", "confirmatory", "public", "headline"}
-    if any(part in forbidden for part in parts):
-        raise VNextPreflightError(
-            "vNext dry-run output cannot target evidence/public namespaces"
-        )
-    current = pathlib.Path(path.anchor) if path.is_absolute() else pathlib.Path()
-    for part in path.parts:
-        if path.is_absolute() and part == path.anchor:
-            continue
-        current = current / part
-        if current.exists() and current.is_symlink():
-            raise VNextPreflightError(
-                f"symlinked exploratory output path rejected: {current}"
-            )
+    _shared._guard_output_namespace(
+        path,
+        error_type=VNextPreflightError,
+    )
 
 
 def _require_vnext_domain_types(
@@ -2417,236 +2337,37 @@ def _evaluate_fold(
     return checkpoint
 
 
-def _shared_inference_spec(inference_spec: Any) -> AuthorClusteredInferenceSpec:
-    try:
-        return AuthorClusteredInferenceSpec.build(
-            iterations=inference_spec.bootstrap_iterations,
-            confidence_level=inference_spec.confidence_level,
-            seed=inference_spec.bootstrap_seed,
-        )
-    except Exception as exc:
-        raise VNextArtifactError(
-            f"cannot construct author-clustered inference contract: {exc}"
-        ) from exc
+def _shared_inference_spec(inference_spec: Any) -> Any:
+    return _shared._shared_inference_spec(
+        inference_spec,
+        error_type=VNextArtifactError,
+    )
 
 
 def _derive_metrics(
     checkpoints: Sequence[dict[str, Any]],
     fold_manifest: Any,
     inference_spec: Any,
+    *,
+    error_type: type[LoboVNextError] = VNextArtifactError,
 ) -> dict[str, Any]:
-    folds = tuple(fold_manifest.folds)
-    if len(checkpoints) != len(folds):
-        raise VNextArtifactError(
-            "cannot derive metrics from an incomplete checkpoint set"
-        )
-    probability_order = tuple(folds[0].probability_class_order)
-    metric_order = tuple(folds[0].metric_label_order)
-    label_by_author = {
-        author: index for index, author in enumerate(probability_order)
-    }
-    metric_indices = tuple(label_by_author[author] for author in metric_order)
-    truth = np.asarray(
-        [checkpoint["result"]["true_label"] for checkpoint in checkpoints],
-        dtype=np.int64,
+    return _shared._derive_metrics(
+        checkpoints,
+        fold_manifest,
+        inference_spec,
+        error_type=error_type,
     )
-    predicted = np.asarray(
-        [checkpoint["result"]["predicted_label"] for checkpoint in checkpoints],
-        dtype=np.int64,
-    )
-    ranks = np.asarray(
-        [checkpoint["result"]["true_rank"] for checkpoint in checkpoints],
-        dtype=np.int64,
-    )
-    book_authors = [
-        checkpoint["result"]["true_author_id"] for checkpoint in checkpoints
-    ]
-    try:
-        summary = summarize_book_results(
-            truth,
-            predicted,
-            ranks,
-            probability_order,
-            metric_label_order=metric_indices,
-            book_authors=book_authors,
-            inference_spec=_shared_inference_spec(inference_spec),
-        )
-    except Exception as exc:
-        raise VNextArtifactError(
-            f"metric derivation failed: {exc}"
-        ) from exc
-    per_author: list[dict[str, Any]] = []
-    for author_id in metric_order:
-        label = label_by_author[author_id]
-        mask = truth == label
-        if not mask.any():
-            raise VNextArtifactError(
-                f"metric label {author_id!r} has no tested books"
-            )
-        recall = float(np.mean(predicted[mask] == label))
-        per_author.append(
-            {
-                "author_id": author_id,
-                "n_test_books": int(mask.sum()),
-                "recall": recall,
-            }
-        )
-    accuracy_ci = summary["accuracy"]
-    macro_f1 = summary["macro_f1"]
-    top2 = summary["top2"]
-    metrics = {
-        "n_books": len(checkpoints),
-        "primary_accuracy": {
-            "point": float(accuracy_ci.point),
-            "lo": float(accuracy_ci.lo),
-            "hi": float(accuracy_ci.hi),
-            "method": accuracy_ci.method,
-        },
-        "macro_f1": {
-            "point": float(macro_f1.point),
-            "uncertainty": macro_f1.uncertainty,
-        },
-        "top2": {
-            "point": float(top2.point),
-            "uncertainty": top2.uncertainty,
-        },
-        "per_author_diagnostics": per_author,
-        "probability_class_order": list(probability_order),
-        "metric_label_order": list(metric_order),
-        "inference_spec_sha256": inference_spec.self_hash,
-    }
-    _validate_metrics_schema(metrics)
-    return metrics
 
 
-def _validate_metrics_schema(metrics: Any) -> dict[str, Any]:
-    _require_exact_dict(
+def _validate_metrics_schema(
+    metrics: Any,
+    *,
+    error_type: type[LoboVNextError] = VNextArtifactError,
+) -> dict[str, Any]:
+    return _shared._validate_metrics_schema(
         metrics,
-        {
-            "n_books",
-            "primary_accuracy",
-            "macro_f1",
-            "top2",
-            "per_author_diagnostics",
-            "probability_class_order",
-            "metric_label_order",
-            "inference_spec_sha256",
-        },
-        path="final.metrics",
-        error_type=VNextArtifactError,
+        error_type=error_type,
     )
-    _require_int(
-        metrics["n_books"],
-        path="final.metrics.n_books",
-        minimum=1,
-        error_type=VNextArtifactError,
-    )
-    accuracy_record = _require_exact_dict(
-        metrics["primary_accuracy"],
-        {"point", "lo", "hi", "method"},
-        path="final.metrics.primary_accuracy",
-        error_type=VNextArtifactError,
-    )
-    for key in ("point", "lo", "hi"):
-        _require_float(
-            accuracy_record[key],
-            path=f"final.metrics.primary_accuracy.{key}",
-            minimum=0.0,
-            maximum=1.0,
-            error_type=VNextArtifactError,
-        )
-    if not (
-        accuracy_record["lo"]
-        <= accuracy_record["point"]
-        <= accuracy_record["hi"]
-    ):
-        raise VNextArtifactError(
-            "primary accuracy point must lie inside its CI"
-        )
-    if (
-        accuracy_record["method"]
-        != "author_clustered_percentile_bootstrap"
-    ):
-        raise VNextArtifactError(
-            "primary accuracy uses a non-clustered uncertainty method"
-        )
-    for metric_name in ("macro_f1", "top2"):
-        record = _require_exact_dict(
-            metrics[metric_name],
-            {"point", "uncertainty"},
-            path=f"final.metrics.{metric_name}",
-            error_type=VNextArtifactError,
-        )
-        _require_float(
-            record["point"],
-            path=f"final.metrics.{metric_name}.point",
-            minimum=0.0,
-            maximum=1.0,
-            error_type=VNextArtifactError,
-        )
-        if record["uncertainty"] != "point_only":
-            raise VNextArtifactError(
-                f"final.metrics.{metric_name} must remain point-only"
-            )
-    diagnostics = _require_list(
-        metrics["per_author_diagnostics"],
-        path="final.metrics.per_author_diagnostics",
-        nonempty=True,
-        error_type=VNextArtifactError,
-    )
-    for index, diagnostic in enumerate(diagnostics):
-        _require_exact_dict(
-            diagnostic,
-            {"author_id", "n_test_books", "recall"},
-            path=f"final.metrics.per_author_diagnostics[{index}]",
-            error_type=VNextArtifactError,
-        )
-        _require_str(
-            diagnostic["author_id"],
-            path=f"final.metrics.per_author_diagnostics[{index}].author_id",
-            error_type=VNextArtifactError,
-        )
-        _require_int(
-            diagnostic["n_test_books"],
-            path=f"final.metrics.per_author_diagnostics[{index}].n_test_books",
-            minimum=1,
-            error_type=VNextArtifactError,
-        )
-        _require_float(
-            diagnostic["recall"],
-            path=f"final.metrics.per_author_diagnostics[{index}].recall",
-            minimum=0.0,
-            maximum=1.0,
-            error_type=VNextArtifactError,
-        )
-    probability_order = _require_string_array(
-        metrics["probability_class_order"],
-        path="final.metrics.probability_class_order",
-        nonempty=True,
-        unique=True,
-        error_type=VNextArtifactError,
-    )
-    metric_order = _require_string_array(
-        metrics["metric_label_order"],
-        path="final.metrics.metric_label_order",
-        nonempty=True,
-        unique=True,
-        error_type=VNextArtifactError,
-    )
-    if tuple(item for item in probability_order if item in metric_order) != metric_order:
-        raise VNextArtifactError(
-            "final metric label order is not a P-ordered subset"
-        )
-    if [item["author_id"] for item in diagnostics] != list(metric_order):
-        raise VNextArtifactError(
-            "per-author diagnostics do not use exact M order"
-        )
-    _require_sha256(
-        metrics["inference_spec_sha256"],
-        path="final.metrics.inference_spec_sha256",
-        error_type=VNextArtifactError,
-    )
-    return metrics
 
 
 def build_vnext_final_artifact(

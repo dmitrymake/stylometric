@@ -21,6 +21,7 @@ from stylo.domain.lobo_vnext import (
     build_inner_cv_plan,
     inventory_raw_files,
 )
+from stylo.domain.lobo_vnext_packet import VNextTextRow as PacketVNextTextRow
 from stylo.eval import lobo_vnext as lv
 from stylo.jsonio import dump_strict
 
@@ -230,18 +231,60 @@ def _run(harness: Harness, output: Path, *, n_jobs: int = 1, **kwargs):
     )
 
 
+def _run_root_bytes(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_packet_owns_text_row_and_synthetic_reexports_public_alias():
+    assert lv.VNextTextRow is PacketVNextTextRow
+    assert "VNextTextRow" in lv.__all__
+
+
+def test_shared_boundary_preserves_synthetic_error_family():
+    with pytest.raises(lv.VNextArtifactError):
+        lv._validate_metrics_schema({})
+    with pytest.raises(lv.VNextPreflightError, match="absolute host path"):
+        lv._reject_absolute_paths(
+            {"source": "/host/path"},
+            path="receipt",
+        )
+
+
 def test_serial_parallel_resume_are_byte_identical_and_keep_fixed_p_m(tmp_path):
     harness = _harness(tmp_path / "fixture")
+    serial_output = tmp_path / "exploratory-serial"
+    parallel_output = tmp_path / "exploratory-parallel"
 
-    serial = _run(harness, tmp_path / "exploratory-serial", n_jobs=1)
-    parallel = _run(harness, tmp_path / "exploratory-parallel", n_jobs=2)
-    resumed = _run(harness, tmp_path / "exploratory-parallel", n_jobs=1)
+    serial = _run(harness, serial_output, n_jobs=1)
+    parallel = _run(harness, parallel_output, n_jobs=2)
+    serial_map = _run_root_bytes(serial_output / serial.run_id)
+    parallel_before_resume = _run_root_bytes(
+        parallel_output / parallel.run_id
+    )
+    resumed = _run(harness, parallel_output, n_jobs=1)
+    parallel_after_resume = _run_root_bytes(
+        parallel_output / resumed.run_id
+    )
 
     assert serial.run_id == parallel.run_id == resumed.run_id
-    assert lv._canonical_bytes(serial.artifact) == lv._canonical_bytes(
-        parallel.artifact
+    assert serial.run_id == (
+        "8ce42ad5c8b188ee8a1680dacc6235567"
+        "b87660d5ef1e2cb96f7932fc7c930e0"
     )
-    assert parallel.artifact == resumed.artifact
+    assert serial.artifact["self_hash"] == (
+        "500b2108f056f0751a358191a15c47171"
+        "33fd251e27ce9c8f54b62e1b69f5969"
+    )
+    assert hashlib.sha256(serial.artifact_path.read_bytes()).hexdigest() == (
+        "d790ef15d1ad33f5bede5e3ecd0e1c32"
+        "b68176830ba769e5adac6ccd991f7fff"
+    )
+    assert serial.artifact == parallel.artifact == resumed.artifact
+    assert serial_map == parallel_before_resume == parallel_after_resume
     assert resumed.computed_folds == 0
     assert resumed.resumed_folds == len(harness.folds.folds)
     assert "telemetry" not in serial.artifact
