@@ -1,7 +1,25 @@
 # Stylo LOBO validation v1 evidence
 
 This directory preserves the exact executable sources and independent verification record for the
-completed A0/A4/A1 per-book LOBO artifact. It is evidence, not the current implementation tree.
+completed historical A0/A4/A1 per-book LOBO artifact. It is historical evidence, not the current
+implementation tree.
+
+## Historical scientific record
+
+The completed validation covered a universe of 47 authors and 255 works and tested 43 authors
+across 251 held-out works. All `753/753` folds completed. A0 reproduced all 251 frozen reference
+rows exactly at `221/251`. Primary A4 reached `227/251` (`+2.3904` percentage points;
+author-clustered 95% CI `[-0.3571, +5.5085]`) and passed its signed noninferiority gate with
+`δ = 0.02`; because the interval crosses zero, this is not a superiority result. Secondary A1
+reached `228/251` (`+2.7888` points; interval `[+0.3817, +5.8333]`) and remains a secondary
+mechanistic result.
+
+This run was neither confirmatory nor an external replication. Its later narrative protocol was a
+historical summary, not a preregistration. The corpus was subsequently registered as
+`ineligible_for_new_scientific_runs` because of cross-work content overlap. The run is therefore
+historical evidence only and cannot support a new scientific run or claim. See the
+[`independent_audit.md`](independent_audit.md), [`SHA256SUMS`](SHA256SUMS), and
+[ineligibility registry](../ineligible_corpus_registrations_v1.json).
 
 The original basenames under `source/` intentionally reproduce the paths attested by the v1
 `RUN.json` and recovery audit. Canonical maintained code uses purpose-based names elsewhere.

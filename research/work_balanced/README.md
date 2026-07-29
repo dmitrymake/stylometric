@@ -9,6 +9,8 @@ Current status has one authority:
   [`paired_audit_review_provenance.md`](paired_audit_review_provenance.md) — an immutable historical
   implementation-audit and review-provenance evidence chain.
 
-Retained historical summaries:
-[`exploratory_ablation_screen.md`](exploratory_ablation_screen.md) and
-[`stylo_lobo_validation_protocol.md`](stylo_lobo_validation_protocol.md).
+Retained historical summary:
+[`exploratory_ablation_screen.md`](exploratory_ablation_screen.md).
+
+The completed historical LOBO validation is preserved directly as
+[`stylo_lobo_validation_v1` evidence](../evidence/stylo_lobo_validation_v1/).

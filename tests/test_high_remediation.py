@@ -511,7 +511,6 @@ def test_production_scientific_kernels_reject_synthetic_authority(tmp_path):
     from stylo.eval import (
         groupkfold,
         lobo,
-        stylo_lobo_validation,
         sweep,
         work_balanced_ablation_screen,
     )
@@ -552,9 +551,6 @@ def test_production_scientific_kernels_reject_synthetic_authority(tmp_path):
         ),
         lambda: work_balanced_ablation_screen.run_ablation_screen(
             object(), context, {}, tmp_path / "ablation.json"
-        ),
-        lambda: stylo_lobo_validation.run_true_lobo(
-            object(), context, {}, {}, output_path=tmp_path / "lobo.json"
         ),
     )
     for call in calls:

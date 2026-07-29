@@ -23,7 +23,6 @@
       "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
       "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
       "scripts/evaluation/pin_wikisource_campaign.py",
-      "scripts/evaluation/run_stylo_lobo_validation.py",
       "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "scripts/evaluation/run_stylo_lobo_vnext.py",
       "scripts/evaluation/run_work_balanced_ablation_screen.py"
@@ -155,12 +154,6 @@
       "public_surface": "explicit source-spec verifier; no corpus publication, fit, public evidence, or confirmatory authority"
     },
     {
-      "path": "scripts/evaluation/run_stylo_lobo_validation.py",
-      "status": "canonical_bounded_exploratory",
-      "responsibility": "registered_true_lobo_validation",
-      "public_surface": "explicit research runner"
-    },
-    {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
       "responsibility": "explicitly_selected_r1_lobo_vnext_packet_preparation",
@@ -218,7 +211,7 @@
       "path": "scripts/lobo_cv.py",
       "status": "retired_hard_disabled_shim",
       "responsibility": "historical_unbounded_mutable_lobo",
-      "replacement": "scripts/evaluation/run_stylo_lobo_validation.py"
+      "replacement": "none; scripts/evaluation/run_stylo_lobo_vnext.py is a separate new-corpus control plane"
     },
     {
       "path": "scripts/ablation.py",
@@ -315,8 +308,9 @@
     },
     {
       "namespace": "docs/exploratory/work_balanced/stylo_lobo_work_weighting_a0_a1_a4_v2.json",
-      "owner": "scripts/evaluation/run_stylo_lobo_validation.py",
-      "contract": "ignored_identity_bound_exploratory_artifact"
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer",
+      "scientific_eligibility": "ineligible_for_new_scientific_runs"
     },
     {
       "namespace": "docs/exploratory/lobo_vnext/packets/<generation-id>/**",

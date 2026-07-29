@@ -58,7 +58,6 @@ jobs:
           tests/test_paired_audit_runner.py
           tests/test_stack_class_coverage.py
           tests/test_stack_passport_compatibility.py
-          tests/test_stylo_lobo_validation.py
           tests/test_lobo_vnext_approval.py
           tests/test_lobo_vnext_cli.py
           tests/test_lobo_vnext_control.py
@@ -122,7 +121,6 @@ jobs:
               "stylo.eval.lobo_vnext_prepare",
               "stylo.eval.lobo_vnext_real",
               "stylo.eval.lobo_vnext_receipts",
-              "stylo.eval.stylo_lobo_validation",
               "stylo.eval.work_balanced_ablation_screen",
               "stylo.models.equal_channel_ensemble",
           ):

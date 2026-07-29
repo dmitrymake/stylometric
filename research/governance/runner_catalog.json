@@ -106,18 +106,6 @@
       ]
     },
     {
-      "path": "scripts/evaluation/run_stylo_lobo_validation.py",
-      "status": "bounded_exploratory_validation",
-      "claim_scope": "A0/A4/A1 true-LOBO validation with frozen folds and references; not the paired confirmatory audit.",
-      "output_contract": "Ignored versioned exploratory JSON with resumable checkpoints and exact runtime/source identity.",
-      "identity_bindings": ["dataset_digest", "fold_inventory", "a0_reference_sha256", "code_hashes", "runtime_ledger"],
-      "required_nodeids": [
-        "tests/test_stylo_lobo_validation.py::test_reference_is_hashed_before_strict_parse_and_binds_exact_order",
-        "tests/test_stylo_lobo_validation.py::test_a0_reference_mismatch_blocks_all_a4_a1_scheduling",
-        "tests/test_stylo_lobo_validation.py::test_checkpoint_rejects_rehashed_semantic_tamper_extra_and_metadata_mismatch"
-      ]
-    },
-    {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
       "claim_scope": "Prepare only the exact explicitly selected RuAA R1 136-work constituents-only packet, its content dispositions, isolated folds, two fixed model roles and inference contract. The command has no cache, factory, fit, prediction, public-evidence or confirmatory authority.",

@@ -81,8 +81,12 @@ domain-specific neural baseline and genuinely external replication.
 - frozen legacy goldens;
 - weights-only, feature-state, and relative-frequency ablation routing;
 - frozen-panel exploratory signal screen;
-- resumable true-LOBO implementation and exact legacy parity gate;
-- completed `753/753` stylo A0/A4/A1 LOBO validation with independent artifact reassembly and audit;
+- historical resumable true-LOBO execution and exact legacy parity gate;
+- historical completed `753/753` stylo A0/A4/A1 LOBO validation with independent artifact
+  reassembly and audit; its corpus was later registered as ineligible because of cross-work content
+  overlap, so the preserved run is evidence-only and cannot support a new scientific claim;
+- the `lobo_vnext` control plane is a separate path for newly registered corpus runs, not an
+  equivalent reproduction or drop-in replacement for the historical run;
 - post-validation runtime identity that omits OS/kernel release strings while binding libc and the
   numerical stack;
 - purpose-based research, runner, evaluator, fixture, and test paths, with historical executed
