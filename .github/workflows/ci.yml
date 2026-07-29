@@ -70,7 +70,6 @@ jobs:
           tests/test_lobo_vnext_real_cli.py
           tests/test_lobo_vnext_real_contracts.py
           tests/test_lobo_vnext_receipts.py
-          tests/test_lobo_vnext.py
           -q -p no:cacheprovider
 
   package-wheel:
@@ -114,7 +113,6 @@ jobs:
               "stylo.domain.lobo_vnext_policy",
               "stylo.domain.lobo_vnext_real",
               "stylo.eval.certificates",
-              "stylo.eval.lobo_vnext",
               "stylo.eval.lobo_vnext_control",
               "stylo.eval.lobo_vnext_models",
               "stylo.eval.lobo_vnext_prepare",

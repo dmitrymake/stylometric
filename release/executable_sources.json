@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 316,
-  "release_python_paths_sha256": "001edd1252154aab5d62a5eb24c0672f698c5c2e4ba400ebdc97a7799e2b47b8",
+  "release_python_file_count": 314,
+  "release_python_paths_sha256": "bd639932d2f1b9b5154d30b0ec5bc43b25c3e05ae9623ab5efe116a4670e5fbc",
   "local_only_python_files": [
     "scripts/_fetch_tmp/clean.py",
     "scripts/_fetch_tmp/extract_letters.py",
@@ -80,7 +80,7 @@
   ],
   "sha256_bindings": {
     ".gitattributes": "42c73c2b87b9fbcae92a971d5a78d2a84af7ba0b02da0f61bbf42e6dab9927d5",
-    ".github/workflows/ci.yml": "462307181c94f38fd503a39d6174f4ae8f6d70ec5e4d4097bf542f91f4c6ece5",
+    ".github/workflows/ci.yml": "8c02cfd6c0513957d748a8a82df90378c16edea4098033f9bf836007408b4bed",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "README.md": "99f30e75826db20fa00c8bec88e4bf70b6785181ed4e2fc8f491570249d810d9",
     "docs/ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
