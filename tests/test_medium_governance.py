@@ -89,7 +89,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
     "relative",
     [
         "research/ROADMAP.md",
-        "research/work_balanced/model_routing.md",
+        "research/work_balanced/README.md",
         "research/work_balanced/estimand.md",
         "research/work_balanced/paired_audit_protocol.md",
         "research/work_balanced/paired_audit_review_provenance.md",
@@ -102,15 +102,40 @@ def test_current_research_documents_defer_to_the_ledger(relative):
 
 def test_stale_paired_audit_status_claims_are_not_current_prose():
     roadmap = (ROOT / "research" / "ROADMAP.md").read_text(encoding="utf-8")
-    routing = (
-        ROOT / "research" / "work_balanced" / "model_routing.md"
+    contract = (
+        ROOT / "research" / "work_balanced" / "estimand.md"
     ).read_text(encoding="utf-8")
     protocol = (
         ROOT / "research" / "work_balanced" / "paired_audit_protocol.md"
     ).read_text(encoding="utf-8")
     assert "Still required beyond the narrow stylo validation" not in roadmap
-    assert "paired audit has not yet been implemented" not in routing
+    assert "paired audit has not yet been implemented" not in contract
     assert "No confirmatory audit-corpus builder, paired-audit runner" not in protocol
+
+
+def test_work_balanced_estimand_is_the_compact_implementation_contract():
+    contract = (
+        ROOT / "research" / "work_balanced" / "estimand.md"
+    ).read_text(encoding="utf-8")
+    assert 100 <= len(contract.splitlines()) <= 140
+    assert len(contract.encode("utf-8")) <= 12 * 1024
+    for marker in (
+        "WorkLevelVectorizer",
+        "fit_estimator",
+        "needs_groups",
+        "## Dataset identity, provenance, and atomic subsets",
+        "## Single fit dispatch",
+        "## Output and artifact isolation",
+    ):
+        assert marker in contract
+    prose = " ".join(contract.casefold().replace("’", "'").split())
+    for marker in (
+        "selected-mass delta",
+        "not canonical burrows's delta",
+        "group-aware calibration",
+        "artifact isolation",
+    ):
+        assert marker in prose
 
 
 def test_normative_protocol_matches_the_single_canonical_environment_lock():

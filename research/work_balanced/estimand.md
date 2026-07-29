@@ -1,256 +1,140 @@
-# Work-balanced training estimand and implementation contract
+# Work-balanced training implementation contract
 
-Normative current status is
-[`../governance/status_ledger.json`](../governance/status_ledger.json); historical commit labels,
-future-tense prose, and line references in this contract are non-normative.
+Normative current status lives only in [`../governance/status_ledger.json`](../governance/status_ledger.json).
+This document defines executable behavior; it is not a status, history, or evidence log.
+The `chunk_weighted_legacy` and `work_balanced` arms remain isolated implementations of one evaluation interface.
 
-Status: **implemented through work-level data, model routing, stack routing, and group-aware
-calibration.** The synthetic paired-audit control plane and preparation command are implemented,
-while the freeze remains unapproved and confirmatory execution is hard-disabled; see
-[`paired_audit_protocol.md`](paired_audit_protocol.md) and the repository
-[`ROADMAP.md`](../ROADMAP.md). Implementation evidence is recorded by commits
-`91a96293`, `6dc6d153`, `2c75c591`, `c6335586`, and `f1b8e165`.
+## Target mass and W/F/R axes
 
-This document includes the six contract refinements needed to make the estimand executable. The
-legacy default remains `chunk_weighted_legacy`, so the baseline stays reproducible until the paired
-audit and its separate headline decision are complete.
+For one training fold, let `A` be the number of authors, `W_a` the number of works by author `a`,
+`C_w` the chunks in work `w`, and `W = Σ_a W_a` the number of works. For chunk `i` from `w`:
 
-## 0. Training weights and public claim labels
+`s_i = W / (A · W_a · C_w)`.
 
-`src/stylo/domain/work_weighting.py` (with
-`src/stylo/eval/work_weighting.py` retained as an exact-object compatibility alias):
+Thus each author has mass `W/A`, each of that author's works has mass `W/(A·W_a)`, and total mass is
+`W`. Authors are equal; works are equal within author; chunk duplication or resegmentation changes
+per-chunk weights but not work or author mass. Each work has one author; malformed inputs fail closed.
 
-- `sw_i = W / (A·W_a·C_w)`, `sum = W`, strict length checks + `zip(strict=True)`,
-  multi-author work rejected.
-- **Weighting validation:** `resolve_training_weighting` validates the chosen value *including the
-  fallback default* (an invalid default raises). Negative test added.
-- **Claim-label mapping:** runtime label ≠ public claim string is made explicit with
-  `to_claim_label()`: `chunk_weighted_legacy` → `chunk_weighted_training_legacy` (the
-  legacy headline claim, unchanged), `work_balanced` → `work_balanced`. The committed legacy
-  headline artifact is not touched.
-- Tests: `sum == W`, equal author/work mass, **unequal W_a = {3,1}**, chunk-dup mass
-  invariance, both-direction length mismatch, invalid default, `to_claim_label`, config
-  default + `--set` override. 15 tests.
+The audit axes are independent implementation mechanisms:
 
-## 1. Canonical work/chunk identity — NOT content hash
+- **W** — equal-author/equal-work loss mass; for the stack it also selects group-aware calibration.
+- **F** — vocabulary, document frequency, IDF, and other learned feature state fitted by work, including function words.
+- **R** — function-word/MFW relative frequency with all analyzer events as denominator.
 
-Content-hash dedup is rejected: two legitimately identical fragments at different places in
-one work would be deleted. Canonical chunk identity:
+Legacy is `(W0,F0,R0)` and full work-balanced training is `(W1,F1,R1)`. One-axis combinations are audit-only;
+model-specific applicability and registered cells belong to the paired-audit protocol.
 
-```
-identity = (work_id, provenance_sha256, chunker_config_hash, span_ordinal, text_sha256)
-```
+## Dataset identity, provenance, and atomic subsets
 
-- `provenance_sha256` — sha256 of the work's normalized source bytes.
-- `chunker_config_hash` — hash of the frozen chunker config (chunk_words, sentencizer id,
-  name-masking) so a re-segmentation is a different identity, not a silent collision.
-- `span_ordinal` — the chunk's (start,end) token span / ordinal within the work.
-- `text_sha256` — sha256 of the chunk's normalized bytes.
+`work_id` is a logical corpus and split identity, not a content hash. Equal text at different positions is
+retained. Only a repeated full work-balanced row identity is a defect:
 
-**Policy:** a repeat of one full identity (same span AND same text in the same work under
-the same chunker) is a defect and **always fails closed (raises)** — there is no
-logged-no-op variant. Identical `text_sha256` at a *different* `span_ordinal` is KEPT
-(legitimate repetition). Canonicalization runs **before** weights, feature fitting and
-evaluation; the `chunk_weighted_legacy` path receives the raw per-chunk arrays with no
-dedup.
+`(work_id, provenance_sha256, chunker_config_hash, span_ordinal, text_sha256)`.
 
-**Required persistence:** spans/provenance are not persisted in the live corpus today —
-`chunking.make_sent_chunks` (`chunking.py:18`) and `pipeline/split.py:72` write chunk text
-only. The audit-only corpus preparation must add a **chunk manifest** at
-`<audit-corpus-root>/<author>/<book>/manifest.json` (strict JSON), recording per-chunk
-`span_ordinal`, `text_sha256`, and the work's `provenance_sha256` + `chunker_config_hash`.
-The work-balanced corpus loader reads it to build the canonical `WorkDocument` view over the
-existing `texts/reps/groups` arrays (no new heavy format). The live corpus remains unchanged.
+Source, chunker, span, and text validation are manifest duties. Cross-work content isolation is a separate
+fail-closed scientific-evaluation gate; neither `work_id` nor `text_sha256` substitutes for it.
 
-**Manifest validator (required, blocks `work_balanced`):**
+Frozen `DatasetProvenance` binds loader kind, ordered row identities/authors, row count,
+manifest/config/chunker identity, corpus policy, root, and a versioned boundary-unambiguous `rows_digest`
+over current `texts`, `y`, `groups`, row identities, and authors.
 
-- bijection between manifest entries and the chunk `.txt` files (no orphan either side);
-- recompute and match every `text_sha256` from the on-disk bytes;
-- identity `(work_id, provenance_sha256, chunker_config_hash, span_ordinal, text_sha256)`
-  is unique within the work;
-- `span_ordinal`s are ordered and non-overlapping;
-- reject a missing / extra / stale manifest (provenance or chunker hash mismatch);
-- `chunker_config_hash` is canonical over: `chunk_size`, `min_words`, `overlap`,
-  sentencizer/model id, normalization + name-masking pipeline, and the chunker algorithm
-  version.
+`require_dataset_for_weighting` is both-sided: work-balanced accepts only a manifest dataset; legacy only
+a recursive dataset. It recomputes digest/count and validates label range, unique authors, and
+`authors[y[i]] == author(groups[i])`; mutation and hand-built provenance are rejected.
+`prepare_scientific_evaluation` also rebinds to disk, verifies content isolation, and freezes arrays.
 
-Any discrepancy blocks the `work_balanced` path (fail closed); `chunk_weighted_legacy`
-reads the raw arrays and does not require the manifest. This manifest is the concrete
-`WorkDocument` the plan requires and is the gate that makes strict duplication-invariance
-testable.
+`derive_dataset(parent, indices)` is the only provenance-preserving subset builder. It rejects duplicate
+or out-of-range indices, slices `texts/y/groups` together, recomputes authors, labels, row identities,
+selection binding, and provenance, and returns one atomic `Dataset`.
+`prepare_derived_scientific_evaluation` authorizes only a child bound to its verified parent.
 
-## 2. Full Pipeline groups contract
+## Work-level feature fit and transform
 
-`groups` must reach every learned block; the Pipeline calls `fit_transform`, so BOTH entry
-points take it:
+`WorkLevelVectorizer` fits on outer-train data only:
 
-```
-Pipeline.fit
-  → StyloVectorizer.fit_transform(X, y=None, groups=None)   # vectorizer.py:55
-      → StyloVectorizer.fit(X, y=None, groups=None)          # vectorizer.py:35
-          → FeatureBlock.fit(texts, reps, groups=None)       # base.py:26 (+ fit_transform)
-```
+`chunk counts → work sums → work DF/prune → equal-work relative-TF rank → deterministic cap → work IDF`.
 
-`FeatureBlock.fit_transform` and `StyloVectorizer.fit_transform` gain `groups=None`
-(additive). Non-fitted blocks (syntax, length_dist, embeddings) accept and ignore it.
-Routing to the work_balanced stylo model is the verified `WorkBalancedStyloPipeline(Pipeline)`
-subclass (`needs_groups=True`, routes `vectorizer__groups` + `classifier__sample_weight`;
-preserves `named_steps`/`clone`/joblib/`classes_`). A single `fit_estimator(est,X,y,groups)`
-dispatch (needs_groups) is used by `eval/lobo.py`, `eval/groupkfold.py` AND
-`pipeline/train.py:45`, avoiding the unsupported direct `Pipeline.fit(groups=)` call.
+The smoothed state is `idf(f) = ln((W + 1)/(df_w(f) + 1)) + 1`; vocabulary/ties are deterministic
+and accumulation uses `float64`.
 
-## 3. Work-level sparse vectorizer — fit AND transform
+Every relative denominator counts all analyzer events before DF pruning/cap; selected, pruned, and OOV
+events remain. Grouped transform is `Σ work counts / Σ work analyzer events`, never a mean of chunk
+ratios. A zero-event work remains one `W` vote and yields zero without division.
 
-One shared helper `features/work_vectorizer.py` (fit + transform fully specified):
+Frozen train state transforms test chunks: char/POS/punctuation use sublinear TF × work IDF then L2;
+BoW uses counts; function words use relative all-word frequency. Delta uses `transform_grouped` for
+one train row/work; prediction stays per chunk then work soft vote. DeltaCos normalizes work-z before centroid.
 
-Fit contract: chunk counts → work×feature sum → work-DF (prune `df_w < 2`) →
-equal-work relative-TF ranking → deterministic `max_features` cap → work-level IDF.
+The historical `delta:N` route is a selected-mass Delta compatibility estimator, not canonical Burrows's
+Delta: legacy `_rel_freq` divides by selected-MFW mass, not all events. R-on changes that denominator
+explicitly; it does not relabel or silently alter legacy.
 
-**Relative-TF denominator = ALL analyzer events of the work** (every token the analyzer
-emits), computed BEFORE `min_df`/cap — not the sum over surviving/selected features. This
-applies to MFW selection (function_words), char/POS/punct ranking, AND Delta's z-input
-relative frequencies (Delta divides by all analyzer tokens, not just selected MFW).
+## Model-family routing
 
-Transform (frozen train state, applied to CHUNK rows at test):
+| family | legacy arm | work-balanced arm |
+|---|---|---|
+| `stylo` | plain pipeline, balanced class loss | `WorkBalancedStyloPipeline`; work-fitted blocks and fold-local weights |
+| `char_cos` | chunk TF-IDF, work centroid | `WorkLevelVectorizer(mode=tfidf)`; work vocabulary/DF/IDF, same centroid |
+| `delta` / `delta_cos` | selected-mass features, work centroid | work-ranked state and grouped all-event frequencies; same z/centroid math |
+| `bow_lr` | pooled count pipeline, balanced class loss | cloneable `WorkLevelCountTransformer` in `WorkBalancedBowPipeline`; fold-local weights |
+| `stylo_stack` | legacy channels/loss/calibration | work-fitted channels, fold-local loss weights, and grouped calibration; evaluation-only |
 
-- char / POS / punct: `sublinear_tf` term frequency, multiply by the frozen work-level IDF,
-  then row-wise L2 normalization — same shape as the current `TfidfVectorizer(sublinear_tf,
-  use_idf, norm='l2')`, only the vocabulary/IDF are work-fitted.
-- bow: count-only mode (no IDF, no sublinear), matching `build_bow_lr`.
-- function_words: relative frequencies in both modes; denominator = all word tokens.
+W-on weighted LR/SVC estimators use `class_weight=None`; legacy retains `class_weight="balanced"` without
+work weights. `majority` has no weighting hook; the legacy BoW reference is WB-exploratory only.
 
-Determinism: sorted vocabulary, string tie-break on equal rank, float64 accumulation.
+## Single fit dispatch
 
-**Numerical edges (frozen):**
+`fit_estimator` is the only estimator-fit dispatch used by LOBO, GKF, and training:
 
-- `idf(f) = ln((W + 1) / (df_w(f) + 1)) + 1` (smoothed, W train works).
-- A work with **zero analyzer events** still counts as one of the W votes (denominator
-  stays W), contributes 0 to every feature's equal-work relative-TF mean, and its chunks
-  transform to the **zero vector** — no division by zero anywhere.
-- Equal-work relative-TF and Delta's z-input use `sum(counts_over_work) /
-  sum(all_analyzer_tokens_over_work)`, i.e. counts and token totals are summed across the
-  work's chunks BEFORE dividing — **not** the mean of per-chunk relative frequencies. A
-  Delta test with sharply unequal chunk lengths must confirm this (the two differ whenever
-  chunk lengths vary).
-
-## 4. Five-model wiring spec
-
-Same estimand, one `training_weighting` switch, explicit per-model changes:
-
-- **stylo** — `WorkBalancedStyloPipeline` (§2); StyloVectorizer work-fitted (§3);
-  `sample_weight` (sum W); `class_weight=None`. Legacy = plain Pipeline, `class_weight
-  ='balanced'`, no weights.
-- **char_cos** (`baselines.py:53`) — char vectorizer → work-level sparse (§3); centroid
-  step unchanged (already work-mean). `needs_groups` already True.
-- **delta** (`delta.py`) — MFW vocab selection + relative-freq z-input → work-level (§3);
-  z-mean/std and centroids unchanged (already work-mean). `needs_groups` already True.
-- **bow_lr** (`baselines.py:86`) — becomes a `WorkBalancedBowPipeline(Pipeline)` mirror:
-  work-level count vocab + `classifier__sample_weight`, `class_weight=None`,
-  `needs_groups=True`.
-- **stylo_stack** (`stacked_clf.py`) — feature fitting per channel work-level. **No double
-  weighting:** every weighted branch (inner-CV SVC, full SVC, meta-CV, final meta-LR) sets
-  `class_weight=None` and `sample_weight=work_weights`; the legacy branch keeps
-  `class_weight="balanced"` with no work weights. `ChannelFn` gains train `groups`;
-  `choose_calibrator` gets `groups`; calibration is disabled when any class has <2 train
-  works and the stack falls back to identity calibrators + equal ensemble (no learned
-  meta-selection).
-
-Constructors/factories: `make_factory` (`lobo.py:40`) and `make_full_pipeline`/
-`build_bow_lr` gain the `training_weighting` argument; `groupkfold` and `train` use the
-shared dispatch.
-
-## 5. Group-aware calibration eligibility
-
-The cloneable group-calibration wrapper builds explicit StratifiedGroupKFold (train,val) work
-splits inside the outer-train fold.
-
-**Effective fold count:** `n_splits_eff = min(configured_n_splits, min_works_per_class)`,
-and every (train, validation) split must contain all classes. If that is not achievable —
-i.e. **any class has < 2 train works** — calibration is disabled for the whole outer fit
-(there is NO chunk-CV fallback), and calibrated and raw classes are never mixed in one
-model. For Stacked this means identity calibrators + equal ensemble weights with no learned
-meta-selection in that fold. Headline stylo in LOBO is uncalibrated, so this is for
-uniformity/other uses.
-
-## 6. Normalized paired-audit artifact
-
-```
-main_work_balanced_audit/summary.json  (strict JSON, claim_status: exploratory_internal)
-  frozen: { git_commit, config_id_sha256, data_manifest_sha256, env_lock_sha256,
-            seeds, clean_tree_assertion: true,
-            tolerances: {                     # continuous quantities, NOT discrete metrics
-              sample_weight, idf_feature_state, probability } }
-  class_order: [author_id, ...]               # explicit alignment for every proba vector
-  datasets:
-    <dataset_id>:                             # ruaa_core, full_corpus_lobo
-      fold_manifest_sha256; fold_manifest: [ordered held-out work_ids]
-      models:
-        <model_id>:                           # stylo, char_cos, delta, bow_lr, stylo_stack
-          resolved_model_id; resolved_config_id
-          variants:                           # the five-row ablation ladder, §7
-            legacy | weights_only | feature_state_only | relative_fw_only | full:
-              status: applied | not_applicable # e.g. relative_fw_only for a char-only model
-              per_work: [ {work_id, author, pred, rank,
-                           proba: [vector aligned to class_order]} ]
-              aggregate: {acc, macro_f1, author_clustered_ci, mcnemar_p_vs_legacy}
-          failures; exclusions
-  artifact_sha256                             # canonical JSON with this field removed (or sidecar .sha256)
+```python
+def fit_estimator(est, texts, y, groups):
+    if getattr(est, "needs_groups", False):
+        if groups is None:
+            raise ValueError(f"{type(est).__name__} needs groups")
+        est.fit(texts, y, groups=groups)
+    else:
+        est.fit(texts, y)
+    return est
 ```
 
-- **class_order** is explicit and every `proba` is a full vector aligned to it (not just the
-  top class).
-- **Tolerances** are set on the continuous intermediates — `sample_weight`,
-  feature-state/IDF, probability vectors — not on discrete accuracy/macro-F1 (which are
-  step functions and unstable near ties). Discrete metrics are reported but the pass/fail
-  reproduction check is on the continuous quantities.
-- **Self-hash** (`artifact_sha256`) is computed over the canonical JSON with the hash field
-  itself removed (or stored as a sidecar `summary.json.sha256`), so the artifact can carry
-  its own verifiable hash.
-- A variant that does not apply to a model is marked `status: not_applicable` rather than
-  omitted.
+`training_weighting` is resolved once and passed explicitly. Estimators with `needs_groups=True` own
+feature/weight routing; lower APIs neither reread configuration nor dispatch by class name.
 
-Full **class-aligned probability vectors** per work. **Separate fold manifest per dataset.**
-Author-clustered bootstrap CI on per-work paired predictions. `SOCIOLIT-lite` is excluded
-from the strict paired audit (precomputed global features + plain StratifiedKFold cannot
-carry the work-balanced estimand); it stays a descriptive lexical layer.
+## Group-aware calibration
 
-## 7. Registered ablation ladder
+With W on, `StratifiedGroupKFold` keeps works intact; each work has one label and every accepted split
+has every class on both sides. Score is pooled equal-work held-out NLL: mean chunk NLL per work,
+summed over works and divided by their count, not a mean of fold means.
 
-1. **legacy**;
-2. **weights_only** — work `sample_weight`, chunk features;
-3. **feature_state_only** — work-level vocab/IDF/DF, uniform weights;
-4. **relative_fw_only** — the relative-frequency FW transform from §3, else legacy;
-5. **full = weights + feature_state + relative_fw** (2+3+4) — the target estimand.
+`n_splits_eff = min(configured_n_splits, min_works_per_class)`. A singleton class or invalid grouped
+splits disable calibration for the whole fit: identity calibrators plus equal ensemble, without
+chunk-CV fallback, calibrated/raw mixing, or learned meta-selection. Legacy `groups=None` is unchanged.
 
-## 8. Frozen design decisions
+## Stack feature and loss routing
 
-- **Dedup:** by canonical identity/span (§1), NOT content hash; fail-closed on identity
-  repeat.
-- **max_features:** keep current per-block caps for the confirmatory audit; any retuning is
-  a separate pre-registered grouped-CV stage.
-- **Single-work calibration:** disable calibration for the whole outer fit if any class has
-  <2 train works; no mixing calibrated/raw; Stacked → identity calibrators + equal ensemble.
-- **Helper consolidation:** now consolidate only grouping / validation / sparse-index
-  primitives; do NOT merge Delta/Char/case centroids until after the paired audit (their
-  L2/normalization semantics differ).
+`ChannelFn(train, test, train_groups=None)` receives groups only for work-balanced; legacy calls strict
+two-argument form. Hash channels sum counts by train work before IDF and apply frozen IDF to chunks.
+Block channels call `StyloVectorizer.fit_transform(..., groups=train_groups)` before scaling.
 
-## 9. Remaining paired-audit dependencies
+Every inner/full channel SVC and meta-CV/final meta-LR recomputes weights on its own fit rows, never
+slicing a global vector. W-on uses `class_weight=None` with mass equal to that fit's work count;
+legacy uses balanced loss/no weights. Splits stay grouped and calibration gets the validated groups.
 
-The work-level vectorizer (§3), Pipeline group contract (§2), five-model routing (§4), shared
-`fit_estimator` dispatch, and group-aware calibration (§5) are implemented. They remain behind the
-`training_weighting` switch with `chunk_weighted_legacy` as the production default.
+## Output and artifact isolation
 
-The remaining work is dependency-ordered:
+Legacy headline documents/author mapping gain no fields and stay byte-stable. Deployable legacy
+model/Delta pickles are schema-versioned with prediction parity, not byte parity. Other results are versioned.
 
-1. Implement, test, and independently review the audit-only corpus verifier and immutable
-   audit-corpus builder. It must emit the chunk manifests and canonical `WorkDocument` identities
-   from §1 without mutating the live corpus.
-2. Use that reviewed preparation path to prove the legacy corpus anchor and semantic parity, bind
-   the exact RuAA subset, then freeze and independently verify the LOBO and RuAA fold manifests.
-3. Implement and test the paired-audit orchestration around the existing model mechanisms: the full
-   applicability grid, one bound run plan, immutable per-fold checkpoints, verified publication,
-   the normalized artifact from §6, and the inference and headline-gate calculations.
-4. Pass the clean-tree preflight, execute both registered datasets under separate authorization,
-   assemble every applicable cell, and independently audit the result and durable evidence.
-5. Make the headline decision as a separate action only after the complete paired-audit artifact
-   passes review. Until then, the legacy headline and its committed artifacts stay untouched.
+Work-balanced evaluation writes only below `docs/exploratory/work_balanced/`; training only below
+`data/exploratory/work_balanced/`. The atomic bundle is exactly `model.pkl`, `delta.pkl`, and mandatory
+`authors.json`; `assert_headline_write_allowed` blocks work-balanced headline writes.
+
+Work-balanced provenance stays in a strict namespaced sidecar binding weighting, dataset digest,
+config/code identity, and all three hashes; it never changes legacy artifacts or reuses their authors.
+
+## Evaluation-only and paired-audit boundary
+
+`stylo_stack` and `stylo_equal_channels_v1` retain rows/lazy final fit, are evaluation-only, and fail serialization closed with `EvaluationOnlyEstimatorError`.
+
+Corpus freeze, applicability, authorization, checkpoints, inference, review, and any headline decision are governed
+only by [`paired_audit_protocol.md`](paired_audit_protocol.md); this contract neither authorizes confirmatory execution nor replaces that protocol.
