@@ -98,7 +98,7 @@
     "research/governance/requirements.json": "b3f9db15c146cc31824d86b04021a810a71cb590f72c63ed9a753a65fd2903a5",
     "research/governance/runner_catalog.json": "72ed00f83df1f5fed6b35f37b2e4a70ec00e90cff3db9f15f49471d427a03d5c",
     "research/governance/status_ledger.json": "363bdeb3905742f8c30741811772de5eb616d5881e7da2a109f02590ca9579b3",
-    "research/governance/topology.json": "f528d4792cf21b5db1a3cb8a4d17f50460ad508b025ea9476dbc9bfdd5f3019f",
+    "research/governance/topology.json": "dd3303c1e1c2fe9f6e02e4cc1b722c9d1a3c998a171b95c0d2e53a0f3262c0f2",
     "research/reviews/stylometry_owner_decision_memo.md": "484ae9e6831596fa5472c38547f459c736171384a1e3480158a64bc9b54f02ba",
     "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",
     "scripts/check_release_hygiene.py": "69534811b444999cedfbebb840f66fc9b72ad0609dc5cf3c4ccbea2d2d2284e5",

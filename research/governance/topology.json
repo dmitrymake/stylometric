@@ -184,7 +184,7 @@
     },
     {
       "path": "scripts/experiments.py",
-      "status": "retired_hard_disabled_source",
+      "status": "retired_hard_disabled_shim",
       "responsibility": "historical_automatic_lobo_experiments",
       "replacement": "stylo evaluate"
     },
