@@ -121,7 +121,6 @@ jobs:
               "stylo.eval.lobo_vnext_prepare",
               "stylo.eval.lobo_vnext_real",
               "stylo.eval.lobo_vnext_receipts",
-              "stylo.eval.work_balanced_ablation_screen",
               "stylo.models.equal_channel_ensemble",
           ):
               importlib.import_module(module)

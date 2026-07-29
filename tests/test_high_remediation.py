@@ -512,7 +512,6 @@ def test_production_scientific_kernels_reject_synthetic_authority(tmp_path):
         groupkfold,
         lobo,
         sweep,
-        work_balanced_ablation_screen,
     )
     from stylo.eval.provenance import (
         ProvenanceError,
@@ -548,9 +547,6 @@ def test_production_scientific_kernels_reject_synthetic_authority(tmp_path):
             context,
             sweep.EvalCase("synthetic"),
             weighting=CHUNK_WEIGHTED_LEGACY,
-        ),
-        lambda: work_balanced_ablation_screen.run_ablation_screen(
-            object(), context, {}, tmp_path / "ablation.json"
         ),
     )
     for call in calls:

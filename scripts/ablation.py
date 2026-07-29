@@ -1,16 +1,17 @@
-"""Retired legacy bleaching-ablation runner.
+"""Hard-disabled migration shim for completed ablation screens.
 
-The historical script independently rebuilt the corpus and overwrote an
-unregistered report.  It is retained only as a migration shim.
+The registered work-balanced screen is complete.  Its frozen historical result
+remains documented, and there is no general live replacement for this command.
 """
 from __future__ import annotations
 
 
 def main() -> None:
     raise SystemExit(
-        "scripts/ablation.py is retired: its independently rebuilt dataset "
-        "and mutable output are not claim-bearing. Use the frozen-panel runner "
-        "`scripts/evaluation/run_work_balanced_ablation_screen.py`."
+        "scripts/ablation.py is retired: the registered work-balanced ablation "
+        "screen is complete. Its frozen historical result is preserved at "
+        "`research/work_balanced/exploratory_ablation_screen.md`. There is no "
+        "general live replacement for this command."
     )
 
 

@@ -143,18 +143,6 @@
         "tests/test_lobo_vnext_real_cli.py::test_execution_drift_is_rejected_before_approval_binding_and_eval",
         "tests/test_lobo_vnext_real_cli.py::test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts"
       ]
-    },
-    {
-      "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
-      "status": "bounded_exploratory_screen",
-      "claim_scope": "Frozen-panel W/F/R mechanism screen; it cannot select a confirmatory dataset or headline.",
-      "output_contract": "Ignored exploratory JSON below the work-balanced screen namespace; resume requires byte-identical identity.",
-      "identity_bindings": ["dataset_digest", "screening_panel_self_hash", "fold_inventory", "code_hashes", "runtime_fingerprint"],
-      "required_nodeids": [
-        "tests/test_work_balanced_ablation_screen.py::test_resume_is_byte_stable_and_rejects_changed_inputs_before_eval",
-        "tests/test_work_balanced_ablation_screen.py::test_complete_matrix_uses_one_exact_ordered_fold_inventory",
-        "tests/test_work_balanced_ablation_screen.py::test_controlled_fresh_runs_are_deterministic_and_share_work_inventory"
-      ]
     }
   ]
 }

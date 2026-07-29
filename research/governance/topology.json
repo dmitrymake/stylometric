@@ -24,8 +24,7 @@
       "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
       "scripts/evaluation/pin_wikisource_campaign.py",
       "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "scripts/evaluation/run_work_balanced_ablation_screen.py"
+      "scripts/evaluation/run_stylo_lobo_vnext.py"
     ],
     "legacy_script_basenames": [
       "ablation.py",
@@ -166,12 +165,6 @@
       "public_surface": "explicit synthetic harness or non-personal interactive-authorization-bound R1 exploratory dry-run; the record makes no identity or authentication claim, and public and confirmatory execution remain unauthorized"
     },
     {
-      "path": "scripts/evaluation/run_work_balanced_ablation_screen.py",
-      "status": "canonical_bounded_exploratory",
-      "responsibility": "registered_frozen_panel_ablation",
-      "public_surface": "explicit research runner"
-    },
-    {
       "path": "scripts/report.py",
       "status": "compatibility_entrypoint",
       "responsibility": "canonical_report_forwarder",
@@ -217,7 +210,7 @@
       "path": "scripts/ablation.py",
       "status": "retired_hard_disabled_shim",
       "responsibility": "historical_independent_corpus_ablation",
-      "replacement": "scripts/evaluation/run_work_balanced_ablation_screen.py"
+      "replacement": "none; the registered screen is complete and its frozen historical result is preserved at research/work_balanced/exploratory_ablation_screen.md"
     },
     {
       "path": "scripts/clustering.py",
@@ -339,8 +332,8 @@
     },
     {
       "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",
-      "owner": "scripts/evaluation/run_work_balanced_ablation_screen.py",
-      "contract": "ignored_frozen_panel_exploratory_artifact"
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
     },
     {
       "namespace": "docs/experiments_summary.txt",
