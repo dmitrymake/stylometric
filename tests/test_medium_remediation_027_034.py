@@ -448,6 +448,10 @@ def test_aud034_delta_identifier_is_explicitly_selected_mass():
     assert estimator.FREQUENCY_DENOMINATOR == "sum_selected_mfw_counts"
     assert estimator.PUBLIC_DISPLAY_NAME == "Frozen legacy selected-mass Delta"
     assert "selected-mass" in MODEL_REGISTRY["delta"].description
-    assert "legacy selected-mass Delta" in (
-        ROOT / "README.md"
+    # the documented surface is the protocol, not the entry page: README no longer
+    # publishes the baseline method comparison the identifier belonged to
+    protocol = (
+        ROOT / "research" / "work_balanced" / "paired_audit_protocol.md"
     ).read_text(encoding="utf-8")
+    assert "legacy selected-mass Delta" in protocol
+    assert "not canonical Burrows's Delta" in protocol

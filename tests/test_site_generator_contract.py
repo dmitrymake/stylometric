@@ -8,7 +8,6 @@ import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "gen-site-data.mjs"
-README_GENERATOR = ROOT / "scripts" / "gen-readme.mjs"
 RENDER_SMOKE = ROOT / "site" / "scripts" / "check-render.mjs"
 NO_UNDEF_GATE = ROOT / "site" / "scripts" / "check-no-undef.mjs"
 SITE_INDEX = ROOT / "site" / "index.html"
@@ -169,7 +168,6 @@ def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
         ]
     )
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    generator = README_GENERATOR.read_text(encoding="utf-8")
     banned = (
         "Заголовочная цифра",
         "главная цифра",
@@ -207,7 +205,6 @@ def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
     for phrase in banned:
         assert phrase not in site_source
         assert phrase not in readme
-        assert phrase not in generator
 
 
 def test_package_summary_and_readme_opening_are_accurate_and_reader_facing():
@@ -219,11 +216,18 @@ def test_package_summary_and_readme_opening_are_accurate_and_reader_facing():
     assert "honest" not in summary
     assert "leakage-free" not in summary
 
-    opening = "\n".join(
-        (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:12]
+    opening = " ".join(
+        "\n".join(
+            (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:12]
+        ).split()
     )
-    assert "Можно ли узнать автора по служебным словам" in opening
-    assert "Интерактивная научпоп-статья" in opening
+    assert opening.startswith("# Stylo ")
+    assert (
+        "исследовательский инструмент для сравнения авторской манеры русской прозы"
+        in opening
+    )
+    assert "[Интерактивная статья](https://stylometry.russkiykod.com/)" in opening
+    assert "научпоп" not in opening
     assert "ineligible_for_new_scientific_runs" not in opening
     assert "честно оценивает" not in opening
 
@@ -245,51 +249,75 @@ def test_static_site_metadata_is_reader_facing_and_uses_production_domain():
     assert 'content="summary"' in index
 
 
-def test_readme_is_byte_identical_to_its_fail_closed_generator():
-    completed = subprocess.run(
-        ["node", str(README_GENERATOR), "--check"],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    assert "README.md совпадает с генератором" in completed.stdout
+def test_readme_is_a_compact_reviewed_entry_page():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    assert len(lines) <= 100, f"README grew to {len(lines)} lines"
+    assert len(text.split()) <= 900, f"README grew to {len(text.split())} words"
+
+    headings = [line for line in lines if line.startswith("## ")]
+    assert headings == [
+        "## Статус исследования",
+        "## Возможности",
+        "## Быстрый старт",
+        "## Структура репозитория",
+        "## Данные и лицензия",
+    ]
+
+    for evidence in (
+        "research/evidence/ineligible_corpus_registrations_v1.json",
+        "docs/macro_f1_ci_withdrawal.json",
+        "research/governance/status_ledger.json",
+    ):
+        assert evidence in text, f"README no longer links {evidence}"
+
+    for banned in (
+        "научпоп",
+        "почерк",
+        "|---",  # historical metric tables
+        "тома ТД → Шолохову",
+        "McNemar",
+        "bootstrap",
+        "ECE",
+        "CCAT50",
+        "нейросети отстают",
+        "тематически нейтрален",
+        "чистый идиолект",
+        "0.8805",
+        "0.8398",
+        "итоговая оценка опубликована",
+        "пересчёт выполнен",
+    ):
+        assert banned not in text, f"README reintroduced the banned fragment {banned!r}"
 
 
-def test_readme_sholokhov_claim_is_bound_to_registered_lobo_source():
+def test_sholokhov_claim_is_bound_to_registered_lobo_source():
     registered = json.loads(
         (ROOT / "docs" / "sholokhov_lobo.json").read_text(encoding="utf-8")
     )
-    verdict = registered["td_attributed_to_sholokhov"]
-    gradient = registered["disputed_td"]
-    readme = " ".join(
-        (ROOT / "README.md").read_text(encoding="utf-8").split()
+    site_data = json.loads(
+        (ROOT / "site" / "src" / "generated" / "site-data.json").read_text(
+            encoding="utf-8"
+        )
     )
-    generator = README_GENERATOR.read_text(encoding="utf-8")
+    rigor = site_data["rigor"]
     site_generator = GENERATOR.read_text(encoding="utf-8")
 
-    def rendered(value):
-        return f"{value:.4f}".rstrip("0").rstrip(".")
-
-    assert f"**{verdict} тома ТД → Шолохову**" in readme
-    assert (
-        f"({rendered(gradient[0]['foreign_fraction'])}→"
-        f"{rendered(gradient[-1]['foreign_fraction'])})"
-    ) in readme
-    assert (
-        "shLobo.td_attributed_to_sholokhov" in generator
-        and "shLobo.disputed_td[0].foreign_fraction" in generator
-        and "shLobo.disputed_td.at(-1).foreign_fraction" in generator
-    )
+    assert rigor["tdLoboAttributed"] == registered["td_attributed_to_sholokhov"]
+    assert [step["ff"] for step in rigor["loboTd"]["gradient"]] == [
+        step["foreign_fraction"] for step in registered["disputed_td"]
+    ]
     assert "tdLoboP: slob.td1_vs_null_permutation_p" in site_generator
     assert (
         "tdLoboSurvives: slob.don_source_signal_significant"
         in site_generator
     )
     assert "tdLoboP: r12.test_registry.confirmatory" not in site_generator
-    if verdict != "4/4":
-        assert "**4/4 тома ТД → Шолохову**" not in readme
+
+    # the entry page no longer publishes a numeric Sholokhov verdict
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "тома ТД → Шолохову" not in readme
+    assert registered["td_attributed_to_sholokhov"] not in readme
 
 
 def test_method_does_not_render_the_withdrawn_macro_f1_interval():

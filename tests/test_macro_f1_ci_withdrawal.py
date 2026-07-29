@@ -66,15 +66,19 @@ def test_versioned_readme_does_not_publish_the_withdrawn_interval():
         assert BANNED_WORDING not in text, f"{name} reintroduced the 'conservative interval' claim"
         for frag in BANNED_INTERVAL_STRINGS:
             assert frag not in text, f"{name} renders the withdrawn macro-F1 interval {frag!r}"
-        # positive: the withdrawal must be stated
-        assert STATUS in text, f"{name} does not state the macro-F1 CI withdrawal status"
+        # positive: the withdrawal is stated in reader-facing prose, not as an internal status string
+        prose = " ".join(text.split())  # the README hard-wraps sentences
+        assert "интервал macro-F1 отозван" in prose, (
+            f"{name} does not state the macro-F1 CI withdrawal in reader-facing prose"
+        )
+        assert ERRATUM_REF in text, f"{name} does not link the erratum record {ERRATUM_REF}"
+        assert STATUS not in text, f"{name} leaks the internal status string into reader prose"
 
 
 def test_generators_cannot_reintroduce_conservative_wording():
-    # the templates themselves must not carry the banned wording (a re-run must stay clean)
-    for gen in ("gen-readme.mjs", "gen-site-data.mjs"):
-        src = (ROOT / "scripts" / gen).read_text(encoding="utf-8")
-        assert BANNED_WORDING not in src, f"scripts/{gen} still contains the banned wording"
+    # the template itself must not carry the banned wording (a re-run must stay clean)
+    src = (ROOT / "scripts" / "gen-site-data.mjs").read_text(encoding="utf-8")
+    assert BANNED_WORDING not in src, "scripts/gen-site-data.mjs still contains the banned wording"
 
 
 def test_site_sections_do_not_index_withdrawn_ci():

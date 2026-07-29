@@ -43,9 +43,8 @@ jobs:
       - name: Generated public-surface and provenance gates
         run: |
           node scripts/gen-site-data.mjs
-          node scripts/gen-readme.mjs --check
           node scripts/check-provenance.mjs
-          git diff --exit-code -- README.md site/src/generated
+          git diff --exit-code -- site/src/generated
       - name: Ordinary full suite
         run: python -m pytest tests -q -p no:cacheprovider
       - name: Focused scientific and release contracts

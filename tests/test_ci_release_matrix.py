@@ -19,9 +19,8 @@ def test_ci_runs_full_and_focused_suites_under_lock_constraints():
     assert "Verify canonical portable environment binding" in text
     assert text.count("verify_installed_environment") >= 3
     assert "node scripts/gen-site-data.mjs" in text
-    assert "node scripts/gen-readme.mjs --check" in text
     assert "node scripts/check-provenance.mjs" in text
-    assert "git diff --exit-code -- README.md site/src/generated" in text
+    assert "git diff --exit-code -- site/src/generated" in text
 
 
 def test_ci_builds_wheel_and_tests_git_free_archive():
