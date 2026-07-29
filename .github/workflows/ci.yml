@@ -59,7 +59,6 @@ jobs:
           tests/test_stack_class_coverage.py
           tests/test_stack_passport_compatibility.py
           tests/test_lobo_vnext_approval.py
-          tests/test_lobo_vnext_cli.py
           tests/test_lobo_vnext_control.py
           tests/test_lobo_vnext_findings.py
           tests/test_lobo_vnext_manifests.py

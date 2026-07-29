@@ -161,8 +161,8 @@
     {
       "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
       "status": "canonical_bounded_exploratory",
-      "responsibility": "interactive_exact_digest_authorized_r1_lobo_vnext_dry_run",
-      "public_surface": "explicit synthetic harness or non-personal interactive-authorization-bound R1 exploratory dry-run; the record makes no identity or authentication claim, and public and confirmatory execution remain unauthorized"
+      "responsibility": "real_r1_preflight_and_interactive_exact_digest_authorized_lobo_vnext_dry_run",
+      "public_surface": "explicit authorization-free real R1 preflight or non-personal interactive-authorization-bound real R1 bounded exploratory dry-run; the record makes no identity or authentication claim, and public and confirmatory execution remain unauthorized"
     },
     {
       "path": "scripts/report.py",
@@ -331,9 +331,9 @@
       "contract": "ignored_immutable_content-audited hybrid source corpus only; no representation cache, model, public evidence, or confirmatory authority"
     },
     {
-      "namespace": "docs/exploratory/lobo_vnext/<run-namespace>/<run-id>/**",
+      "namespace": "docs/exploratory/lobo_vnext/real_corpus/**",
       "owner": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "contract": "ignored_immutable_bounded_exploratory_result; real R1 execution requires an exact packet and an explicit non-personal interactive authorization bound to the complete execution digest; the record makes no identity or authentication claim and grants no public-evidence or confirmatory authority"
+      "contract": "ignored_immutable_real_r1_preflight_and_bounded_exploratory_result; bounded exploratory execution requires an exact packet and an explicit non-personal interactive authorization bound to the complete execution digest; the record makes no identity or authentication claim and grants no public-evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",

@@ -99,11 +99,6 @@ def real_cli_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Path:
     monkeypatch.setattr(cli, "ROOT", tmp_path)
-    monkeypatch.setattr(
-        cli,
-        "OUTPUT_ROOT",
-        tmp_path / "docs" / "exploratory" / "lobo_vnext",
-    )
     return tmp_path
 
 
@@ -175,6 +170,11 @@ def _patch_valid_loaders(
 
 
 def test_real_parsers_have_no_scientific_defaults_and_require_every_input():
+    assert cli._MODE_FLAGS == {
+        "--real-preflight": "real_preflight",
+        "--real-exploratory-dry-run": "real_exploratory",
+    }
+
     preflight = {
         action.dest: action
         for action in cli._real_preflight_parser()._actions
@@ -208,6 +208,11 @@ def test_real_parsers_have_no_scientific_defaults_and_require_every_input():
         cli.run(["--real-preflight"])
     with pytest.raises(SystemExit):
         cli.run(["--real-exploratory-dry-run"])
+    with pytest.raises(
+        cli.VNextCLIError,
+        match="exactly one real execution mode",
+    ):
+        cli.run([])
 
 
 def test_modes_are_mutually_exclusive_before_any_loader(
@@ -218,13 +223,33 @@ def test_modes_are_mutually_exclusive_before_any_loader(
         "_load_real_packet",
         lambda _: pytest.fail("loader reached after mixed modes"),
     )
-    with pytest.raises(cli.VNextCLIError, match="cannot be combined"):
+    with pytest.raises(
+        cli.VNextCLIError,
+        match="exactly one real execution mode",
+    ):
         cli.run(
             [
-                "--synthetic-dry-run",
                 "--real-preflight",
+                "--real-exploratory-dry-run",
             ]
         )
+
+
+def test_retired_synthetic_mode_is_explicitly_rejected_before_any_loader(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    monkeypatch.setattr(
+        cli,
+        "_load_real_packet",
+        lambda _: pytest.fail("loader reached after retired synthetic mode"),
+    )
+
+    assert cli.main(["--synthetic-dry-run"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "--synthetic-dry-run was removed" in captured.err
+    assert "real-only" in captured.err
 
 
 def test_real_preflight_writes_immutable_approval_free_spec_without_evaluator(
