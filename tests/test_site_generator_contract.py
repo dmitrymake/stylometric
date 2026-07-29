@@ -264,12 +264,14 @@ def test_readme_is_a_compact_reviewed_entry_page():
         "## Данные и лицензия",
     ]
 
+    prose = " ".join(text.split())  # the README hard-wraps Markdown links
     for evidence in (
         "research/evidence/ineligible_corpus_registrations_v1.json",
         "docs/macro_f1_ci_withdrawal.json",
         "research/governance/status_ledger.json",
     ):
-        assert evidence in text, f"README no longer links {evidence}"
+        link = f"[{evidence}]({evidence})"
+        assert link in prose, f"README no longer renders {evidence} as a relative link"
 
     for banned in (
         "научпоп",

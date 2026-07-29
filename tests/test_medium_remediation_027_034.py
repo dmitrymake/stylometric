@@ -455,3 +455,46 @@ def test_aud034_delta_identifier_is_explicitly_selected_mass():
     ).read_text(encoding="utf-8")
     assert "legacy selected-mass Delta" in protocol
     assert "not canonical Burrows's Delta" in protocol
+
+
+def test_aud034_public_site_labels_the_historical_delta_correctly():
+    """The reader-facing article must not present `delta:N` as canonical Burrows's Delta."""
+    site = ROOT / "site" / "src"
+    data_js = (site / "data.js").read_text(encoding="utf-8")
+
+    def prose(name):
+        return " ".join(
+            (site / "sections" / name).read_text(encoding="utf-8").split()
+        )
+
+    results, method, taras = prose("Results.jsx"), prose("Method.jsx"), prose("Taras.jsx")
+
+    for mfw in (150, 300, 500):
+        assert (
+            f'"delta:{mfw}": {{ name: "историческая Delta · {mfw} частых слов"' in data_js
+        ), f"delta:{mfw} lost its historical label"
+        assert (
+            f'"delta_cos:{mfw}": {{ name: "историческая косинусная Delta · {mfw} частых слов"'
+            in data_js
+        ), f"delta_cos:{mfw} lost its historical label"
+    assert "не canonical Burrows's Delta" in data_js
+
+    assert (
+        "историческая Delta нормирует частоты по сумме только выбранных частых слов" in results
+    )
+    assert "не каноническая Delta Бэрроуза" in results
+    assert "ту же частотную нормировку, но другую меру расстояния" in results
+    assert "историческая Delta с нормировкой по выбранным частым словам" in method
+    assert "историческая Delta с нормировкой по выбранным словам" in taras
+
+    # scoped ban: only these four direct public surfaces name the estimator. Standalone or
+    # historical Burrows checks described elsewhere in scripts/ and docs/ stay untouched.
+    for surface, source in (
+        ("data.js", data_js),
+        ("Results.jsx", results),
+        ("Method.jsx", method),
+        ("Taras.jsx", taras),
+    ):
+        assert "Burrows Delta" not in source, (
+            f"site/src/.../{surface} relabels delta:N as canonical Burrows Delta"
+        )

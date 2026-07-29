@@ -51,12 +51,12 @@ const MODEL_META = {
   stylo: { name: "стилометрия · все признаки", kind: "ours" },
   bow_lr: { name: "мешок слов", kind: "baseline" },
   char_cos: { name: "косинус по цепочкам букв", kind: "baseline" },
-  "delta:150": { name: "Burrows Delta · 150 MFW", kind: "classic" },
-  "delta:300": { name: "Burrows Delta · 300 MFW", kind: "classic" },
-  "delta:500": { name: "Burrows Delta · 500 MFW", kind: "classic" },
-  "delta_cos:150": { name: "Cosine Delta · 150 частых слов", kind: "classic" },
-  "delta_cos:300": { name: "Cosine Delta · 300 частых слов", kind: "classic" },
-  "delta_cos:500": { name: "Cosine Delta · 500 частых слов", kind: "classic" },
+  "delta:150": { name: "историческая Delta · 150 частых слов", kind: "classic" },
+  "delta:300": { name: "историческая Delta · 300 частых слов", kind: "classic" },
+  "delta:500": { name: "историческая Delta · 500 частых слов", kind: "classic" },
+  "delta_cos:150": { name: "историческая косинусная Delta · 150 частых слов", kind: "classic" },
+  "delta_cos:300": { name: "историческая косинусная Delta · 300 частых слов", kind: "classic" },
+  "delta_cos:500": { name: "историческая косинусная Delta · 500 частых слов", kind: "classic" },
   majority: { name: "всегда самый частый автор", kind: "floor" },
 };
 export const MODELS = D.models
@@ -64,8 +64,10 @@ export const MODELS = D.models
   .sort((a, b) => b.acc - a.acc);
 
 // Самый большой исторический McNemar-p среди классических опорных методов
-// (Burrows Delta + Cosine Delta). Сохраняется только для старой арифметики и
-// не подтверждает текущий superiority claim на ineligible corpus snapshot.
+// (исторические манхэттенский и косинусный варианты Delta с нормировкой по сумме
+// выбранных частых слов — не canonical Burrows's Delta). Сохраняется только для
+// старой арифметики и не подтверждает текущий superiority claim на ineligible
+// corpus snapshot.
 export const WORST_CLASSIC_P = Math.max(
   ...MODELS.filter((m) => m.kind === "classic").map((m) => m.p).filter((p) => p != null),
 );

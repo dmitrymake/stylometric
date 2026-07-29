@@ -85,7 +85,7 @@
     ".gitattributes": "42c73c2b87b9fbcae92a971d5a78d2a84af7ba0b02da0f61bbf42e6dab9927d5",
     ".github/workflows/ci.yml": "065909fc9e4e31905b54bac74ffebdf16e23465f5cbcb8eaa5ab250188095f8a",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
-    "README.md": "5d153a34a79acfb5b194477e1170f7328e3fdde67328983878365b681b586fd7",
+    "README.md": "99f30e75826db20fa00c8bec88e4bf70b6785181ed4e2fc8f491570249d810d9",
     "docs/ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
     "pyproject.toml": "276d623575a907a4a00089caf840f8de276069b5552f5ef2e5faa33db25cb203",
     "research/evidence/ineligible_corpus_registrations_v1.json": "87074d041fc6171d9bea1e863ca729576462aeffb4c1af185afcbaf2960b4424",

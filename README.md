@@ -24,10 +24,12 @@ macro-F1 отозван.
 Исторические артефакты и их контрольные суммы задним числом не переписываются. Нормативный текущий
 статус хранится отдельно от них, в машиночитаемых записях:
 
-- `research/evidence/ineligible_corpus_registrations_v1.json` — регистрация корпуса, непригодного для
-  новых научных прогонов.
-- `docs/macro_f1_ci_withdrawal.json` — запись об отзыве интервала macro-F1.
-- `research/governance/status_ledger.json` — текущий статус работ.
+- [research/evidence/ineligible_corpus_registrations_v1.json](research/evidence/ineligible_corpus_registrations_v1.json)
+  — регистрация корпуса, непригодного для новых научных прогонов.
+- [docs/macro_f1_ci_withdrawal.json](docs/macro_f1_ci_withdrawal.json) — запись об отзыве интервала
+  macro-F1.
+- [research/governance/status_ledger.json](research/governance/status_ledger.json) — текущий статус
+  работ.
 
 ## Возможности
 
