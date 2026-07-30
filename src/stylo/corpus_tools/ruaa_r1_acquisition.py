@@ -1374,6 +1374,7 @@ def loads_r1_acquisition_receipt(text: str) -> R1AcquisitionReceipt:
 @dataclasses.dataclass(frozen=True)
 class MaterializedR1Acquisition:
     root: pathlib.Path
+    manifest: R1AcquisitionManifest
     receipt: R1AcquisitionReceipt
     audit_report: CorpusTextAuditReport
     resumed: bool
@@ -1745,6 +1746,16 @@ def _load_existing(
         raise R1AcquisitionError(
             f"R1 stored text-quality audit is blocked: {exc}"
         ) from exc
+    audit_payload = stored_audit.to_dict()
+    if (
+        audit_payload["status"] != "passed"
+        or audit_payload["blocking_findings"] != []
+        or audit_payload["cross_work_overlaps"] != []
+    ):
+        raise R1AcquisitionError(
+            "R1 stored text-quality audit must pass with zero blockers and "
+            "zero cross-work overlaps"
+        )
     receipt_path = root / ACQUISITION_RECEIPT_NAME
     receipt = load_r1_acquisition_receipt(receipt_path)
     _require_canonical_json(
@@ -1762,10 +1773,35 @@ def _load_existing(
     )
     return MaterializedR1Acquisition(
         root,
+        manifest,
         receipt,
         stored_audit,
         True,
     )
+
+
+def load_materialized_r1_acquisition(
+    root: str | os.PathLike[str],
+) -> MaterializedR1Acquisition:
+    """Read and exactly validate one existing immutable R1 acquisition."""
+
+    candidate = pathlib.Path(root)
+    _reject_symlink_components(
+        candidate,
+        label="R1 acquisition root",
+    )
+    if candidate.is_symlink() or not candidate.is_dir():
+        raise R1AcquisitionError(
+            "R1 acquisition root must be a real directory"
+        )
+    candidate = candidate.resolve(strict=True)
+    manifest_path = candidate / MANIFEST_NAME
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise R1AcquisitionError(
+            "R1 acquisition manifest must be a regular non-symlink file"
+        )
+    manifest = load_r1_acquisition_manifest(manifest_path)
+    return _load_existing(candidate, manifest)
 
 
 def _persist_blocked_audit(
@@ -2080,6 +2116,7 @@ __all__ = [
     "WIKISOURCE_WORK_RECEIPT_PREFIX",
     "load_r1_acquisition_manifest",
     "load_r1_acquisition_receipt",
+    "load_materialized_r1_acquisition",
     "loads_r1_acquisition_manifest",
     "loads_r1_acquisition_receipt",
     "materialize_r1_acquisition",

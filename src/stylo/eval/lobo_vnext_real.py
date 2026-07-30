@@ -59,6 +59,18 @@ from .lobo_vnext_models import (
     r1_scientific_config_sha256,
     validate_r1_model_spec,
 )
+from .lobo_vnext_prepare import (
+    R1_ACQUISITION_GENERATION_ID,
+    R1_ACQUISITION_MANIFEST_SELF_HASH,
+    R1_ACQUISITION_RECEIPT_SELF_HASH,
+    R1_AUTHOR_COUNT,
+    R1_RAW_INVENTORY_DIGEST,
+    R1_SELECTED_AUDIT_FILE_SHA256,
+    R1_SELECTED_AUDIT_SELF_HASH,
+    R1_UPSTREAM_EXCLUDED_WORK_IDS,
+    R1_WORK_COUNT,
+    R1_WORK_IDENTITY_CATALOG_DIGEST,
+)
 from .lobo_vnext_receipts import (
     DerivedObservation,
     assert_independent_receipts,
@@ -425,6 +437,7 @@ def _validate_scientific_contracts(
     inference_spec: InferenceSpec,
     campaign_manifest: CampaignManifest,
     cfg: ConfigNode,
+    test_factory_injected: bool,
 ) -> None:
     try:
         packet_manifest.validate()
@@ -454,9 +467,6 @@ def _validate_scientific_contracts(
         ) from exc
 
     packet_checks = {
-        "source_candidate_inventory_sha256": (
-            packet_manifest.source_candidate_inventory_sha256
-        ),
         "candidate_inventory_sha256": candidate_inventory.self_hash,
         "corpus_manifest_sha256": corpus_manifest.self_hash,
         "content_component_manifest_sha256": content_manifest.self_hash,
@@ -476,24 +486,70 @@ def _validate_scientific_contracts(
             raise RealVNextPreflightError(
                 f"packet manifest binding mismatch for {field}"
             )
-    material = packet_manifest.generation_material
+    binding = packet_manifest.acquisition_binding
     if (
         packet_manifest.generation_id != corpus_manifest.generation_id
-        or material.selected_work_ids
-        != tuple(work.work_id for work in corpus_manifest.works)
-        or material.selected_raw_inventory_digest
+        or binding.raw_inventory_digest
         != _raw_inventory_digest(corpus_manifest)
-        or material.selected_work_identity_catalog_digest
+        or binding.work_identity_catalog_digest
         != canonical_sha256(
             [work.to_dict() for work in corpus_manifest.works]
         )
-        or material.content_policy_spec_digest
+        or binding.content_policy_spec_digest
         != content_policy_spec.self_hash
+        or binding.post_selection_candidate_inventory_sha256
+        != candidate_inventory.self_hash
+        or binding.work_count != len(corpus_manifest.works)
+        or binding.author_count != len(corpus_manifest.author_ids)
+        or set(binding.upstream_excluded_work_ids)
+        & {work.work_id for work in corpus_manifest.works}
     ):
         raise RealVNextPreflightError(
-            "packet generation/selection material differs from the "
+            "packet acquisition binding differs from the "
             "scientific corpus"
         )
+
+    if not test_factory_injected:
+        author_support: dict[str, int] = {}
+        for work in corpus_manifest.works:
+            author_support[work.author_id] = (
+                author_support.get(work.author_id, 0) + 1
+            )
+        if (
+            packet_manifest.generation_id
+            != R1_ACQUISITION_GENERATION_ID
+            or binding.acquisition_manifest_self_hash
+            != R1_ACQUISITION_MANIFEST_SELF_HASH
+            or binding.acquisition_receipt_self_hash
+            != R1_ACQUISITION_RECEIPT_SELF_HASH
+            or binding.selected_audit_file_sha256
+            != R1_SELECTED_AUDIT_FILE_SHA256
+            or binding.selected_audit_self_hash
+            != R1_SELECTED_AUDIT_SELF_HASH
+            or binding.raw_inventory_digest != R1_RAW_INVENTORY_DIGEST
+            or binding.work_identity_catalog_digest
+            != R1_WORK_IDENTITY_CATALOG_DIGEST
+            or binding.upstream_excluded_work_ids
+            != R1_UPSTREAM_EXCLUDED_WORK_IDS
+            or binding.work_count != R1_WORK_COUNT
+            or binding.author_count != R1_AUTHOR_COUNT
+            or packet_manifest.selected_work_count != R1_WORK_COUNT
+            or len(corpus_manifest.works) != R1_WORK_COUNT
+            or len(corpus_manifest.raw_inventory) != R1_WORK_COUNT
+            or len(corpus_manifest.author_ids) != R1_AUTHOR_COUNT
+            or not author_support
+            or min(author_support.values()) < 2
+            or candidate_inventory.candidates
+            or content_manifest.candidates
+            or any(
+                len(component.work_ids) != 1
+                for component in content_manifest.components
+            )
+        ):
+            raise RealVNextPreflightError(
+                "production real preflight requires the exact canonical "
+                "selected-134 acquisition packet"
+            )
 
     if (
         candidate_inventory.generation_id != corpus_manifest.generation_id
@@ -959,6 +1015,7 @@ def preflight_lobo_vnext_real(
         inference_spec=inference_spec,
         campaign_manifest=campaign_manifest,
         cfg=cfg,
+        test_factory_injected=_test_factory_injected,
     )
     validated_representation = _validate_representation_receipt(
         representation_receipt, corpus_manifest=corpus_manifest

@@ -47,12 +47,12 @@ def _require_regular_file(value: pathlib.Path, *, label: str) -> pathlib.Path:
     return candidate.resolve(strict=True)
 
 
-def _require_source_root(value: pathlib.Path) -> pathlib.Path:
+def _require_acquisition_root(value: pathlib.Path) -> pathlib.Path:
     candidate = _path(value)
-    _reject_symlink_components(candidate, label="source root")
+    _reject_symlink_components(candidate, label="acquisition root")
     if candidate.is_symlink() or not candidate.is_dir():
         raise R1PreparationCLIError(
-            f"source root must be a real directory: {candidate}"
+            f"acquisition root must be a real directory: {candidate}"
         )
     return candidate.resolve(strict=True)
 
@@ -94,16 +94,7 @@ def _parser() -> argparse.ArgumentParser:
             "factory, estimator, checkpoint, prediction, or final result."
         )
     )
-    parser.add_argument(
-        "--approved-r1",
-        action="store_true",
-        required=True,
-        help="acknowledge the exact R1 scientific selection",
-    )
-    parser.add_argument("--source-root", type=pathlib.Path, required=True)
-    parser.add_argument(
-        "--legacy-source-manifest", type=pathlib.Path, required=True
-    )
+    parser.add_argument("--acquisition-root", type=pathlib.Path, required=True)
     parser.add_argument("--config", type=pathlib.Path, required=True)
     parser.add_argument("--output-parent", type=pathlib.Path, required=True)
     return parser
@@ -111,17 +102,13 @@ def _parser() -> argparse.ArgumentParser:
 
 def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
     args = _parser().parse_args(argv)
-    source_root = _require_source_root(args.source_root)
-    source_manifest = _require_regular_file(
-        args.legacy_source_manifest, label="legacy source manifest"
-    )
+    acquisition_root = _require_acquisition_root(args.acquisition_root)
     config_path = _require_regular_file(args.config, label="config")
     output_parent = _require_exploratory_output_parent(args.output_parent)
     try:
         cfg = load_config(config_path)
         packet = prepare_r1_packet(
-            source_root=source_root,
-            legacy_source_manifest=source_manifest,
+            acquisition_root=acquisition_root,
             output_parent=output_parent,
             cfg=cfg,
         )
@@ -132,11 +119,11 @@ def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
         "generation_id": packet.corpus_manifest.generation_id,
         "packet_self_hash": packet.packet_manifest.self_hash,
         "corpus_manifest_sha256": packet.corpus_manifest.self_hash,
-        "source_selection_receipt_sha256": (
-            packet.source_selection_receipt.self_hash
+        "acquisition_binding_sha256": (
+            packet.acquisition_binding.self_hash
         ),
-        "source_candidate_inventory_sha256": (
-            packet.source_candidate_inventory.self_hash
+        "acquisition_receipt_self_hash": (
+            packet.acquisition_binding.acquisition_receipt_self_hash
         ),
         "candidate_inventory_sha256": packet.candidate_inventory.self_hash,
         "content_component_manifest_sha256": (

@@ -155,7 +155,7 @@
     {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
-      "responsibility": "explicitly_selected_r1_lobo_vnext_packet_preparation",
+      "responsibility": "acquisition_selected_134_r1_lobo_vnext_packet_preparation",
       "public_surface": "explicit exploratory packet builder; no cache, factory, fit, prediction, public evidence or confirmatory authority"
     },
     {
@@ -313,7 +313,7 @@
     {
       "namespace": "docs/exploratory/lobo_vnext/packets/<generation-id>/**",
       "owner": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "contract": "ignored_immutable_explicitly_selected_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
+      "contract": "ignored_immutable_acquisition_selected_134_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/lobo_vnext/corpora/feb/<generation-id>/**",

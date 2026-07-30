@@ -161,17 +161,18 @@
     },
     {
       "id": "LVN-R1-PACKET-PREFIT-CLOSURE",
-      "description": "The exact 136-work constituents-only R1 packet is path-independent, create-if-absent, byte-bound, and constructed without estimator reachability.",
+      "description": "The exact acquisition selected-134 R1 packet is path-independent, create-if-absent, acquisition- and byte-bound, and constructed without estimator reachability.",
       "code": [
         {"path": "src/stylo/eval/lobo_vnext_prepare.py", "symbol": "prepare_r1_packet"},
         {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1PacketManifest"},
+        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1AcquisitionBinding"},
         {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "CanonicalRepresentationReceipt"}
       ],
       "tests": [
         "tests/test_lobo_vnext_prepare.py::test_prepare_module_has_no_estimator_factory_fit_or_runner_reachability",
-        "tests/test_lobo_vnext_prepare.py::test_source_catalog_is_exact_and_r1_selection_is_136_constituents_only",
-        "tests/test_lobo_vnext_prepare.py::test_unreviewed_or_missing_candidate_blocks_packet_preparation",
-        "tests/test_lobo_vnext_prepare.py::test_packet_is_path_independent_and_create_if_absent",
+        "tests/test_lobo_vnext_prepare.py::test_acquisition_selected_134_is_exact_and_exclusions_are_upstream_only",
+        "tests/test_lobo_vnext_prepare.py::test_candidate_screen_blocks_before_nlp",
+        "tests/test_lobo_vnext_prepare.py::test_packet_trees_are_byte_identical_and_target_is_no_clobber",
         "tests/test_lobo_vnext_packet.py::test_raw_byte_mutation_requires_a_new_corpus_and_receipt_namespace",
         "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[missing]",
         "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[extra]",

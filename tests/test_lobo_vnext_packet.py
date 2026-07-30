@@ -16,9 +16,21 @@ from stylo.domain.lobo_vnext import (
 from stylo.domain.lobo_vnext_packet import (
     CanonicalRepresentationReceipt,
     CanonicalRowEntry,
+    PacketFileEntry,
+    R1AcquisitionBinding,
+    R1PacketManifest,
+    R1_ACQUISITION_BINDING_SCHEMA_VERSION,
+    R1_PACKET_MANIFEST_SCHEMA_VERSION,
     VNextPacketError,
     load_canonical_representation_rows,
     loads_canonical_representation_receipt,
+)
+
+
+_UPSTREAM_EXCLUSIONS = (
+    "serafimovich/у_нас_и_у_них",
+    "sevsky/дон_на_костылях",
+    "turgenev/записки_охотника",
 )
 
 
@@ -123,6 +135,200 @@ def _rehash(raw: dict) -> dict:
         {key: child for key, child in raw.items() if key != "self_hash"}
     )
     return raw
+
+
+def _digest(label: str) -> str:
+    return canonical_sha256({"label": label})
+
+
+def _acquisition_binding() -> R1AcquisitionBinding:
+    return R1AcquisitionBinding.build(
+        generation_id=_digest("acquisition-generation"),
+        acquisition_manifest_self_hash=_digest("acquisition-manifest"),
+        acquisition_receipt_self_hash=_digest("acquisition-receipt"),
+        selected_audit_file_sha256=_digest("selected-audit-file"),
+        selected_audit_self_hash=_digest("selected-audit-self"),
+        raw_inventory_digest=_digest("raw-inventory"),
+        work_identity_catalog_digest=_digest("work-identities"),
+        upstream_excluded_work_ids=_UPSTREAM_EXCLUSIONS,
+        content_policy_spec_digest=_digest("content-policy"),
+        post_selection_candidate_inventory_sha256=_digest(
+            "candidate-inventory"
+        ),
+        work_count=134,
+        author_count=22,
+    )
+
+
+def _r1_packet_manifest() -> R1PacketManifest:
+    binding = _acquisition_binding()
+    return R1PacketManifest.build(
+        acquisition_binding=binding,
+        candidate_inventory_sha256=(
+            binding.post_selection_candidate_inventory_sha256
+        ),
+        corpus_manifest_sha256=_digest("corpus"),
+        content_component_manifest_sha256=_digest("content-components"),
+        fold_manifest_sha256=_digest("folds"),
+        primary_model_spec_sha256=_digest("primary-model"),
+        baseline_model_spec_sha256=_digest("baseline-model"),
+        inference_spec_sha256=_digest("inference"),
+        primary_inner_cv_plan_sha256=_digest("primary-inner"),
+        baseline_inner_cv_plan_sha256=_digest("baseline-inner"),
+        model_role_manifest_sha256=_digest("model-roles"),
+        campaign_manifest_sha256=_digest("campaign"),
+        representation_receipt_sha256=_digest("representation"),
+        files=(
+            PacketFileEntry(
+                "manifests/acquisition-manifest.json",
+                1,
+                _digest("acquisition-manifest-file"),
+            ),
+        ),
+    )
+
+
+def test_acquisition_binding_is_strict_self_hashed_selected_134_contract():
+    binding = _acquisition_binding()
+
+    assert binding.schema_version == R1_ACQUISITION_BINDING_SCHEMA_VERSION
+    assert binding.work_count == 134
+    assert binding.author_count == 22
+    assert binding.upstream_excluded_work_ids == _UPSTREAM_EXCLUSIONS
+    assert (
+        binding.post_selection_candidate_inventory_sha256
+        == _digest("candidate-inventory")
+    )
+    assert R1AcquisitionBinding.from_dict(binding.to_dict()) == binding
+    assert binding.validate() is binding
+
+
+def test_acquisition_binding_rejects_schema_shape_hash_and_count_drift():
+    base = _acquisition_binding().to_dict()
+
+    legacy = json.loads(json.dumps(base))
+    legacy["schema_version"] = (
+        "stylo.lobo-vnext.ruaa-r1-acquisition-binding.v0"
+    )
+    _rehash(legacy)
+    with pytest.raises(VNextPacketError, match="legacy or unsupported"):
+        R1AcquisitionBinding.from_dict(legacy)
+
+    extra = json.loads(json.dumps(base))
+    extra["compatibility_mode"] = False
+    _rehash(extra)
+    with pytest.raises(VNextPacketError, match="keys must be exact"):
+        R1AcquisitionBinding.from_dict(extra)
+
+    tampered = json.loads(json.dumps(base))
+    tampered["raw_inventory_digest"] = "0" * 64
+    with pytest.raises(VNextPacketError, match="self_hash mismatch"):
+        R1AcquisitionBinding.from_dict(tampered)
+
+    unsorted = json.loads(json.dumps(base))
+    unsorted["upstream_excluded_work_ids"].reverse()
+    _rehash(unsorted)
+    with pytest.raises(VNextPacketError, match="sorted and unique"):
+        R1AcquisitionBinding.from_dict(unsorted)
+
+    bool_count = json.loads(json.dumps(base))
+    bool_count["work_count"] = True
+    _rehash(bool_count)
+    with pytest.raises(VNextPacketError, match="exact integer"):
+        R1AcquisitionBinding.from_dict(bool_count)
+
+
+def test_packet_v3_binds_acquisition_and_post_selection_inventory():
+    packet = _r1_packet_manifest()
+
+    assert packet.schema_version == R1_PACKET_MANIFEST_SCHEMA_VERSION
+    assert packet.schema_version.endswith(".v3")
+    assert packet.generation_id == packet.acquisition_binding.generation_id
+    assert packet.selected_work_count == 134
+    assert packet.confirmatory_authorized is False
+    bound_candidates = (
+        packet.acquisition_binding.post_selection_candidate_inventory_sha256
+    )
+    assert (
+        packet.candidate_inventory_sha256
+        == bound_candidates
+    )
+    assert R1PacketManifest.from_dict(packet.to_dict()) == packet
+    assert packet.validate() is packet
+
+    with pytest.raises(
+        VNextPacketError,
+        match="candidate inventory differs from acquisition binding",
+    ):
+        R1PacketManifest.build(
+            acquisition_binding=packet.acquisition_binding,
+            candidate_inventory_sha256=_digest("wrong-candidates"),
+            corpus_manifest_sha256=packet.corpus_manifest_sha256,
+            content_component_manifest_sha256=(
+                packet.content_component_manifest_sha256
+            ),
+            fold_manifest_sha256=packet.fold_manifest_sha256,
+            primary_model_spec_sha256=packet.primary_model_spec_sha256,
+            baseline_model_spec_sha256=packet.baseline_model_spec_sha256,
+            inference_spec_sha256=packet.inference_spec_sha256,
+            primary_inner_cv_plan_sha256=(
+                packet.primary_inner_cv_plan_sha256
+            ),
+            baseline_inner_cv_plan_sha256=(
+                packet.baseline_inner_cv_plan_sha256
+            ),
+            model_role_manifest_sha256=(
+                packet.model_role_manifest_sha256
+            ),
+            campaign_manifest_sha256=packet.campaign_manifest_sha256,
+            representation_receipt_sha256=(
+                packet.representation_receipt_sha256
+            ),
+            files=packet.files,
+        )
+
+
+def test_packet_v3_rejects_rehashed_cross_binding_and_shape_drift():
+    base = _r1_packet_manifest().to_dict()
+
+    generation = json.loads(json.dumps(base))
+    generation["generation_id"] = "0" * 64
+    _rehash(generation)
+    with pytest.raises(
+        VNextPacketError,
+        match="generation_id differs from acquisition",
+    ):
+        R1PacketManifest.from_dict(generation)
+
+    candidates = json.loads(json.dumps(base))
+    candidates["candidate_inventory_sha256"] = "0" * 64
+    _rehash(candidates)
+    with pytest.raises(
+        VNextPacketError,
+        match="candidate inventory differs from acquisition binding",
+    ):
+        R1PacketManifest.from_dict(candidates)
+
+    count = json.loads(json.dumps(base))
+    count["selected_work_count"] = 133
+    _rehash(count)
+    with pytest.raises(VNextPacketError, match="selected work count mismatch"):
+        R1PacketManifest.from_dict(count)
+
+    extra = json.loads(json.dumps(base))
+    extra["legacy_generation_material"] = {}
+    _rehash(extra)
+    with pytest.raises(VNextPacketError, match="keys must be exact"):
+        R1PacketManifest.from_dict(extra)
+
+
+def test_packet_v2_schema_is_explicitly_rejected_as_legacy():
+    historical = _r1_packet_manifest().to_dict()
+    historical["schema_version"] = "stylo.lobo-vnext.ruaa-r1-packet.v2"
+    _rehash(historical)
+
+    with pytest.raises(VNextPacketError, match="legacy or unsupported"):
+        R1PacketManifest.from_dict(historical)
 
 
 def test_canonical_rows_are_separate_from_literal_source_identity(tmp_path):

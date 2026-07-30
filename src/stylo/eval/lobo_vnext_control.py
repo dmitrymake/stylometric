@@ -10,7 +10,6 @@ an owner-unbound :class:`RealCorpusExecutionSpec`.
 from __future__ import annotations
 
 import hashlib
-import math
 import os
 import pathlib
 import stat
@@ -18,7 +17,18 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Callable
 
 from ..config import ConfigNode
-from ..domain.corpus_identity import CONTENT_OVERLAP_POLICY_VERSION
+from ..corpus_tools.ruaa_r1_acquisition import (
+    ACQUISITION_RECEIPT_NAME,
+    AUDIT_REPORT_NAME,
+    MANIFEST_NAME,
+    R1AcquisitionManifest,
+    R1AcquisitionReceipt,
+)
+from ..corpus_tools.text_quality_vnext import (
+    CorpusTextAuditReport,
+    CorpusTextQualityError,
+    require_text_quality,
+)
 from ..domain.lobo_vnext import (
     ContentComponentManifest,
     CorpusVNextManifest,
@@ -26,14 +36,15 @@ from ..domain.lobo_vnext import (
     InferenceSpec,
     InnerCVPlan,
     ModelSpec,
+    RawInventoryEntry,
     VNextContractError,
+    WorkIdentity,
     canonical_sha256,
     inventory_raw_files,
 )
 from ..domain.lobo_vnext_packet import (
     CanonicalRepresentationReceipt,
     R1PacketManifest,
-    R1SourceSelectionReceipt,
     load_canonical_representation_rows,
 )
 from ..domain.lobo_vnext_policy import CandidateInventory, ContentPolicySpec
@@ -46,21 +57,25 @@ from ..domain.lobo_vnext_real import (
     RealExecutionBindings,
     inner_cv_receipt_subject_digest,
 )
-from ..jsonio import StrictJSONError, load_strict
+from ..jsonio import StrictJSONError, dumps_strict, load_strict
 from .lobo_vnext_models import build_r1_model_spec
 from .lobo_vnext_prepare import (
     PreparedR1Packet,
+    R1_ACQUISITION_GENERATION_ID,
+    R1_ACQUISITION_MANIFEST_SELF_HASH,
+    R1_ACQUISITION_RECEIPT_SELF_HASH,
     R1_AUTHOR_COUNT,
     R1_BOOTSTRAP_ITERATIONS,
     R1_BOOTSTRAP_SEED,
     R1_CHUNK_SIZE,
-    R1_COLLECTION_MEMBERS,
     R1_CONFIDENCE_LEVEL,
-    R1_EXCLUDED_WORK_ID,
     R1_MIN_WORDS,
     R1_OVERLAP,
     R1_PACKET_SCHEMA_VERSION,
-    R1_SELECTED_BOOK_COUNT,
+    R1_SELECTED_AUDIT_FILE_SHA256,
+    R1_SELECTED_AUDIT_SELF_HASH,
+    R1_UPSTREAM_EXCLUDED_WORK_IDS,
+    R1_WORK_COUNT,
     build_r1_content_policy,
 )
 from .lobo_vnext_receipts import (
@@ -79,10 +94,6 @@ from .lobo_vnext_receipts import (
 
 _ARTIFACT_FILENAMES = {
     "content_policy": "manifests/content-policy.json",
-    "source_selection_receipt": "manifests/source-selection.json",
-    "source_candidate_inventory": (
-        "manifests/source-candidate-inventory.json"
-    ),
     "candidate_inventory": "manifests/candidate-inventory.json",
     "corpus_manifest": "manifests/corpus.json",
     "content_manifest": "manifests/content-components.json",
@@ -96,26 +107,15 @@ _ARTIFACT_FILENAMES = {
     "campaign_manifest": "manifests/campaign.json",
     "representation_receipt": "manifests/representation.json",
 }
+_ACQUISITION_FILENAMES = {
+    "manifest": f"acquisition/{MANIFEST_NAME}",
+    "receipt": f"acquisition/{ACQUISITION_RECEIPT_NAME}",
+    "audit": f"acquisition/{AUDIT_REPORT_NAME}",
+}
 _POLICY_FILENAMES = {
     "canonicalizer": "policies/canonicalizer.json",
     "chunker": "policies/chunker.json",
     "ocr": "policies/ocr.json",
-}
-_EVIDENCE_KEYS = {
-    "policy_version",
-    "edge_type",
-    "left_work_id",
-    "right_work_id",
-    "exact_containment_evidence",
-    "reported_containment",
-    "threshold",
-    "threshold_boundary",
-    "final_verification",
-    "left_raw_paths",
-    "right_raw_paths",
-    "owner_selected_relation",
-    "owner_selected_corpus_action",
-    "evidence_sha256",
 }
 _HEX64 = frozenset("0123456789abcdef")
 
@@ -267,12 +267,23 @@ def _parse_packet_manifest(value: object) -> R1PacketManifest:
         raise RealControlPlaneError(f"invalid R1 packet manifest: {exc}") from exc
     if (
         manifest.schema_version != R1_PACKET_SCHEMA_VERSION
-        or manifest.selected_work_count != R1_SELECTED_BOOK_COUNT
-        or manifest.generation_material.excluded_work_ids
-        != (R1_EXCLUDED_WORK_ID,)
+        or manifest.selected_work_count != R1_WORK_COUNT
+        or manifest.generation_id != R1_ACQUISITION_GENERATION_ID
+        or manifest.acquisition_binding.acquisition_manifest_self_hash
+        != R1_ACQUISITION_MANIFEST_SELF_HASH
+        or manifest.acquisition_binding.acquisition_receipt_self_hash
+        != R1_ACQUISITION_RECEIPT_SELF_HASH
+        or manifest.acquisition_binding.selected_audit_file_sha256
+        != R1_SELECTED_AUDIT_FILE_SHA256
+        or manifest.acquisition_binding.selected_audit_self_hash
+        != R1_SELECTED_AUDIT_SELF_HASH
+        or manifest.acquisition_binding.upstream_excluded_work_ids
+        != R1_UPSTREAM_EXCLUDED_WORK_IDS
+        or manifest.acquisition_binding.work_count != R1_WORK_COUNT
+        or manifest.acquisition_binding.author_count != R1_AUTHOR_COUNT
     ):
         raise RealControlPlaneError(
-            "R1 packet manifest differs from the exact owner selection"
+            "R1 packet manifest differs from selected-134 acquisition"
         )
     return manifest
 
@@ -492,161 +503,12 @@ def _validate_policy_documents(
     }.items():
         _literal(ocr[key], expected, f"OCR policy document.{key}")
 
-def _validate_candidate_evidence(
-    value: object,
-    candidate_inventory: CandidateInventory,
-) -> tuple[dict[str, object], ...]:
-    rows = _exact_list(value, "R1 candidate evidence", length=3)
-    expected_rows = tuple(
-        (member, R1_EXCLUDED_WORK_ID, numerator, denominator)
-        for member, (numerator, denominator) in zip(
-            R1_COLLECTION_MEMBERS,
-            ((2019, 2090), (5093, 5295), (3542, 3637)),
-            strict=True,
-        )
-    )
-    parsed: list[dict[str, object]] = []
-    for index, (raw_value, expected) in enumerate(
-        zip(rows, expected_rows, strict=True)
-    ):
-        left_work, right_work, numerator, denominator = expected
-        raw = _exact_object(
-            raw_value, _EVIDENCE_KEYS, f"R1 candidate evidence[{index}]"
-        )
-        evidence_sha = _sha256(
-            raw["evidence_sha256"],
-            f"R1 candidate evidence[{index}].evidence_sha256",
-        )
-        payload = {
-            key: child for key, child in raw.items() if key != "evidence_sha256"
-        }
-        if canonical_sha256(payload) != evidence_sha:
-            raise RealControlPlaneError(
-                f"R1 candidate evidence[{index}] digest mismatch"
-            )
-        for key, expected in {
-            "edge_type": "word5_asymmetric_containment",
-            "left_work_id": left_work,
-            "right_work_id": right_work,
-            "policy_version": CONTENT_OVERLAP_POLICY_VERSION,
-            "exact_containment_evidence": (
-                f"{numerator}/{denominator} unique word-5-grams"
-            ),
-            "threshold_boundary": "inclusive",
-            "final_verification": "exact_intersection_authoritative",
-            "owner_selected_relation": "collection_member",
-            "owner_selected_corpus_action": (
-                "exclude_collection_retain_constituent"
-            ),
-        }.items():
-            _literal(
-                raw[key], expected, f"R1 candidate evidence[{index}].{key}"
-            )
-        containment = raw["reported_containment"]
-        if (
-            type(containment) is not float
-            or not math.isfinite(containment)
-            or containment != numerator / denominator
-        ):
-            raise RealControlPlaneError(
-                f"R1 candidate evidence[{index}].reported_containment "
-                "must equal the exact reviewed ratio"
-            )
-        threshold = _exact_object(
-            raw["threshold"],
-            {"numerator", "denominator"},
-            f"R1 candidate evidence[{index}].threshold",
-        )
-        _exact_int(
-            threshold["numerator"],
-            f"R1 candidate evidence[{index}].threshold.numerator",
-            9,
-        )
-        _exact_int(
-            threshold["denominator"],
-            f"R1 candidate evidence[{index}].threshold.denominator",
-            10,
-        )
-        for path_key, work_id in (
-            ("left_raw_paths", left_work),
-            ("right_raw_paths", right_work),
-        ):
-            paths = _exact_list(
-                raw[path_key],
-                f"R1 candidate evidence[{index}].{path_key}",
-                length=1,
-            )
-            _literal(
-                paths[0],
-                f"{work_id}.txt",
-                f"R1 candidate evidence[{index}].{path_key}[0]",
-            )
-        parsed.append(raw)
-
-    evidence_by_pair = {
-        (row["left_work_id"], row["right_work_id"]): row[
-            "evidence_sha256"
-        ]
-        for row in parsed
-    }
-    if len(candidate_inventory.candidates) != 6:
-        raise RealControlPlaneError(
-            "R1 candidate inventory must contain exactly six resolved records"
-        )
-    candidate_shape = tuple(
-        (
-            row.left_work_id,
-            row.right_work_id,
-            row.edge_type,
-            row.origin,
-            row.disposition,
-        )
-        for row in candidate_inventory.candidates
-    )
-    expected_shape = tuple(
-        sorted(
-            (
-                member,
-                R1_EXCLUDED_WORK_ID,
-                edge_type,
-                origin,
-                "same_component",
-            )
-            for member in R1_COLLECTION_MEMBERS
-            for edge_type, origin in (
-                ("collection_member", "manual"),
-                ("word5_asymmetric_containment", "automatic"),
-            )
-        )
-    )
-    if tuple(sorted(candidate_shape)) != expected_shape:
-        raise RealControlPlaneError(
-            "R1 candidate inventory differs from the reviewed three relations"
-        )
-    for candidate in candidate_inventory.candidates:
-        expected_evidence = evidence_by_pair.get(
-            (candidate.left_work_id, candidate.right_work_id)
-        )
-        if (
-            candidate.evidence_sha256 != expected_evidence
-            or candidate.manual_disposition is None
-            or candidate.manual_disposition.evidence_sha256
-            != candidate.evidence_sha256
-        ):
-            raise RealControlPlaneError(
-                "R1 candidate record is not bound to exact reviewed evidence"
-            )
-    return tuple(parsed)
-
-
 def _load_artifacts(
     root: pathlib.Path,
     packet_manifest: R1PacketManifest,
 ) -> dict[str, object]:
     parsers: dict[str, Callable[[object], object]] = {
         "content_policy": ContentPolicySpec.from_dict,
-        "source_selection_receipt": R1SourceSelectionReceipt.from_dict,
-        "source_candidate_inventory": CandidateInventory.from_dict,
         "candidate_inventory": CandidateInventory.from_dict,
         "corpus_manifest": CorpusVNextManifest.from_dict,
         "content_manifest": ContentComponentManifest.from_dict,
@@ -662,9 +524,6 @@ def _load_artifacts(
     }
     loaded: dict[str, object] = {}
     expected_hashes = {
-        "source_candidate_inventory": (
-            packet_manifest.source_candidate_inventory_sha256
-        ),
         "candidate_inventory": packet_manifest.candidate_inventory_sha256,
         "corpus_manifest": packet_manifest.corpus_manifest_sha256,
         "content_manifest": (
@@ -696,9 +555,10 @@ def _load_artifacts(
             ) from exc
         observed_hash = getattr(loaded[name], "self_hash", None)
         if name == "content_policy":
-            expected_hash = packet_manifest.generation_material.content_policy_spec_digest
-        elif name == "source_selection_receipt":
-            expected_hash = observed_hash
+            expected_hash = (
+                packet_manifest.acquisition_binding
+                .content_policy_spec_digest
+            )
         else:
             expected_hash = expected_hashes[name]
         if observed_hash != expected_hash:
@@ -708,17 +568,145 @@ def _load_artifacts(
     return loaded
 
 
+def _load_acquisition_copies(
+    root: pathlib.Path,
+) -> tuple[
+    R1AcquisitionManifest,
+    R1AcquisitionReceipt,
+    CorpusTextAuditReport,
+]:
+    try:
+        manifest = R1AcquisitionManifest.from_dict(
+            _strict_file(
+                root,
+                _ACQUISITION_FILENAMES["manifest"],
+                "copied R1 acquisition manifest",
+            )
+        )
+        receipt = R1AcquisitionReceipt.from_dict(
+            _strict_file(
+                root,
+                _ACQUISITION_FILENAMES["receipt"],
+                "copied R1 acquisition receipt",
+            )
+        )
+        audit = CorpusTextAuditReport(
+            _strict_file(
+                root,
+                _ACQUISITION_FILENAMES["audit"],
+                "copied R1 selected text-quality audit",
+            )
+        ).validate()
+        require_text_quality(audit)
+        canonical_values = {
+            "manifest": manifest.to_dict(),
+            "receipt": receipt.to_dict(),
+            "audit": audit.to_dict(),
+        }
+        for name, value in canonical_values.items():
+            path = root.joinpath(
+                *pathlib.PurePosixPath(
+                    _ACQUISITION_FILENAMES[name]
+                ).parts
+            )
+            expected = (
+                dumps_strict(value, indent=2, sort_keys=True) + "\n"
+            ).encode("utf-8")
+            if path.read_bytes() != expected:
+                raise RealControlPlaneError(
+                    f"copied R1 acquisition {name} bytes are noncanonical"
+                )
+    except (
+        CorpusTextQualityError,
+        OSError,
+        UnicodeError,
+        VNextContractError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise RealControlPlaneError(
+            f"invalid copied R1 acquisition evidence: {exc}"
+        ) from exc
+    return manifest, receipt, audit
+
+
+def _expected_acquisition_works(
+    manifest: R1AcquisitionManifest,
+    receipt: R1AcquisitionReceipt,
+) -> tuple[WorkIdentity, ...]:
+    provider_rows: dict[str, list[tuple[str, object]]] = {}
+
+    def add(kind: str, work_id: str, spec: object) -> None:
+        provider_rows.setdefault(work_id, []).append((kind, spec))
+
+    for spec in manifest.wikisource_campaign.works:
+        add("wikisource", spec.work_id, spec)
+    add("feb", manifest.feb_work_spec.work_id, manifest.feb_work_spec)
+    if manifest.reviewed_text_campaign is not None:
+        for spec in manifest.reviewed_text_campaign.works:
+            add("reviewed-text", spec.work_id, spec)
+    if (
+        set(provider_rows) != set(manifest.included_work_ids)
+        or any(len(rows) != 1 for rows in provider_rows.values())
+    ):
+        raise RealControlPlaneError(
+            "copied acquisition provider inventory is ambiguous"
+        )
+    raw_by_work = {row.work_id: row for row in receipt.raw_inventory}
+    works: list[WorkIdentity] = []
+    for work_id in manifest.included_work_ids:
+        pure = pathlib.PurePosixPath(work_id)
+        if len(pure.parts) != 2 or pure.as_posix() != work_id:
+            raise RealControlPlaneError(
+                f"copied acquisition has malformed work id {work_id!r}"
+            )
+        raw = raw_by_work.get(work_id)
+        if raw is None or raw.relative_path != f"raw/{work_id}.txt":
+            raise RealControlPlaneError(
+                f"copied acquisition raw identity is missing for {work_id!r}"
+            )
+        provider_kind, provider_spec = provider_rows[work_id][0]
+        if provider_kind not in {"wikisource", "feb", "reviewed-text"}:
+            raise RealControlPlaneError("unknown copied acquisition provider")
+        to_dict = getattr(provider_spec, "to_dict", None)
+        if not callable(to_dict):
+            raise RealControlPlaneError(
+                "copied acquisition provider spec is not canonical"
+            )
+        works.append(
+            WorkIdentity.from_dict(
+                {
+                    "work_id": work_id,
+                    "author_id": pure.parts[0],
+                    "edition_id": (
+                        "stylo.lobo-vnext.ruaa-r1-raw-edition.v1:"
+                        f"sha256:{raw.sha256}"
+                    ),
+                    "source_id": (
+                        "stylo.lobo-vnext.ruaa-r1-provider-work-spec.v1:"
+                        f"{provider_kind}:{canonical_sha256(to_dict())}"
+                    ),
+                    "work_kind": "work",
+                    "raw_paths": [raw.relative_path],
+                }
+            )
+        )
+    return tuple(works)
+
+
 def _validate_cross_bindings(
     *,
     root: pathlib.Path,
     packet_manifest: R1PacketManifest,
     artifacts: Mapping[str, object],
     documents: Mapping[str, object],
-    evidence: object,
+    acquisition_evidence: tuple[
+        R1AcquisitionManifest,
+        R1AcquisitionReceipt,
+        CorpusTextAuditReport,
+    ],
 ) -> None:
     policy = artifacts["content_policy"]
-    source_selection = artifacts["source_selection_receipt"]
-    source_candidates = artifacts["source_candidate_inventory"]
     candidates = artifacts["candidate_inventory"]
     corpus = artifacts["corpus_manifest"]
     content = artifacts["content_manifest"]
@@ -731,11 +719,12 @@ def _validate_cross_bindings(
     roles = artifacts["model_role_manifest"]
     campaign = artifacts["campaign_manifest"]
     representation = artifacts["representation_receipt"]
+    acquisition_manifest, acquisition_receipt, acquisition_audit = (
+        acquisition_evidence
+    )
 
     if not (
         type(policy) is ContentPolicySpec
-        and type(source_selection) is R1SourceSelectionReceipt
-        and type(source_candidates) is CandidateInventory
         and type(candidates) is CandidateInventory
         and type(corpus) is CorpusVNextManifest
         and type(content) is ContentComponentManifest
@@ -752,83 +741,108 @@ def _validate_cross_bindings(
         raise RealControlPlaneError("R1 artifact parser returned an invalid type")
 
     _validate_policy_documents(documents)
-    source_candidates.validate(content_policy_spec=policy)
-    source_candidates.assert_resolved_for_component_manifest()
     candidates.validate(content_policy_spec=policy)
     candidates.assert_resolved_for_component_manifest()
-    evidence_rows = _validate_candidate_evidence(evidence, source_candidates)
-
-    material = packet_manifest.generation_material
-    source_selection.validate_against(material)
+    binding = packet_manifest.acquisition_binding
     generation_id = packet_manifest.generation_id
     if (
         root.name != generation_id
         or corpus.generation_id != generation_id
-        or source_selection.generation_id != generation_id
-        or source_candidates.generation_id != generation_id
         or candidates.generation_id != generation_id
         or representation.generation_id != generation_id
+        or acquisition_manifest.generation_id != generation_id
+        or acquisition_receipt.generation_id != generation_id
     ):
         raise RealControlPlaneError(
             "R1 packet generation id differs across path/manifests"
+        )
+    audit_raw = acquisition_audit.to_dict()
+    audit_path = _ACQUISITION_FILENAMES["audit"]
+    audit_file = next(
+        (
+            row for row in packet_manifest.files
+            if row.relative_path == audit_path
+        ),
+        None,
     )
     if (
-        source_candidates.raw_inventory_digest
-        != material.source_raw_inventory_digest
-        or source_selection.source_candidate_inventory_sha256
-        != source_candidates.self_hash
-        or source_selection.content_policy_spec_digest != policy.self_hash
-        or source_selection.candidate_evidence_digest
-        != material.candidate_evidence_digest
-        or source_candidates.work_identity_catalog_digest
-        != material.source_work_identity_catalog_digest
-        or candidates.raw_inventory_digest
-        != material.selected_raw_inventory_digest
-        or candidates.work_identity_catalog_digest
-        != material.selected_work_identity_catalog_digest
-        or canonical_sha256(
-            [row.to_dict() for row in source_candidates.candidates]
+        acquisition_manifest.self_hash
+        != binding.acquisition_manifest_self_hash
+        or acquisition_receipt.self_hash
+        != binding.acquisition_receipt_self_hash
+        or acquisition_receipt.manifest_sha256
+        != acquisition_manifest.self_hash
+        or acquisition_receipt.text_quality_audit_sha256
+        != acquisition_audit.self_hash
+        or acquisition_audit.self_hash != binding.selected_audit_self_hash
+        or audit_file is None
+        or audit_file.sha256 != binding.selected_audit_file_sha256
+        or audit_raw.get("status") != "passed"
+        or audit_raw.get("blocking_findings") != []
+        or audit_raw.get("cross_work_overlaps") != []
+        or audit_raw.get("work_count") != R1_WORK_COUNT
+        or tuple(
+            row.work_id for row in acquisition_manifest.exclusions
         )
-        != material.source_candidate_draft_digest
-        or canonical_sha256(list(evidence_rows))
-        != material.candidate_evidence_digest
+        != binding.upstream_excluded_work_ids
     ):
         raise RealControlPlaneError(
-            "R1 source/selected generation material differs from preflight"
+            "R1 copied acquisition evidence differs from packet binding"
+        )
+    expected_raw = tuple(
+        RawInventoryEntry(
+            row.relative_path,
+            row.byte_size,
+            row.sha256,
+        )
+        for row in acquisition_receipt.raw_inventory
+    )
+    expected_works = _expected_acquisition_works(
+        acquisition_manifest,
+        acquisition_receipt,
+    )
+    if (
+        acquisition_receipt.included_work_ids
+        != acquisition_manifest.included_work_ids
+        or corpus.raw_inventory != expected_raw
+        or corpus.works != expected_works
+        or candidates.raw_inventory_digest
+        != binding.raw_inventory_digest
+        or candidates.work_identity_catalog_digest
+        != binding.work_identity_catalog_digest
+        or binding.content_policy_spec_digest != policy.self_hash
+        or binding.post_selection_candidate_inventory_sha256
+        != candidates.self_hash
+    ):
+        raise RealControlPlaneError(
+            "R1 acquisition raw/work/candidate binding differs"
         )
     selected_ids = tuple(work.work_id for work in corpus.works)
-    expected_source_ids = tuple(sorted((*selected_ids, R1_EXCLUDED_WORK_ID)))
     if (
-        tuple(work.work_id for work in source_selection.source_works)
-        != expected_source_ids
-        or source_selection.selected_work_ids != selected_ids
-        or source_selection.excluded_work_ids != (R1_EXCLUDED_WORK_ID,)
-        or source_candidates.included_work_ids != expected_source_ids
-        or candidates.included_work_ids != selected_ids
+        candidates.included_work_ids != selected_ids
         or candidates.candidates
-        or material.selected_work_ids != selected_ids
+        or selected_ids != acquisition_manifest.included_work_ids
     ):
         raise RealControlPlaneError(
-            "R1 source/selected candidate inventories differ from selection"
+            "R1 selected-134 candidate inventory differs from acquisition"
         )
     if (
-        len(corpus.works) != R1_SELECTED_BOOK_COUNT
-        or len(corpus.raw_inventory) != R1_SELECTED_BOOK_COUNT
+        len(corpus.works) != R1_WORK_COUNT
+        or len(corpus.raw_inventory) != R1_WORK_COUNT
         or len(corpus.author_ids) != R1_AUTHOR_COUNT
-        or R1_EXCLUDED_WORK_ID in selected_ids
-        or any(member not in selected_ids for member in R1_COLLECTION_MEMBERS)
+        or set(R1_UPSTREAM_EXCLUDED_WORK_IDS) & set(selected_ids)
     ):
-        raise RealControlPlaneError("R1 exact owner-selected corpus drifted")
+        raise RealControlPlaneError("R1 exact selected-134 corpus drifted")
     if (
         canonical_sha256(
             [row.to_dict() for row in corpus.raw_inventory]
         )
-        != material.selected_raw_inventory_digest
+        != binding.raw_inventory_digest
         or canonical_sha256([row.to_dict() for row in corpus.works])
-        != material.selected_work_identity_catalog_digest
+        != binding.work_identity_catalog_digest
     ):
         raise RealControlPlaneError(
-            "R1 selected corpus differs from exact generation material"
+            "R1 selected corpus differs from acquisition binding"
         )
     author_support: dict[str, int] = {}
     for work in corpus.works:
@@ -839,8 +853,7 @@ def _validate_cross_bindings(
     corpus.validate(content_manifest=content)
     if (
         corpus.content_policy_version != policy.self_hash
-        or material.content_policy_spec_digest != policy.self_hash
-        or source_candidates.content_policy_spec_digest != policy.self_hash
+        or binding.content_policy_spec_digest != policy.self_hash
         or candidates.content_policy_spec_digest != policy.self_hash
         or content.automatic_candidate_policy_version != policy.self_hash
         or corpus.chunker_policy_version != policy.chunker_policy.policy_version
@@ -859,7 +872,7 @@ def _validate_cross_bindings(
     folds.validate_against(corpus, content)
     if (
         folds.mode != "isolated"
-        or len(folds.folds) != R1_SELECTED_BOOK_COUNT
+        or len(folds.folds) != R1_WORK_COUNT
         or tuple(fold.test_work_id for fold in folds.folds) != selected_ids
     ):
         raise RealControlPlaneError("R1 isolated fold manifest drifted")
@@ -917,7 +930,14 @@ def _validate_cross_bindings(
             "R1 representation policy-document bindings drifted"
         )
 
-    observed_raw = inventory_raw_files(root / "raw")
+    observed_raw = tuple(
+        RawInventoryEntry(
+            f"raw/{row.relative_path}",
+            row.byte_size,
+            row.sha256,
+        )
+        for row in inventory_raw_files(root / "raw")
+    )
     if observed_raw != corpus.raw_inventory:
         raise RealControlPlaneError("R1 literal raw file inventory drifted")
     load_canonical_representation_rows(root, representation, corpus)
@@ -948,9 +968,7 @@ def load_prepared_r1_packet(
         name: _strict_file(root, relative, f"{name} policy document")
         for name, relative in _POLICY_FILENAMES.items()
     }
-    evidence = _strict_file(
-        root, "candidates/evidence.json", "R1 candidate evidence"
-    )
+    acquisition_evidence = _load_acquisition_copies(root)
 
     corpus = artifacts["corpus_manifest"]
     representation = artifacts["representation_receipt"]
@@ -960,10 +978,10 @@ def load_prepared_r1_packet(
     ):
         raise RealControlPlaneError("R1 corpus/representation types are invalid")
     expected_nonpacket_files = {
-        "candidates/evidence.json",
         *_ARTIFACT_FILENAMES.values(),
+        *_ACQUISITION_FILENAMES.values(),
         *_POLICY_FILENAMES.values(),
-        *(f"raw/{row.relative_path}" for row in corpus.raw_inventory),
+        *(row.relative_path for row in corpus.raw_inventory),
         *(row.relative_path for row in representation.rows),
     }
     manifest_files = {row.relative_path for row in packet_manifest.files}
@@ -980,7 +998,7 @@ def load_prepared_r1_packet(
             packet_manifest=packet_manifest,
             artifacts=artifacts,
             documents=documents,
-            evidence=evidence,
+            acquisition_evidence=acquisition_evidence,
         )
     except RealControlPlaneError:
         raise
@@ -992,13 +1010,8 @@ def load_prepared_r1_packet(
     return PreparedR1Packet(
         root=root,
         packet_manifest=packet_manifest,
+        acquisition_binding=packet_manifest.acquisition_binding,
         content_policy=artifacts["content_policy"],
-        source_selection_receipt=artifacts[
-            "source_selection_receipt"
-        ],
-        source_candidate_inventory=artifacts[
-            "source_candidate_inventory"
-        ],
         candidate_inventory=artifacts["candidate_inventory"],
         corpus_manifest=artifacts["corpus_manifest"],
         content_manifest=artifacts["content_manifest"],

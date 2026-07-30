@@ -32,9 +32,8 @@ from stylo.domain.lobo_vnext_packet import (
     CanonicalRepresentationReceipt,
     CanonicalRowEntry,
     PacketFileEntry,
-    R1GenerationMaterial,
+    R1AcquisitionBinding,
     R1PacketManifest,
-    R1_GENERATION_MATERIAL_SCHEMA_VERSION,
 )
 from stylo.domain.lobo_vnext_policy import (
     AutomaticCandidateMechanisms,
@@ -226,31 +225,7 @@ def _harness(tmp_path: Path) -> Harness:
         )
     policy = _content_policy()
     raw_inventory = inventory_raw_files(raw_root)
-    generation_material = R1GenerationMaterial.from_dict(
-        {
-            "schema_version": R1_GENERATION_MATERIAL_SCHEMA_VERSION,
-            "source_manifest_sha256": _digest("source-manifest"),
-            "source_raw_inventory_digest": canonical_sha256(
-                [entry.to_dict() for entry in raw_inventory]
-            ),
-            "source_work_identity_catalog_digest": canonical_sha256(
-                [work.to_dict() for work in works]
-            ),
-            "selected_raw_inventory_digest": canonical_sha256(
-                [entry.to_dict() for entry in raw_inventory]
-            ),
-            "selected_work_identity_catalog_digest": canonical_sha256(
-                [work.to_dict() for work in works]
-            ),
-            "content_policy_spec_digest": policy.self_hash,
-            "selected_work_ids": [work.work_id for work in works],
-            "excluded_work_ids": ["excluded/source-work"],
-            "source_candidate_draft_digest": _digest(
-                "source-candidate-drafts"
-            ),
-            "candidate_evidence_digest": _digest("candidate-evidence"),
-        }
-    )
+    generation_id = _digest("acquisition-generation")
     content = ContentComponentManifest.build(
         automatic_candidate_policy_version=(
             LITERAL_BYTES_AUTOMATIC_CANDIDATE_POLICY_VERSION
@@ -298,7 +273,7 @@ def _harness(tmp_path: Path) -> Harness:
     corpus = build_corpus_vnext_manifest(
         raw_root,
         corpus_kind="real_corpus",
-        generation_id=generation_material.generation_id,
+        generation_id=generation_id,
         approved_for_exploratory=True,
         owner_selected=True,
         author_ids=("a", "b"),
@@ -363,11 +338,30 @@ def _harness(tmp_path: Path) -> Harness:
         inference_spec_digest=inference.self_hash,
         model_role_manifest=roles,
     )
-    packet_manifest = R1PacketManifest.build(
-        generation_material=generation_material,
-        source_candidate_inventory_sha256=_digest(
-            "source-candidate-inventory"
+    acquisition_binding = R1AcquisitionBinding.build(
+        generation_id=generation_id,
+        acquisition_manifest_self_hash=_digest("acquisition-manifest"),
+        acquisition_receipt_self_hash=_digest("acquisition-receipt"),
+        selected_audit_file_sha256=_digest("selected-audit-file"),
+        selected_audit_self_hash=_digest("selected-audit-self"),
+        raw_inventory_digest=canonical_sha256(
+            [entry.to_dict() for entry in raw_inventory]
         ),
+        work_identity_catalog_digest=canonical_sha256(
+            [work.to_dict() for work in works]
+        ),
+        upstream_excluded_work_ids=(
+            "serafimovich/у_нас_и_у_них",
+            "sevsky/дон_на_костылях",
+            "turgenev/записки_охотника",
+        ),
+        content_policy_spec_digest=policy.self_hash,
+        post_selection_candidate_inventory_sha256=candidates.self_hash,
+        work_count=len(works),
+        author_count=len({work.author_id for work in works}),
+    )
+    packet_manifest = R1PacketManifest.build(
+        acquisition_binding=acquisition_binding,
         candidate_inventory_sha256=candidates.self_hash,
         corpus_manifest_sha256=corpus.self_hash,
         content_component_manifest_sha256=content.self_hash,
@@ -651,16 +645,16 @@ def test_serial_parallel_resume_are_byte_identical_and_paired(tmp_path):
 
     assert serial.run_id == parallel.run_id == resumed.run_id
     assert serial.run_id == (
-        "fa97912f4cc1ebcc0abc9db7b269b34be"
-        "b0d05094413bac1c826951ca9f13f2b"
+        "8c74fe68dc5e3277fafa5b292700148f3"
+        "6211d416ea5e3e1efcad4a14a3b8459"
     )
     assert serial.artifact["self_hash"] == (
-        "bae0d0d57f566976473ba3ab0b250e30"
-        "61980bd55709d9e19df7ede96194b0e0"
+        "8b76c336513af3af0d5c9ea0518bc831"
+        "f4392a27e28ef8a0d4f49b67d77ae6e5"
     )
     assert hashlib.sha256(serial.artifact_path.read_bytes()).hexdigest() == (
-        "abf0200b93068364c597fb124fa538611"
-        "48556c60f49d04ed9fb94a2db4adb73"
+        "09d3d4b0c7d0030a74700d1e2783ae58"
+        "b665ae18ced7e00ade60306ecce47091"
     )
     assert serial.artifact == parallel.artifact == resumed.artifact
     assert serial_map == parallel_before_resume == parallel_after_resume
@@ -769,6 +763,36 @@ def test_authorization_binding_blocks_before_rows_factory_fit_and_output(
         )
     assert calls == {"rows": 0, "factory": 0}
     assert not output.exists()
+
+
+def test_production_preflight_rejects_self_consistent_noncanonical_acquisition(
+    tmp_path,
+):
+    harness = _harness(tmp_path / "fixture")
+    with pytest.raises(
+        real.RealVNextPreflightError,
+        match="exact canonical selected-134 acquisition packet",
+    ):
+        real.preflight_lobo_vnext_real(
+            packet_manifest=harness.packet_manifest,
+            corpus_manifest=harness.corpus,
+            content_policy_spec=harness.policy,
+            candidate_inventory=harness.candidates,
+            content_manifest=harness.content,
+            fold_manifest=harness.folds,
+            primary_inner_cv_plan=harness.primary_inner,
+            baseline_inner_cv_plan=harness.baseline_inner,
+            primary_model_spec=harness.primary,
+            baseline_model_spec=harness.baseline,
+            inference_spec=harness.inference,
+            model_role_manifest=harness.roles,
+            campaign_manifest=harness.campaign,
+            execution_spec=harness.execution,
+            owner_decision=harness.owner,
+            representation_receipt=harness.representation,
+            cfg=harness.cfg,
+            observations=harness.observations,
+        )
 
 
 @pytest.mark.parametrize(

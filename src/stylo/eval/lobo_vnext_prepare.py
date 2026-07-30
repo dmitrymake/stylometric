@@ -1,29 +1,41 @@
-"""Deterministic preparation of the owner-selected RuAA R1 vNext packet.
+"""Deterministic preparation of the selected RuAA R1 acquisition packet.
 
-This is a preparation surface, not an evaluator.  It verifies the legacy RuAA
-bundle only as public source evidence, resolves the three owner-reviewed
-collection-member candidates, copies the selected 136 literal works into a new
-immutable generation, and derives canonical clean/chunk rows.  No
-representation cache, estimator factory, fit, prediction, or public evidence
-writer is reachable from this module.
+This is a preparation surface, not an evaluator.  It exactly reloads the
+immutable selected-134 acquisition, derives provider-bound work identities,
+reruns the packet content-candidate screen, copies literal bytes, and derives
+canonical clean/chunk rows.  No authorization, representation cache, estimator
+factory, fit, prediction, or public evidence writer is reachable here.
 """
 from __future__ import annotations
 
+import ctypes
 import dataclasses
+import errno
 import hashlib
 import os
 import pathlib
 import shutil
 import stat
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from fractions import Fraction
-from typing import Any
 
 import spacy
 
 from ..chunking import CombinedDoc, make_sent_chunks, sentences_for_text
 from ..config import ConfigNode
+from ..corpus_tools.ruaa_r1_acquisition import (
+    ACQUISITION_RECEIPT_NAME,
+    AUDIT_REPORT_NAME,
+    MANIFEST_NAME,
+    MaterializedR1Acquisition,
+    R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3,
+    R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2,
+    R1_EXCLUDED_WORK_IDS_V3,
+    R1AcquisitionManifest,
+    R1AcquisitionReceipt,
+    load_materialized_r1_acquisition,
+)
 from ..domain.corpus_identity import (
     CONTENT_OVERLAP_POLICY_VERSION,
     find_cross_work_content_overlaps,
@@ -38,7 +50,6 @@ from ..domain.lobo_vnext import (
     RawInventoryEntry,
     VNextContractError,
     WorkIdentity,
-    build_corpus_vnext_manifest,
     build_fold_manifest,
     build_inner_cv_plan,
     canonical_sha256,
@@ -48,20 +59,15 @@ from ..domain.lobo_vnext_packet import (
     CanonicalRepresentationReceipt,
     CanonicalRowEntry,
     PacketFileEntry,
-    R1GenerationMaterial,
+    R1AcquisitionBinding,
     R1PacketManifest,
-    R1SourceSelectionReceipt,
-    R1_GENERATION_MATERIAL_SCHEMA_VERSION,
     R1_PACKET_MANIFEST_SCHEMA_VERSION,
 )
 from ..domain.lobo_vnext_policy import (
     AutomaticCandidateMechanisms,
-    CandidateDraft,
     CandidateInventory,
     ChunkerPolicy,
     ContentPolicySpec,
-    LiteralCandidateMechanism,
-    ManualDisposition,
     RawByteIdentityPolicy,
     StrictUTF8Policy,
     VersionedTextPolicy,
@@ -71,7 +77,7 @@ from ..domain.lobo_vnext_real import (
     CampaignManifest,
     ModelRoleManifest,
 )
-from ..jsonio import dump_strict, loads_strict
+from ..jsonio import dump_strict, dumps_strict
 from ..nlp import load_ner, load_sentencizer, resolved_nlp_identity
 from ..pipeline.clean import normalize
 from ..workdoc import CHUNKER_ALGORITHM, NORMALIZATION_CONTRACT
@@ -79,20 +85,30 @@ from .lobo_vnext_models import build_r1_model_spec
 
 
 R1_PACKET_SCHEMA_VERSION = R1_PACKET_MANIFEST_SCHEMA_VERSION
-R1_SOURCE_NAME = "RuAA-Bench"
-R1_SOURCE_VERSION = "1.0"
-R1_SOURCE_MANIFEST_SHA256 = (
-    "bc3f95bf09032d8cbbef4bca25ff4acee1d537df085c2ec6a941e865b149767d"
+R1_ACQUISITION_GENERATION_ID = (
+    "7a930a56390ff8e310bfba75e35d028c3f260a2311a1f469dc687d235923ce4c"
 )
-R1_SOURCE_BOOK_COUNT = 137
-R1_SELECTED_BOOK_COUNT = 136
+R1_ACQUISITION_MANIFEST_SELF_HASH = (
+    "7f6f8efba31c1c99d7b124708bb5331d5e5803a3ad9ebbafae21a6959646f209"
+)
+R1_ACQUISITION_RECEIPT_SELF_HASH = (
+    "b745fbf1badc340042bcfc16757c4cbc8cd40d77f18f1e317849c0e134918e58"
+)
+R1_SELECTED_AUDIT_FILE_SHA256 = (
+    "a6887053a928a687c4fc12607515fdb10a5aa99d3912e054d14edc5410e5408b"
+)
+R1_SELECTED_AUDIT_SELF_HASH = (
+    "233326b39ef7dcf3593a3bd5607ef64dde72620d6cbe20f2a5f786cf32440780"
+)
+R1_RAW_INVENTORY_DIGEST = (
+    "840bcc1d6f0c1521c9f2808773d298c720b70b8aad54e60aeb56cebc0fe76d65"
+)
+R1_WORK_IDENTITY_CATALOG_DIGEST = (
+    "b3d0c30fea4668c8a6db2011d7cf61f390149cf42e7c65e76c7506e6d0941e2a"
+)
+R1_WORK_COUNT = 134
 R1_AUTHOR_COUNT = 22
-R1_EXCLUDED_WORK_ID = "turgenev/записки_охотника"
-R1_COLLECTION_MEMBERS = (
-    "turgenev/бирюк",
-    "turgenev/певцы",
-    "turgenev/хорь_и_калиныч",
-)
+R1_UPSTREAM_EXCLUDED_WORK_IDS = R1_EXCLUDED_WORK_IDS_V3
 R1_WORD5_THRESHOLD = Fraction(9, 10)
 R1_WORD5_MIN_SHINGLES = 20
 R1_WORD5_SAMPLE_SIZE = 64
@@ -102,22 +118,6 @@ R1_OVERLAP = 0.0
 R1_BOOTSTRAP_SEED = 42
 R1_BOOTSTRAP_ITERATIONS = 10_000
 R1_CONFIDENCE_LEVEL = 0.95
-
-_SOURCE_MANIFEST_KEYS = {
-    "name",
-    "version",
-    "claim_status",
-    "benchmark_role",
-    "training_weighting",
-    "task",
-    "n_authors",
-    "n_books",
-    "legal",
-    "authors",
-    "dropped",
-}
-_HEX64 = frozenset("0123456789abcdef")
-
 
 class R1PacketPreparationError(VNextContractError):
     """The R1 source or deterministic packet preparation is unsafe."""
@@ -135,34 +135,48 @@ def _sha256_file(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
-def _exact_sha(value: object, label: str) -> str:
-    if (
-        type(value) is not str
-        or len(value) != 64
-        or any(char not in _HEX64 for char in value)
-    ):
+def _publish_directory_no_replace(
+    source: pathlib.Path,
+    target: pathlib.Path,
+) -> None:
+    """Atomically publish one directory without replacing any target."""
+
+    if os.name != "posix":
         raise R1PacketPreparationError(
-            f"{label} must be 64 lowercase hex characters"
+            "atomic no-clobber packet publication is unavailable"
         )
-    return value
-
-
-def _exact_int(value: object, label: str, *, minimum: int = 0) -> int:
-    if type(value) is not int or value < minimum:
+    library = ctypes.CDLL(None, use_errno=True)
+    renameat2 = getattr(library, "renameat2", None)
+    if renameat2 is None:
         raise R1PacketPreparationError(
-            f"{label} must be an exact integer >= {minimum}"
+            "atomic no-clobber packet publication is unavailable"
         )
-    return value
-
-
-def _safe_source_root(value: str | os.PathLike[str]) -> pathlib.Path:
-    root = pathlib.Path(value)
-    _reject_symlink_components(root, label="R1 source root")
-    if root.is_symlink() or not root.is_dir():
+    renameat2.argtypes = (
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    )
+    renameat2.restype = ctypes.c_int
+    result = renameat2(
+        -100,  # AT_FDCWD
+        os.fsencode(source),
+        -100,  # AT_FDCWD
+        os.fsencode(target),
+        1,  # RENAME_NOREPLACE
+    )
+    if result == 0:
+        return
+    error_number = ctypes.get_errno()
+    if error_number in {errno.EEXIST, errno.ENOTEMPTY}:
         raise R1PacketPreparationError(
-            "R1 source root must be a real directory"
+            f"immutable R1 packet conflict: {target}"
         )
-    return root.resolve(strict=True)
+    raise R1PacketPreparationError(
+        "atomic no-clobber packet publication failed: "
+        f"{os.strerror(error_number)}"
+    )
 
 
 def _reject_symlink_components(path: pathlib.Path, *, label: str) -> None:
@@ -174,158 +188,181 @@ def _reject_symlink_components(path: pathlib.Path, *, label: str) -> None:
             )
 
 
-def _source_catalog(
-    source_root: pathlib.Path,
-    manifest_path: pathlib.Path,
-) -> tuple[
-    tuple[WorkIdentity, ...],
-    dict[str, dict[str, object]],
-    tuple[RawInventoryEntry, ...],
-    str,
-]:
-    _reject_symlink_components(
-        manifest_path, label="legacy source manifest"
-    )
-    if manifest_path.is_symlink() or not manifest_path.is_file():
-        raise R1PacketPreparationError(
-            "legacy source manifest must be a regular non-symlink file"
-        )
-    try:
-        raw_manifest_bytes = manifest_path.read_bytes()
-        manifest = loads_strict(raw_manifest_bytes.decode("utf-8"))
-    except Exception as exc:
-        raise R1PacketPreparationError(
-            f"cannot strictly load legacy source manifest: {exc}"
-        ) from exc
-    if _sha256_bytes(raw_manifest_bytes) != R1_SOURCE_MANIFEST_SHA256:
-        raise R1PacketPreparationError(
-            "legacy source manifest bytes differ from the exact R1 evidence"
-        )
-    if type(manifest) is not dict or set(manifest) != _SOURCE_MANIFEST_KEYS:
-        raise R1PacketPreparationError(
-            "legacy source manifest has an unexpected exact schema"
-        )
-    expected_scalars = {
-        "name": R1_SOURCE_NAME,
-        "version": R1_SOURCE_VERSION,
-        "claim_status": "exploratory_internal",
-        "benchmark_role": "reproducible_cv_legacy_not_blind",
-        "n_authors": R1_AUTHOR_COUNT,
-        "n_books": R1_SOURCE_BOOK_COUNT,
-    }
-    for key, expected in expected_scalars.items():
-        observed = manifest[key]
-        if type(observed) is not type(expected) or observed != expected:
-            raise R1PacketPreparationError(
-                f"legacy source manifest {key!r} differs from R1 evidence"
-            )
-    authors = manifest["authors"]
-    if type(authors) is not dict or len(authors) != R1_AUTHOR_COUNT:
-        raise R1PacketPreparationError(
-            "legacy source manifest authors are malformed"
-        )
-    inventory = inventory_raw_files(source_root)
-    inventory_by_path = {row.relative_path: row for row in inventory}
-    works: list[WorkIdentity] = []
-    metadata: dict[str, dict[str, object]] = {}
-    expected_paths: set[str] = set()
-    for author_id in sorted(authors):
-        author = authors[author_id]
-        if type(author) is not dict or set(author) != {
-            "death_year",
-            "n_books",
-            "books",
-        }:
-            raise R1PacketPreparationError(
-                f"legacy author record is malformed: {author_id!r}"
-            )
-        books = author["books"]
-        n_books = _exact_int(
-            author["n_books"], f"authors.{author_id}.n_books", minimum=1
-        )
-        if type(books) is not list or len(books) != n_books:
-            raise R1PacketPreparationError(
-                f"legacy author book inventory mismatch: {author_id!r}"
-            )
-        seen_books: set[str] = set()
-        for book in books:
-            if type(book) is not dict or set(book) != {
-                "book",
-                "sha256",
-                "words",
-                "source",
-            }:
-                raise R1PacketPreparationError(
-                    f"legacy book record is malformed: {author_id!r}"
-                )
-            book_id = book["book"]
-            if (
-                type(book_id) is not str
-                or not book_id
-                or "/" in book_id
-                or book_id in seen_books
-            ):
-                raise R1PacketPreparationError(
-                    f"legacy book id is malformed: {author_id!r}/{book_id!r}"
-                )
-            seen_books.add(book_id)
-            work_id = f"{author_id}/{book_id}"
-            relative_path = f"{work_id}.txt"
-            expected_paths.add(relative_path)
-            expected_sha = _exact_sha(
-                book["sha256"], f"authors.{author_id}.{book_id}.sha256"
-            )
-            entry = inventory_by_path.get(relative_path)
-            if entry is None or entry.sha256 != expected_sha:
-                raise R1PacketPreparationError(
-                    f"legacy source bytes differ for {work_id!r}"
-                )
-            if _exact_int(
-                book["words"], f"authors.{author_id}.{book_id}.words", minimum=1
-            ) < 1:
-                raise AssertionError("unreachable positive word count")
-            source = book["source"]
-            if type(source) is not str or not source:
-                raise R1PacketPreparationError(
-                    f"legacy source description is empty: {work_id!r}"
-                )
-            kind = (
-                "collection"
-                if work_id == R1_EXCLUDED_WORK_ID
-                else "work"
-            )
-            works.append(
-                WorkIdentity.from_dict(
-                    {
-                        "work_id": work_id,
-                        "author_id": author_id,
-                        "edition_id": (
-                            f"ruaa-v1:{author_id}:{book_id}:"
-                            f"{expected_sha[:16]}"
-                        ),
-                        "source_id": (
-                            "ruaa-v1-source:"
-                            f"{canonical_sha256({'source': source})}"
-                        ),
-                        "work_kind": kind,
-                        "raw_paths": [relative_path],
-                    }
-                )
-            )
-            metadata[work_id] = dict(book)
+def _validate_canonical_acquisition(
+    acquisition: MaterializedR1Acquisition,
+) -> None:
     if (
-        len(works) != R1_SOURCE_BOOK_COUNT
-        or set(inventory_by_path) != expected_paths
+        type(acquisition) is not MaterializedR1Acquisition
+        or type(acquisition.manifest) is not R1AcquisitionManifest
+        or type(acquisition.receipt) is not R1AcquisitionReceipt
     ):
         raise R1PacketPreparationError(
-            "legacy source missing/extra file inventory"
+            "packet input must be exactly MaterializedR1Acquisition"
         )
-    return (
-        tuple(sorted(works, key=lambda row: row.work_id)),
-        metadata,
-        inventory,
-        _sha256_bytes(raw_manifest_bytes),
+    manifest = acquisition.manifest
+    receipt = acquisition.receipt
+    audit = acquisition.audit_report.to_dict()
+    observed = {
+        "manifest_schema": manifest.schema_version,
+        "receipt_schema": receipt.schema_version,
+        "generation_id": manifest.generation_id,
+        "manifest_self_hash": manifest.self_hash,
+        "receipt_self_hash": receipt.self_hash,
+        "audit_file_sha256": _sha256_file(
+            acquisition.root / AUDIT_REPORT_NAME
+        ),
+        "audit_self_hash": audit.get("self_hash"),
+        "work_count": len(receipt.raw_inventory),
+        "excluded_work_ids": tuple(
+            row.work_id for row in manifest.exclusions
+        ),
+    }
+    expected = {
+        "manifest_schema": R1_ACQUISITION_MANIFEST_SCHEMA_VERSION_V3,
+        "receipt_schema": R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2,
+        "generation_id": R1_ACQUISITION_GENERATION_ID,
+        "manifest_self_hash": R1_ACQUISITION_MANIFEST_SELF_HASH,
+        "receipt_self_hash": R1_ACQUISITION_RECEIPT_SELF_HASH,
+        "audit_file_sha256": R1_SELECTED_AUDIT_FILE_SHA256,
+        "audit_self_hash": R1_SELECTED_AUDIT_SELF_HASH,
+        "work_count": R1_WORK_COUNT,
+        "excluded_work_ids": R1_UPSTREAM_EXCLUDED_WORK_IDS,
+    }
+    if observed != expected:
+        raise R1PacketPreparationError(
+            "R1 acquisition differs from canonical selected-134 identity"
+        )
+    if (
+        receipt.generation_id != manifest.generation_id
+        or receipt.included_work_ids != manifest.included_work_ids
+        or audit.get("status") != "passed"
+        or audit.get("blocking_findings") != []
+        or audit.get("cross_work_overlaps") != []
+        or audit.get("work_count") != R1_WORK_COUNT
+    ):
+        raise R1PacketPreparationError(
+            "R1 acquisition quality/receipt boundary is not passed and exact"
+        )
+
+
+def _provider_work_specs(
+    manifest: R1AcquisitionManifest,
+) -> dict[str, tuple[str, object]]:
+    rows: dict[str, list[tuple[str, object]]] = {}
+
+    def add(kind: str, work_id: str, spec: object) -> None:
+        rows.setdefault(work_id, []).append((kind, spec))
+
+    for spec in manifest.wikisource_campaign.works:
+        add("wikisource", spec.work_id, spec)
+    add("feb", manifest.feb_work_spec.work_id, manifest.feb_work_spec)
+    reviewed = manifest.reviewed_text_campaign
+    if reviewed is not None:
+        for spec in reviewed.works:
+            add("reviewed-text", spec.work_id, spec)
+    ambiguous = sorted(
+        work_id for work_id, providers in rows.items()
+        if len(providers) != 1
     )
+    if ambiguous or set(rows) != set(manifest.included_work_ids):
+        raise R1PacketPreparationError(
+            "R1 provider work-spec inventory is ambiguous or incomplete"
+        )
+    known = {"wikisource", "feb", "reviewed-text"}
+    resolved = {
+        work_id: providers[0] for work_id, providers in rows.items()
+    }
+    if any(kind not in known for kind, _spec in resolved.values()):
+        raise R1PacketPreparationError("unknown R1 provider kind")
+    return resolved
+
+
+def _acquisition_catalog(
+    acquisition: MaterializedR1Acquisition,
+) -> tuple[tuple[WorkIdentity, ...], tuple[RawInventoryEntry, ...]]:
+    providers = _provider_work_specs(acquisition.manifest)
+    raw_rows = tuple(
+        RawInventoryEntry(
+            row.relative_path,
+            row.byte_size,
+            row.sha256,
+        )
+        for row in acquisition.receipt.raw_inventory
+    )
+    raw_by_work = {
+        row.work_id: row for row in acquisition.receipt.raw_inventory
+    }
+    works: list[WorkIdentity] = []
+    for work_id in acquisition.manifest.included_work_ids:
+        pure = pathlib.PurePosixPath(work_id)
+        if (
+            pure.as_posix() != work_id
+            or len(pure.parts) != 2
+            or any(part in {"", ".", ".."} for part in pure.parts)
+        ):
+            raise R1PacketPreparationError(
+                f"R1 acquisition work_id is malformed: {work_id!r}"
+            )
+        author_id = pure.parts[0]
+        raw = raw_by_work.get(work_id)
+        if raw is None or raw.relative_path != f"raw/{work_id}.txt":
+            raise R1PacketPreparationError(
+                f"R1 raw identity is missing for {work_id!r}"
+            )
+        provider_kind, provider_spec = providers[work_id]
+        if provider_kind not in {"wikisource", "feb", "reviewed-text"}:
+            raise R1PacketPreparationError(
+                f"unknown R1 provider kind for {work_id!r}"
+            )
+        to_dict = getattr(provider_spec, "to_dict", None)
+        if not callable(to_dict):
+            raise R1PacketPreparationError(
+                f"R1 provider work spec is not canonical for {work_id!r}"
+            )
+        provider_identity = canonical_sha256(to_dict())
+        works.append(
+            WorkIdentity.from_dict(
+                {
+                    "work_id": work_id,
+                    "author_id": author_id,
+                    "edition_id": (
+                        "stylo.lobo-vnext.ruaa-r1-raw-edition.v1:"
+                        f"sha256:{raw.sha256}"
+                    ),
+                    "source_id": (
+                        "stylo.lobo-vnext.ruaa-r1-provider-work-spec.v1:"
+                        f"{provider_kind}:{provider_identity}"
+                    ),
+                    "work_kind": "work",
+                    "raw_paths": [raw.relative_path],
+                }
+            )
+        )
+    ordered = tuple(sorted(works, key=lambda row: row.work_id))
+    if (
+        len(ordered) != R1_WORK_COUNT
+        or tuple(work.work_id for work in ordered)
+        != acquisition.manifest.included_work_ids
+        or tuple(row.relative_path for row in raw_rows)
+        != tuple(sorted(row.relative_path for row in raw_rows))
+    ):
+        raise R1PacketPreparationError(
+            "R1 acquisition work/raw catalog is noncanonical"
+        )
+    counts: dict[str, int] = {}
+    for work in ordered:
+        counts[work.author_id] = counts.get(work.author_id, 0) + 1
+    if len(counts) != R1_AUTHOR_COUNT or min(counts.values()) < 2:
+        raise R1PacketPreparationError(
+            "R1 acquisition loses author-level LOBO support"
+        )
+    if set(R1_UPSTREAM_EXCLUDED_WORK_IDS) & {
+        work.work_id for work in ordered
+    }:
+        raise R1PacketPreparationError(
+            "R1 upstream exclusion leaked into selected acquisition"
+        )
+    return ordered, raw_rows
 
 
 def _policy_documents(cfg: ConfigNode) -> dict[str, dict[str, object]]:
@@ -538,10 +575,10 @@ def _read_source_texts(
     return texts, groups
 
 
-def _candidate_drafts(
+def _screen_selected_content(
     source_root: pathlib.Path,
     works: Sequence[WorkIdentity],
-) -> tuple[tuple[CandidateDraft, ...], tuple[dict[str, object], ...]]:
+) -> None:
     texts, groups = _read_source_texts(source_root, works)
     overlaps = find_cross_work_content_overlaps(
         texts,
@@ -550,130 +587,31 @@ def _candidate_drafts(
         min_shingles=R1_WORD5_MIN_SHINGLES,
         sample_size=R1_WORD5_SAMPLE_SIZE,
     )
-    observed_pairs = tuple(
-        (row.left_work, row.right_work, row.kind) for row in overlaps
-    )
-    expected_pairs = tuple(
-        (
-            member,
-            R1_EXCLUDED_WORK_ID,
-            "word5_asymmetric_containment",
+    if overlaps:
+        sample = tuple(
+            (row.left_work, row.right_work, row.kind)
+            for row in overlaps
         )
-        for member in R1_COLLECTION_MEMBERS
-    )
-    if observed_pairs != expected_pairs:
         raise R1PacketPreparationError(
-            "R1 automatic candidate inventory differs from the "
-            f"owner-reviewed three pairs: {observed_pairs!r}"
+            "R1 selected-134 post-selection content screen found "
+            f"candidates: {sample!r}"
         )
-    work_by_id = {work.work_id: work for work in works}
-    drafts: list[CandidateDraft] = []
-    evidence_rows: list[dict[str, object]] = []
-    for overlap in overlaps:
-        left = work_by_id[overlap.left_work]
-        right = work_by_id[overlap.right_work]
-        evidence = {
-            "policy_version": CONTENT_OVERLAP_POLICY_VERSION,
-            "edge_type": overlap.kind,
-            "left_work_id": overlap.left_work,
-            "right_work_id": overlap.right_work,
-            "exact_containment_evidence": overlap.evidence,
-            "reported_containment": overlap.containment,
-            "threshold": {"numerator": 9, "denominator": 10},
-            "threshold_boundary": "inclusive",
-            "final_verification": "exact_intersection_authoritative",
-            "left_raw_paths": list(left.raw_paths),
-            "right_raw_paths": list(right.raw_paths),
-            "owner_selected_relation": "collection_member",
-            "owner_selected_corpus_action": (
-                "exclude_collection_retain_constituent"
-            ),
-        }
-        evidence_sha = canonical_sha256(evidence)
-        evidence_rows.append({**evidence, "evidence_sha256": evidence_sha})
-        decision_id = (
-            "R1.collection-member."
-            + canonical_sha256(
-                {
-                    "left": overlap.left_work,
-                    "right": overlap.right_work,
-                }
-            )[:24]
-        )
-        manual = ManualDisposition.from_dict(
-            {
-                "decision_id": decision_id,
-                "disposition": "same_component",
-                "evidence_sha256": evidence_sha,
-            }
-        )
-        drafts.append(
-            CandidateDraft.build(
-                candidate_id=f"R1.word5.{evidence_sha[:32]}",
-                left_work_id=overlap.left_work,
-                right_work_id=overlap.right_work,
-                edge_type="word5_asymmetric_containment",
-                origin="automatic",
-                evidence_sha256=evidence_sha,
-                disposition="same_component",
-                manual_disposition=manual,
-            )
-        )
-        drafts.append(
-            CandidateDraft.build(
-                candidate_id=f"R1.collection-member.{evidence_sha[:32]}",
-                left_work_id=overlap.left_work,
-                right_work_id=overlap.right_work,
-                edge_type="collection_member",
-                origin="manual",
-                evidence_sha256=evidence_sha,
-                disposition="same_component",
-                manual_disposition=manual,
-            )
-        )
-    return (
-        tuple(sorted(drafts, key=lambda row: row.candidate_id)),
-        tuple(evidence_rows),
-    )
 
 
-def _selected_works(
-    works: Sequence[WorkIdentity],
-) -> tuple[WorkIdentity, ...]:
-    selected = tuple(
-        work for work in works if work.work_id != R1_EXCLUDED_WORK_ID
-    )
-    if (
-        len(selected) != R1_SELECTED_BOOK_COUNT
-        or any(
-            member not in {work.work_id for work in selected}
-            for member in R1_COLLECTION_MEMBERS
-        )
-    ):
-        raise R1PacketPreparationError("R1 exact 136-work selection drifted")
-    counts: dict[str, int] = {}
-    for work in selected:
-        counts[work.author_id] = counts.get(work.author_id, 0) + 1
-    if len(counts) != R1_AUTHOR_COUNT or min(counts.values()) < 2:
-        raise R1PacketPreparationError(
-            "R1 selection loses author-level LOBO support"
-        )
-    return selected
-
-
-def _copy_selected_raw(
+def _copy_acquisition_raw(
     *,
     source_root: pathlib.Path,
-    raw_root: pathlib.Path,
+    packet_root: pathlib.Path,
     works: Sequence[WorkIdentity],
 ) -> None:
+    raw_root = packet_root / "raw"
     raw_root.mkdir(parents=True, exist_ok=False)
     for work in works:
         relative_path = work.raw_paths[0]
         source = source_root.joinpath(
             *pathlib.PurePosixPath(relative_path).parts
         )
-        target = raw_root.joinpath(
+        target = packet_root.joinpath(
             *pathlib.PurePosixPath(relative_path).parts
         )
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -682,6 +620,19 @@ def _copy_selected_raw(
             raise R1PacketPreparationError(
                 f"literal raw copy drifted for {work.work_id!r}"
             )
+
+
+def _packet_raw_inventory(
+    packet_root: pathlib.Path,
+) -> tuple[RawInventoryEntry, ...]:
+    return tuple(
+        RawInventoryEntry(
+            f"raw/{row.relative_path}",
+            row.byte_size,
+            row.sha256,
+        )
+        for row in inventory_raw_files(packet_root / "raw")
+    )
 
 
 def _canonical_rows(
@@ -762,9 +713,8 @@ def _canonical_rows(
 class PreparedR1Packet:
     root: pathlib.Path
     packet_manifest: R1PacketManifest
+    acquisition_binding: R1AcquisitionBinding
     content_policy: ContentPolicySpec
-    source_selection_receipt: R1SourceSelectionReceipt
-    source_candidate_inventory: CandidateInventory
     candidate_inventory: CandidateInventory
     corpus_manifest: CorpusVNextManifest
     content_manifest: ContentComponentManifest
@@ -781,10 +731,6 @@ class PreparedR1Packet:
 
 _ARTIFACT_FILENAMES = {
     "content_policy": "manifests/content-policy.json",
-    "source_selection_receipt": "manifests/source-selection.json",
-    "source_candidate_inventory": (
-        "manifests/source-candidate-inventory.json"
-    ),
     "candidate_inventory": "manifests/candidate-inventory.json",
     "corpus_manifest": "manifests/corpus.json",
     "content_manifest": "manifests/content-components.json",
@@ -797,6 +743,11 @@ _ARTIFACT_FILENAMES = {
     "model_role_manifest": "manifests/model-roles.json",
     "campaign_manifest": "manifests/campaign.json",
     "representation_receipt": "manifests/representation.json",
+}
+_ACQUISITION_FILENAMES = {
+    MANIFEST_NAME: f"acquisition/{MANIFEST_NAME}",
+    ACQUISITION_RECEIPT_NAME: f"acquisition/{ACQUISITION_RECEIPT_NAME}",
+    AUDIT_REPORT_NAME: f"acquisition/{AUDIT_REPORT_NAME}",
 }
 
 
@@ -848,15 +799,58 @@ def _inventory_packet_files(root: pathlib.Path) -> tuple[PacketFileEntry, ...]:
 
 def prepare_r1_packet(
     *,
-    source_root: str | os.PathLike[str],
-    legacy_source_manifest: str | os.PathLike[str],
+    acquisition_root: str | os.PathLike[str],
     output_parent: str | os.PathLike[str],
     cfg: ConfigNode,
 ) -> PreparedR1Packet:
-    """Prepare the exact owner-selected packet without constructing a model."""
+    """Prepare the exact selected-134 packet without constructing a model."""
 
-    source = _safe_source_root(source_root)
-    manifest_path = pathlib.Path(legacy_source_manifest)
+    try:
+        acquisition = load_materialized_r1_acquisition(acquisition_root)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise R1PacketPreparationError(
+            f"R1 acquisition failed exact validation: {exc}"
+        ) from exc
+    _validate_canonical_acquisition(acquisition)
+    works, raw_inventory = _acquisition_catalog(acquisition)
+    _screen_selected_content(acquisition.root, works)
+    policy, documents = build_r1_content_policy(cfg)
+    raw_inventory_digest = canonical_sha256(
+        [row.to_dict() for row in raw_inventory]
+    )
+    work_catalog_digest = canonical_sha256(
+        [work.to_dict() for work in works]
+    )
+    generation_id = acquisition.manifest.generation_id
+    candidate_inventory = CandidateInventory.build(
+        generation_id=generation_id,
+        work_identity_catalog_digest=work_catalog_digest,
+        raw_inventory_digest=raw_inventory_digest,
+        content_policy_spec_digest=policy.self_hash,
+        included_work_ids=tuple(work.work_id for work in works),
+        candidates=(),
+    )
+    candidate_inventory.validate(content_policy_spec=policy)
+    candidate_inventory.assert_resolved_for_component_manifest()
+    binding = R1AcquisitionBinding.build(
+        generation_id=generation_id,
+        acquisition_manifest_self_hash=acquisition.manifest.self_hash,
+        acquisition_receipt_self_hash=acquisition.receipt.self_hash,
+        selected_audit_file_sha256=_sha256_file(
+            acquisition.root / AUDIT_REPORT_NAME
+        ),
+        selected_audit_self_hash=acquisition.audit_report.self_hash,
+        raw_inventory_digest=raw_inventory_digest,
+        work_identity_catalog_digest=work_catalog_digest,
+        upstream_excluded_work_ids=R1_UPSTREAM_EXCLUDED_WORK_IDS,
+        content_policy_spec_digest=policy.self_hash,
+        post_selection_candidate_inventory_sha256=(
+            candidate_inventory.self_hash
+        ),
+        work_count=len(works),
+        author_count=len({work.author_id for work in works}),
+    )
+
     output = pathlib.Path(output_parent)
     _reject_symlink_components(output, label="packet output parent")
     if output.is_symlink():
@@ -876,155 +870,67 @@ def prepare_r1_packet(
             "R1 packets must stay in an explicit "
             "exploratory/lobo_vnext/packets namespace"
         )
-    works, _metadata, source_inventory, source_manifest_sha = _source_catalog(
-        source, manifest_path
-    )
-    policy, documents = build_r1_content_policy(cfg)
+    packet_root = output / generation_id
+    if packet_root.exists() or packet_root.is_symlink():
+        raise R1PacketPreparationError(
+            f"immutable R1 packet already exists: {packet_root}"
+        )
     stage = pathlib.Path(
-        tempfile.mkdtemp(prefix=".r1-source-snapshot.", dir=output)
+        tempfile.mkdtemp(prefix=".r1-acquisition-packet.", dir=output)
     )
     try:
-        snapshot_root = stage / ".source_snapshot"
-        _copy_selected_raw(
-            source_root=source,
-            raw_root=snapshot_root,
+        _copy_acquisition_raw(
+            source_root=acquisition.root,
+            packet_root=stage,
             works=works,
         )
-        snapshot_inventory = inventory_raw_files(snapshot_root)
-        if snapshot_inventory != source_inventory:
+        if _packet_raw_inventory(stage) != raw_inventory:
             raise R1PacketPreparationError(
-                "R1 source changed while the immutable snapshot was created"
+                "R1 packet raw copy differs from validated acquisition"
             )
-        source_candidate_drafts, candidate_evidence = _candidate_drafts(
-            snapshot_root, works
-        )
-        selected = _selected_works(works)
-        source_inventory_digest = canonical_sha256(
-            [row.to_dict() for row in snapshot_inventory]
-        )
-        source_work_catalog_digest = canonical_sha256(
-            [work.to_dict() for work in works]
-        )
-        selected_paths = {
-            relative_path
-            for work in selected
-            for relative_path in work.raw_paths
+        acquisition_values = {
+            MANIFEST_NAME: acquisition.manifest.to_dict(),
+            ACQUISITION_RECEIPT_NAME: acquisition.receipt.to_dict(),
+            AUDIT_REPORT_NAME: acquisition.audit_report.to_dict(),
         }
-        selected_inventory = tuple(
-            row
-            for row in snapshot_inventory
-            if row.relative_path in selected_paths
-        )
-        if (
-            len(selected_inventory) != len(selected_paths)
-            or {row.relative_path for row in selected_inventory}
-            != selected_paths
-        ):
-            raise R1PacketPreparationError(
-                "R1 selected raw inventory does not exactly match "
-                "selected works"
+        for source_name, packet_relative in _ACQUISITION_FILENAMES.items():
+            source_path = acquisition.root / source_name
+            target_path = stage.joinpath(
+                *pathlib.PurePosixPath(packet_relative).parts
             )
-        selected_inventory_digest = canonical_sha256(
-            [row.to_dict() for row in selected_inventory]
-        )
-        selected_work_catalog_digest = canonical_sha256(
-            [work.to_dict() for work in selected]
-        )
-        if any(
-            candidate.left_work_id != R1_EXCLUDED_WORK_ID
-            and candidate.right_work_id != R1_EXCLUDED_WORK_ID
-            for candidate in source_candidate_drafts
-        ):
-            raise R1PacketPreparationError(
-                "R1 selected works retain an automatic content candidate"
-            )
-        generation_material = R1GenerationMaterial.from_dict(
-            {
-                "schema_version": (
-                    R1_GENERATION_MATERIAL_SCHEMA_VERSION
-                ),
-                "source_manifest_sha256": source_manifest_sha,
-                "source_raw_inventory_digest": source_inventory_digest,
-                "source_work_identity_catalog_digest": (
-                    source_work_catalog_digest
-                ),
-                "selected_raw_inventory_digest": (
-                    selected_inventory_digest
-                ),
-                "selected_work_identity_catalog_digest": (
-                    selected_work_catalog_digest
-                ),
-                "content_policy_spec_digest": policy.self_hash,
-                "selected_work_ids": [
-                    work.work_id for work in selected
-                ],
-                "excluded_work_ids": [R1_EXCLUDED_WORK_ID],
-                "source_candidate_draft_digest": canonical_sha256(
-                    [row.to_dict() for row in source_candidate_drafts]
-                ),
-                "candidate_evidence_digest": canonical_sha256(
-                    list(candidate_evidence)
-                ),
-            }
-        )
-        generation_id = generation_material.generation_id
-        source_candidate_inventory = CandidateInventory.build(
-            generation_id=generation_id,
-            work_identity_catalog_digest=source_work_catalog_digest,
-            raw_inventory_digest=source_inventory_digest,
-            content_policy_spec_digest=policy.self_hash,
-            included_work_ids=tuple(work.work_id for work in works),
-            candidates=source_candidate_drafts,
-        )
-        source_candidate_inventory.validate(content_policy_spec=policy)
-        source_candidate_inventory.assert_resolved_for_component_manifest()
-        source_selection_receipt = R1SourceSelectionReceipt.build(
-            generation_material=generation_material,
-            source_candidate_inventory_sha256=(
-                source_candidate_inventory.self_hash
-            ),
-            source_raw_inventory=snapshot_inventory,
-            source_works=works,
-        )
-        candidate_inventory = CandidateInventory.build(
-            generation_id=generation_id,
-            work_identity_catalog_digest=selected_work_catalog_digest,
-            raw_inventory_digest=selected_inventory_digest,
-            content_policy_spec_digest=policy.self_hash,
-            included_work_ids=tuple(work.work_id for work in selected),
-            candidates=(),
-        )
-        candidate_inventory.validate(content_policy_spec=policy)
-        candidate_inventory.assert_resolved_for_component_manifest()
-        packet_root = output / generation_id
-        if packet_root.exists():
-            raise R1PacketPreparationError(
-                f"immutable R1 packet already exists: {packet_root}"
-            )
-        raw_root = stage / "raw"
-        _copy_selected_raw(
-            source_root=snapshot_root, raw_root=raw_root, works=selected
-        )
-        if inventory_raw_files(raw_root) != selected_inventory:
-            raise R1PacketPreparationError(
-                "R1 selected raw copy differs from its immutable snapshot"
-            )
-        shutil.rmtree(snapshot_root)
+            canonical_bytes = (
+                dumps_strict(
+                    acquisition_values[source_name],
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+            if source_path.read_bytes() != canonical_bytes:
+                raise R1PacketPreparationError(
+                    f"R1 acquisition evidence is noncanonical: {source_name}"
+                )
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_path, target_path)
+            if target_path.read_bytes() != canonical_bytes:
+                raise R1PacketPreparationError(
+                    f"R1 acquisition evidence copy drifted: {source_name}"
+                )
         content_manifest = ContentComponentManifest.build(
             automatic_candidate_policy_version=policy.self_hash,
-            works=selected,
+            works=works,
             components=tuple(
                 ContentComponent(
                     f"component-{canonical_sha256({'work_id': work.work_id})}",
                     (work.work_id,),
                 )
-                for work in selected
+                for work in works
             ),
             candidates=(),
         )
-        content_manifest.validate(works=selected)
+        content_manifest.validate(works=works)
         if (
-            len(content_manifest.components) != len(selected)
+            len(content_manifest.components) != len(works)
             or any(
                 len(component.work_ids) != 1
                 for component in content_manifest.components
@@ -1033,29 +939,28 @@ def prepare_r1_packet(
             raise R1PacketPreparationError(
                 "R1 isolated mode requires one singleton component per work"
             )
-        # This is the last pre-representation boundary.  The raw snapshot,
-        # policy, complete source candidate screen, selected candidate
-        # inventory, work identities, components, and author support have all
-        # been frozen and validated.  No cache/factory/fit is reachable here.
+        # This is the last pre-representation boundary.  The exact acquisition,
+        # zero-candidate screen, policy, identities, components, and author
+        # support are frozen.  No authorization/cache/factory/fit is reachable.
         canonical_rows = _canonical_rows(
             cfg=cfg,
-            raw_root=raw_root,
+            raw_root=stage,
             packet_root=stage,
-            works=selected,
+            works=works,
         )
         canonical_digest = canonical_sha256(
             [row.to_dict() for row in canonical_rows]
         )
-        corpus_manifest = build_corpus_vnext_manifest(
-            raw_root,
+        corpus_manifest = CorpusVNextManifest.build(
             corpus_kind="real_corpus",
             generation_id=generation_id,
             approved_for_exploratory=True,
             owner_selected=True,
+            raw_inventory=raw_inventory,
             author_ids=tuple(
-                sorted({work.author_id for work in selected})
+                sorted({work.author_id for work in works})
             ),
-            works=selected,
+            works=works,
             canonical_model_row_digest=canonical_digest,
             chunker_policy_version=policy.chunker_policy.policy_version,
             canonicalizer_policy_version=(
@@ -1068,10 +973,10 @@ def prepare_r1_packet(
             canonical_sha256(
                 [row.to_dict() for row in corpus_manifest.raw_inventory]
             )
-            != selected_inventory_digest
+            != raw_inventory_digest
         ):
             raise R1PacketPreparationError(
-                "copied R1 raw inventory differs from the selected source bytes"
+                "copied R1 raw inventory differs from acquisition binding"
             )
         content_manifest.validate(works=corpus_manifest.works)
         fold_manifest = build_fold_manifest(
@@ -1128,8 +1033,6 @@ def prepare_r1_packet(
         representation.validate(corpus_manifest=corpus_manifest)
         objects = {
             "content_policy": policy,
-            "source_selection_receipt": source_selection_receipt,
-            "source_candidate_inventory": source_candidate_inventory,
             "candidate_inventory": candidate_inventory,
             "corpus_manifest": corpus_manifest,
             "content_manifest": content_manifest,
@@ -1147,12 +1050,8 @@ def prepare_r1_packet(
             _write_json(stage, relative, objects[name])
         for name, document in documents.items():
             _write_json(stage, f"policies/{name}.json", document)
-        _write_json(stage, "candidates/evidence.json", list(candidate_evidence))
         packet_manifest = R1PacketManifest.build(
-            generation_material=generation_material,
-            source_candidate_inventory_sha256=(
-                source_candidate_inventory.self_hash
-            ),
+            acquisition_binding=binding,
             candidate_inventory_sha256=candidate_inventory.self_hash,
             corpus_manifest_sha256=corpus_manifest.self_hash,
             content_component_manifest_sha256=content_manifest.self_hash,
@@ -1168,18 +1067,12 @@ def prepare_r1_packet(
             files=_inventory_packet_files(stage),
         )
         _write_json(stage, "packet.json", packet_manifest)
-        try:
-            os.rename(stage, packet_root)
-        except FileExistsError as exc:
-            raise R1PacketPreparationError(
-                f"immutable R1 packet conflict: {packet_root}"
-            ) from exc
+        _publish_directory_no_replace(stage, packet_root)
         return PreparedR1Packet(
             root=packet_root,
             packet_manifest=packet_manifest,
+            acquisition_binding=binding,
             content_policy=policy,
-            source_selection_receipt=source_selection_receipt,
-            source_candidate_inventory=source_candidate_inventory,
             candidate_inventory=candidate_inventory,
             corpus_manifest=corpus_manifest,
             content_manifest=content_manifest,
@@ -1202,19 +1095,23 @@ def prepare_r1_packet(
 __all__ = [
     "PreparedR1Packet",
     "R1PacketPreparationError",
+    "R1_ACQUISITION_GENERATION_ID",
+    "R1_ACQUISITION_MANIFEST_SELF_HASH",
+    "R1_ACQUISITION_RECEIPT_SELF_HASH",
     "R1_AUTHOR_COUNT",
     "R1_BOOTSTRAP_ITERATIONS",
     "R1_BOOTSTRAP_SEED",
     "R1_CHUNK_SIZE",
-    "R1_COLLECTION_MEMBERS",
     "R1_CONFIDENCE_LEVEL",
-    "R1_EXCLUDED_WORK_ID",
     "R1_MIN_WORDS",
     "R1_OVERLAP",
     "R1_PACKET_SCHEMA_VERSION",
-    "R1_SELECTED_BOOK_COUNT",
-    "R1_SOURCE_BOOK_COUNT",
-    "R1_SOURCE_MANIFEST_SHA256",
+    "R1_RAW_INVENTORY_DIGEST",
+    "R1_SELECTED_AUDIT_FILE_SHA256",
+    "R1_SELECTED_AUDIT_SELF_HASH",
+    "R1_UPSTREAM_EXCLUDED_WORK_IDS",
+    "R1_WORK_IDENTITY_CATALOG_DIGEST",
+    "R1_WORK_COUNT",
     "R1_WORD5_MIN_SHINGLES",
     "R1_WORD5_SAMPLE_SIZE",
     "R1_WORD5_THRESHOLD",

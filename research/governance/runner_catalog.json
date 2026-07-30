@@ -95,23 +95,23 @@
     {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
-      "claim_scope": "Prepare only the exact explicitly selected RuAA R1 136-work constituents-only packet, its content dispositions, isolated folds, two fixed model roles and inference contract. The command has no cache, factory, fit, prediction, public-evidence or confirmatory authority.",
-      "output_contract": "Create-if-absent, content-addressed packet below the ignored docs/exploratory/lobo_vnext/packets namespace; every raw, canonical, candidate, component, fold, model, inference and representation binding is strict and path-independent.",
-      "identity_bindings": ["r1_source_manifest", "source_raw_inventory", "source_selection_receipt", "content_policy", "candidate_evidence", "candidate_inventory", "generation_id", "canonical_model_rows", "content_component_manifest", "isolated_fold_manifest", "primary_model_spec", "baseline_model_spec", "primary_inner_cv_plan", "baseline_inner_cv_plan", "model_role_manifest", "inference_spec", "campaign_manifest", "representation_receipt", "packet_manifest"],
+      "claim_scope": "Prepare only the exact canonical RuAA R1 acquisition selected-134 packet, its acquisition binding, post-selection content screen, isolated folds, two fixed model roles and inference contract. The command has no cache, factory, fit, prediction, authorization, public-evidence or confirmatory authority.",
+      "output_contract": "Create-if-absent, content-addressed packet below the ignored docs/exploratory/lobo_vnext/packets namespace; the embedded acquisition manifest, receipt and selected audit plus every raw, work-identity, canonical, candidate, component, fold, model, inference and representation binding are strict and path-independent.",
+      "identity_bindings": ["materialized_r1_acquisition", "acquisition_manifest", "acquisition_receipt", "selected_text_quality_audit", "acquisition_binding", "raw_inventory", "work_identity_catalog", "upstream_exclusions", "content_policy", "post_selection_candidate_screen", "candidate_inventory", "generation_id", "canonical_model_rows", "content_component_manifest", "isolated_fold_manifest", "primary_model_spec", "baseline_model_spec", "primary_inner_cv_plan", "baseline_inner_cv_plan", "model_role_manifest", "inference_spec", "campaign_manifest", "representation_receipt", "packet_manifest"],
       "required_nodeids": [
         "tests/test_lobo_vnext_prepare.py::test_prepare_module_has_no_estimator_factory_fit_or_runner_reachability",
-        "tests/test_lobo_vnext_prepare.py::test_source_catalog_is_exact_and_r1_selection_is_136_constituents_only",
-        "tests/test_lobo_vnext_prepare.py::test_unreviewed_or_missing_candidate_blocks_packet_preparation",
-        "tests/test_lobo_vnext_prepare.py::test_packet_is_path_independent_and_create_if_absent",
+        "tests/test_lobo_vnext_prepare.py::test_acquisition_selected_134_is_exact_and_exclusions_are_upstream_only",
+        "tests/test_lobo_vnext_prepare.py::test_candidate_screen_blocks_before_nlp",
+        "tests/test_lobo_vnext_prepare.py::test_packet_trees_are_byte_identical_and_target_is_no_clobber",
         "tests/test_lobo_vnext_prepare.py::test_packet_output_must_be_explicit_exploratory_namespace"
       ]
     },
     {
       "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
       "status": "canonical_bounded_exploratory",
-      "claim_scope": "Authorization-free real R1 execution-spec preflight or the exact explicitly selected RuAA R1 bounded exploratory campaign only. Exploratory execution requires the immutable R1 packet plus explicit interactive user authorization bound to the complete execution digest. That authorization is non-personal and makes no identity or authentication claim; public evidence, headlines, scientific approvals and confirmatory execution remain unauthorized.",
+      "claim_scope": "Authorization-free real R1 execution-spec preflight or the exact acquisition selected-134 RuAA R1 bounded exploratory campaign only. Exploratory execution requires the immutable acquisition-bound R1 packet plus explicit interactive user authorization bound to the complete execution digest. That authorization is non-personal and makes no identity or authentication claim; public evidence, headlines, scientific approvals and confirmatory execution remain unauthorized.",
       "output_contract": "Immutable strict-schema preflight, checkpoints and results below the exact ignored docs/exploratory/lobo_vnext/real_corpus namespace. R1 checkpoints and results are create-if-absent, telemetry is separated from the scientific hash, and every authorization flag for public, frozen-evidence or confirmatory output is false.",
-      "identity_bindings": ["r1_packet_manifest", "generation_id", "source_selection_receipt", "raw_inventory", "canonical_model_row_digest", "content_policy", "candidate_inventory", "content_component_manifest", "outer_fold_manifest", "primary_inner_cv_plan", "baseline_inner_cv_plan", "probability_class_order", "metric_label_order", "primary_model_spec", "baseline_model_spec", "model_role_manifest", "inference_spec", "campaign_manifest", "interactive_authorization", "execution_spec", "representation_receipt", "config", "primary_model_adapter", "baseline_model_adapter", "executable_sources", "dependencies", "runtime", "thread_contract"],
+      "identity_bindings": ["r1_packet_manifest", "generation_id", "acquisition_binding", "raw_inventory", "work_identity_catalog", "upstream_exclusions", "canonical_model_row_digest", "content_policy", "candidate_inventory", "content_component_manifest", "outer_fold_manifest", "primary_inner_cv_plan", "baseline_inner_cv_plan", "probability_class_order", "metric_label_order", "primary_model_spec", "baseline_model_spec", "model_role_manifest", "inference_spec", "campaign_manifest", "interactive_authorization", "execution_spec", "representation_receipt", "config", "primary_model_adapter", "baseline_model_adapter", "executable_sources", "dependencies", "runtime", "thread_contract"],
       "required_nodeids": [
         "tests/test_lobo_vnext_manifests.py::test_purged_inner_cv_fails_closed_or_uses_whole_components",
         "tests/test_lobo_vnext_control.py::test_execution_assembly_binds_packet_selection_and_exact_15_receipts",

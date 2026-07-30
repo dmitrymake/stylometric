@@ -3,7 +3,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib.util
+import inspect
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,6 +50,18 @@ def _load_acquisition_cli(name: str):
 
 def _sha(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _tree_file_snapshot(root: Path) -> dict[str, tuple[int, int, bytes]]:
+    return {
+        path.relative_to(root).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.stat().st_size,
+            path.read_bytes(),
+        )
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 def _plain(index: int, *, audit_blocker: bool = False) -> str:
@@ -855,6 +869,173 @@ def test_v3_materializes_union_resumes_and_rejects_namespace_tamper(tmp_path):
             wikisource_transport=lambda _: pytest.fail("no network"),
             feb_transport=lambda _: pytest.fail("no network"),
         )
+
+
+def test_public_loader_accepts_exact_v3_materialization_read_only(
+    tmp_path,
+    monkeypatch,
+):
+    harness = _v3_harness()
+    cache = harness.populate_cache(tmp_path / "reviewed-cache")
+    materialized = r1.materialize_r1_acquisition(
+        harness.manifest,
+        output_parent=tmp_path / "output",
+        wikisource_transport=harness.ws_transport(),
+        feb_transport=harness.feb_transport([]),
+        reviewed_artifact_cache=cache,
+    )
+    before = _tree_file_snapshot(materialized.root)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("public acquisition loader must not materialize or write")
+
+    for name in (
+        "dump_strict",
+        "materialize_campaign",
+        "materialize_pinned_feb_work",
+        "materialize_reviewed_text_campaign",
+        "_persist_blocked_audit",
+    ):
+        monkeypatch.setattr(r1, name, forbidden)
+
+    assert tuple(
+        inspect.signature(
+            r1.load_materialized_r1_acquisition
+        ).parameters
+    ) == ("root",)
+    loaded = r1.load_materialized_r1_acquisition(materialized.root)
+
+    assert loaded.root == materialized.root
+    assert loaded.manifest == harness.manifest
+    assert loaded.receipt == materialized.receipt
+    assert loaded.audit_report == materialized.audit_report
+    assert loaded.resumed is True
+    assert _tree_file_snapshot(materialized.root) == before
+
+
+def test_public_loader_rejects_raw_spec_receipt_and_audit_tamper(
+    tmp_path,
+):
+    harness = _v3_harness()
+    cache = harness.populate_cache(tmp_path / "reviewed-cache")
+    materialized = r1.materialize_r1_acquisition(
+        harness.manifest,
+        output_parent=tmp_path / "output",
+        wikisource_transport=harness.ws_transport(),
+        feb_transport=harness.feb_transport([]),
+        reviewed_artifact_cache=cache,
+    )
+    reviewed = harness.manifest.reviewed_text_campaign
+    assert reviewed is not None
+    wikisource_work = harness.manifest.wikisource_campaign.work_ids[0]
+    targets = (
+        f"raw/{wikisource_work}.txt",
+        f"raw/{harness.manifest.feb_work_spec.work_id}.txt",
+        f"raw/{reviewed.work_ids[0]}.txt",
+        r1.MANIFEST_NAME,
+        r1.WIKISOURCE_SPEC_PATH,
+        r1.FEB_SPEC_PATH,
+        r1.REVIEWED_TEXT_SPEC_PATH,
+        (
+            f"{r1.WIKISOURCE_WORK_RECEIPT_PREFIX}/"
+            f"{wikisource_work}.json"
+        ),
+        r1.WIKISOURCE_RECEIPT_PATH,
+        r1.FEB_RECEIPT_PATH,
+        r1.REVIEWED_TEXT_RECEIPT_PATH,
+        r1.ACQUISITION_RECEIPT_NAME,
+        r1.AUDIT_REPORT_NAME,
+    )
+
+    for relative_path in targets:
+        path = materialized.root / relative_path
+        original = path.read_bytes()
+        tampered = (
+            original + b"tamper\n"
+            if relative_path.startswith("raw/")
+            else b"{}\n"
+        )
+        try:
+            path.write_bytes(tampered)
+            with pytest.raises(r1.R1AcquisitionError):
+                r1.load_materialized_r1_acquisition(materialized.root)
+        finally:
+            path.write_bytes(original)
+
+    loaded = r1.load_materialized_r1_acquisition(materialized.root)
+    assert loaded.receipt == materialized.receipt
+
+
+def test_public_loader_rejects_namespace_tamper(tmp_path, harness):
+    materialized = r1.materialize_r1_acquisition(
+        harness.manifest,
+        output_parent=tmp_path / "output",
+        wikisource_transport=harness.ws_transport(),
+        feb_transport=harness.feb_transport([]),
+    )
+    root = materialized.root
+    work_id = harness.manifest.wikisource_campaign.work_ids[0]
+    raw_path = root / "raw" / f"{work_id}.txt"
+
+    missing = (
+        root
+        / r1.WIKISOURCE_WORK_RECEIPT_PREFIX
+        / f"{work_id}.json"
+    )
+    missing_payload = missing.read_bytes()
+    try:
+        missing.unlink()
+        with pytest.raises(r1.R1AcquisitionError, match="missing or extra"):
+            r1.load_materialized_r1_acquisition(root)
+    finally:
+        missing.write_bytes(missing_payload)
+
+    extra_file = root / "extra.txt"
+    try:
+        extra_file.write_bytes(b"extra\n")
+        with pytest.raises(r1.R1AcquisitionError, match="missing or extra"):
+            r1.load_materialized_r1_acquisition(root)
+    finally:
+        extra_file.unlink(missing_ok=True)
+
+    extra_directory = root / "extra-directory"
+    try:
+        extra_directory.mkdir()
+        with pytest.raises(r1.R1AcquisitionError, match="missing or extra"):
+            r1.load_materialized_r1_acquisition(root)
+    finally:
+        extra_directory.rmdir()
+
+    nested_link = root / "forbidden-link"
+    try:
+        nested_link.symlink_to(raw_path)
+        with pytest.raises(r1.R1AcquisitionError, match="symlink rejected"):
+            r1.load_materialized_r1_acquisition(root)
+    finally:
+        nested_link.unlink(missing_ok=True)
+
+    linked_root = tmp_path / "linked-acquisition"
+    try:
+        linked_root.symlink_to(root, target_is_directory=True)
+        with pytest.raises(
+            r1.R1AcquisitionError,
+            match="must not contain symlink components",
+        ):
+            r1.load_materialized_r1_acquisition(linked_root)
+    finally:
+        linked_root.unlink(missing_ok=True)
+
+    fifo = root / "forbidden-fifo"
+    try:
+        os.mkfifo(fifo)
+        with pytest.raises(r1.R1AcquisitionError, match="special file"):
+            r1.load_materialized_r1_acquisition(root)
+    finally:
+        fifo.unlink(missing_ok=True)
+
+    assert r1.load_materialized_r1_acquisition(root).receipt == (
+        materialized.receipt
+    )
 
 
 def test_v3_rejects_tampered_artifact_cache_before_publication(tmp_path):

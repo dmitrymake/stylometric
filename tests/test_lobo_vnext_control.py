@@ -1,26 +1,44 @@
 from __future__ import annotations
 
 import ast
-import dataclasses
 import hashlib
 import inspect
+import os
 import shutil
 from pathlib import Path
 
 import pytest
 
 from stylo.config import load_config
-from stylo.domain.corpus_identity import ContentOverlap
-from stylo.domain.lobo_vnext import (
-    VNextContractError,
-    canonical_sha256,
+from stylo.corpus_tools import ruaa_r1_acquisition as r1
+from stylo.corpus_tools import wikisource_vnext as ws
+from stylo.corpus_tools.feb_vnext import (
+    PinnedFEBWorkSpec,
+    extract_feb_main_narrative,
 )
-from stylo.domain.lobo_vnext_packet import CanonicalRowEntry, R1PacketManifest
+from stylo.corpus_tools.reviewed_text_vnext import (
+    ReviewedTextArtifactRef,
+    ReviewedTextCampaignSpec,
+    ReviewedTextWorkSpec,
+)
+from stylo.corpus_tools.text_quality_vnext import audit_corpus_texts
+from stylo.corpus_tools.wikisource_campaign import WikisourceCampaignSpec
+from stylo.domain.lobo_vnext import VNextContractError, canonical_sha256
+from stylo.domain.lobo_vnext_packet import (
+    CanonicalRowEntry,
+    R1PacketManifest,
+    R1_PACKET_MANIFEST_SCHEMA_VERSION,
+)
 from stylo.domain.lobo_vnext_real import REQUIRED_RECEIPT_KINDS
 from stylo.eval import lobo_vnext_control as control
 from stylo.eval import lobo_vnext_prepare as prep
 from stylo.eval import lobo_vnext_receipts as receipts
-from stylo.jsonio import dump_strict, load_strict
+from stylo.jsonio import (
+    canonical_hash,
+    dump_strict,
+    dumps_strict,
+    load_strict,
+)
 from stylo.nlp import ResolvedNLPIdentity
 
 
@@ -30,67 +48,274 @@ def _sha(payload: bytes | str) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def _source_fixture(root: Path) -> tuple[Path, Path]:
-    source = root / "source"
-    source.mkdir(parents=True)
-    authors: dict[str, object] = {}
-    author_ids = ["turgenev", *(f"author_{index:02d}" for index in range(21))]
-    total = 0
-    for author_id in sorted(author_ids):
-        if author_id == "turgenev":
-            book_ids = [
-                "бирюк",
-                "вешние_воды",
-                "дворянское_гнездо",
-                "записки_охотника",
-                "муму",
-                "накануне",
-                "отцы_и_дети",
-                "певцы",
-                "первая_любовь",
-                "рудин",
-                "хорь_и_калиныч",
-            ]
-        else:
-            book_ids = [f"work_{index:02d}" for index in range(6)]
-        books = []
-        for book_id in book_ids:
-            work_id = f"{author_id}/{book_id}"
-            payload = f"literal source words for {work_id}".encode("utf-8")
-            path = source / f"{work_id}.txt"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(payload)
-            books.append(
-                {
-                    "book": book_id,
-                    "sha256": _sha(payload),
-                    "words": len(payload.decode("utf-8").split()),
-                    "source": f"public-source:{work_id}",
-                }
-            )
-            total += 1
-        authors[author_id] = {
-            "death_year": 1900,
-            "n_books": len(books),
-            "books": books,
-        }
-    assert total == prep.R1_SOURCE_BOOK_COUNT
-    manifest = {
-        "name": prep.R1_SOURCE_NAME,
-        "version": prep.R1_SOURCE_VERSION,
-        "claim_status": "exploratory_internal",
-        "benchmark_role": "reproducible_cv_legacy_not_blind",
-        "training_weighting": "chunk_weighted_training_legacy",
-        "task": "synthetic control-plane source fixture",
-        "n_authors": prep.R1_AUTHOR_COUNT,
-        "n_books": prep.R1_SOURCE_BOOK_COUNT,
-        "legal": "synthetic",
-        "authors": authors,
-        "dropped": {},
+def _literal_payload(index: int) -> bytes:
+    return (
+        " ".join(
+            f"литературный{index}уникальныйтокен{word}"
+            for word in range(220)
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def _wikisource_work(
+    *,
+    work_id: str,
+    index: int,
+) -> tuple[ws.PinnedWorkSpec, bytes]:
+    title = f"Синтетическое произведение {index}"
+    revision = 100_000 + index
+    page_id = 200_000 + index
+    wikitext = f"Синтетический викитекст {index}"
+    rendered = (
+        '<div class="mw-parser-output"><p>'
+        + _literal_payload(index).decode("utf-8").strip()
+        + "</p></div>"
+    )
+    full_plain = ws.extract_rendered_html(rendered)
+    selection = ws.build_body_selection_v2(
+        full_plain,
+        start_line=0,
+        end_line_exclusive=len(full_plain.split("\n")),
+        body_disposition="whole_rendered_body",
+    )
+    part = ws.PinnedPartSpec.from_dict(
+        {
+            "ordinal": 0,
+            "requested_title": title,
+            "resolved_title": title,
+            "redirect_chain": [],
+            "page_id": page_id,
+            "revision_id": revision,
+            "mediawiki_sha1": hashlib.sha1(
+                wikitext.encode("utf-8")
+            ).hexdigest(),
+            "wikitext_sha256": _sha(wikitext),
+            "rendered_html_sha256": _sha(rendered),
+            **selection.to_part_fields(),
+        },
+        schema_version=ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+    )
+    output = ws.assemble_plain_parts([selection.selected_plain])
+    payload: dict[str, object] = {
+        "schema_version": ws.PINNED_WORK_SPEC_SCHEMA_VERSION_V2,
+        "work_id": work_id,
+        "assembly_policy_version": ws.ASSEMBLY_POLICY_VERSION,
+        "extraction_policy_version": ws.EXTRACTION_POLICY_VERSION,
+        "residue_policy_version": ws.RESIDUE_POLICY_VERSION,
+        "word_count_policy_version": ws.WORD_COUNT_POLICY_VERSION,
+        "body_boundary_policy_version": ws.BODY_BOUNDARY_POLICY_VERSION_V2,
+        "parts": [part.to_dict()],
+        "output_relative_path": f"raw/{work_id}.txt",
+        "output_byte_size": len(output),
+        "output_sha256": _sha(output),
+        "word_count": ws.count_words(output.decode("utf-8")),
     }
-    manifest_path = root / "legacy-source-manifest.json"
-    dump_strict(manifest, manifest_path, trailing_newline=True)
-    return source, manifest_path
+    return (
+        ws.PinnedWorkSpec.from_dict(
+            {**payload, "self_hash": canonical_hash(payload)}
+        ),
+        output,
+    )
+
+
+def _feb_html() -> bytes:
+    names = (
+        "ПЕРВАЯ",
+        "ВТОРАЯ",
+        "ТРЕТИЯ",
+        "ЧЕТВЕРТАЯ",
+        "ПЯТАЯ",
+        "ШЕСТАЯ",
+        "СЕДЬМАЯ",
+        "ОСЬМАЯ",
+    )
+    parts = [
+        '<html><body><div id="prose">',
+        '<h4 id="ПРЕДИСЛОВИЕ"></h4>',
+        "<p>ПРЕДИСЛОВИЕ</p>",
+        "<p>"
+        + " ".join(f"пугачевпредисловие{word}" for word in range(45))
+        + "</p>",
+    ]
+    for chapter, name in enumerate(names):
+        parts.extend(
+            (
+                f'<h4 id="ГЛАВА_{name}"></h4>',
+                f"<p>ГЛАВА {name}</p>",
+                "<p>"
+                + " ".join(
+                    f"пугачевглава{chapter}слово{word}"
+                    for word in range(45)
+                )
+                + "</p>",
+            )
+        )
+    parts.extend(
+        (
+            '<h4 id="ПРИМЕЧАНИЯ"></h4>',
+            "<p>Редакторские примечания вне корпуса</p>",
+            "</div></body></html>",
+        )
+    )
+    return "".join(parts).encode("windows-1251")
+
+
+def _reviewed_work(
+    *,
+    work_id: str,
+    index: int,
+    payload: bytes,
+) -> ReviewedTextWorkSpec:
+    builder = ReviewedTextArtifactRef.build(
+        logical_name="synthetic-reviewed-builder.py",
+        payload=f"builder {index}".encode("utf-8"),
+    )
+    provenance = ReviewedTextArtifactRef.build(
+        logical_name="synthetic-review-receipt.json",
+        payload=f"review receipt {index}".encode("utf-8"),
+    )
+    return ReviewedTextWorkSpec.build(
+        work_id=work_id,
+        text_payload=payload,
+        builder_artifacts=[builder],
+        provenance_artifacts=[provenance],
+        source_part_count=1,
+        reviewed_part_count=1,
+    )
+
+
+def _work_ids() -> tuple[str, ...]:
+    authors = ("pushkin", *(f"author_{index:02d}" for index in range(21)))
+    rows: list[str] = []
+    for author in authors:
+        count = 7 if author == "author_00" else 6
+        rows.extend(f"{author}/work_{index:02d}" for index in range(count))
+    rows.append(r1.R1_FEB_WORK_ID)
+    result = tuple(sorted(rows))
+    assert len(result) == 134
+    assert len({row.split("/", 1)[0] for row in result}) == 22
+    assert not set(result) & set(r1.R1_EXCLUDED_WORK_IDS_V3)
+    return result
+
+
+def _acquisition_fixture(root: Path) -> r1.MaterializedR1Acquisition:
+    acquisition_root = root / "acquisition"
+    acquisition_root.mkdir(parents=True)
+    work_ids = _work_ids()
+    raw_payloads = {
+        work_id: _literal_payload(index)
+        for index, work_id in enumerate(work_ids)
+    }
+
+    wikisource_id = "pushkin/work_00"
+    wikisource, wikisource_payload = _wikisource_work(
+        work_id=wikisource_id,
+        index=10_000,
+    )
+    raw_payloads[wikisource_id] = wikisource_payload
+    wikisource_campaign = WikisourceCampaignSpec.build([wikisource])
+
+    feb_body = _feb_html()
+    feb = PinnedFEBWorkSpec.build(
+        work_id=r1.R1_FEB_WORK_ID,
+        response_body=feb_body,
+    )
+    raw_payloads[r1.R1_FEB_WORK_ID] = (
+        extract_feb_main_narrative(feb_body) + "\n"
+    ).encode("utf-8")
+
+    reviewed = ReviewedTextCampaignSpec.build(
+        [
+            _reviewed_work(
+                work_id=work_id,
+                index=index,
+                payload=raw_payloads[work_id],
+            )
+            for index, work_id in enumerate(work_ids)
+            if work_id not in {wikisource_id, r1.R1_FEB_WORK_ID}
+        ]
+    )
+    manifest = r1.R1AcquisitionManifest.build(
+        wikisource_campaign=wikisource_campaign,
+        wikisource_discovery_candidate_sha256="d" * 64,
+        source_curation_receipt_sha256="e" * 64,
+        feb_work_spec=feb,
+        reviewed_text_campaign=reviewed,
+        included_work_ids=work_ids,
+        collection_umbrella_evidence_sha256="a" * 64,
+        authorship_mismatch_evidence_sha256="b" * 64,
+        authorship_mismatch_receipt_sha256="c" * 64,
+        source_quality_rejected_evidence_sha256="f" * 64,
+        source_quality_rejected_receipt_sha256="9" * 64,
+    )
+    audit = audit_corpus_texts(
+        raw_payloads,
+        expected_work_ids=work_ids,
+    )
+    assert audit.status == "passed"
+
+    raw_rows = tuple(
+        r1.R1RawInventoryRow.build(work_id, raw_payloads[work_id])
+        for work_id in work_ids
+    )
+    receipt_payload: dict[str, object] = {
+        "schema_version": r1.R1_ACQUISITION_RECEIPT_SCHEMA_VERSION_V2,
+        "acquisition_kind": r1.R1_ACQUISITION_KIND,
+        "manifest_sha256": manifest.self_hash,
+        "generation_id": manifest.generation_id,
+        "wikisource_campaign_spec_sha256": (
+            manifest.wikisource_campaign.self_hash
+        ),
+        "wikisource_campaign_receipt_sha256": "1" * 64,
+        "feb_work_spec_sha256": manifest.feb_work_spec.self_hash,
+        "feb_work_receipt_sha256": "2" * 64,
+        "text_quality_audit_sha256": audit.self_hash,
+        "reviewed_text_campaign_spec_sha256": reviewed.self_hash,
+        "reviewed_text_campaign_receipt_sha256": "3" * 64,
+        "included_work_ids": list(work_ids),
+        "raw_inventory": [row.to_dict() for row in raw_rows],
+        "work_count": len(work_ids),
+        "fit_performed": False,
+        "confirmatory_authorized": False,
+        "public_output_authorized": False,
+    }
+    receipt = r1.R1AcquisitionReceipt.from_dict(
+        {
+            **receipt_payload,
+            "self_hash": canonical_hash(receipt_payload),
+        }
+    )
+
+    for work_id, payload in raw_payloads.items():
+        path = acquisition_root / f"raw/{work_id}.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    dump_strict(
+        manifest.to_dict(),
+        acquisition_root / r1.MANIFEST_NAME,
+        sort_keys=True,
+        trailing_newline=True,
+    )
+    dump_strict(
+        receipt.to_dict(),
+        acquisition_root / r1.ACQUISITION_RECEIPT_NAME,
+        sort_keys=True,
+        trailing_newline=True,
+    )
+    dump_strict(
+        audit.to_dict(),
+        acquisition_root / r1.AUDIT_REPORT_NAME,
+        sort_keys=True,
+        trailing_newline=True,
+    )
+    return r1.MaterializedR1Acquisition(
+        acquisition_root,
+        manifest,
+        receipt,
+        audit,
+        True,
+    )
 
 
 def _fake_canonical_rows(
@@ -179,50 +404,46 @@ def _pin_verified_r1_ner(monkeypatch) -> None:
 @pytest.fixture(scope="module")
 def prepared_packet(tmp_path_factory):
     root = tmp_path_factory.mktemp("control-plane")
-    source, source_manifest = _source_fixture(root)
-    overlaps = tuple(
-        ContentOverlap(
-            left_work=member,
-            right_work=prep.R1_EXCLUDED_WORK_ID,
-            kind="word5_asymmetric_containment",
-            containment=numerator / denominator,
-            evidence=f"{numerator}/{denominator} unique word-5-grams",
-        )
-        for member, (numerator, denominator) in zip(
-            prep.R1_COLLECTION_MEMBERS,
-            ((2019, 2090), (5093, 5295), (3542, 3637)),
-            strict=True,
-        )
-    )
+    acquisition = _acquisition_fixture(root)
+    audit_path = acquisition.root / r1.AUDIT_REPORT_NAME
+    identities = {
+        "R1_ACQUISITION_GENERATION_ID": acquisition.manifest.generation_id,
+        "R1_ACQUISITION_MANIFEST_SELF_HASH": (
+            acquisition.manifest.self_hash
+        ),
+        "R1_ACQUISITION_RECEIPT_SELF_HASH": (
+            acquisition.receipt.self_hash
+        ),
+        "R1_SELECTED_AUDIT_FILE_SHA256": _sha(audit_path.read_bytes()),
+        "R1_SELECTED_AUDIT_SELF_HASH": acquisition.audit_report.self_hash,
+    }
     patch = pytest.MonkeyPatch()
+    for module in (prep, control):
+        for name, value in identities.items():
+            patch.setattr(module, name, value)
     patch.setattr(
         prep,
-        "R1_SOURCE_MANIFEST_SHA256",
-        _sha(source_manifest.read_bytes()),
+        "load_materialized_r1_acquisition",
+        lambda acquisition_root: acquisition,
     )
-    _pin_verified_r1_ner(patch)
     patch.setattr(prep, "_canonical_rows", _fake_canonical_rows)
-    patch.setattr(
-        prep,
-        "find_cross_work_content_overlaps",
-        lambda *args, **kwargs: overlaps,
-    )
+    _pin_verified_r1_ner(patch)
     try:
         packet = prep.prepare_r1_packet(
-            source_root=source,
-            legacy_source_manifest=source_manifest,
+            acquisition_root=acquisition.root,
             output_parent=(
                 root / "exploratory" / "lobo_vnext" / "packets"
             ),
             cfg=load_config("configs/default.yaml"),
         )
+        yield packet
     finally:
         patch.undo()
-    return packet
 
 
 def _copy_packet(packet, destination: Path) -> Path:
     copied = destination / packet.root.name
+    copied.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(packet.root, copied)
     return copied
 
@@ -295,36 +516,119 @@ def test_control_plane_has_no_cache_factory_fit_or_prediction_reachability():
     )
 
 
-def test_loader_rebuilds_strict_v2_packet_and_exposes_selection_proof(
+def test_loader_rebuilds_strict_acquisition_bound_selected_134_packet(
     prepared_packet,
 ):
     loaded = control.load_prepared_r1_packet(prepared_packet.root)
+    work_ids = tuple(
+        work.work_id for work in loaded.corpus_manifest.works
+    )
+    canonical_work_ids = {
+        row.work_id for row in loaded.representation_receipt.rows
+    }
 
     assert type(loaded.packet_manifest) is R1PacketManifest
-    assert loaded.packet_manifest.self_hash == (
-        prepared_packet.packet_manifest.self_hash
+    assert (
+        loaded.packet_manifest.schema_version
+        == R1_PACKET_MANIFEST_SCHEMA_VERSION
     )
-    assert loaded.source_candidate_inventory == (
-        prepared_packet.source_candidate_inventory
+    assert (
+        loaded.packet_manifest.self_hash
+        == prepared_packet.packet_manifest.self_hash
     )
-    assert loaded.source_selection_receipt == (
-        prepared_packet.source_selection_receipt
+    assert loaded.acquisition_binding == (
+        loaded.packet_manifest.acquisition_binding
     )
-    assert len(loaded.source_selection_receipt.source_raw_inventory) == 137
-    assert len(loaded.source_selection_receipt.source_works) == 137
     assert loaded.candidate_inventory.candidates == ()
-    assert loaded.packet_manifest.generation_material.candidate_evidence_digest
-    assert loaded.packet_manifest.selected_work_count == 136
-    assert loaded.packet_manifest.confirmatory_authorized is False
+    assert loaded.packet_manifest.selected_work_count == 134
+    assert len(work_ids) == 134
+    assert len(loaded.corpus_manifest.author_ids) == 22
+    assert loaded.acquisition_binding.upstream_excluded_work_ids == (
+        r1.R1_EXCLUDED_WORK_IDS_V3
+    )
+    assert not set(r1.R1_EXCLUDED_WORK_IDS_V3) & set(work_ids)
+    assert not set(r1.R1_EXCLUDED_WORK_IDS_V3) & canonical_work_ids
+    assert {
+        work.source_id.split(":")[-2]
+        for work in loaded.corpus_manifest.works
+    } == {"wikisource", "feb", "reviewed-text"}
+    assert control.load_prepared_r1_packet(
+        prepared_packet.root
+    ).corpus_manifest.works == loaded.corpus_manifest.works
 
 
-@pytest.mark.parametrize("mutation", ["extra", "raw", "canonical"])
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "acquisition/acquisition-manifest.json",
+        "acquisition/acquisition-receipt.json",
+        "acquisition/text-quality-audit.json",
+    ],
+)
+def test_loader_rejects_tampered_acquisition_copies(
+    tmp_path, prepared_packet, relative
+):
+    root = _copy_packet(prepared_packet, tmp_path)
+    target = root / relative
+    target.write_bytes(target.read_bytes() + b" ")
+
+    with pytest.raises(control.RealControlPlaneError, match="bytes drifted"):
+        control.load_prepared_r1_packet(root)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "acquisition/acquisition-manifest.json",
+        "acquisition/acquisition-receipt.json",
+    ],
+)
+def test_loader_rejects_reformatted_acquisition_copy_after_packet_reseal(
+    tmp_path, prepared_packet, relative
+):
+    root = _copy_packet(prepared_packet, tmp_path)
+    target = root / relative
+    target.write_text(
+        dumps_strict(
+            load_strict(target),
+            sort_keys=False,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    packet_path = root / "packet.json"
+    packet = load_strict(packet_path)
+    for row in packet["files"]:
+        if row["relative_path"] == relative:
+            payload = target.read_bytes()
+            row["byte_size"] = len(payload)
+            row["sha256"] = _sha(payload)
+            break
+    else:
+        raise AssertionError(f"missing packet inventory row {relative}")
+    packet["file_inventory_sha256"] = canonical_sha256(packet["files"])
+    packet["self_hash"] = canonical_sha256(
+        {key: value for key, value in packet.items() if key != "self_hash"}
+    )
+    dump_strict(packet, packet_path, trailing_newline=True)
+
+    with pytest.raises(
+        control.RealControlPlaneError,
+        match="bytes are noncanonical",
+    ):
+        control.load_prepared_r1_packet(root)
+
+
+@pytest.mark.parametrize("mutation", ["extra", "missing", "raw", "canonical"])
 def test_loader_rejects_extra_or_tampered_packet_bytes(
     tmp_path, prepared_packet, mutation
 ):
     root = _copy_packet(prepared_packet, tmp_path)
     if mutation == "extra":
         (root / "unexpected.txt").write_text("extra", encoding="utf-8")
+    elif mutation == "missing":
+        next((root / "raw").rglob("*.txt")).unlink()
     elif mutation == "raw":
         target = next((root / "raw").rglob("*.txt"))
         target.write_bytes(target.read_bytes() + b" tampered")
@@ -339,87 +643,35 @@ def test_loader_rejects_extra_or_tampered_packet_bytes(
         control.load_prepared_r1_packet(root)
 
 
-def test_loader_rejects_symlink_and_duplicate_json_keys(
-    tmp_path, prepared_packet
+@pytest.mark.parametrize("mutation", ["symlink", "special"])
+def test_loader_rejects_symlink_and_special_files(
+    tmp_path, prepared_packet, mutation
 ):
-    symlink_root = _copy_packet(prepared_packet, tmp_path / "symlink")
-    (symlink_root / "unsafe").symlink_to(symlink_root / "packet.json")
-    with pytest.raises(control.RealControlPlaneError, match="symlink rejected"):
-        control.load_prepared_r1_packet(symlink_root)
+    root = _copy_packet(prepared_packet, tmp_path)
+    unsafe = root / "unsafe"
+    if mutation == "symlink":
+        unsafe.symlink_to(root / "packet.json")
+        message = "symlink rejected"
+    else:
+        os.mkfifo(unsafe)
+        message = "special file rejected"
 
-    duplicate_root = _copy_packet(prepared_packet, tmp_path / "duplicate")
-    packet_path = duplicate_root / "packet.json"
-    text = packet_path.read_text(encoding="utf-8")
-    packet_path.write_text(
-        '{"status":"duplicate",' + text[1:],
-        encoding="utf-8",
-    )
-    with pytest.raises(
-        control.RealControlPlaneError, match="duplicate object key"
-    ):
-        control.load_prepared_r1_packet(duplicate_root)
+    with pytest.raises(control.RealControlPlaneError, match=message):
+        control.load_prepared_r1_packet(root)
 
 
-def test_loader_rejects_rehashed_selection_or_evidence_mismatch(
+def test_loader_explicitly_rejects_legacy_packet_schema(
     tmp_path, prepared_packet
 ):
     root = _copy_packet(prepared_packet, tmp_path)
-    evidence_path = root / "candidates" / "evidence.json"
-    evidence = load_strict(evidence_path)
-    evidence[0]["reported_containment"] = 0.91
-    evidence[0]["evidence_sha256"] = canonical_sha256(
-        {
-            key: value
-            for key, value in evidence[0].items()
-            if key != "evidence_sha256"
-        }
-    )
-    dump_strict(evidence, evidence_path, trailing_newline=True)
-
-    manifest = prepared_packet.packet_manifest
-    files = []
-    for row in manifest.files:
-        if row.relative_path == "candidates/evidence.json":
-            payload = evidence_path.read_bytes()
-            files.append(
-                dataclasses.replace(
-                    row, byte_size=len(payload), sha256=_sha(payload)
-                )
-            )
-        else:
-            files.append(row)
-    rehashed = R1PacketManifest.build(
-        generation_material=manifest.generation_material,
-        source_candidate_inventory_sha256=(
-            manifest.source_candidate_inventory_sha256
-        ),
-        candidate_inventory_sha256=manifest.candidate_inventory_sha256,
-        corpus_manifest_sha256=manifest.corpus_manifest_sha256,
-        content_component_manifest_sha256=(
-            manifest.content_component_manifest_sha256
-        ),
-        fold_manifest_sha256=manifest.fold_manifest_sha256,
-        primary_model_spec_sha256=manifest.primary_model_spec_sha256,
-        baseline_model_spec_sha256=manifest.baseline_model_spec_sha256,
-        inference_spec_sha256=manifest.inference_spec_sha256,
-        primary_inner_cv_plan_sha256=(
-            manifest.primary_inner_cv_plan_sha256
-        ),
-        baseline_inner_cv_plan_sha256=(
-            manifest.baseline_inner_cv_plan_sha256
-        ),
-        model_role_manifest_sha256=manifest.model_role_manifest_sha256,
-        campaign_manifest_sha256=manifest.campaign_manifest_sha256,
-        representation_receipt_sha256=(
-            manifest.representation_receipt_sha256
-        ),
-        files=files,
-    )
-    dump_strict(rehashed.to_dict(), root / "packet.json", trailing_newline=True)
+    packet_path = root / "packet.json"
+    payload = load_strict(packet_path)
+    payload["schema_version"] = "stylo.lobo-vnext.r1-packet.v2"
+    dump_strict(payload, packet_path, trailing_newline=True)
 
     with pytest.raises(
         control.RealControlPlaneError,
-        match="generation material|evidence",
+        match="legacy or unsupported",
     ):
         control.load_prepared_r1_packet(root)
 
@@ -448,6 +700,11 @@ def test_execution_assembly_binds_packet_selection_and_exact_15_receipts(
     )
     assert execution.confirmatory_execution_authorized is False
     assert execution.public_evidence_update_authorized is False
+    assert not any(
+        marker in path.relative_to(prepared_packet.root).as_posix()
+        for path in prepared_packet.root.rglob("*")
+        for marker in ("authorization", "prediction", "result")
+    )
 
 
 def test_dirty_or_drifted_executable_source_stops_before_other_live_receipts(

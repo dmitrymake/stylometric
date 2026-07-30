@@ -20,9 +20,7 @@ from typing import Any
 from ..jsonio import StrictJSONError, load_strict, loads_strict
 from .lobo_vnext import (
     CorpusVNextManifest,
-    RawInventoryEntry,
     VNextContractError,
-    WorkIdentity,
     canonical_sha256,
 )
 
@@ -30,14 +28,11 @@ from .lobo_vnext import (
 CANONICAL_REPRESENTATION_SCHEMA_VERSION = (
     "stylo.lobo-vnext.canonical-representation.v1"
 )
-R1_GENERATION_MATERIAL_SCHEMA_VERSION = (
-    "stylo.lobo-vnext.ruaa-r1-generation-material.v1"
+R1_ACQUISITION_BINDING_SCHEMA_VERSION = (
+    "stylo.lobo-vnext.ruaa-r1-acquisition-binding.v1"
 )
 R1_PACKET_MANIFEST_SCHEMA_VERSION = (
-    "stylo.lobo-vnext.ruaa-r1-packet.v2"
-)
-R1_SOURCE_SELECTION_SCHEMA_VERSION = (
-    "stylo.lobo-vnext.ruaa-r1-source-selection.v1"
+    "stylo.lobo-vnext.ruaa-r1-packet.v3"
 )
 R1_PACKET_STATUS = "owner_selected_exploratory_packet_no_fit"
 CANONICAL_ROWS_DIRECTORY = "canonical_rows"
@@ -201,386 +196,218 @@ class PacketFileEntry:
 
 
 @dataclasses.dataclass(frozen=True)
-class R1GenerationMaterial:
-    """Exact source-screening and 136-work selection material."""
-
-    schema_version: str
-    source_manifest_sha256: str
-    source_raw_inventory_digest: str
-    source_work_identity_catalog_digest: str
-    selected_raw_inventory_digest: str
-    selected_work_identity_catalog_digest: str
-    content_policy_spec_digest: str
-    selected_work_ids: tuple[str, ...]
-    excluded_work_ids: tuple[str, ...]
-    source_candidate_draft_digest: str
-    candidate_evidence_digest: str
-
-    @classmethod
-    def from_dict(cls, value: object) -> "R1GenerationMaterial":
-        raw = _exact_object(
-            value,
-            {
-                "schema_version",
-                "source_manifest_sha256",
-                "source_raw_inventory_digest",
-                "source_work_identity_catalog_digest",
-                "selected_raw_inventory_digest",
-                "selected_work_identity_catalog_digest",
-                "content_policy_spec_digest",
-                "selected_work_ids",
-                "excluded_work_ids",
-                "source_candidate_draft_digest",
-                "candidate_evidence_digest",
-            },
-            "R1 generation material",
-        )
-        if (
-            raw["schema_version"]
-            != R1_GENERATION_MATERIAL_SCHEMA_VERSION
-        ):
-            raise VNextPacketError(
-                "R1 generation material is legacy or unsupported"
-            )
-        selected = _sorted_unique_strings(
-            raw["selected_work_ids"],
-            "R1 generation material.selected_work_ids",
-            nonempty=True,
-        )
-        excluded = _sorted_unique_strings(
-            raw["excluded_work_ids"],
-            "R1 generation material.excluded_work_ids",
-            nonempty=True,
-        )
-        if set(selected) & set(excluded):
-            raise VNextPacketError(
-                "R1 selected and excluded work inventories overlap"
-            )
-        return cls(
-            R1_GENERATION_MATERIAL_SCHEMA_VERSION,
-            _sha256(
-                raw["source_manifest_sha256"],
-                "R1 generation material.source_manifest_sha256",
-            ),
-            _sha256(
-                raw["source_raw_inventory_digest"],
-                "R1 generation material.source_raw_inventory_digest",
-            ),
-            _sha256(
-                raw["source_work_identity_catalog_digest"],
-                "R1 generation material."
-                "source_work_identity_catalog_digest",
-            ),
-            _sha256(
-                raw["selected_raw_inventory_digest"],
-                "R1 generation material.selected_raw_inventory_digest",
-            ),
-            _sha256(
-                raw["selected_work_identity_catalog_digest"],
-                "R1 generation material."
-                "selected_work_identity_catalog_digest",
-            ),
-            _sha256(
-                raw["content_policy_spec_digest"],
-                "R1 generation material.content_policy_spec_digest",
-            ),
-            selected,
-            excluded,
-            _sha256(
-                raw["source_candidate_draft_digest"],
-                "R1 generation material.source_candidate_draft_digest",
-            ),
-            _sha256(
-                raw["candidate_evidence_digest"],
-                "R1 generation material.candidate_evidence_digest",
-            ),
-        )
-
-    @property
-    def generation_id(self) -> str:
-        return canonical_sha256(self.to_dict())
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "schema_version": self.schema_version,
-            "source_manifest_sha256": self.source_manifest_sha256,
-            "source_raw_inventory_digest": self.source_raw_inventory_digest,
-            "source_work_identity_catalog_digest": (
-                self.source_work_identity_catalog_digest
-            ),
-            "selected_raw_inventory_digest": (
-                self.selected_raw_inventory_digest
-            ),
-            "selected_work_identity_catalog_digest": (
-                self.selected_work_identity_catalog_digest
-            ),
-            "content_policy_spec_digest": self.content_policy_spec_digest,
-            "selected_work_ids": list(self.selected_work_ids),
-            "excluded_work_ids": list(self.excluded_work_ids),
-            "source_candidate_draft_digest": (
-                self.source_candidate_draft_digest
-            ),
-            "candidate_evidence_digest": self.candidate_evidence_digest,
-        }
-
-
-@dataclasses.dataclass(frozen=True)
-class R1SourceSelectionReceipt:
-    """Complete source-universe evidence behind the 136-work selection."""
+class R1AcquisitionBinding:
+    """Compact immutable binding from selected acquisition to packet."""
 
     schema_version: str
     generation_id: str
-    source_manifest_sha256: str
+    acquisition_manifest_self_hash: str
+    acquisition_receipt_self_hash: str
+    selected_audit_file_sha256: str
+    selected_audit_self_hash: str
+    raw_inventory_digest: str
+    work_identity_catalog_digest: str
+    upstream_excluded_work_ids: tuple[str, ...]
     content_policy_spec_digest: str
-    source_candidate_inventory_sha256: str
-    candidate_evidence_digest: str
-    source_raw_inventory: tuple[RawInventoryEntry, ...]
-    source_works: tuple[WorkIdentity, ...]
-    selected_work_ids: tuple[str, ...]
-    excluded_work_ids: tuple[str, ...]
+    post_selection_candidate_inventory_sha256: str
+    work_count: int
+    author_count: int
     self_hash: str
 
     @classmethod
     def build(
         cls,
         *,
-        generation_material: R1GenerationMaterial,
-        source_candidate_inventory_sha256: str,
-        source_raw_inventory: Sequence[RawInventoryEntry],
-        source_works: Sequence[WorkIdentity],
-    ) -> "R1SourceSelectionReceipt":
-        if type(generation_material) is not R1GenerationMaterial:
-            raise VNextPacketError(
-                "generation_material must be exactly R1GenerationMaterial"
-            )
-        if type(source_raw_inventory) not in (list, tuple) or type(
-            source_works
-        ) not in (list, tuple):
-            raise VNextPacketError(
-                "source selection inventories must be exact lists or tuples"
-            )
+        generation_id: str,
+        acquisition_manifest_self_hash: str,
+        acquisition_receipt_self_hash: str,
+        selected_audit_file_sha256: str,
+        selected_audit_self_hash: str,
+        raw_inventory_digest: str,
+        work_identity_catalog_digest: str,
+        upstream_excluded_work_ids: Sequence[str],
+        content_policy_spec_digest: str,
+        post_selection_candidate_inventory_sha256: str,
+        work_count: int,
+        author_count: int,
+    ) -> "R1AcquisitionBinding":
         payload = {
-            "schema_version": R1_SOURCE_SELECTION_SCHEMA_VERSION,
-            "generation_id": generation_material.generation_id,
-            "source_manifest_sha256": (
-                generation_material.source_manifest_sha256
+            "schema_version": R1_ACQUISITION_BINDING_SCHEMA_VERSION,
+            "generation_id": generation_id,
+            "acquisition_manifest_self_hash": (
+                acquisition_manifest_self_hash
             ),
-            "content_policy_spec_digest": (
-                generation_material.content_policy_spec_digest
+            "acquisition_receipt_self_hash": (
+                acquisition_receipt_self_hash
             ),
-            "source_candidate_inventory_sha256": (
-                source_candidate_inventory_sha256
+            "selected_audit_file_sha256": selected_audit_file_sha256,
+            "selected_audit_self_hash": selected_audit_self_hash,
+            "raw_inventory_digest": raw_inventory_digest,
+            "work_identity_catalog_digest": (
+                work_identity_catalog_digest
             ),
-            "candidate_evidence_digest": (
-                generation_material.candidate_evidence_digest
+            "upstream_excluded_work_ids": sorted(
+                upstream_excluded_work_ids
             ),
-            "source_raw_inventory": [
-                row.to_dict() for row in source_raw_inventory
-            ],
-            "source_works": [row.to_dict() for row in source_works],
-            "selected_work_ids": list(
-                generation_material.selected_work_ids
+            "content_policy_spec_digest": content_policy_spec_digest,
+            "post_selection_candidate_inventory_sha256": (
+                post_selection_candidate_inventory_sha256
             ),
-            "excluded_work_ids": list(
-                generation_material.excluded_work_ids
-            ),
+            "work_count": work_count,
+            "author_count": author_count,
         }
         return cls.from_dict(
             {**payload, "self_hash": canonical_sha256(payload)}
-        ).validate_against(generation_material)
+        )
 
     @classmethod
-    def from_dict(cls, value: object) -> "R1SourceSelectionReceipt":
-        keys = {
-            "schema_version",
-            "generation_id",
-            "source_manifest_sha256",
-            "content_policy_spec_digest",
-            "source_candidate_inventory_sha256",
-            "candidate_evidence_digest",
-            "source_raw_inventory",
-            "source_works",
-            "selected_work_ids",
-            "excluded_work_ids",
-            "self_hash",
-        }
-        raw = _exact_object(value, keys, "R1 source selection receipt")
+    def from_dict(cls, value: object) -> "R1AcquisitionBinding":
+        if (
+            type(value) is not dict
+            or value.get("schema_version")
+            != R1_ACQUISITION_BINDING_SCHEMA_VERSION
+        ):
+            raise VNextPacketError(
+                "R1 acquisition binding is legacy or unsupported"
+            )
+        raw = _exact_object(
+            value,
+            {
+                "schema_version",
+                "generation_id",
+                "acquisition_manifest_self_hash",
+                "acquisition_receipt_self_hash",
+                "selected_audit_file_sha256",
+                "selected_audit_self_hash",
+                "raw_inventory_digest",
+                "work_identity_catalog_digest",
+                "upstream_excluded_work_ids",
+                "content_policy_spec_digest",
+                "post_selection_candidate_inventory_sha256",
+                "work_count",
+                "author_count",
+                "self_hash",
+            },
+            "R1 acquisition binding",
+        )
         recorded = _sha256(
-            raw["self_hash"], "R1 source selection receipt.self_hash"
+            raw["self_hash"], "R1 acquisition binding.self_hash"
         )
         payload = {
             key: child for key, child in raw.items() if key != "self_hash"
         }
         if canonical_sha256(payload) != recorded:
             raise VNextPacketError(
-                "R1 source selection receipt self_hash mismatch"
+                "R1 acquisition binding self_hash mismatch"
             )
-        if raw["schema_version"] != R1_SOURCE_SELECTION_SCHEMA_VERSION:
-            raise VNextPacketError(
-                "R1 source selection receipt is legacy or unsupported"
-            )
-        inventory = tuple(
-            RawInventoryEntry.from_dict(row)
-            for row in _exact_list(
-                raw["source_raw_inventory"],
-                "R1 source selection receipt.source_raw_inventory",
-                nonempty=True,
-            )
-        )
-        works = tuple(
-            WorkIdentity.from_dict(row)
-            for row in _exact_list(
-                raw["source_works"],
-                "R1 source selection receipt.source_works",
-                nonempty=True,
-            )
-        )
-        if tuple(row.relative_path for row in inventory) != tuple(
-            sorted({row.relative_path for row in inventory})
-        ):
-            raise VNextPacketError(
-                "R1 source raw inventory must be sorted and unique"
-            )
-        if tuple(row.work_id for row in works) != tuple(
-            sorted({row.work_id for row in works})
-        ):
-            raise VNextPacketError(
-                "R1 source works must be sorted and unique"
-            )
-        selected = _sorted_unique_strings(
-            raw["selected_work_ids"],
-            "R1 source selection receipt.selected_work_ids",
-            nonempty=True,
-        )
         excluded = _sorted_unique_strings(
-            raw["excluded_work_ids"],
-            "R1 source selection receipt.excluded_work_ids",
+            raw["upstream_excluded_work_ids"],
+            "R1 acquisition binding.upstream_excluded_work_ids",
             nonempty=True,
         )
-        known_works = {work.work_id for work in works}
-        if (
-            set(selected) & set(excluded)
-            or set(selected) | set(excluded) != known_works
-        ):
+        if len(excluded) != 3:
             raise VNextPacketError(
-                "R1 selected/excluded works must exactly partition source works"
-            )
-        expected_paths = {
-            relative_path
-            for work in works
-            for relative_path in work.raw_paths
-        }
-        if {row.relative_path for row in inventory} != expected_paths:
-            raise VNextPacketError(
-                "R1 source work/raw inventories are not an exact bijection"
+                "R1 acquisition binding must record exactly three "
+                "upstream exclusions"
             )
         return cls(
-            R1_SOURCE_SELECTION_SCHEMA_VERSION,
+            R1_ACQUISITION_BINDING_SCHEMA_VERSION,
             _sha256(
                 raw["generation_id"],
-                "R1 source selection receipt.generation_id",
+                "R1 acquisition binding.generation_id",
             ),
             _sha256(
-                raw["source_manifest_sha256"],
-                "R1 source selection receipt.source_manifest_sha256",
+                raw["acquisition_manifest_self_hash"],
+                "R1 acquisition binding.acquisition_manifest_self_hash",
             ),
+            _sha256(
+                raw["acquisition_receipt_self_hash"],
+                "R1 acquisition binding.acquisition_receipt_self_hash",
+            ),
+            _sha256(
+                raw["selected_audit_file_sha256"],
+                "R1 acquisition binding.selected_audit_file_sha256",
+            ),
+            _sha256(
+                raw["selected_audit_self_hash"],
+                "R1 acquisition binding.selected_audit_self_hash",
+            ),
+            _sha256(
+                raw["raw_inventory_digest"],
+                "R1 acquisition binding.raw_inventory_digest",
+            ),
+            _sha256(
+                raw["work_identity_catalog_digest"],
+                "R1 acquisition binding.work_identity_catalog_digest",
+            ),
+            excluded,
             _sha256(
                 raw["content_policy_spec_digest"],
-                "R1 source selection receipt.content_policy_spec_digest",
+                "R1 acquisition binding.content_policy_spec_digest",
             ),
             _sha256(
-                raw["source_candidate_inventory_sha256"],
-                "R1 source selection receipt."
-                "source_candidate_inventory_sha256",
+                raw["post_selection_candidate_inventory_sha256"],
+                "R1 acquisition binding."
+                "post_selection_candidate_inventory_sha256",
             ),
-            _sha256(
-                raw["candidate_evidence_digest"],
-                "R1 source selection receipt.candidate_evidence_digest",
+            _exact_int(
+                raw["work_count"],
+                "R1 acquisition binding.work_count",
+                minimum=1,
             ),
-            inventory,
-            works,
-            selected,
-            excluded,
+            _exact_int(
+                raw["author_count"],
+                "R1 acquisition binding.author_count",
+                minimum=1,
+            ),
             recorded,
         )
 
-    def _payload(self) -> dict[str, object]:
-        return {
+    def to_dict(self) -> dict[str, object]:
+        payload = {
             "schema_version": self.schema_version,
             "generation_id": self.generation_id,
-            "source_manifest_sha256": self.source_manifest_sha256,
-            "content_policy_spec_digest": self.content_policy_spec_digest,
-            "source_candidate_inventory_sha256": (
-                self.source_candidate_inventory_sha256
+            "acquisition_manifest_self_hash": (
+                self.acquisition_manifest_self_hash
             ),
-            "candidate_evidence_digest": self.candidate_evidence_digest,
-            "source_raw_inventory": [
-                row.to_dict() for row in self.source_raw_inventory
-            ],
-            "source_works": [row.to_dict() for row in self.source_works],
-            "selected_work_ids": list(self.selected_work_ids),
-            "excluded_work_ids": list(self.excluded_work_ids),
-        }
-
-    def validate_against(
-        self, generation_material: R1GenerationMaterial
-    ) -> "R1SourceSelectionReceipt":
-        if type(self) is not R1SourceSelectionReceipt:
-            raise VNextPacketError(
-                "source selection receipt must be exact"
-            )
-        if type(generation_material) is not R1GenerationMaterial:
-            raise VNextPacketError(
-                "generation material must be exact"
-            )
-        checks = {
-            "generation_id": generation_material.generation_id,
-            "source_manifest_sha256": (
-                generation_material.source_manifest_sha256
+            "acquisition_receipt_self_hash": (
+                self.acquisition_receipt_self_hash
+            ),
+            "selected_audit_file_sha256": (
+                self.selected_audit_file_sha256
+            ),
+            "selected_audit_self_hash": self.selected_audit_self_hash,
+            "raw_inventory_digest": self.raw_inventory_digest,
+            "work_identity_catalog_digest": (
+                self.work_identity_catalog_digest
+            ),
+            "upstream_excluded_work_ids": list(
+                self.upstream_excluded_work_ids
             ),
             "content_policy_spec_digest": (
-                generation_material.content_policy_spec_digest
+                self.content_policy_spec_digest
             ),
-            "candidate_evidence_digest": (
-                generation_material.candidate_evidence_digest
+            "post_selection_candidate_inventory_sha256": (
+                self.post_selection_candidate_inventory_sha256
             ),
-            "selected_work_ids": generation_material.selected_work_ids,
-            "excluded_work_ids": generation_material.excluded_work_ids,
+            "work_count": self.work_count,
+            "author_count": self.author_count,
         }
-        for field, expected in checks.items():
-            if getattr(self, field) != expected:
-                raise VNextPacketError(
-                    f"R1 source selection/generation mismatch for {field}"
-                )
         if (
-            canonical_sha256(
-                [row.to_dict() for row in self.source_raw_inventory]
-            )
-            != generation_material.source_raw_inventory_digest
-            or canonical_sha256(
-                [row.to_dict() for row in self.source_works]
-            )
-            != generation_material.source_work_identity_catalog_digest
-            or canonical_sha256(self._payload()) != self.self_hash
+            type(self) is not R1AcquisitionBinding
+            or canonical_sha256(payload) != self.self_hash
         ):
             raise VNextPacketError(
-                "R1 source selection inventory/generation digest mismatch"
+                "R1 acquisition binding is noncanonical"
             )
-        return self
+        return {**payload, "self_hash": self.self_hash}
 
-    def validate(self) -> "R1SourceSelectionReceipt":
-        rebuilt = type(self).from_dict(
-            {**self._payload(), "self_hash": self.self_hash}
-        )
-        if rebuilt != self:
+    def validate(self) -> "R1AcquisitionBinding":
+        if type(self).from_dict(self.to_dict()) != self:
             raise VNextPacketError(
-                "R1 source selection receipt is noncanonical"
+                "R1 acquisition binding is noncanonical"
             )
         return self
-
-    def to_dict(self) -> dict[str, object]:
-        self.validate()
-        return {**self._payload(), "self_hash": self.self_hash}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -590,9 +417,8 @@ class R1PacketManifest:
     schema_version: str
     status: str
     confirmatory_authorized: bool
-    generation_material: R1GenerationMaterial
+    acquisition_binding: R1AcquisitionBinding
     generation_id: str
-    source_candidate_inventory_sha256: str
     candidate_inventory_sha256: str
     corpus_manifest_sha256: str
     content_component_manifest_sha256: str
@@ -614,8 +440,7 @@ class R1PacketManifest:
     def build(
         cls,
         *,
-        generation_material: R1GenerationMaterial,
-        source_candidate_inventory_sha256: str,
+        acquisition_binding: R1AcquisitionBinding,
         candidate_inventory_sha256: str,
         corpus_manifest_sha256: str,
         content_component_manifest_sha256: str,
@@ -630,9 +455,17 @@ class R1PacketManifest:
         representation_receipt_sha256: str,
         files: Sequence[PacketFileEntry],
     ) -> "R1PacketManifest":
-        if type(generation_material) is not R1GenerationMaterial:
+        if type(acquisition_binding) is not R1AcquisitionBinding:
             raise VNextPacketError(
-                "generation_material must be exactly R1GenerationMaterial"
+                "acquisition_binding must be exactly R1AcquisitionBinding"
+            )
+        acquisition_binding.validate()
+        if (
+            candidate_inventory_sha256
+            != acquisition_binding.post_selection_candidate_inventory_sha256
+        ):
+            raise VNextPacketError(
+                "packet candidate inventory differs from acquisition binding"
             )
         if type(files) not in (list, tuple):
             raise VNextPacketError("packet files must be an exact list or tuple")
@@ -648,11 +481,8 @@ class R1PacketManifest:
             "schema_version": R1_PACKET_MANIFEST_SCHEMA_VERSION,
             "status": R1_PACKET_STATUS,
             "confirmatory_authorized": False,
-            "generation_material": generation_material.to_dict(),
-            "generation_id": generation_material.generation_id,
-            "source_candidate_inventory_sha256": (
-                source_candidate_inventory_sha256
-            ),
+            "acquisition_binding": acquisition_binding.to_dict(),
+            "generation_id": acquisition_binding.generation_id,
             "candidate_inventory_sha256": candidate_inventory_sha256,
             "corpus_manifest_sha256": corpus_manifest_sha256,
             "content_component_manifest_sha256": (
@@ -673,9 +503,7 @@ class R1PacketManifest:
             "representation_receipt_sha256": (
                 representation_receipt_sha256
             ),
-            "selected_work_count": len(
-                generation_material.selected_work_ids
-            ),
+            "selected_work_count": acquisition_binding.work_count,
             "file_inventory_sha256": canonical_sha256(file_dicts),
             "files": file_dicts,
         }
@@ -685,13 +513,20 @@ class R1PacketManifest:
 
     @classmethod
     def from_dict(cls, value: object) -> "R1PacketManifest":
+        if (
+            type(value) is not dict
+            or value.get("schema_version")
+            != R1_PACKET_MANIFEST_SCHEMA_VERSION
+        ):
+            raise VNextPacketError(
+                "R1 packet manifest is legacy or unsupported"
+            )
         keys = {
             "schema_version",
             "status",
             "confirmatory_authorized",
-            "generation_material",
+            "acquisition_binding",
             "generation_id",
-            "source_candidate_inventory_sha256",
             "candidate_inventory_sha256",
             "corpus_manifest_sha256",
             "content_component_manifest_sha256",
@@ -716,10 +551,6 @@ class R1PacketManifest:
         }
         if canonical_sha256(payload) != recorded:
             raise VNextPacketError("R1 packet manifest self_hash mismatch")
-        if raw["schema_version"] != R1_PACKET_MANIFEST_SCHEMA_VERSION:
-            raise VNextPacketError(
-                "R1 packet manifest is legacy or unsupported"
-            )
         if (
             raw["status"] != R1_PACKET_STATUS
             or _exact_bool(
@@ -731,15 +562,15 @@ class R1PacketManifest:
             raise VNextPacketError(
                 "R1 packet manifest is not exploratory/no-fit"
             )
-        material = R1GenerationMaterial.from_dict(
-            raw["generation_material"]
+        binding = R1AcquisitionBinding.from_dict(
+            raw["acquisition_binding"]
         )
         generation_id = _sha256(
             raw["generation_id"], "R1 packet manifest.generation_id"
         )
-        if generation_id != material.generation_id:
+        if generation_id != binding.generation_id:
             raise VNextPacketError(
-                "R1 packet generation_id is not derived from its material"
+                "R1 packet generation_id differs from acquisition"
             )
         files = tuple(
             PacketFileEntry.from_dict(item)
@@ -767,12 +598,11 @@ class R1PacketManifest:
             "R1 packet manifest.selected_work_count",
             minimum=1,
         )
-        if selected_work_count != len(material.selected_work_ids):
+        if selected_work_count != binding.work_count:
             raise VNextPacketError(
                 "R1 packet selected work count mismatch"
             )
         digest_fields = (
-            "source_candidate_inventory_sha256",
             "candidate_inventory_sha256",
             "corpus_manifest_sha256",
             "content_component_manifest_sha256",
@@ -792,11 +622,19 @@ class R1PacketManifest:
             )
             for field in digest_fields
         }
+        if (
+            digests["candidate_inventory_sha256"]
+            != binding.post_selection_candidate_inventory_sha256
+        ):
+            raise VNextPacketError(
+                "R1 packet candidate inventory differs from acquisition "
+                "binding"
+            )
         return cls(
             R1_PACKET_MANIFEST_SCHEMA_VERSION,
             R1_PACKET_STATUS,
             False,
-            material,
+            binding,
             generation_id,
             *(digests[field] for field in digest_fields),
             selected_work_count,
@@ -810,11 +648,8 @@ class R1PacketManifest:
             "schema_version": self.schema_version,
             "status": self.status,
             "confirmatory_authorized": self.confirmatory_authorized,
-            "generation_material": self.generation_material.to_dict(),
+            "acquisition_binding": self.acquisition_binding.to_dict(),
             "generation_id": self.generation_id,
-            "source_candidate_inventory_sha256": (
-                self.source_candidate_inventory_sha256
-            ),
             "candidate_inventory_sha256": (
                 self.candidate_inventory_sha256
             ),
@@ -845,7 +680,7 @@ class R1PacketManifest:
         }
         if (
             type(self) is not R1PacketManifest
-            or self.generation_id != self.generation_material.generation_id
+            or self.generation_id != self.acquisition_binding.generation_id
             or canonical_sha256(payload) != self.self_hash
         ):
             raise VNextPacketError("R1 packet manifest is noncanonical")
@@ -1324,16 +1159,14 @@ def load_canonical_representation_receipt(
 __all__ = [
     "CANONICAL_REPRESENTATION_SCHEMA_VERSION",
     "CANONICAL_ROWS_DIRECTORY",
-    "R1_GENERATION_MATERIAL_SCHEMA_VERSION",
+    "R1_ACQUISITION_BINDING_SCHEMA_VERSION",
     "R1_PACKET_MANIFEST_SCHEMA_VERSION",
     "R1_PACKET_STATUS",
-    "R1_SOURCE_SELECTION_SCHEMA_VERSION",
     "CanonicalRepresentationReceipt",
     "CanonicalRowEntry",
     "PacketFileEntry",
-    "R1GenerationMaterial",
+    "R1AcquisitionBinding",
     "R1PacketManifest",
-    "R1SourceSelectionReceipt",
     "VNextTextRow",
     "VNextPacketError",
     "load_canonical_representation_receipt",
