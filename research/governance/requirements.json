@@ -161,18 +161,32 @@
     },
     {
       "id": "LVN-R1-PACKET-PREFIT-CLOSURE",
-      "description": "The exact acquisition selected-134 R1 packet is path-independent, create-if-absent, acquisition- and byte-bound, and constructed without estimator reachability.",
+      "description": "The exact selected-134 R1 packet v4 separates upstream acquisition, exact corpus and full downstream packet identities; its immutable packet_generation_id root binds every non-packet byte and is constructed without estimator reachability.",
       "code": [
         {"path": "src/stylo/eval/lobo_vnext_prepare.py", "symbol": "prepare_r1_packet"},
         {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1PacketManifest"},
         {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1AcquisitionBinding"},
+        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1CorpusGenerationMaterial"},
+        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1PacketGenerationMaterial"},
         {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "CanonicalRepresentationReceipt"}
       ],
       "tests": [
         "tests/test_lobo_vnext_prepare.py::test_prepare_module_has_no_estimator_factory_fit_or_runner_reachability",
         "tests/test_lobo_vnext_prepare.py::test_acquisition_selected_134_is_exact_and_exclusions_are_upstream_only",
+        "tests/test_lobo_vnext_prepare.py::test_exact_catalog_digest_drift_stops_before_screen_and_nlp[raw-inventory]",
+        "tests/test_lobo_vnext_prepare.py::test_exact_catalog_digest_drift_stops_before_screen_and_nlp[work-identity]",
         "tests/test_lobo_vnext_prepare.py::test_candidate_screen_blocks_before_nlp",
         "tests/test_lobo_vnext_prepare.py::test_packet_trees_are_byte_identical_and_target_is_no_clobber",
+        "tests/test_lobo_vnext_prepare.py::test_work_identity_derivation_changes_corpus_and_packet_namespaces",
+        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[content-policy]",
+        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[nlp]",
+        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[clean]",
+        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[chunk]",
+        "tests/test_lobo_vnext_prepare.py::test_model_or_inference_change_only_rotates_packet_namespace[model]",
+        "tests/test_lobo_vnext_prepare.py::test_model_or_inference_change_only_rotates_packet_namespace[inference]",
+        "tests/test_lobo_vnext_packet.py::test_packet_v4_has_three_unambiguous_identities_and_exact_material",
+        "tests/test_lobo_vnext_packet.py::test_packet_v2_and_v3_schemas_are_explicitly_rejected_as_legacy[v2]",
+        "tests/test_lobo_vnext_packet.py::test_packet_v2_and_v3_schemas_are_explicitly_rejected_as_legacy[v3]",
         "tests/test_lobo_vnext_packet.py::test_raw_byte_mutation_requires_a_new_corpus_and_receipt_namespace",
         "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[missing]",
         "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[extra]",
@@ -182,7 +196,7 @@
     },
     {
       "id": "LVN-REAL-CONTROL-PLANE",
-      "description": "The real control plane reloads the complete strict packet and independently derives every execution receipt before rows, cache, factory, or fit.",
+      "description": "The real control plane recomputes the strict v4 packet material, requires basename=packet_generation_id, verifies every non-packet byte and exact acquisition/corpus pins, and independently derives every execution receipt before rows, cache, factory, or fit.",
       "code": [
         {"path": "src/stylo/eval/lobo_vnext_control.py", "symbol": "load_prepared_r1_packet"},
         {"path": "src/stylo/eval/lobo_vnext_control.py", "symbol": "assemble_real_execution_spec"},
@@ -193,6 +207,11 @@
         "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[extra]",
         "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[raw]",
         "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[canonical]",
+        "tests/test_lobo_vnext_control.py::test_loader_rejects_packet_root_basename_tamper",
+        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v2]",
+        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v3]",
+        "tests/test_lobo_vnext_control.py::test_exact_corpus_pin_drift_stops_before_nlp_or_live_identity[R1_RAW_INVENTORY_DIGEST]",
+        "tests/test_lobo_vnext_control.py::test_exact_corpus_pin_drift_stops_before_nlp_or_live_identity[R1_WORK_IDENTITY_CATALOG_DIGEST]",
         "tests/test_lobo_vnext_control.py::test_execution_assembly_binds_packet_selection_and_exact_15_receipts",
         "tests/test_lobo_vnext_control.py::test_dirty_or_drifted_executable_source_stops_before_other_live_receipts"
       ]

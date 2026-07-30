@@ -4,7 +4,7 @@ import copy
 import hashlib
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +33,7 @@ from stylo.domain.lobo_vnext_packet import (
     CanonicalRowEntry,
     PacketFileEntry,
     R1AcquisitionBinding,
+    R1CorpusGenerationMaterial,
     R1PacketManifest,
 )
 from stylo.domain.lobo_vnext_policy import (
@@ -225,7 +226,7 @@ def _harness(tmp_path: Path) -> Harness:
         )
     policy = _content_policy()
     raw_inventory = inventory_raw_files(raw_root)
-    generation_id = _digest("acquisition-generation")
+    acquisition_generation_id = _digest("acquisition-generation")
     content = ContentComponentManifest.build(
         automatic_candidate_policy_version=(
             LITERAL_BYTES_AUTOMATIC_CANDIDATE_POLICY_VERSION
@@ -270,10 +271,34 @@ def _harness(tmp_path: Path) -> Harness:
     model_row_digest = canonical_sha256(
         [entry.to_dict() for entry in entries]
     )
+    acquisition_binding = R1AcquisitionBinding.build(
+        acquisition_generation_id=acquisition_generation_id,
+        acquisition_manifest_self_hash=_digest("acquisition-manifest"),
+        acquisition_receipt_self_hash=_digest("acquisition-receipt"),
+        selected_audit_file_sha256=_digest("selected-audit-file"),
+        selected_audit_self_hash=_digest("selected-audit-self"),
+        raw_inventory_digest=canonical_sha256(
+            [entry.to_dict() for entry in raw_inventory]
+        ),
+        work_identity_catalog_digest=canonical_sha256(
+            [work.to_dict() for work in works]
+        ),
+        upstream_excluded_work_ids=(
+            "serafimovich/у_нас_и_у_них",
+            "sevsky/дон_на_костылях",
+            "turgenev/записки_охотника",
+        ),
+        content_policy_spec_digest=policy.self_hash,
+        work_count=len(works),
+        author_count=len({work.author_id for work in works}),
+    )
+    corpus_generation_material = R1CorpusGenerationMaterial.build(
+        acquisition_binding_self_hash=acquisition_binding.self_hash
+    )
     corpus = build_corpus_vnext_manifest(
         raw_root,
         corpus_kind="real_corpus",
-        generation_id=generation_id,
+        generation_id=corpus_generation_material.self_hash,
         approved_for_exploratory=True,
         owner_selected=True,
         author_ids=("a", "b"),
@@ -338,30 +363,10 @@ def _harness(tmp_path: Path) -> Harness:
         inference_spec_digest=inference.self_hash,
         model_role_manifest=roles,
     )
-    acquisition_binding = R1AcquisitionBinding.build(
-        generation_id=generation_id,
-        acquisition_manifest_self_hash=_digest("acquisition-manifest"),
-        acquisition_receipt_self_hash=_digest("acquisition-receipt"),
-        selected_audit_file_sha256=_digest("selected-audit-file"),
-        selected_audit_self_hash=_digest("selected-audit-self"),
-        raw_inventory_digest=canonical_sha256(
-            [entry.to_dict() for entry in raw_inventory]
-        ),
-        work_identity_catalog_digest=canonical_sha256(
-            [work.to_dict() for work in works]
-        ),
-        upstream_excluded_work_ids=(
-            "serafimovich/у_нас_и_у_них",
-            "sevsky/дон_на_костылях",
-            "turgenev/записки_охотника",
-        ),
-        content_policy_spec_digest=policy.self_hash,
-        post_selection_candidate_inventory_sha256=candidates.self_hash,
-        work_count=len(works),
-        author_count=len({work.author_id for work in works}),
-    )
     packet_manifest = R1PacketManifest.build(
         acquisition_binding=acquisition_binding,
+        corpus_generation_material=corpus_generation_material,
+        content_policy_spec_sha256=policy.self_hash,
         candidate_inventory_sha256=candidates.self_hash,
         corpus_manifest_sha256=corpus.self_hash,
         content_component_manifest_sha256=content.self_hash,
@@ -382,6 +387,11 @@ def _harness(tmp_path: Path) -> Harness:
             ),
         ),
     )
+    final_packet_root = packet_root.with_name(
+        packet_manifest.packet_generation_id
+    )
+    packet_root.rename(final_packet_root)
+    packet_root = final_packet_root
     config_obs, primary_obs, baseline_obs = (
         derive_config_and_adapter_observations(
             cfg=cfg,
@@ -441,7 +451,7 @@ def _harness(tmp_path: Path) -> Harness:
         bindings=bindings,
         independent_receipts=build_independent_receipts(observations),
         output_namespace=OutputNamespaceContract.build(
-            namespace_id="test-r1"
+            namespace_id=packet_manifest.packet_generation_id
         ),
     )
     owner = build_owner_decision_record(
@@ -552,10 +562,11 @@ def _run(
     *,
     n_jobs: int,
     calls: list,
+    packet_root: Path | None = None,
     **kwargs,
 ):
     return real.run_lobo_vnext_real(
-        packet_root=harness.packet_root,
+        packet_root=packet_root or harness.packet_root,
         packet_manifest=harness.packet_manifest,
         corpus_manifest=harness.corpus,
         content_policy_spec=harness.policy,
@@ -645,16 +656,16 @@ def test_serial_parallel_resume_are_byte_identical_and_paired(tmp_path):
 
     assert serial.run_id == parallel.run_id == resumed.run_id
     assert serial.run_id == (
-        "8c74fe68dc5e3277fafa5b292700148f3"
-        "6211d416ea5e3e1efcad4a14a3b8459"
+        "725bdaf2b9a40fe316fcade970b408835"
+        "79c506bba823fcb1e87c27525d517c6"
     )
     assert serial.artifact["self_hash"] == (
-        "8b76c336513af3af0d5c9ea0518bc831"
-        "f4392a27e28ef8a0d4f49b67d77ae6e5"
+        "6032be8fcc005d9aadcce68b45edce7d"
+        "eb010edfc0c9aa36b0f4aae2b65b3c2d"
     )
     assert hashlib.sha256(serial.artifact_path.read_bytes()).hexdigest() == (
-        "09d3d4b0c7d0030a74700d1e2783ae58"
-        "b665ae18ced7e00ade60306ecce47091"
+        "b4c41a84e45d3a34658512e03e7a04e3"
+        "003e529fceac17dfbae65d1ee7717dc7"
     )
     assert serial.artifact == parallel.artifact == resumed.artifact
     assert serial_map == parallel_before_resume == parallel_after_resume
@@ -762,6 +773,90 @@ def test_authorization_binding_blocks_before_rows_factory_fit_and_output(
             _test_factory_map=factories,
         )
     assert calls == {"rows": 0, "factory": 0}
+    assert not output.exists()
+
+
+def test_packet_output_namespace_binding_blocks_before_rows_factory_or_output(
+    tmp_path,
+):
+    harness = _harness(tmp_path / "fixture")
+    execution = RealCorpusExecutionSpec.build(
+        bindings=harness.execution.bindings,
+        independent_receipts=harness.execution.independent_receipts,
+        output_namespace=OutputNamespaceContract.build(
+            namespace_id=harness.packet_manifest.corpus_generation_id
+        ),
+    )
+    owner = build_owner_decision_record(
+        decision_id="test-r1-detached-namespace",
+        decision_revision=1,
+        decision_date="2026-07-27",
+        bindings=DecisionBindings(
+            corpus_manifest_digest=harness.corpus.self_hash,
+            content_component_manifest_digest=harness.content.self_hash,
+            policy_manifest_digest=harness.policy.self_hash,
+            fold_manifest_digest=harness.folds.self_hash,
+            campaign_manifest_digest=harness.campaign.self_hash,
+            model_role_manifest_digest=harness.roles.self_hash,
+            inference_spec_digest=harness.inference.self_hash,
+            execution_spec_digest=execution.self_hash,
+        ),
+        reviewed_evidence=(
+            ReviewedEvidence(
+                "test/evidence.json", _digest("reviewed-evidence")
+            ),
+        ),
+        affected_contract_versions=("stylo.test-r1.v1",),
+    )
+    detached = replace(harness, execution=execution, owner=owner)
+    output = _output(tmp_path / "blocked")
+    row_calls = 0
+
+    def loader(*_args):
+        nonlocal row_calls
+        row_calls += 1
+        raise AssertionError("row loader must not run")
+
+    with pytest.raises(
+        real.RealVNextPreflightError,
+        match="output namespace",
+    ):
+        _run(
+            detached,
+            output,
+            n_jobs=1,
+            calls=[],
+            representation_loader=loader,
+        )
+    assert row_calls == 0
+    assert not output.exists()
+
+
+def test_packet_basename_binding_blocks_before_rows_factory_or_output(
+    tmp_path,
+):
+    harness = _harness(tmp_path / "fixture")
+    output = _output(tmp_path / "blocked")
+    row_calls = 0
+
+    def loader(*_args):
+        nonlocal row_calls
+        row_calls += 1
+        raise AssertionError("row loader must not run")
+
+    with pytest.raises(
+        real.RealVNextPreflightError,
+        match="packet root basename",
+    ):
+        _run(
+            harness,
+            output,
+            n_jobs=1,
+            calls=[],
+            packet_root=tmp_path / ("0" * 64),
+            representation_loader=loader,
+        )
+    assert row_calls == 0
     assert not output.exists()
 
 

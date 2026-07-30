@@ -116,7 +116,11 @@ def run(argv: Sequence[str] | None = None) -> Mapping[str, Any]:
         raise R1PreparationCLIError(f"R1 packet rejected: {exc}") from exc
     return {
         "status": "owner_selected_exploratory_packet_prepared_no_fit",
-        "generation_id": packet.corpus_manifest.generation_id,
+        "acquisition_generation_id": (
+            packet.acquisition_binding.acquisition_generation_id
+        ),
+        "corpus_generation_id": packet.packet_manifest.corpus_generation_id,
+        "packet_generation_id": packet.packet_manifest.packet_generation_id,
         "packet_self_hash": packet.packet_manifest.self_hash,
         "corpus_manifest_sha256": packet.corpus_manifest.self_hash,
         "acquisition_binding_sha256": (

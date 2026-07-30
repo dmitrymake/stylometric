@@ -72,10 +72,12 @@ from .lobo_vnext_prepare import (
     R1_MIN_WORDS,
     R1_OVERLAP,
     R1_PACKET_SCHEMA_VERSION,
+    R1_RAW_INVENTORY_DIGEST,
     R1_SELECTED_AUDIT_FILE_SHA256,
     R1_SELECTED_AUDIT_SELF_HASH,
     R1_UPSTREAM_EXCLUDED_WORK_IDS,
     R1_WORK_COUNT,
+    R1_WORK_IDENTITY_CATALOG_DIGEST,
     build_r1_content_policy,
 )
 from .lobo_vnext_receipts import (
@@ -268,7 +270,8 @@ def _parse_packet_manifest(value: object) -> R1PacketManifest:
     if (
         manifest.schema_version != R1_PACKET_SCHEMA_VERSION
         or manifest.selected_work_count != R1_WORK_COUNT
-        or manifest.generation_id != R1_ACQUISITION_GENERATION_ID
+        or manifest.acquisition_binding.acquisition_generation_id
+        != R1_ACQUISITION_GENERATION_ID
         or manifest.acquisition_binding.acquisition_manifest_self_hash
         != R1_ACQUISITION_MANIFEST_SELF_HASH
         or manifest.acquisition_binding.acquisition_receipt_self_hash
@@ -277,10 +280,15 @@ def _parse_packet_manifest(value: object) -> R1PacketManifest:
         != R1_SELECTED_AUDIT_FILE_SHA256
         or manifest.acquisition_binding.selected_audit_self_hash
         != R1_SELECTED_AUDIT_SELF_HASH
+        or manifest.acquisition_binding.raw_inventory_digest
+        != R1_RAW_INVENTORY_DIGEST
+        or manifest.acquisition_binding.work_identity_catalog_digest
+        != R1_WORK_IDENTITY_CATALOG_DIGEST
         or manifest.acquisition_binding.upstream_excluded_work_ids
         != R1_UPSTREAM_EXCLUDED_WORK_IDS
         or manifest.acquisition_binding.work_count != R1_WORK_COUNT
         or manifest.acquisition_binding.author_count != R1_AUTHOR_COUNT
+        or manifest.confirmatory_authorized is not False
     ):
         raise RealControlPlaneError(
             "R1 packet manifest differs from selected-134 acquisition"
@@ -524,6 +532,7 @@ def _load_artifacts(
     }
     loaded: dict[str, object] = {}
     expected_hashes = {
+        "content_policy": packet_manifest.content_policy_spec_sha256,
         "candidate_inventory": packet_manifest.candidate_inventory_sha256,
         "corpus_manifest": packet_manifest.corpus_manifest_sha256,
         "content_manifest": (
@@ -554,13 +563,7 @@ def _load_artifacts(
                 f"invalid R1 artifact {name}: {exc}"
             ) from exc
         observed_hash = getattr(loaded[name], "self_hash", None)
-        if name == "content_policy":
-            expected_hash = (
-                packet_manifest.acquisition_binding
-                .content_policy_spec_digest
-            )
-        else:
-            expected_hash = expected_hashes[name]
+        expected_hash = expected_hashes[name]
         if observed_hash != expected_hash:
             raise RealControlPlaneError(
                 f"R1 artifact {name} digest differs from packet manifest"
@@ -744,14 +747,16 @@ def _validate_cross_bindings(
     candidates.validate(content_policy_spec=policy)
     candidates.assert_resolved_for_component_manifest()
     binding = packet_manifest.acquisition_binding
-    generation_id = packet_manifest.generation_id
+    acquisition_generation_id = binding.acquisition_generation_id
+    corpus_generation_id = packet_manifest.corpus_generation_id
+    packet_generation_id = packet_manifest.packet_generation_id
     if (
-        root.name != generation_id
-        or corpus.generation_id != generation_id
-        or candidates.generation_id != generation_id
-        or representation.generation_id != generation_id
-        or acquisition_manifest.generation_id != generation_id
-        or acquisition_receipt.generation_id != generation_id
+        root.name != packet_generation_id
+        or corpus.generation_id != corpus_generation_id
+        or candidates.generation_id != corpus_generation_id
+        or representation.generation_id != corpus_generation_id
+        or acquisition_manifest.generation_id != acquisition_generation_id
+        or acquisition_receipt.generation_id != acquisition_generation_id
     ):
         raise RealControlPlaneError(
             "R1 packet generation id differs across path/manifests"
@@ -811,11 +816,9 @@ def _validate_cross_bindings(
         or candidates.work_identity_catalog_digest
         != binding.work_identity_catalog_digest
         or binding.content_policy_spec_digest != policy.self_hash
-        or binding.post_selection_candidate_inventory_sha256
-        != candidates.self_hash
     ):
         raise RealControlPlaneError(
-            "R1 acquisition raw/work/candidate binding differs"
+            "R1 acquisition raw/work/policy binding differs"
         )
     selected_ids = tuple(work.work_id for work in corpus.works)
     if (
@@ -1011,6 +1014,9 @@ def load_prepared_r1_packet(
         root=root,
         packet_manifest=packet_manifest,
         acquisition_binding=packet_manifest.acquisition_binding,
+        corpus_generation_material=(
+            packet_manifest.corpus_generation_material
+        ),
         content_policy=artifacts["content_policy"],
         candidate_inventory=artifacts["candidate_inventory"],
         corpus_manifest=artifacts["corpus_manifest"],
@@ -1174,13 +1180,28 @@ def assemble_real_execution_spec(
         campaign_manifest_digest=packet.campaign_manifest.self_hash,
         config_digest=config.digest,
     )
+    output_namespace = OutputNamespaceContract.build(
+        namespace_id=packet.packet_manifest.packet_generation_id
+    )
     execution = RealCorpusExecutionSpec.build(
         bindings=bindings,
         independent_receipts=build_independent_receipts(observations),
-        output_namespace=OutputNamespaceContract.build(
-            namespace_id=packet.campaign_manifest.campaign_id
-        ),
+        output_namespace=output_namespace,
     )
+    if (
+        execution.output_namespace.namespace_id
+        != packet.packet_manifest.packet_generation_id
+        or execution.confirmatory_execution_authorized is not False
+        or execution.public_evidence_update_authorized is not False
+        or execution.headline_update_authorized is not False
+        or execution.frozen_evidence_mutation_authorized is not False
+        or output_namespace.public_evidence_update_authorized is not False
+        or output_namespace.frozen_evidence_mutation_authorized is not False
+        or output_namespace.confirmatory_output_authorized is not False
+    ):
+        raise RealControlPlaneError(
+            "R1 execution/output namespace safety identity drifted"
+        )
     execution.assert_campaign(
         campaign_manifest=packet.campaign_manifest,
         model_role_manifest=packet.model_role_manifest,

@@ -18,8 +18,12 @@ from stylo.domain.lobo_vnext_packet import (
     CanonicalRowEntry,
     PacketFileEntry,
     R1AcquisitionBinding,
+    R1CorpusGenerationMaterial,
+    R1PacketGenerationMaterial,
     R1PacketManifest,
     R1_ACQUISITION_BINDING_SCHEMA_VERSION,
+    R1_CORPUS_GENERATION_MATERIAL_SCHEMA_VERSION,
+    R1_PACKET_GENERATION_MATERIAL_SCHEMA_VERSION,
     R1_PACKET_MANIFEST_SCHEMA_VERSION,
     VNextPacketError,
     load_canonical_representation_rows,
@@ -141,44 +145,77 @@ def _digest(label: str) -> str:
     return canonical_sha256({"label": label})
 
 
-def _acquisition_binding() -> R1AcquisitionBinding:
+def _acquisition_binding(
+    *,
+    acquisition_generation_id: str | None = None,
+    raw_inventory_digest: str | None = None,
+    work_identity_catalog_digest: str | None = None,
+    content_policy_spec_digest: str | None = None,
+) -> R1AcquisitionBinding:
     return R1AcquisitionBinding.build(
-        generation_id=_digest("acquisition-generation"),
+        acquisition_generation_id=(
+            acquisition_generation_id or _digest("acquisition-generation")
+        ),
         acquisition_manifest_self_hash=_digest("acquisition-manifest"),
         acquisition_receipt_self_hash=_digest("acquisition-receipt"),
         selected_audit_file_sha256=_digest("selected-audit-file"),
         selected_audit_self_hash=_digest("selected-audit-self"),
-        raw_inventory_digest=_digest("raw-inventory"),
-        work_identity_catalog_digest=_digest("work-identities"),
+        raw_inventory_digest=(
+            raw_inventory_digest or _digest("raw-inventory")
+        ),
+        work_identity_catalog_digest=(
+            work_identity_catalog_digest or _digest("work-identities")
+        ),
         upstream_excluded_work_ids=_UPSTREAM_EXCLUSIONS,
-        content_policy_spec_digest=_digest("content-policy"),
-        post_selection_candidate_inventory_sha256=_digest(
-            "candidate-inventory"
+        content_policy_spec_digest=(
+            content_policy_spec_digest or _digest("content-policy")
         ),
         work_count=134,
         author_count=22,
     )
 
 
-def _r1_packet_manifest() -> R1PacketManifest:
-    binding = _acquisition_binding()
+def _corpus_generation_material(
+    binding: R1AcquisitionBinding,
+) -> R1CorpusGenerationMaterial:
+    return R1CorpusGenerationMaterial.build(
+        acquisition_binding_self_hash=binding.self_hash
+    )
+
+
+def _r1_packet_manifest(
+    *,
+    binding: R1AcquisitionBinding | None = None,
+    candidate_inventory_sha256: str | None = None,
+    primary_model_spec_sha256: str | None = None,
+    inference_spec_sha256: str | None = None,
+    files: tuple[PacketFileEntry, ...] | None = None,
+) -> R1PacketManifest:
+    binding = binding or _acquisition_binding()
+    corpus_material = _corpus_generation_material(binding)
     return R1PacketManifest.build(
         acquisition_binding=binding,
+        corpus_generation_material=corpus_material,
+        content_policy_spec_sha256=binding.content_policy_spec_digest,
         candidate_inventory_sha256=(
-            binding.post_selection_candidate_inventory_sha256
+            candidate_inventory_sha256 or _digest("candidate-inventory")
         ),
         corpus_manifest_sha256=_digest("corpus"),
         content_component_manifest_sha256=_digest("content-components"),
         fold_manifest_sha256=_digest("folds"),
-        primary_model_spec_sha256=_digest("primary-model"),
+        primary_model_spec_sha256=(
+            primary_model_spec_sha256 or _digest("primary-model")
+        ),
         baseline_model_spec_sha256=_digest("baseline-model"),
-        inference_spec_sha256=_digest("inference"),
+        inference_spec_sha256=(
+            inference_spec_sha256 or _digest("inference")
+        ),
         primary_inner_cv_plan_sha256=_digest("primary-inner"),
         baseline_inner_cv_plan_sha256=_digest("baseline-inner"),
         model_role_manifest_sha256=_digest("model-roles"),
         campaign_manifest_sha256=_digest("campaign"),
         representation_receipt_sha256=_digest("representation"),
-        files=(
+        files=files or (
             PacketFileEntry(
                 "manifests/acquisition-manifest.json",
                 1,
@@ -190,15 +227,18 @@ def _r1_packet_manifest() -> R1PacketManifest:
 
 def test_acquisition_binding_is_strict_self_hashed_selected_134_contract():
     binding = _acquisition_binding()
+    wire = binding.to_dict()
 
     assert binding.schema_version == R1_ACQUISITION_BINDING_SCHEMA_VERSION
+    assert binding.schema_version.endswith(".v2")
+    assert binding.acquisition_generation_id == _digest(
+        "acquisition-generation"
+    )
     assert binding.work_count == 134
     assert binding.author_count == 22
     assert binding.upstream_excluded_work_ids == _UPSTREAM_EXCLUSIONS
-    assert (
-        binding.post_selection_candidate_inventory_sha256
-        == _digest("candidate-inventory")
-    )
+    assert "generation_id" not in wire
+    assert "post_selection_candidate_inventory_sha256" not in wire
     assert R1AcquisitionBinding.from_dict(binding.to_dict()) == binding
     assert binding.validate() is binding
 
@@ -208,7 +248,7 @@ def test_acquisition_binding_rejects_schema_shape_hash_and_count_drift():
 
     legacy = json.loads(json.dumps(base))
     legacy["schema_version"] = (
-        "stylo.lobo-vnext.ruaa-r1-acquisition-binding.v0"
+        "stylo.lobo-vnext.ruaa-r1-acquisition-binding.v1"
     )
     _rehash(legacy)
     with pytest.raises(VNextPacketError, match="legacy or unsupported"):
@@ -238,76 +278,231 @@ def test_acquisition_binding_rejects_schema_shape_hash_and_count_drift():
         R1AcquisitionBinding.from_dict(bool_count)
 
 
-def test_packet_v3_binds_acquisition_and_post_selection_inventory():
+def test_corpus_generation_material_is_versioned_self_hash_and_drift_sensitive():
+    binding = _acquisition_binding()
+    material = _corpus_generation_material(binding)
+
+    assert (
+        material.schema_version
+        == R1_CORPUS_GENERATION_MATERIAL_SCHEMA_VERSION
+    )
+    assert material.acquisition_binding_self_hash == binding.self_hash
+    assert material.corpus_generation_id == material.self_hash
+    assert material.self_hash == canonical_sha256(
+        {
+            "schema_version": (
+                R1_CORPUS_GENERATION_MATERIAL_SCHEMA_VERSION
+            ),
+            "acquisition_binding_self_hash": binding.self_hash,
+        }
+    )
+    assert R1CorpusGenerationMaterial.from_dict(material.to_dict()) == material
+    assert material.validate() is material
+
+    changed_bindings = (
+        _acquisition_binding(
+            raw_inventory_digest=_digest("changed-raw-inventory")
+        ),
+        _acquisition_binding(
+            work_identity_catalog_digest=_digest("changed-work-identities")
+        ),
+        _acquisition_binding(
+            content_policy_spec_digest=_digest("changed-content-policy")
+        ),
+    )
+    assert all(
+        _corpus_generation_material(changed).self_hash != material.self_hash
+        for changed in changed_bindings
+    )
+
+
+def test_corpus_generation_material_rejects_schema_shape_and_hash_drift():
+    base = _corpus_generation_material(_acquisition_binding()).to_dict()
+
+    legacy = json.loads(json.dumps(base))
+    legacy["schema_version"] = (
+        "stylo.lobo-vnext.ruaa-r1-corpus-generation-material.v0"
+    )
+    _rehash(legacy)
+    with pytest.raises(VNextPacketError, match="legacy or unsupported"):
+        R1CorpusGenerationMaterial.from_dict(legacy)
+
+    extra = json.loads(json.dumps(base))
+    extra["candidate_inventory_sha256"] = _digest("candidate-inventory")
+    _rehash(extra)
+    with pytest.raises(VNextPacketError, match="keys must be exact"):
+        R1CorpusGenerationMaterial.from_dict(extra)
+
+    tampered = json.loads(json.dumps(base))
+    tampered["acquisition_binding_self_hash"] = "0" * 64
+    with pytest.raises(VNextPacketError, match="self_hash mismatch"):
+        R1CorpusGenerationMaterial.from_dict(tampered)
+
+
+def test_packet_v4_has_three_unambiguous_identities_and_exact_material():
     packet = _r1_packet_manifest()
+    wire = packet.to_dict()
 
     assert packet.schema_version == R1_PACKET_MANIFEST_SCHEMA_VERSION
-    assert packet.schema_version.endswith(".v3")
-    assert packet.generation_id == packet.acquisition_binding.generation_id
-    assert packet.selected_work_count == 134
-    assert packet.confirmatory_authorized is False
-    bound_candidates = (
-        packet.acquisition_binding.post_selection_candidate_inventory_sha256
+    assert packet.schema_version.endswith(".v4")
+    assert packet.acquisition_generation_id == (
+        packet.acquisition_binding.acquisition_generation_id
+    )
+    assert packet.corpus_generation_id == (
+        packet.corpus_generation_material.self_hash
+    )
+    assert packet.packet_generation_id == canonical_sha256(
+        packet.packet_generation_material.to_dict()
     )
     assert (
-        packet.candidate_inventory_sha256
-        == bound_candidates
+        packet.packet_generation_material.schema_version
+        == R1_PACKET_GENERATION_MATERIAL_SCHEMA_VERSION
+    )
+    assert (
+        packet.packet_generation_material.packet_schema_version
+        == R1_PACKET_MANIFEST_SCHEMA_VERSION
+    )
+    assert (
+        packet.packet_generation_material.acquisition_binding_self_hash
+        == packet.acquisition_binding.self_hash
+    )
+    assert (
+        packet.packet_generation_material.content_policy_spec_sha256
+        == packet.acquisition_binding.content_policy_spec_digest
+    )
+    assert packet.selected_work_count == 134
+    assert packet.confirmatory_authorized is False
+    assert "generation_id" not in wire
+    assert "file_inventory_sha256" not in wire
+    assert (
+        "candidate_inventory_sha256"
+        not in packet.acquisition_binding.to_dict()
+    )
+    assert (
+        R1PacketGenerationMaterial.from_dict(
+            packet.packet_generation_material.to_dict()
+        )
+        == packet.packet_generation_material
     )
     assert R1PacketManifest.from_dict(packet.to_dict()) == packet
     assert packet.validate() is packet
 
-    with pytest.raises(
-        VNextPacketError,
-        match="candidate inventory differs from acquisition binding",
-    ):
-        R1PacketManifest.build(
-            acquisition_binding=packet.acquisition_binding,
-            candidate_inventory_sha256=_digest("wrong-candidates"),
-            corpus_manifest_sha256=packet.corpus_manifest_sha256,
-            content_component_manifest_sha256=(
-                packet.content_component_manifest_sha256
+
+def test_packet_generation_material_rejects_schema_shape_and_digest_drift():
+    base = _r1_packet_manifest().packet_generation_material.to_dict()
+
+    legacy = json.loads(json.dumps(base))
+    legacy["schema_version"] = (
+        "stylo.lobo-vnext.ruaa-r1-packet-generation-material.v0"
+    )
+    with pytest.raises(VNextPacketError, match="legacy or unsupported"):
+        R1PacketGenerationMaterial.from_dict(legacy)
+
+    packet_v3 = json.loads(json.dumps(base))
+    packet_v3["packet_schema_version"] = (
+        "stylo.lobo-vnext.ruaa-r1-packet.v3"
+    )
+    with pytest.raises(VNextPacketError, match="packet schema is unsupported"):
+        R1PacketGenerationMaterial.from_dict(packet_v3)
+
+    extra = json.loads(json.dumps(base))
+    extra["self_hash"] = _digest("forbidden-self-hash")
+    with pytest.raises(VNextPacketError, match="keys must be exact"):
+        R1PacketGenerationMaterial.from_dict(extra)
+
+    malformed = json.loads(json.dumps(base))
+    malformed["candidate_inventory_sha256"] = "not-a-digest"
+    with pytest.raises(VNextPacketError, match="64 lowercase hex"):
+        R1PacketGenerationMaterial.from_dict(malformed)
+
+
+@pytest.mark.parametrize(
+    ("argument", "changed_digest"),
+    (
+        ("candidate_inventory_sha256", _digest("changed-candidates")),
+        ("primary_model_spec_sha256", _digest("changed-primary-model")),
+        ("inference_spec_sha256", _digest("changed-inference")),
+    ),
+)
+def test_downstream_digest_changes_only_packet_generation(
+    argument,
+    changed_digest,
+):
+    first = _r1_packet_manifest()
+    second = _r1_packet_manifest(**{argument: changed_digest})
+
+    assert (
+        first.acquisition_binding.acquisition_generation_id
+        == second.acquisition_binding.acquisition_generation_id
+    )
+    assert first.corpus_generation_id == second.corpus_generation_id
+    assert first.packet_generation_id != second.packet_generation_id
+    assert first.self_hash != second.self_hash
+
+
+def test_file_inventory_changes_packet_generation_but_not_corpus_generation():
+    first = _r1_packet_manifest()
+    second = _r1_packet_manifest(
+        files=(
+            PacketFileEntry(
+                "manifests/acquisition-manifest.json",
+                2,
+                _digest("changed-acquisition-manifest-file"),
             ),
-            fold_manifest_sha256=packet.fold_manifest_sha256,
-            primary_model_spec_sha256=packet.primary_model_spec_sha256,
-            baseline_model_spec_sha256=packet.baseline_model_spec_sha256,
-            inference_spec_sha256=packet.inference_spec_sha256,
-            primary_inner_cv_plan_sha256=(
-                packet.primary_inner_cv_plan_sha256
-            ),
-            baseline_inner_cv_plan_sha256=(
-                packet.baseline_inner_cv_plan_sha256
-            ),
-            model_role_manifest_sha256=(
-                packet.model_role_manifest_sha256
-            ),
-            campaign_manifest_sha256=packet.campaign_manifest_sha256,
-            representation_receipt_sha256=(
-                packet.representation_receipt_sha256
-            ),
-            files=packet.files,
         )
+    )
+
+    assert first.corpus_generation_id == second.corpus_generation_id
+    assert first.file_inventory_sha256 != second.file_inventory_sha256
+    assert first.packet_generation_id != second.packet_generation_id
 
 
-def test_packet_v3_rejects_rehashed_cross_binding_and_shape_drift():
+def test_packet_v4_rejects_rehashed_cross_binding_and_shape_drift():
     base = _r1_packet_manifest().to_dict()
 
-    generation = json.loads(json.dumps(base))
-    generation["generation_id"] = "0" * 64
-    _rehash(generation)
-    with pytest.raises(
-        VNextPacketError,
-        match="generation_id differs from acquisition",
-    ):
-        R1PacketManifest.from_dict(generation)
+    tampered = json.loads(json.dumps(base))
+    tampered["packet_generation_id"] = "0" * 64
+    with pytest.raises(VNextPacketError, match="self_hash mismatch"):
+        R1PacketManifest.from_dict(tampered)
 
-    candidates = json.loads(json.dumps(base))
-    candidates["candidate_inventory_sha256"] = "0" * 64
-    _rehash(candidates)
+    corpus = json.loads(json.dumps(base))
+    corpus["corpus_generation_id"] = "0" * 64
+    _rehash(corpus)
     with pytest.raises(
         VNextPacketError,
-        match="candidate inventory differs from acquisition binding",
+        match="corpus_generation_id differs from material",
     ):
-        R1PacketManifest.from_dict(candidates)
+        R1PacketManifest.from_dict(corpus)
+
+    corpus_binding = json.loads(json.dumps(base))
+    corpus_material = corpus_binding["corpus_generation_material"]
+    corpus_material["acquisition_binding_self_hash"] = "0" * 64
+    _rehash(corpus_material)
+    _rehash(corpus_binding)
+    with pytest.raises(
+        VNextPacketError,
+        match="corpus generation material differs from acquisition binding",
+    ):
+        R1PacketManifest.from_dict(corpus_binding)
+
+    content_policy = json.loads(json.dumps(base))
+    packet_material = content_policy["packet_generation_material"]
+    packet_material["content_policy_spec_sha256"] = "0" * 64
+    content_policy["packet_generation_id"] = canonical_sha256(packet_material)
+    _rehash(content_policy)
+    with pytest.raises(
+        VNextPacketError,
+        match="content policy differs from acquisition binding",
+    ):
+        R1PacketManifest.from_dict(content_policy)
+
+    inventory = json.loads(json.dumps(base))
+    packet_material = inventory["packet_generation_material"]
+    packet_material["file_inventory_sha256"] = "0" * 64
+    inventory["packet_generation_id"] = canonical_sha256(packet_material)
+    _rehash(inventory)
+    with pytest.raises(VNextPacketError, match="file inventory digest mismatch"):
+        R1PacketManifest.from_dict(inventory)
 
     count = json.loads(json.dumps(base))
     count["selected_work_count"] = 133
@@ -322,10 +517,15 @@ def test_packet_v3_rejects_rehashed_cross_binding_and_shape_drift():
         R1PacketManifest.from_dict(extra)
 
 
-def test_packet_v2_schema_is_explicitly_rejected_as_legacy():
+@pytest.mark.parametrize("legacy_version", ("v2", "v3"))
+def test_packet_v2_and_v3_schemas_are_explicitly_rejected_as_legacy(
+    legacy_version,
+):
     historical = _r1_packet_manifest().to_dict()
-    historical["schema_version"] = "stylo.lobo-vnext.ruaa-r1-packet.v2"
-    _rehash(historical)
+    historical["schema_version"] = (
+        f"stylo.lobo-vnext.ruaa-r1-packet.{legacy_version}"
+    )
+    historical.pop("packet_generation_material")
 
     with pytest.raises(VNextPacketError, match="legacy or unsupported"):
         R1PacketManifest.from_dict(historical)

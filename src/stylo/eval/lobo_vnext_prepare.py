@@ -60,6 +60,7 @@ from ..domain.lobo_vnext_packet import (
     CanonicalRowEntry,
     PacketFileEntry,
     R1AcquisitionBinding,
+    R1CorpusGenerationMaterial,
     R1PacketManifest,
     R1_PACKET_MANIFEST_SCHEMA_VERSION,
 )
@@ -363,6 +364,30 @@ def _acquisition_catalog(
             "R1 upstream exclusion leaked into selected acquisition"
         )
     return ordered, raw_rows
+
+
+def _require_exact_catalog_digests(
+    *,
+    works: Sequence[WorkIdentity],
+    raw_inventory: Sequence[RawInventoryEntry],
+) -> tuple[str, str]:
+    """Stop exact R1 catalog drift before content screening or NLP loading."""
+
+    raw_inventory_digest = canonical_sha256(
+        [row.to_dict() for row in raw_inventory]
+    )
+    work_catalog_digest = canonical_sha256(
+        [work.to_dict() for work in works]
+    )
+    if raw_inventory_digest != R1_RAW_INVENTORY_DIGEST:
+        raise R1PacketPreparationError(
+            "R1 raw inventory digest differs from the exact production pin"
+        )
+    if work_catalog_digest != R1_WORK_IDENTITY_CATALOG_DIGEST:
+        raise R1PacketPreparationError(
+            "R1 WorkIdentity catalog digest differs from the exact production pin"
+        )
+    return raw_inventory_digest, work_catalog_digest
 
 
 def _policy_documents(cfg: ConfigNode) -> dict[str, dict[str, object]]:
@@ -714,6 +739,7 @@ class PreparedR1Packet:
     root: pathlib.Path
     packet_manifest: R1PacketManifest
     acquisition_binding: R1AcquisitionBinding
+    corpus_generation_material: R1CorpusGenerationMaterial
     content_policy: ContentPolicySpec
     candidate_inventory: CandidateInventory
     corpus_manifest: CorpusVNextManifest
@@ -813,27 +839,16 @@ def prepare_r1_packet(
         ) from exc
     _validate_canonical_acquisition(acquisition)
     works, raw_inventory = _acquisition_catalog(acquisition)
+    raw_inventory_digest, work_catalog_digest = (
+        _require_exact_catalog_digests(
+            works=works,
+            raw_inventory=raw_inventory,
+        )
+    )
     _screen_selected_content(acquisition.root, works)
     policy, documents = build_r1_content_policy(cfg)
-    raw_inventory_digest = canonical_sha256(
-        [row.to_dict() for row in raw_inventory]
-    )
-    work_catalog_digest = canonical_sha256(
-        [work.to_dict() for work in works]
-    )
-    generation_id = acquisition.manifest.generation_id
-    candidate_inventory = CandidateInventory.build(
-        generation_id=generation_id,
-        work_identity_catalog_digest=work_catalog_digest,
-        raw_inventory_digest=raw_inventory_digest,
-        content_policy_spec_digest=policy.self_hash,
-        included_work_ids=tuple(work.work_id for work in works),
-        candidates=(),
-    )
-    candidate_inventory.validate(content_policy_spec=policy)
-    candidate_inventory.assert_resolved_for_component_manifest()
     binding = R1AcquisitionBinding.build(
-        generation_id=generation_id,
+        acquisition_generation_id=acquisition.manifest.generation_id,
         acquisition_manifest_self_hash=acquisition.manifest.self_hash,
         acquisition_receipt_self_hash=acquisition.receipt.self_hash,
         selected_audit_file_sha256=_sha256_file(
@@ -844,12 +859,23 @@ def prepare_r1_packet(
         work_identity_catalog_digest=work_catalog_digest,
         upstream_excluded_work_ids=R1_UPSTREAM_EXCLUDED_WORK_IDS,
         content_policy_spec_digest=policy.self_hash,
-        post_selection_candidate_inventory_sha256=(
-            candidate_inventory.self_hash
-        ),
         work_count=len(works),
         author_count=len({work.author_id for work in works}),
     )
+    corpus_generation_material = R1CorpusGenerationMaterial.build(
+        acquisition_binding_self_hash=binding.self_hash,
+    )
+    corpus_generation_id = corpus_generation_material.self_hash
+    candidate_inventory = CandidateInventory.build(
+        generation_id=corpus_generation_id,
+        work_identity_catalog_digest=work_catalog_digest,
+        raw_inventory_digest=raw_inventory_digest,
+        content_policy_spec_digest=policy.self_hash,
+        included_work_ids=tuple(work.work_id for work in works),
+        candidates=(),
+    )
+    candidate_inventory.validate(content_policy_spec=policy)
+    candidate_inventory.assert_resolved_for_component_manifest()
 
     output = pathlib.Path(output_parent)
     _reject_symlink_components(output, label="packet output parent")
@@ -869,11 +895,6 @@ def prepare_r1_packet(
         raise R1PacketPreparationError(
             "R1 packets must stay in an explicit "
             "exploratory/lobo_vnext/packets namespace"
-        )
-    packet_root = output / generation_id
-    if packet_root.exists() or packet_root.is_symlink():
-        raise R1PacketPreparationError(
-            f"immutable R1 packet already exists: {packet_root}"
         )
     stage = pathlib.Path(
         tempfile.mkdtemp(prefix=".r1-acquisition-packet.", dir=output)
@@ -953,7 +974,7 @@ def prepare_r1_packet(
         )
         corpus_manifest = CorpusVNextManifest.build(
             corpus_kind="real_corpus",
-            generation_id=generation_id,
+            generation_id=corpus_generation_id,
             approved_for_exploratory=True,
             owner_selected=True,
             raw_inventory=raw_inventory,
@@ -1014,13 +1035,13 @@ def prepare_r1_packet(
             baseline_inner_cv_plan=baseline_inner,
         )
         campaign = CampaignManifest.build(
-            campaign_id=f"ruaa-r1-{generation_id[:24]}",
+            campaign_id=f"ruaa-r1-{corpus_generation_id}",
             fold_manifest_digest=fold_manifest.self_hash,
             inference_spec_digest=inference.self_hash,
             model_role_manifest=model_roles,
         )
         representation = CanonicalRepresentationReceipt.build(
-            generation_id=generation_id,
+            generation_id=corpus_generation_id,
             corpus_manifest_sha256=corpus_manifest.self_hash,
             canonicalizer_policy_document_sha256=canonical_sha256(
                 documents["canonicalizer"]
@@ -1052,6 +1073,8 @@ def prepare_r1_packet(
             _write_json(stage, f"policies/{name}.json", document)
         packet_manifest = R1PacketManifest.build(
             acquisition_binding=binding,
+            corpus_generation_material=corpus_generation_material,
+            content_policy_spec_sha256=policy.self_hash,
             candidate_inventory_sha256=candidate_inventory.self_hash,
             corpus_manifest_sha256=corpus_manifest.self_hash,
             content_component_manifest_sha256=content_manifest.self_hash,
@@ -1066,12 +1089,18 @@ def prepare_r1_packet(
             representation_receipt_sha256=representation.self_hash,
             files=_inventory_packet_files(stage),
         )
+        packet_root = output / packet_manifest.packet_generation_id
+        if packet_root.exists() or packet_root.is_symlink():
+            raise R1PacketPreparationError(
+                f"immutable R1 packet already exists: {packet_root}"
+            )
         _write_json(stage, "packet.json", packet_manifest)
         _publish_directory_no_replace(stage, packet_root)
         return PreparedR1Packet(
             root=packet_root,
             packet_manifest=packet_manifest,
             acquisition_binding=binding,
+            corpus_generation_material=corpus_generation_material,
             content_policy=policy,
             candidate_inventory=candidate_inventory,
             corpus_manifest=corpus_manifest,

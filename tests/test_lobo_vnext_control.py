@@ -26,6 +26,7 @@ from stylo.corpus_tools.wikisource_campaign import WikisourceCampaignSpec
 from stylo.domain.lobo_vnext import VNextContractError, canonical_sha256
 from stylo.domain.lobo_vnext_packet import (
     CanonicalRowEntry,
+    PacketFileEntry,
     R1PacketManifest,
     R1_PACKET_MANIFEST_SCHEMA_VERSION,
 )
@@ -405,6 +406,7 @@ def _pin_verified_r1_ner(monkeypatch) -> None:
 def prepared_packet(tmp_path_factory):
     root = tmp_path_factory.mktemp("control-plane")
     acquisition = _acquisition_fixture(root)
+    works, raw_inventory = prep._acquisition_catalog(acquisition)
     audit_path = acquisition.root / r1.AUDIT_REPORT_NAME
     identities = {
         "R1_ACQUISITION_GENERATION_ID": acquisition.manifest.generation_id,
@@ -416,6 +418,12 @@ def prepared_packet(tmp_path_factory):
         ),
         "R1_SELECTED_AUDIT_FILE_SHA256": _sha(audit_path.read_bytes()),
         "R1_SELECTED_AUDIT_SELF_HASH": acquisition.audit_report.self_hash,
+        "R1_RAW_INVENTORY_DIGEST": canonical_sha256(
+            [row.to_dict() for row in raw_inventory]
+        ),
+        "R1_WORK_IDENTITY_CATALOG_DIGEST": canonical_sha256(
+            [work.to_dict() for work in works]
+        ),
     }
     patch = pytest.MonkeyPatch()
     for module in (prep, control):
@@ -446,6 +454,49 @@ def _copy_packet(packet, destination: Path) -> Path:
     copied.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(packet.root, copied)
     return copied
+
+
+def _reseal_packet(root: Path) -> Path:
+    existing = R1PacketManifest.from_dict(load_strict(root / "packet.json"))
+    files = tuple(
+        PacketFileEntry(
+            path.relative_to(root).as_posix(),
+            path.stat().st_size,
+            _sha(path.read_bytes()),
+        )
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.name != "packet.json"
+    )
+    rebuilt = R1PacketManifest.build(
+        acquisition_binding=existing.acquisition_binding,
+        corpus_generation_material=existing.corpus_generation_material,
+        content_policy_spec_sha256=existing.content_policy_spec_sha256,
+        candidate_inventory_sha256=existing.candidate_inventory_sha256,
+        corpus_manifest_sha256=existing.corpus_manifest_sha256,
+        content_component_manifest_sha256=(
+            existing.content_component_manifest_sha256
+        ),
+        fold_manifest_sha256=existing.fold_manifest_sha256,
+        primary_model_spec_sha256=existing.primary_model_spec_sha256,
+        baseline_model_spec_sha256=existing.baseline_model_spec_sha256,
+        inference_spec_sha256=existing.inference_spec_sha256,
+        primary_inner_cv_plan_sha256=(
+            existing.primary_inner_cv_plan_sha256
+        ),
+        baseline_inner_cv_plan_sha256=(
+            existing.baseline_inner_cv_plan_sha256
+        ),
+        model_role_manifest_sha256=existing.model_role_manifest_sha256,
+        campaign_manifest_sha256=existing.campaign_manifest_sha256,
+        representation_receipt_sha256=(
+            existing.representation_receipt_sha256
+        ),
+        files=files,
+    )
+    dump_strict(rebuilt.to_dict(), root / "packet.json", trailing_newline=True)
+    target = root.with_name(rebuilt.packet_generation_id)
+    root.rename(target)
+    return target
 
 
 def _observation(kind: str) -> receipts.DerivedObservation:
@@ -541,6 +592,29 @@ def test_loader_rebuilds_strict_acquisition_bound_selected_134_packet(
     )
     assert loaded.candidate_inventory.candidates == ()
     assert loaded.packet_manifest.selected_work_count == 134
+    assert loaded.root.name == loaded.packet_manifest.packet_generation_id
+    assert loaded.corpus_manifest.generation_id == (
+        loaded.packet_manifest.corpus_generation_id
+    )
+    assert loaded.candidate_inventory.generation_id == (
+        loaded.packet_manifest.corpus_generation_id
+    )
+    assert loaded.representation_receipt.generation_id == (
+        loaded.packet_manifest.corpus_generation_id
+    )
+    assert loaded.packet_manifest.corpus_generation_material.self_hash == (
+        loaded.packet_manifest.corpus_generation_id
+    )
+    assert canonical_sha256(
+        loaded.packet_manifest.packet_generation_material.to_dict()
+    ) == loaded.packet_manifest.packet_generation_id
+    assert len(
+        {
+            loaded.acquisition_binding.acquisition_generation_id,
+            loaded.packet_manifest.corpus_generation_id,
+            loaded.packet_manifest.packet_generation_id,
+        }
+    ) == 3
     assert len(work_ids) == 134
     assert len(loaded.corpus_manifest.author_ids) == 22
     assert loaded.acquisition_binding.upstream_excluded_work_ids == (
@@ -597,21 +671,7 @@ def test_loader_rejects_reformatted_acquisition_copy_after_packet_reseal(
         + "\n",
         encoding="utf-8",
     )
-    packet_path = root / "packet.json"
-    packet = load_strict(packet_path)
-    for row in packet["files"]:
-        if row["relative_path"] == relative:
-            payload = target.read_bytes()
-            row["byte_size"] = len(payload)
-            row["sha256"] = _sha(payload)
-            break
-    else:
-        raise AssertionError(f"missing packet inventory row {relative}")
-    packet["file_inventory_sha256"] = canonical_sha256(packet["files"])
-    packet["self_hash"] = canonical_sha256(
-        {key: value for key, value in packet.items() if key != "self_hash"}
-    )
-    dump_strict(packet, packet_path, trailing_newline=True)
+    root = _reseal_packet(root)
 
     with pytest.raises(
         control.RealControlPlaneError,
@@ -660,13 +720,21 @@ def test_loader_rejects_symlink_and_special_files(
         control.load_prepared_r1_packet(root)
 
 
+@pytest.mark.parametrize(
+    "schema_version",
+    [
+        "stylo.lobo-vnext.ruaa-r1-packet.v2",
+        "stylo.lobo-vnext.ruaa-r1-packet.v3",
+    ],
+    ids=("v2", "v3"),
+)
 def test_loader_explicitly_rejects_legacy_packet_schema(
-    tmp_path, prepared_packet
+    tmp_path, prepared_packet, schema_version
 ):
     root = _copy_packet(prepared_packet, tmp_path)
     packet_path = root / "packet.json"
     payload = load_strict(packet_path)
-    payload["schema_version"] = "stylo.lobo-vnext.r1-packet.v2"
+    payload["schema_version"] = schema_version
     dump_strict(payload, packet_path, trailing_newline=True)
 
     with pytest.raises(
@@ -674,6 +742,20 @@ def test_loader_explicitly_rejects_legacy_packet_schema(
         match="legacy or unsupported",
     ):
         control.load_prepared_r1_packet(root)
+
+
+def test_loader_rejects_packet_root_basename_tamper(
+    tmp_path, prepared_packet
+):
+    root = _copy_packet(prepared_packet, tmp_path)
+    tampered = root.with_name("0" * 64)
+    root.rename(tampered)
+
+    with pytest.raises(
+        control.RealControlPlaneError,
+        match="generation id differs",
+    ):
+        control.load_prepared_r1_packet(tampered)
 
 
 def test_execution_assembly_binds_packet_selection_and_exact_15_receipts(
@@ -700,11 +782,45 @@ def test_execution_assembly_binds_packet_selection_and_exact_15_receipts(
     )
     assert execution.confirmatory_execution_authorized is False
     assert execution.public_evidence_update_authorized is False
+    assert execution.headline_update_authorized is False
+    assert execution.frozen_evidence_mutation_authorized is False
+    assert execution.output_namespace.namespace_id == (
+        prepared_packet.packet_manifest.packet_generation_id
+    )
+    assert (
+        execution.output_namespace.public_evidence_update_authorized is False
+    )
+    assert execution.output_namespace.confirmatory_output_authorized is False
     assert not any(
         marker in path.relative_to(prepared_packet.root).as_posix()
         for path in prepared_packet.root.rglob("*")
         for marker in ("authorization", "prediction", "result")
     )
+
+
+@pytest.mark.parametrize(
+    "pin_name",
+    ["R1_RAW_INVENTORY_DIGEST", "R1_WORK_IDENTITY_CATALOG_DIGEST"],
+)
+def test_exact_corpus_pin_drift_stops_before_nlp_or_live_identity(
+    prepared_packet, monkeypatch, pin_name
+):
+    monkeypatch.setattr(control, pin_name, "0" * 64)
+    monkeypatch.setattr(
+        control,
+        "build_r1_content_policy",
+        lambda _cfg: pytest.fail("NLP/content-policy resolution was reached"),
+    )
+
+    with pytest.raises(
+        control.RealControlPlaneError,
+        match="selected-134 acquisition",
+    ):
+        control.assemble_real_execution_spec(
+            packet=prepared_packet,
+            cfg=load_config("configs/default.yaml"),
+            repository_root=Path.cwd(),
+        )
 
 
 def test_dirty_or_drifted_executable_source_stops_before_other_live_receipts(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import dataclasses
 import hashlib
 import importlib.util
@@ -8,6 +9,7 @@ import inspect
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -215,6 +217,7 @@ def _pin_canonical_acquisition(
     monkeypatch,
     acquisition: r1.MaterializedR1Acquisition,
 ) -> None:
+    works, raw_inventory = prep._acquisition_catalog(acquisition)
     monkeypatch.setattr(
         prep,
         "R1_ACQUISITION_GENERATION_ID",
@@ -239,6 +242,16 @@ def _pin_canonical_acquisition(
         prep,
         "R1_SELECTED_AUDIT_SELF_HASH",
         acquisition.audit_report.self_hash,
+    )
+    monkeypatch.setattr(
+        prep,
+        "R1_RAW_INVENTORY_DIGEST",
+        canonical_sha256([row.to_dict() for row in raw_inventory]),
+    )
+    monkeypatch.setattr(
+        prep,
+        "R1_WORK_IDENTITY_CATALOG_DIGEST",
+        canonical_sha256([work.to_dict() for work in works]),
     )
 
 
@@ -356,6 +369,18 @@ def _file_map(root: Path) -> dict[str, bytes]:
         for path in sorted(root.rglob("*"))
         if path.is_file()
     }
+
+
+def _byte_map_sha256(root: Path) -> str:
+    return canonical_sha256(
+        {
+            relative: {
+                "byte_size": len(payload),
+                "sha256": _sha(payload),
+            }
+            for relative, payload in _file_map(root).items()
+        }
+    )
 
 
 def _load_prepare_cli(name: str):
@@ -600,6 +625,59 @@ def test_selected_content_screen_requires_exact_zero_candidates(
     }
 
 
+def test_production_catalog_digest_pins_remain_exact():
+    assert prep.R1_RAW_INVENTORY_DIGEST == (
+        "840bcc1d6f0c1521c9f2808773d298c720b70b8aad54e60aeb56cebc0fe76d65"
+    )
+    assert prep.R1_WORK_IDENTITY_CATALOG_DIGEST == (
+        "b3d0c30fea4668c8a6db2011d7cf61f390149cf42e7c65e76c7506e6d0941e2a"
+    )
+
+
+@pytest.mark.parametrize(
+    ("pin_name", "message"),
+    (
+        (
+            "R1_RAW_INVENTORY_DIGEST",
+            "raw inventory digest differs from the exact production pin",
+        ),
+        (
+            "R1_WORK_IDENTITY_CATALOG_DIGEST",
+            "WorkIdentity catalog digest differs from the exact production pin",
+        ),
+    ),
+    ids=("raw-inventory", "work-identity"),
+)
+def test_exact_catalog_digest_drift_stops_before_screen_and_nlp(
+    acquisition,
+    pin_name,
+    message,
+    tmp_path,
+    monkeypatch,
+):
+    _pin_canonical_acquisition(monkeypatch, acquisition)
+    monkeypatch.setattr(
+        prep,
+        "load_materialized_r1_acquisition",
+        lambda _root: acquisition,
+    )
+    monkeypatch.setattr(prep, pin_name, "0" * 64)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("exact catalog drift must stop before screen/NLP")
+
+    monkeypatch.setattr(prep, "_screen_selected_content", forbidden)
+    monkeypatch.setattr(prep, "load_ner", forbidden)
+    with pytest.raises(prep.R1PacketPreparationError, match=message):
+        prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=(
+                tmp_path / "exploratory" / "lobo_vnext" / "packets"
+            ),
+            cfg=load_config("configs/default.yaml"),
+        )
+
+
 def test_candidate_screen_blocks_before_nlp(acquisition, tmp_path, monkeypatch):
     _pin_canonical_acquisition(monkeypatch, acquisition)
     monkeypatch.setattr(
@@ -782,8 +860,32 @@ def test_packet_trees_are_byte_identical_and_target_is_no_clobber(
 
     assert first.root.name == second.root.name
     assert _file_map(first.root) == _file_map(second.root)
+    assert _byte_map_sha256(first.root) == _byte_map_sha256(second.root)
     assert first.packet_manifest == second.packet_manifest
     assert first.acquisition_binding == second.acquisition_binding
+    assert (
+        first.acquisition_binding.acquisition_generation_id
+        == second.acquisition_binding.acquisition_generation_id
+        == acquisition.manifest.generation_id
+    )
+    assert (
+        first.corpus_generation_material.corpus_generation_id
+        == second.corpus_generation_material.corpus_generation_id
+        == first.packet_manifest.corpus_generation_id
+        == first.candidate_inventory.generation_id
+        == first.corpus_manifest.generation_id
+        == first.representation_receipt.generation_id
+    )
+    assert (
+        first.root.name
+        == first.packet_manifest.packet_generation_id
+        == second.packet_manifest.packet_generation_id
+    )
+    assert "generation_id" not in first.packet_manifest.to_dict()
+    assert (
+        "post_selection_candidate_inventory_sha256"
+        not in first.acquisition_binding.to_dict()
+    )
     assert first.packet_manifest.selected_work_count == prep.R1_WORK_COUNT
     assert first.acquisition_binding.work_count == prep.R1_WORK_COUNT
     assert first.acquisition_binding.author_count == prep.R1_AUTHOR_COUNT
@@ -800,6 +902,13 @@ def test_packet_trees_are_byte_identical_and_target_is_no_clobber(
         for component in first.content_manifest.components
     )
     assert first.fold_manifest.mode == "isolated"
+    assert (
+        first.fold_manifest.corpus_manifest_digest
+        == first.corpus_manifest.self_hash
+    )
+    assert first.campaign_manifest.campaign_id == (
+        f"ruaa-r1-{first.packet_manifest.corpus_generation_id}"
+    )
     assert first.packet_manifest.confirmatory_authorized is False
     assert len(list((first.root / "raw").rglob("*.txt"))) == 134
     assert len(list((first.root / "canonical_rows").rglob("*.txt"))) == 134
@@ -823,6 +932,260 @@ def test_packet_trees_are_byte_identical_and_target_is_no_clobber(
             cfg=cfg,
         )
     assert _file_map(first.root) == before
+
+
+def test_work_identity_derivation_changes_corpus_and_packet_namespaces(
+    acquisition,
+    tmp_path,
+    monkeypatch,
+):
+    cfg = load_config("configs/default.yaml")
+    with monkeypatch.context() as patch:
+        _patch_packet_dependencies(patch, acquisition)
+        baseline = prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=(
+                tmp_path
+                / "baseline"
+                / "exploratory"
+                / "lobo_vnext"
+                / "packets"
+            ),
+            cfg=cfg,
+        )
+
+    with monkeypatch.context() as patch:
+        _patch_packet_dependencies(patch, acquisition)
+        works, raw_inventory = prep._acquisition_catalog(acquisition)
+        changed_works = (
+            dataclasses.replace(
+                works[0],
+                source_id=f"{works[0].source_id}:derivation-v2",
+            ),
+            *works[1:],
+        )
+        patch.setattr(
+            prep,
+            "_acquisition_catalog",
+            lambda _acquisition: (changed_works, raw_inventory),
+        )
+        patch.setattr(
+            prep,
+            "R1_WORK_IDENTITY_CATALOG_DIGEST",
+            canonical_sha256([work.to_dict() for work in changed_works]),
+        )
+        changed = prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=(
+                tmp_path
+                / "changed"
+                / "exploratory"
+                / "lobo_vnext"
+                / "packets"
+            ),
+            cfg=cfg,
+        )
+
+    assert (
+        baseline.acquisition_binding.acquisition_generation_id
+        == changed.acquisition_binding.acquisition_generation_id
+        == acquisition.manifest.generation_id
+    )
+    assert (
+        baseline.acquisition_binding.raw_inventory_digest
+        == changed.acquisition_binding.raw_inventory_digest
+    )
+    assert (
+        baseline.acquisition_binding.work_identity_catalog_digest
+        != changed.acquisition_binding.work_identity_catalog_digest
+    )
+    assert (
+        baseline.packet_manifest.corpus_generation_id
+        != changed.packet_manifest.corpus_generation_id
+    )
+    assert (
+        baseline.packet_manifest.packet_generation_id
+        != changed.packet_manifest.packet_generation_id
+    )
+    assert baseline.root != changed.root
+    assert baseline.root.name == baseline.packet_manifest.packet_generation_id
+    assert changed.root.name == changed.packet_manifest.packet_generation_id
+
+
+@pytest.mark.parametrize(
+    "identity_kind",
+    ("content-policy", "nlp", "clean", "chunk"),
+)
+def test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet(
+    acquisition,
+    identity_kind,
+    tmp_path,
+    monkeypatch,
+):
+    cfg = load_config("configs/default.yaml")
+    with monkeypatch.context() as patch:
+        _patch_packet_dependencies(patch, acquisition)
+        baseline = prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=(
+                tmp_path
+                / "baseline"
+                / "exploratory"
+                / "lobo_vnext"
+                / "packets"
+            ),
+            cfg=cfg,
+        )
+
+    with monkeypatch.context() as patch:
+        _patch_packet_dependencies(patch, acquisition)
+        if identity_kind == "nlp":
+            _pin_verified_r1_ner(
+                patch,
+                package_record_sha256="b" * 64,
+            )
+        else:
+            original_documents = prep._policy_documents
+
+            def changed_documents(config):
+                documents = copy.deepcopy(original_documents(config))
+                if identity_kind == "content-policy":
+                    documents["ocr"]["reviewed_policy_revision"] = "v2"
+                elif identity_kind == "clean":
+                    documents["canonicalizer"][
+                        "implementation_source_sha256"
+                    ] = "c" * 64
+                elif identity_kind == "chunk":
+                    documents["chunker"][
+                        "implementation_source_sha256"
+                    ] = "d" * 64
+                else:  # pragma: no cover - closed parameter set
+                    raise AssertionError(identity_kind)
+                return documents
+
+            patch.setattr(prep, "_policy_documents", changed_documents)
+        changed = prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=(
+                tmp_path
+                / "changed"
+                / "exploratory"
+                / "lobo_vnext"
+                / "packets"
+            ),
+            cfg=cfg,
+        )
+
+    assert (
+        baseline.acquisition_binding.acquisition_generation_id
+        == changed.acquisition_binding.acquisition_generation_id
+        == acquisition.manifest.generation_id
+    )
+    assert (
+        baseline.acquisition_binding.raw_inventory_digest
+        == changed.acquisition_binding.raw_inventory_digest
+    )
+    assert (
+        baseline.acquisition_binding.work_identity_catalog_digest
+        == changed.acquisition_binding.work_identity_catalog_digest
+    )
+    assert (
+        baseline.acquisition_binding.content_policy_spec_digest
+        != changed.acquisition_binding.content_policy_spec_digest
+    )
+    assert (
+        baseline.packet_manifest.corpus_generation_id
+        != changed.packet_manifest.corpus_generation_id
+    )
+    assert (
+        baseline.packet_manifest.packet_generation_id
+        != changed.packet_manifest.packet_generation_id
+    )
+    assert baseline.root != changed.root
+
+
+@pytest.mark.parametrize("downstream_kind", ("model", "inference"))
+def test_model_or_inference_change_only_rotates_packet_namespace(
+    acquisition,
+    downstream_kind,
+    tmp_path,
+    monkeypatch,
+):
+    cfg = load_config("configs/default.yaml")
+    packet_parent = (
+        tmp_path / "exploratory" / "lobo_vnext" / "packets"
+    )
+    with monkeypatch.context() as patch:
+        _patch_packet_dependencies(patch, acquisition)
+        baseline = prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=packet_parent,
+            cfg=cfg,
+        )
+
+    with monkeypatch.context() as patch:
+        _patch_packet_dependencies(patch, acquisition)
+        if downstream_kind == "model":
+            original_builder = prep.build_r1_model_spec
+
+            def changed_model(*, role, cfg):
+                spec = original_builder(role=role, cfg=cfg)
+                if role != "primary":
+                    return spec
+                payload = spec.to_dict()
+                hyperparameters = dict(payload["hyperparameters"])
+                hyperparameters["packet_identity_test_revision"] = "v2"
+                return type(spec).build(
+                    model_id=spec.model_id,
+                    family=spec.family,
+                    features=spec.features,
+                    weighting=spec.weighting,
+                    hyperparameters=hyperparameters,
+                    seeds=dict(spec.seeds),
+                    requires_inner_cv=spec.requires_inner_cv,
+                    inner_cv_splits=spec.inner_cv_splits,
+                    supports_component_aware_inner_cv=(
+                        spec.supports_component_aware_inner_cv
+                    ),
+                    approved_for_exploratory=(
+                        spec.approved_for_exploratory
+                    ),
+                    owner_selected=spec.owner_selected,
+                )
+
+            patch.setattr(prep, "build_r1_model_spec", changed_model)
+        else:
+            patch.setattr(
+                prep,
+                "R1_BOOTSTRAP_ITERATIONS",
+                prep.R1_BOOTSTRAP_ITERATIONS + 1,
+            )
+        changed = prep.prepare_r1_packet(
+            acquisition_root=acquisition.root,
+            output_parent=packet_parent,
+            cfg=cfg,
+        )
+
+    assert (
+        baseline.acquisition_binding.acquisition_generation_id
+        == changed.acquisition_binding.acquisition_generation_id
+        == acquisition.manifest.generation_id
+    )
+    assert baseline.acquisition_binding == changed.acquisition_binding
+    assert (
+        baseline.packet_manifest.corpus_generation_id
+        == changed.packet_manifest.corpus_generation_id
+    )
+    assert baseline.candidate_inventory == changed.candidate_inventory
+    assert baseline.corpus_manifest == changed.corpus_manifest
+    assert (
+        baseline.packet_manifest.packet_generation_id
+        != changed.packet_manifest.packet_generation_id
+    )
+    assert baseline.root != changed.root
+    assert baseline.root.parent == changed.root.parent == packet_parent
+    assert baseline.root.name == baseline.packet_manifest.packet_generation_id
+    assert changed.root.name == changed.packet_manifest.packet_generation_id
 
 
 def test_atomic_publication_never_replaces_an_existing_empty_target(tmp_path):
@@ -988,3 +1351,77 @@ def test_cli_accepts_exact_three_args_and_rejects_legacy_before_loader_nlp(
         with pytest.raises(SystemExit) as raised:
             cli.run([*base, *old_args])
         assert raised.value.code == 2
+
+
+def test_cli_receipt_names_all_three_generation_identities_without_fit(
+    tmp_path,
+    monkeypatch,
+):
+    cli = _load_prepare_cli("prepare_lobo_vnext_packet_cli_receipt_test")
+    acquisition_id = "a" * 64
+    corpus_id = "b" * 64
+    packet_id = "c" * 64
+    digest = "d" * 64
+    packet = SimpleNamespace(
+        acquisition_binding=SimpleNamespace(
+            acquisition_generation_id=acquisition_id,
+            acquisition_receipt_self_hash=digest,
+            self_hash=digest,
+        ),
+        packet_manifest=SimpleNamespace(
+            corpus_generation_id=corpus_id,
+            packet_generation_id=packet_id,
+            self_hash=digest,
+        ),
+        corpus_manifest=SimpleNamespace(
+            self_hash=digest,
+            works=tuple(range(prep.R1_WORK_COUNT)),
+        ),
+        candidate_inventory=SimpleNamespace(self_hash=digest),
+        content_manifest=SimpleNamespace(self_hash=digest),
+        fold_manifest=SimpleNamespace(self_hash=digest),
+        campaign_manifest=SimpleNamespace(self_hash=digest),
+        representation_receipt=SimpleNamespace(self_hash=digest),
+    )
+    acquisition_root = tmp_path / "acquisition"
+    config = tmp_path / "config.yaml"
+    output_parent = tmp_path / "output"
+    monkeypatch.setattr(
+        cli,
+        "_require_acquisition_root",
+        lambda value: Path(value),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_regular_file",
+        lambda value, **_kwargs: Path(value),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_require_exploratory_output_parent",
+        lambda value: Path(value),
+    )
+    monkeypatch.setattr(cli, "load_config", lambda _path: object())
+    monkeypatch.setattr(
+        cli,
+        "prepare_r1_packet",
+        lambda **_kwargs: packet,
+    )
+
+    receipt = cli.run(
+        [
+            "--acquisition-root",
+            str(acquisition_root),
+            "--config",
+            str(config),
+            "--output-parent",
+            str(output_parent),
+        ]
+    )
+
+    assert receipt["acquisition_generation_id"] == acquisition_id
+    assert receipt["corpus_generation_id"] == corpus_id
+    assert receipt["packet_generation_id"] == packet_id
+    assert "generation_id" not in receipt
+    assert receipt["fit_performed"] is False
+    assert receipt["confirmatory_authorized"] is False

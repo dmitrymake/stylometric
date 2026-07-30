@@ -155,8 +155,8 @@
     {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
-      "responsibility": "acquisition_selected_134_r1_lobo_vnext_packet_preparation",
-      "public_surface": "explicit exploratory packet builder; no cache, factory, fit, prediction, public evidence or confirmatory authority"
+      "responsibility": "content_addressed_acquisition_selected_134_r1_lobo_vnext_packet_v4_preparation",
+      "public_surface": "explicit exploratory packet-v4 builder with distinct acquisition, corpus and packet identities; no cache, factory, fit, prediction, public evidence or confirmatory authority"
     },
     {
       "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
@@ -311,9 +311,9 @@
       "contract": "frozen_historical_output_no_live_writer"
     },
     {
-      "namespace": "docs/exploratory/lobo_vnext/packets/<generation-id>/**",
+      "namespace": "docs/exploratory/lobo_vnext/packets/<packet-generation-id>/**",
       "owner": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "contract": "ignored_immutable_acquisition_selected_134_r1_packet_preparation_only; no cache, fit, public evidence or confirmatory authority"
+      "contract": "ignored immutable selected-134 packet-v4 preparation only; upstream acquisition_generation_id, exact corpus_generation_id and full-byte packet_generation_id are distinct, basename-bound identities; no cache, fit, public evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/lobo_vnext/corpora/feb/<generation-id>/**",
@@ -333,7 +333,7 @@
     {
       "namespace": "docs/exploratory/lobo_vnext/real_corpus/**",
       "owner": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "contract": "ignored_immutable_real_r1_preflight_and_bounded_exploratory_result; bounded exploratory execution requires an exact packet and an explicit non-personal interactive authorization bound to the complete execution digest; the record makes no identity or authentication claim and grants no public-evidence or confirmatory authority"
+      "contract": "ignored immutable packet_generation_id-bound real R1 preflight and bounded exploratory result; bounded exploratory execution requires an exact packet and an explicit non-personal interactive authorization bound to the complete execution digest; the record makes no identity or authentication claim and grants no public-evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",

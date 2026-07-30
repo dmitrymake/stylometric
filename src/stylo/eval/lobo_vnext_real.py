@@ -371,6 +371,24 @@ def _assert_execution_bindings(
             raise RealVNextPreflightError(
                 f"execution binding mismatch for {field}"
             )
+    if (
+        execution_spec.output_namespace.namespace_id
+        != packet_manifest.packet_generation_id
+        or execution_spec.confirmatory_execution_authorized is not False
+        or execution_spec.public_evidence_update_authorized is not False
+        or execution_spec.headline_update_authorized is not False
+        or execution_spec.frozen_evidence_mutation_authorized is not False
+        or execution_spec.output_namespace.public_evidence_update_authorized
+        is not False
+        or execution_spec.output_namespace.frozen_evidence_mutation_authorized
+        is not False
+        or execution_spec.output_namespace.confirmatory_output_authorized
+        is not False
+    ):
+        raise RealVNextPreflightError(
+            "execution output namespace does not bind the packet generation "
+            "or grants forbidden authority"
+        )
 
 
 def _assert_live_receipts(
@@ -467,6 +485,7 @@ def _validate_scientific_contracts(
         ) from exc
 
     packet_checks = {
+        "content_policy_spec_sha256": content_policy_spec.self_hash,
         "candidate_inventory_sha256": candidate_inventory.self_hash,
         "corpus_manifest_sha256": corpus_manifest.self_hash,
         "content_component_manifest_sha256": content_manifest.self_hash,
@@ -488,7 +507,7 @@ def _validate_scientific_contracts(
             )
     binding = packet_manifest.acquisition_binding
     if (
-        packet_manifest.generation_id != corpus_manifest.generation_id
+        packet_manifest.corpus_generation_id != corpus_manifest.generation_id
         or binding.raw_inventory_digest
         != _raw_inventory_digest(corpus_manifest)
         or binding.work_identity_catalog_digest
@@ -497,8 +516,6 @@ def _validate_scientific_contracts(
         )
         or binding.content_policy_spec_digest
         != content_policy_spec.self_hash
-        or binding.post_selection_candidate_inventory_sha256
-        != candidate_inventory.self_hash
         or binding.work_count != len(corpus_manifest.works)
         or binding.author_count != len(corpus_manifest.author_ids)
         or set(binding.upstream_excluded_work_ids)
@@ -516,7 +533,7 @@ def _validate_scientific_contracts(
                 author_support.get(work.author_id, 0) + 1
             )
         if (
-            packet_manifest.generation_id
+            binding.acquisition_generation_id
             != R1_ACQUISITION_GENERATION_ID
             or binding.acquisition_manifest_self_hash
             != R1_ACQUISITION_MANIFEST_SELF_HASH
@@ -1998,6 +2015,9 @@ def validate_real_final_artifact(
             raise error(f"final execution binding mismatch for {field}")
     packet = objects["packet_manifest"]
     packet_checks = {
+        "content_policy_spec_sha256": objects[
+            "content_policy_spec"
+        ].self_hash,
         "candidate_inventory_sha256": objects[
             "candidate_inventory"
         ].self_hash,
@@ -2020,6 +2040,17 @@ def validate_real_final_artifact(
     for field, expected in packet_checks.items():
         if getattr(packet, field) != expected:
             raise error(f"final packet binding mismatch for {field}")
+    if (
+        packet.corpus_generation_id
+        != objects["corpus_manifest"].generation_id
+        or packet.acquisition_binding.content_policy_spec_digest
+        != objects["content_policy_spec"].self_hash
+        or objects["execution_spec"].output_namespace.namespace_id
+        != packet.packet_generation_id
+    ):
+        raise error(
+            "final acquisition/corpus/packet generation identity mismatch"
+        )
     hash_checks = {
         "packet_manifest_sha256": objects["packet_manifest"].self_hash,
         "content_policy_spec_sha256": objects[
@@ -2560,6 +2591,11 @@ def run_lobo_vnext_real(
     ):
         raise RealVNextPreflightError(
             "representation_loader must be callable"
+        )
+    packet_path = pathlib.Path(packet_root)
+    if packet_path.name != packet_manifest.packet_generation_id:
+        raise RealVNextPreflightError(
+            "packet root basename does not match packet_generation_id"
         )
     preflight = preflight_lobo_vnext_real(
         packet_manifest=packet_manifest,
