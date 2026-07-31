@@ -656,16 +656,16 @@ def test_serial_parallel_resume_are_byte_identical_and_paired(tmp_path):
 
     assert serial.run_id == parallel.run_id == resumed.run_id
     assert serial.run_id == (
-        "725bdaf2b9a40fe316fcade970b408835"
-        "79c506bba823fcb1e87c27525d517c6"
+        "33eef5713a2768d01a7702ddf2a9e028"
+        "06a24e787036fd81238ad7cb90ac4b77"
     )
     assert serial.artifact["self_hash"] == (
-        "6032be8fcc005d9aadcce68b45edce7d"
-        "eb010edfc0c9aa36b0f4aae2b65b3c2d"
+        "8ebeb9ce96a407eb84000bc3833b94165"
+        "4a41a9b12ced968695568ebd091b15a"
     )
     assert hashlib.sha256(serial.artifact_path.read_bytes()).hexdigest() == (
-        "b4c41a84e45d3a34658512e03e7a04e3"
-        "003e529fceac17dfbae65d1ee7717dc7"
+        "ac6a68e127f2e37892d186312c4a0d80"
+        "82c98ecfc79947536fc5301453b18f46"
     )
     assert serial.artifact == parallel.artifact == resumed.artifact
     assert serial_map == parallel_before_resume == parallel_after_resume

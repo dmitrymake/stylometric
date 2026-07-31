@@ -361,7 +361,7 @@ def _validate_policy_documents(
         "canonicalizer policy document",
     )
     expected_canonicalizer = {
-        "schema_version": "stylo.lobo-vnext.canonicalizer-policy-doc.v1",
+        "schema_version": "stylo.lobo-vnext.canonicalizer-policy-doc.v2",
         "encoding": "utf-8",
         "bom_disposition": "reject",
         "dash_normalization": True,
@@ -398,7 +398,7 @@ def _validate_policy_documents(
             "resolved_model",
             "fallback_used",
             "package_version",
-            "package_record_sha256",
+            "package_payload_sha256",
             "spacy_version",
             "disabled_pipes",
             "active_pipes",
@@ -431,9 +431,9 @@ def _validate_policy_documents(
             f"resolved_person_model_identity.{key}",
         )
     _sha256(
-        model_identity["package_record_sha256"],
+        model_identity["package_payload_sha256"],
         "canonicalizer policy document."
-        "resolved_person_model_identity.package_record_sha256",
+        "resolved_person_model_identity.package_payload_sha256",
     )
     _exact_str(
         model_identity["spacy_version"],

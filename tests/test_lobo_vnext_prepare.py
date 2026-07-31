@@ -258,14 +258,14 @@ def _pin_canonical_acquisition(
 def _pin_verified_r1_ner(
     monkeypatch,
     *,
-    package_record_sha256: str = "a" * 64,
+    package_payload_sha256: str = "a" * 64,
 ) -> ResolvedNLPIdentity:
     material = {
         "requested_model": "ru_core_news_lg",
         "resolved_model": "ru_core_news_lg",
         "fallback_used": False,
         "package_version": "3.8.0",
-        "package_record_sha256": package_record_sha256,
+        "package_payload_sha256": package_payload_sha256,
         "spacy_version": prep.spacy.__version__,
         "disabled_pipes": [
             "attribute_ruler",
@@ -284,7 +284,7 @@ def _pin_verified_r1_ner(
         resolved_model=material["resolved_model"],
         fallback_used=material["fallback_used"],
         package_version=material["package_version"],
-        package_record_sha256=material["package_record_sha256"],
+        package_payload_sha256=material["package_payload_sha256"],
         spacy_version=material["spacy_version"],
         disabled_pipes=tuple(material["disabled_pipes"]),
         active_pipes=tuple(material["active_pipes"]),
@@ -767,7 +767,7 @@ def test_r1_content_policy_freezes_exact_owner_selected_values(monkeypatch):
         }
     )
 
-    _pin_verified_r1_ner(monkeypatch, package_record_sha256="b" * 64)
+    _pin_verified_r1_ner(monkeypatch, package_payload_sha256="b" * 64)
     changed_policy, _ = prep.build_r1_content_policy(
         load_config("configs/default.yaml")
     )
@@ -1042,7 +1042,7 @@ def test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet(
         if identity_kind == "nlp":
             _pin_verified_r1_ner(
                 patch,
-                package_record_sha256="b" * 64,
+                package_payload_sha256="b" * 64,
             )
         else:
             original_documents = prep._policy_documents
@@ -1102,6 +1102,93 @@ def test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet(
         != changed.packet_manifest.packet_generation_id
     )
     assert baseline.root != changed.root
+
+
+def test_installer_only_record_drift_keeps_all_packet_identities_and_bytes(
+    acquisition,
+    tmp_path,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    package_payload_sha256 = "a" * 64
+    first_package = nlp_module.VerifiedInstalledPackage(
+        package_version="3.8.0",
+        package_payload_sha256=package_payload_sha256,
+        record_bytes_sha256="1" * 64,
+        legacy_record_text_sha256="2" * 64,
+    )
+    second_package = nlp_module.VerifiedInstalledPackage(
+        package_version="3.8.0",
+        package_payload_sha256=package_payload_sha256,
+        record_bytes_sha256="3" * 64,
+        legacy_record_text_sha256="4" * 64,
+    )
+    pipeline = SimpleNamespace(pipe_names=["tok2vec", "ner"])
+    disabled = (
+        "attribute_ruler",
+        "lemmatizer",
+        "morphologizer",
+        "parser",
+        "sentencizer",
+        "tagger",
+        "textcat",
+    )
+    first_identity = nlp_module._build_nlp_identity(
+        requested="ru_core_news_lg",
+        resolved="ru_core_news_lg",
+        nlp=pipeline,
+        max_length=5_000_000,
+        package_identity=first_package,
+        disabled_pipes=disabled,
+    )
+    second_identity = nlp_module._build_nlp_identity(
+        requested="ru_core_news_lg",
+        resolved="ru_core_news_lg",
+        nlp=pipeline,
+        max_length=5_000_000,
+        package_identity=second_package,
+        disabled_pipes=disabled,
+    )
+    assert first_identity == second_identity
+    assert not any("record" in key for key in first_identity.to_dict())
+
+    def prepare(label, identity):
+        with monkeypatch.context() as patch:
+            _patch_packet_dependencies(patch, acquisition)
+            loaded = object()
+            patch.setattr(prep, "load_ner", lambda *_args: loaded)
+            patch.setattr(
+                prep,
+                "resolved_nlp_identity",
+                lambda observed: identity
+                if observed is loaded
+                else pytest.fail("unexpected pipeline"),
+            )
+            return prep.prepare_r1_packet(
+                acquisition_root=acquisition.root,
+                output_parent=(
+                    tmp_path
+                    / label
+                    / "exploratory"
+                    / "lobo_vnext"
+                    / "packets"
+                ),
+                cfg=load_config("configs/default.yaml"),
+            )
+
+    first = prepare("first", first_identity)
+    second = prepare("second", second_identity)
+    assert first.content_policy == second.content_policy
+    assert first.acquisition_binding == second.acquisition_binding
+    assert first.packet_manifest.corpus_generation_id == (
+        second.packet_manifest.corpus_generation_id
+    )
+    assert first.packet_manifest.packet_generation_id == (
+        second.packet_manifest.packet_generation_id
+    )
+    assert first.packet_manifest.self_hash == second.packet_manifest.self_hash
+    assert _file_map(first.root) == _file_map(second.root)
 
 
 @pytest.mark.parametrize("downstream_kind", ("model", "inference"))

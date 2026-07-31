@@ -433,7 +433,7 @@ def _policy_documents(cfg: ConfigNode) -> dict[str, dict[str, object]]:
     chunk_source = pathlib.Path(__file__).resolve().parents[1] / "chunking.py"
     documents = {
         "canonicalizer": {
-            "schema_version": "stylo.lobo-vnext.canonicalizer-policy-doc.v1",
+            "schema_version": "stylo.lobo-vnext.canonicalizer-policy-doc.v2",
             "implementation_contract": NORMALIZATION_CONTRACT,
             "implementation_source_sha256": _sha256_file(clean_source),
             "encoding": "utf-8",

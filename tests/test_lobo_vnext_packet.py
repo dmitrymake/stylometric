@@ -339,12 +339,12 @@ def test_corpus_generation_material_rejects_schema_shape_and_hash_drift():
         R1CorpusGenerationMaterial.from_dict(tampered)
 
 
-def test_packet_v4_has_three_unambiguous_identities_and_exact_material():
+def test_packet_v5_has_three_unambiguous_identities_and_exact_material():
     packet = _r1_packet_manifest()
     wire = packet.to_dict()
 
     assert packet.schema_version == R1_PACKET_MANIFEST_SCHEMA_VERSION
-    assert packet.schema_version.endswith(".v4")
+    assert packet.schema_version.endswith(".v5")
     assert packet.acquisition_generation_id == (
         packet.acquisition_binding.acquisition_generation_id
     )
@@ -398,12 +398,16 @@ def test_packet_generation_material_rejects_schema_shape_and_digest_drift():
     with pytest.raises(VNextPacketError, match="legacy or unsupported"):
         R1PacketGenerationMaterial.from_dict(legacy)
 
-    packet_v3 = json.loads(json.dumps(base))
-    packet_v3["packet_schema_version"] = (
-        "stylo.lobo-vnext.ruaa-r1-packet.v3"
-    )
-    with pytest.raises(VNextPacketError, match="packet schema is unsupported"):
-        R1PacketGenerationMaterial.from_dict(packet_v3)
+    for legacy_version in ("v2", "v3", "v4"):
+        legacy_packet = json.loads(json.dumps(base))
+        legacy_packet["packet_schema_version"] = (
+            f"stylo.lobo-vnext.ruaa-r1-packet.{legacy_version}"
+        )
+        with pytest.raises(
+            VNextPacketError,
+            match="packet schema is unsupported",
+        ):
+            R1PacketGenerationMaterial.from_dict(legacy_packet)
 
     extra = json.loads(json.dumps(base))
     extra["self_hash"] = _digest("forbidden-self-hash")
@@ -457,7 +461,7 @@ def test_file_inventory_changes_packet_generation_but_not_corpus_generation():
     assert first.packet_generation_id != second.packet_generation_id
 
 
-def test_packet_v4_rejects_rehashed_cross_binding_and_shape_drift():
+def test_packet_v5_rejects_rehashed_cross_binding_and_shape_drift():
     base = _r1_packet_manifest().to_dict()
 
     tampered = json.loads(json.dumps(base))
@@ -517,8 +521,8 @@ def test_packet_v4_rejects_rehashed_cross_binding_and_shape_drift():
         R1PacketManifest.from_dict(extra)
 
 
-@pytest.mark.parametrize("legacy_version", ("v2", "v3"))
-def test_packet_v2_and_v3_schemas_are_explicitly_rejected_as_legacy(
+@pytest.mark.parametrize("legacy_version", ("v2", "v3", "v4"))
+def test_packet_v2_v3_and_v4_schemas_are_rejected_schema_first(
     legacy_version,
 ):
     historical = _r1_packet_manifest().to_dict()

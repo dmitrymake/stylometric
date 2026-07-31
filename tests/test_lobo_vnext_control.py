@@ -362,7 +362,7 @@ def _pin_verified_r1_ner(monkeypatch) -> None:
         "resolved_model": "ru_core_news_lg",
         "fallback_used": False,
         "package_version": "3.8.0",
-        "package_record_sha256": "a" * 64,
+        "package_payload_sha256": "a" * 64,
         "spacy_version": prep.spacy.__version__,
         "disabled_pipes": [
             "attribute_ruler",
@@ -381,7 +381,7 @@ def _pin_verified_r1_ner(monkeypatch) -> None:
         resolved_model=material["resolved_model"],
         fallback_used=material["fallback_used"],
         package_version=material["package_version"],
-        package_record_sha256=material["package_record_sha256"],
+        package_payload_sha256=material["package_payload_sha256"],
         spacy_version=material["spacy_version"],
         disabled_pipes=tuple(material["disabled_pipes"]),
         active_pipes=tuple(material["active_pipes"]),
@@ -725,8 +725,9 @@ def test_loader_rejects_symlink_and_special_files(
     [
         "stylo.lobo-vnext.ruaa-r1-packet.v2",
         "stylo.lobo-vnext.ruaa-r1-packet.v3",
+        "stylo.lobo-vnext.ruaa-r1-packet.v4",
     ],
-    ids=("v2", "v3"),
+    ids=("v2", "v3", "v4"),
 )
 def test_loader_explicitly_rejects_legacy_packet_schema(
     tmp_path, prepared_packet, schema_version
@@ -742,6 +743,23 @@ def test_loader_explicitly_rejects_legacy_packet_schema(
         match="legacy or unsupported",
     ):
         control.load_prepared_r1_packet(root)
+
+
+def test_canonicalizer_policy_v1_is_rejected_without_compatibility_mode(
+    prepared_packet,
+):
+    documents = {
+        name: load_strict(prepared_packet.root / f"policies/{name}.json")
+        for name in ("canonicalizer", "chunker", "ocr")
+    }
+    documents["canonicalizer"]["schema_version"] = (
+        "stylo.lobo-vnext.canonicalizer-policy-doc.v1"
+    )
+    with pytest.raises(
+        control.RealControlPlaneError,
+        match="canonicalizer policy document.schema_version",
+    ):
+        control._validate_policy_documents(documents)
 
 
 def test_loader_rejects_packet_root_basename_tamper(

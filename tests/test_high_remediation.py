@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import ast
+import base64
 import concurrent.futures
 import dataclasses
 import hashlib
+import importlib.util
 import json
 import pathlib
+import py_compile
 import runpy
 import subprocess
 import sys
@@ -59,6 +62,137 @@ def _bundle_meta() -> dict:
         "git_commit": "abc123",
         "git_dirty": False,
     }
+
+
+def _verified_package(
+    nlp_module,
+    label: str,
+    *,
+    version: str = "test-version",
+    payload_sha256: str | None = None,
+    record_sha256: str | None = None,
+):
+    payload_digest = payload_sha256 or hashlib.sha256(
+        label.encode("utf-8")
+    ).hexdigest()
+    record_digest = record_sha256 or hashlib.sha256(
+        f"record:{label}".encode("utf-8")
+    ).hexdigest()
+    return nlp_module.VerifiedInstalledPackage(
+        package_version=version,
+        package_payload_sha256=payload_digest,
+        record_bytes_sha256=record_digest,
+        legacy_record_text_sha256=record_digest,
+    )
+
+
+def _record_digest(payload: bytes) -> str:
+    return (
+        base64.urlsafe_b64encode(hashlib.sha256(payload).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+
+
+def _installed_model_fixture(
+    root: pathlib.Path,
+    *,
+    newline: bytes = b"\n",
+    reverse_rows: bool = False,
+    installer: bytes | None = b"pip\n",
+    requested: bytes | None = b"",
+    direct_url: bytes | None = b'{"url":"file:///wheel/model.whl"}\n',
+    record_pyc: bool = False,
+    metadata: bytes = b"Metadata-Version: 2.3\nName: example-model\nVersion: 3.8.0\n",
+):
+    model = "example_model"
+    dist_name = "example_model-3.8.0.dist-info"
+    scientific = {
+        f"{model}/__init__.py": b"VALUE = 'verified'\n",
+        f"{model}/data.bin": b"exact model payload\x00\xff",
+        f"{dist_name}/METADATA": metadata,
+        f"{dist_name}/WHEEL": b"Wheel-Version: 1.0\nGenerator: fixture\n",
+    }
+    bookkeeping = {
+        f"{dist_name}/INSTALLER": installer,
+        f"{dist_name}/REQUESTED": requested,
+        f"{dist_name}/direct_url.json": direct_url,
+    }
+    present = {
+        **scientific,
+        **{
+            relative: payload
+            for relative, payload in bookkeeping.items()
+            if payload is not None
+        },
+    }
+    for relative, payload in present.items():
+        target = root.joinpath(*pathlib.PurePosixPath(relative).parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(payload)
+
+    source = root / model / "__init__.py"
+    bytecode = pathlib.Path(importlib.util.cache_from_source(str(source)))
+    py_compile.compile(
+        str(source),
+        cfile=str(bytecode),
+        dfile=str(source.resolve()),
+        doraise=True,
+        optimize=0,
+        invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP,
+    )
+    rows = [
+        (relative, f"sha256={_record_digest(payload)}", str(len(payload)))
+        for relative, payload in present.items()
+    ]
+    record_member = f"{dist_name}/RECORD"
+    rows.append((record_member, "", ""))
+    if record_pyc:
+        rows.append((bytecode.relative_to(root).as_posix(), "", ""))
+    rows.sort(key=lambda row: row[0], reverse=reverse_rows)
+    record_bytes = newline.join(
+        ",".join(row).encode("utf-8") for row in rows
+    ) + newline
+    record_path = root / record_member
+    record_path.write_bytes(record_bytes)
+
+    return types.SimpleNamespace(
+        model=model,
+        root=root,
+        dist_info=root / dist_name,
+        record_path=record_path,
+        record_bytes=record_bytes,
+        bytecode=bytecode,
+        scientific=scientific,
+        bookkeeping=bookkeeping,
+    )
+
+
+def _fixture_distribution(fixture):
+    return types.SimpleNamespace(
+        version="3.8.0",
+        _path=fixture.dist_info,
+        locate_file=lambda relative: fixture.root / relative,
+    )
+
+
+def _scientific_manifest_sha256(scientific: dict[str, bytes]) -> str:
+    rows = [
+        {
+            "relative_path": relative,
+            "byte_size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        for relative, payload in sorted(scientific.items())
+    ]
+    return hashlib.sha256(
+        dumps_strict(
+            rows,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def _publish(root: pathlib.Path, marker: bytes) -> dict:
@@ -142,11 +276,8 @@ def test_resolved_nlp_identity_changes_between_fallback_and_primary(monkeypatch)
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
-        lambda name: (
-            "test-version",
-            hashlib.sha256(name.encode("utf-8")).hexdigest(),
-        ),
+        "verified_installed_package_payload",
+        lambda name: _verified_package(nlp_module, name),
     )
     monkeypatch.setattr(
         nlp_module,
@@ -193,11 +324,8 @@ def test_doc_cache_rejects_swapped_text_payload(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
-        lambda name: (
-            "test-version",
-            hashlib.sha256(name.encode("utf-8")).hexdigest(),
-        ),
+        "verified_installed_package_payload",
+        lambda name: _verified_package(nlp_module, name),
     )
     monkeypatch.setattr(
         nlp_module,
@@ -1029,6 +1157,240 @@ def test_benchmark_candidate_writer_preserves_historical_site_inputs(
     assert provenance["supersedes"] is None
 
 
+@pytest.mark.parametrize(
+    "shape",
+    [
+        {
+            "newline": b"\r\n",
+            "installer": b"pip\n",
+            "requested": b"",
+            "direct_url": b'{"archive_info":{},"url":"file:///abs/pip.whl"}\n',
+            "record_pyc": True,
+        },
+        {
+            "newline": b"\n",
+            "installer": b"uv",
+            "requested": b"",
+            "direct_url": b'{"url":"file:///abs/uv.whl","archive_info":{}}\n',
+            "record_pyc": False,
+        },
+        {
+            "newline": b"\n",
+            "reverse_rows": True,
+            "installer": b"other\n",
+            "requested": b"selected\n",
+            "direct_url": b'{ "url" : "file:///different/path.whl" }\n',
+            "record_pyc": True,
+        },
+        {
+            "newline": b"\r\n",
+            "reverse_rows": True,
+            "installer": b"uv",
+            "requested": None,
+            "direct_url": None,
+            "record_pyc": False,
+        },
+        {
+            "newline": b"\n",
+            "installer": None,
+            "requested": None,
+            "direct_url": None,
+            "record_pyc": True,
+        },
+    ],
+    ids=("pip", "uv", "reordered", "crlf-optional-absent", "pyc-row-only"),
+)
+def test_spacy_package_payload_identity_ignores_only_installer_bookkeeping(
+    tmp_path,
+    monkeypatch,
+    shape,
+):
+    from stylo import nlp as nlp_module
+
+    fixture = _installed_model_fixture(tmp_path, **shape)
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: _fixture_distribution(fixture),
+    )
+
+    verified = nlp_module.verified_installed_package_payload(fixture.model)
+    expected_payload = _scientific_manifest_sha256(fixture.scientific)
+    assert verified.package_version == "3.8.0"
+    assert verified.package_payload_sha256 == expected_payload
+    assert verified.record_bytes_sha256 == hashlib.sha256(
+        fixture.record_bytes
+    ).hexdigest()
+
+    pipeline = spacy.blank("ru")
+    identity = nlp_module._build_nlp_identity(
+        requested=fixture.model,
+        resolved=fixture.model,
+        nlp=pipeline,
+        max_length=1_234,
+        package_identity=verified,
+    )
+    assert identity.package_payload_sha256 == expected_payload
+    assert not any("record" in key for key in identity.to_dict())
+    identity_body = {
+        key: value
+        for key, value in identity.to_dict().items()
+        if key != "identity_sha256"
+    }
+    assert identity.identity_sha256 == hashlib.sha256(
+        dumps_strict(
+            identity_body,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def test_installer_mutation_is_excluded_only_after_record_verification(
+    tmp_path,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    first = _installed_model_fixture(tmp_path / "first")
+    second = _installed_model_fixture(
+        tmp_path / "second",
+        newline=b"\r\n",
+        reverse_rows=True,
+        installer=b"uv",
+        requested=b"requested-by-another-installer\n",
+        direct_url=b'{"url":"file:///completely/different/location.whl"}\n',
+        record_pyc=True,
+    )
+    current = first
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: _fixture_distribution(current),
+    )
+    baseline = nlp_module.verified_installed_package_payload(first.model)
+    current = second
+    changed_installer = nlp_module.verified_installed_package_payload(
+        second.model
+    )
+    assert (
+        baseline.package_payload_sha256
+        == changed_installer.package_payload_sha256
+    )
+    assert baseline.record_bytes_sha256 != changed_installer.record_bytes_sha256
+
+    installer_path = second.dist_info / "INSTALLER"
+    installer_path.write_bytes(b"unrecorded installer drift\n")
+    with pytest.raises(RuntimeError, match="RECORD mismatch"):
+        nlp_module.verified_installed_package_payload(second.model)
+
+
+@pytest.mark.parametrize("fault", ("hash", "size"))
+def test_spacy_record_rejects_declared_payload_hash_or_size_mutation(
+    tmp_path,
+    monkeypatch,
+    fault,
+):
+    from stylo import nlp as nlp_module
+
+    fixture = _installed_model_fixture(tmp_path)
+    record = fixture.record_path.read_text(encoding="utf-8")
+    payload = fixture.scientific["example_model/data.bin"]
+    digest = _record_digest(payload)
+    if fault == "hash":
+        record = record.replace(digest, "A" * len(digest), 1)
+    else:
+        record = record.replace(
+            f",{len(payload)}\n",
+            f",{len(payload) + 1}\n",
+            1,
+        )
+    fixture.record_path.write_text(record, encoding="utf-8")
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: _fixture_distribution(fixture),
+    )
+    with pytest.raises(RuntimeError, match="RECORD mismatch"):
+        nlp_module.verified_installed_package_payload(fixture.model)
+
+
+def test_static_metadata_mutation_rotates_verified_package_payload(
+    tmp_path,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    first = _installed_model_fixture(tmp_path / "first")
+    second = _installed_model_fixture(
+        tmp_path / "second",
+        metadata=(
+            b"Metadata-Version: 2.3\nName: example-model\n"
+            b"Version: 3.8.0\nImmutable-Field: changed\n"
+        ),
+    )
+    current = first
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: _fixture_distribution(current),
+    )
+    baseline = nlp_module.verified_installed_package_payload(first.model)
+    current = second
+    changed = nlp_module.verified_installed_package_payload(second.model)
+    assert baseline.package_payload_sha256 != changed.package_payload_sha256
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ("unsafe-path", "duplicate", "symlink", "unreadable-directory"),
+)
+def test_spacy_record_rejects_unsafe_or_uninspectable_members(
+    tmp_path,
+    monkeypatch,
+    fault,
+):
+    from stylo import nlp as nlp_module
+
+    fixture = _installed_model_fixture(tmp_path)
+    if fault == "unsafe-path":
+        fixture.record_path.write_bytes(
+            b"../escape.bin,sha256=AAAA,1\n"
+            + fixture.record_path.read_bytes()
+        )
+        message = "unsafe/duplicate"
+    elif fault == "duplicate":
+        first_row = fixture.record_path.read_bytes().splitlines(keepends=True)[0]
+        fixture.record_path.write_bytes(
+            first_row + fixture.record_path.read_bytes()
+        )
+        message = "unsafe/duplicate"
+    elif fault == "symlink":
+        target = fixture.root / "example_model/data.bin"
+        payload_copy = fixture.root / "payload-copy.bin"
+        payload_copy.write_bytes(target.read_bytes())
+        target.unlink()
+        target.symlink_to(payload_copy)
+        message = "missing/unsafe"
+    else:
+        hidden = fixture.root / "example_model/hidden"
+        hidden.mkdir()
+        (hidden / "unrecorded.bin").write_bytes(b"hidden payload")
+        hidden.chmod(0)
+        message = "cannot be inspected safely"
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: _fixture_distribution(fixture),
+    )
+    try:
+        with pytest.raises(RuntimeError, match=message):
+            nlp_module.verified_installed_package_payload(fixture.model)
+    finally:
+        if fault == "unreadable-directory":
+            hidden.chmod(0o700)
+
+
 def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
     tmp_path,
     monkeypatch,
@@ -1076,14 +1438,32 @@ def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
         "distribution",
         lambda name: Distribution(),
     )
-    assert nlp_module.verified_installed_package_record("example_model") == (
-        "3.8.0",
-        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    verified = nlp_module.verified_installed_package_payload("example_model")
+    assert verified == nlp_module.VerifiedInstalledPackage(
+        package_version="3.8.0",
+        package_payload_sha256=hashlib.sha256(
+            dumps_strict(
+                [
+                    {
+                        "relative_path": member,
+                        "byte_size": len(payload),
+                        "sha256": hashlib.sha256(payload).hexdigest(),
+                    }
+                ],
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
+        record_bytes_sha256=hashlib.sha256(record.encode("utf-8")).hexdigest(),
+        legacy_record_text_sha256=hashlib.sha256(
+            record.encode("utf-8")
+        ).hexdigest(),
     )
 
     target.write_bytes(b"tampered model bytes")
     with pytest.raises(RuntimeError, match="RECORD mismatch"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
     target.write_bytes(payload)
     unhashed = tmp_path / "example_model" / "vectors.bin"
@@ -1091,17 +1471,17 @@ def test_spacy_wheel_record_identity_verifies_installed_member_bytes(
     record += "example_model/vectors.bin,,\n"
     record_path.write_text(record, encoding="utf-8")
     with pytest.raises(RuntimeError, match="unhashed model payload"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
     record = base_record + "other-1.0.dist-info/RECORD,,\n"
     record_path.write_text(record, encoding="utf-8")
     with pytest.raises(RuntimeError, match="unhashed model payload"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
     record = f"{member},sha256={encoded},{len(payload)}\n"
     record_path.write_text(record, encoding="utf-8")
     with pytest.raises(RuntimeError, match="does not bind its own wheel RECORD"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
 
 def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
@@ -1164,9 +1544,8 @@ def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
         "distribution",
         lambda name: Distribution(),
     )
-    assert nlp_module.verified_installed_package_record("example_model") == (
-        "3.8.0",
-        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    with_recorded_pyc = nlp_module.verified_installed_package_payload(
+        "example_model"
     )
 
     raw = bytecode.read_bytes()
@@ -1179,7 +1558,7 @@ def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
     )
     bytecode.write_bytes(raw[:16] + marshal.dumps(forged_code))
     with pytest.raises(RuntimeError, match="does not derive"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
     py_compile.compile(
         str(source),
@@ -1194,9 +1573,16 @@ def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
         f"{record_member},,\n"
     )
     (dist_info / "RECORD").write_text(record, encoding="utf-8")
-    assert nlp_module.verified_installed_package_record("example_model") == (
-        "3.8.0",
-        hashlib.sha256(record.encode("utf-8")).hexdigest(),
+    without_recorded_pyc = nlp_module.verified_installed_package_payload(
+        "example_model"
+    )
+    assert (
+        with_recorded_pyc.package_payload_sha256
+        == without_recorded_pyc.package_payload_sha256
+    )
+    assert (
+        with_recorded_pyc.record_bytes_sha256
+        != without_recorded_pyc.record_bytes_sha256
     )
 
     raw = bytecode.read_bytes()
@@ -1205,7 +1591,7 @@ def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
     assert forged_code == expected_code
     bytecode.write_bytes(raw[:16] + marshal.dumps(forged_code))
     with pytest.raises(RuntimeError, match="does not derive"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
     py_compile.compile(
         str(source),
@@ -1220,7 +1606,7 @@ def test_spacy_wheel_record_accepts_only_source_derived_unhashed_pyc(
     )
     extension.write_bytes(b"unrecorded native extension fixture")
     with pytest.raises(RuntimeError, match="unrecorded model payload"):
-        nlp_module.verified_installed_package_record("example_model")
+        nlp_module.verified_installed_package_payload("example_model")
 
 
 @pytest.mark.parametrize("fallback_route", [False, True])
@@ -1319,7 +1705,7 @@ def test_verified_model_load_bypasses_mutable_preloaded_package_namespace(
     origin = root / model / "__init__.py"
     origin.parent.mkdir(parents=True)
     origin.write_text("TRUSTED = True\n", encoding="utf-8")
-    identity = ("1.0", hashlib.sha256(model.encode()).hexdigest())
+    identity = _verified_package(nlp_module, model, version="1.0")
     binding = (
         str(root),
         f"{model}/__init__.py",
@@ -1358,7 +1744,7 @@ def test_verified_model_load_bypasses_mutable_preloaded_package_namespace(
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
+        "verified_installed_package_payload",
         verify,
     )
     monkeypatch.setattr(
@@ -1441,7 +1827,7 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_load(
 
     def verify(name):
         events.append(("verify", name))
-        return ("test-version", hashlib.sha256(name.encode()).hexdigest())
+        return _verified_package(nlp_module, name)
 
     def load(binding, **_kwargs):
         name = binding[0]
@@ -1452,7 +1838,7 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_load(
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
+        "verified_installed_package_payload",
         verify,
     )
     monkeypatch.setattr(
@@ -1484,7 +1870,7 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_load(
         events.append(("verify", name))
         if name == "primary":
             raise nlp_module.importlib.metadata.PackageNotFoundError(name)
-        return ("test-version", hashlib.sha256(name.encode()).hexdigest())
+        return _verified_package(nlp_module, name)
 
     def load_fallback_only(binding, **_kwargs):
         name = binding[0]
@@ -1494,7 +1880,7 @@ def test_spacy_model_packages_are_verified_before_primary_and_fallback_load(
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
+        "verified_installed_package_payload",
         verify_missing_primary,
     )
     monkeypatch.setattr(
@@ -1521,8 +1907,20 @@ def test_primary_load_oserror_cannot_launder_integrity_drift_into_fallback(
     nlp_module._NLP_IDENTITIES.clear()
     observations = iter(
         [
-            ("1.0", "a" * 64),
-            ("1.0", "b" * 64),
+            _verified_package(
+                nlp_module,
+                "primary",
+                version="1.0",
+                payload_sha256="a" * 64,
+                record_sha256="a" * 64,
+            ),
+            _verified_package(
+                nlp_module,
+                "primary",
+                version="1.0",
+                payload_sha256="a" * 64,
+                record_sha256="b" * 64,
+            ),
         ]
     )
     fallback_touched = []
@@ -1531,17 +1929,17 @@ def test_primary_load_oserror_cannot_launder_integrity_drift_into_fallback(
         if name == "primary":
             return next(observations)
         fallback_touched.append(name)
-        return ("1.0", "c" * 64)
+        return _verified_package(nlp_module, name, version="1.0")
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
+        "verified_installed_package_payload",
         verify,
     )
     monkeypatch.setattr(
         nlp_module,
         "_verified_model_package_binding",
-        lambda name, identity: (name, *identity),
+        lambda name, identity: (name, identity),
     )
     monkeypatch.setattr(
         nlp_module,
@@ -1554,6 +1952,44 @@ def test_primary_load_oserror_cannot_launder_integrity_drift_into_fallback(
     with pytest.raises(RuntimeError, match="changed during a failed direct load"):
         nlp_module.load_nlp("primary", "fallback")
     assert fallback_touched == []
+
+
+def test_literal_record_mutation_during_successful_load_is_rejected(
+    tmp_path,
+    monkeypatch,
+):
+    from stylo import nlp as nlp_module
+
+    fixture = _installed_model_fixture(tmp_path, newline=b"\n")
+    monkeypatch.setattr(
+        nlp_module.importlib.metadata,
+        "distribution",
+        lambda name: _fixture_distribution(fixture),
+    )
+    monkeypatch.setattr(
+        nlp_module,
+        "_verified_model_package_binding",
+        lambda name, identity: (name, identity.package_payload_sha256),
+    )
+
+    def mutate_record_during_load(_binding, **_kwargs):
+        fixture.record_path.write_bytes(
+            fixture.record_path.read_bytes().replace(b"\n", b"\r\n")
+        )
+        return spacy.blank("ru")
+
+    monkeypatch.setattr(
+        nlp_module,
+        "_load_verified_model_from_binding",
+        mutate_record_during_load,
+    )
+    nlp_module._NLP_CACHE.clear()
+    nlp_module._NLP_IDENTITIES.clear()
+    with pytest.raises(
+        RuntimeError,
+        match="changed during a successful direct load",
+    ):
+        nlp_module.load_nlp(fixture.model)
 
 
 @pytest.mark.parametrize("loader_name", ["load_nlp", "load_ner"])
@@ -1569,7 +2005,7 @@ def test_post_load_integrity_oserror_never_enters_fallback(
     nlp_module._NLP_IDENTITIES.clear()
     primary_checks = 0
     fallback_touched = []
-    identity = ("1.0", "a" * 64)
+    identity = _verified_package(nlp_module, "primary", version="1.0")
 
     def verify(name):
         nonlocal primary_checks
@@ -1579,7 +2015,7 @@ def test_post_load_integrity_oserror_never_enters_fallback(
                 raise FileNotFoundError("post-load integrity read failed")
             return identity
         fallback_touched.append(name)
-        return ("1.0", "b" * 64)
+        return _verified_package(nlp_module, name, version="1.0")
 
     def direct_load(binding, **_kwargs):
         assert binding[0] == "primary"
@@ -1589,13 +2025,13 @@ def test_post_load_integrity_oserror_never_enters_fallback(
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
+        "verified_installed_package_payload",
         verify,
     )
     monkeypatch.setattr(
         nlp_module,
         "_verified_model_package_binding",
-        lambda name, observed: (name, *observed),
+        lambda name, observed: (name, observed),
     )
     monkeypatch.setattr(
         nlp_module,
@@ -1625,7 +2061,7 @@ def test_spacy_record_failure_blocks_model_import_and_fallback(
 
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
+        "verified_installed_package_payload",
         reject,
     )
     monkeypatch.setattr(
@@ -1698,10 +2134,14 @@ def test_benchmark_snapshot_rejects_actual_fallback_and_binds_live_state(
         monkeypatch.setitem(nlp_module._NLP_IDENTITIES, id(pipeline), identity)
     monkeypatch.setattr(
         nlp_module,
-        "verified_installed_package_record",
-        lambda _name: (
-            first_identity.package_version,
-            first_identity.package_record_sha256,
+        "verified_installed_package_payload",
+        lambda _name: nlp_module.VerifiedInstalledPackage(
+            package_version=first_identity.package_version,
+            package_payload_sha256=(
+                first_identity.package_payload_sha256
+            ),
+            record_bytes_sha256="a" * 64,
+            legacy_record_text_sha256="b" * 64,
         ),
     )
 
@@ -1765,7 +2205,7 @@ def test_benchmark_attestation_binds_runner_lock_runtime_and_rejects_dirty(
         "package_version": str(
             cfg.get_path("language.spacy_model_version")
         ),
-        "package_record_sha256": "d" * 64,
+        "package_payload_sha256": "d" * 64,
         "spacy_version": version("spacy"),
         "disabled_pipes": ["ner"],
         "active_pipes": ["tok2vec", "morphologizer", "parser", "lemmatizer"],
@@ -1873,7 +2313,7 @@ def test_benchmark_attestation_binds_runner_lock_runtime_and_rejects_dirty(
     )
     changed_identity = {
         **nlp_identity,
-        "package_record_sha256": "f" * 64,
+        "package_payload_sha256": "f" * 64,
     }
     with pytest.raises(RuntimeError, match="digest does not match"):
         helper(cfg, nlp_identity=changed_identity, root=root)

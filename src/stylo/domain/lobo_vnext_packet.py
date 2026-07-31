@@ -38,7 +38,7 @@ R1_PACKET_GENERATION_MATERIAL_SCHEMA_VERSION = (
     "stylo.lobo-vnext.ruaa-r1-packet-generation-material.v1"
 )
 R1_PACKET_MANIFEST_SCHEMA_VERSION = (
-    "stylo.lobo-vnext.ruaa-r1-packet.v4"
+    "stylo.lobo-vnext.ruaa-r1-packet.v5"
 )
 R1_PACKET_STATUS = "owner_selected_exploratory_packet_no_fit"
 CANONICAL_ROWS_DIRECTORY = "canonical_rows"
@@ -694,7 +694,7 @@ class R1PacketGenerationMaterial:
 
 @dataclasses.dataclass(frozen=True)
 class R1PacketManifest:
-    """Self-hashed v4 index for one content-addressed R1 packet."""
+    """Self-hashed v5 index for one content-addressed R1 packet."""
 
     schema_version: str
     status: str

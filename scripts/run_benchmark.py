@@ -81,7 +81,7 @@ def _validated_nlp_identity(cfg, raw_identity):
         "resolved_model",
         "fallback_used",
         "package_version",
-        "package_record_sha256",
+        "package_payload_sha256",
         "spacy_version",
         "disabled_pipes",
         "active_pipes",
@@ -96,7 +96,7 @@ def _validated_nlp_identity(cfg, raw_identity):
         "requested_model",
         "resolved_model",
         "package_version",
-        "package_record_sha256",
+        "package_payload_sha256",
         "spacy_version",
         "identity_sha256",
         "live_pipeline_sha256",
@@ -120,7 +120,7 @@ def _validated_nlp_identity(cfg, raw_identity):
         )
     if raw_identity["spacy_version"] != version("spacy"):
         raise RuntimeError("resolved spaCy runtime version drifted")
-    for field in ("package_record_sha256", "identity_sha256"):
+    for field in ("package_payload_sha256", "identity_sha256"):
         value = raw_identity[field]
         if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
             raise RuntimeError(f"benchmark spaCy identity {field} is not SHA-256")
@@ -150,7 +150,7 @@ def _validated_nlp_identity(cfg, raw_identity):
             "resolved_model",
             "fallback_used",
             "package_version",
-            "package_record_sha256",
+            "package_payload_sha256",
             "spacy_version",
             "disabled_pipes",
             "active_pipes",
@@ -189,7 +189,7 @@ def snapshot_benchmark_nlp_identity(cfg, nlp):
 
     from stylo.nlp import (
         resolved_nlp_identity,
-        verified_installed_package_record,
+        verified_installed_package_payload,
     )
 
     requested = cfg.get_path("language.spacy_model")
@@ -208,12 +208,11 @@ def snapshot_benchmark_nlp_identity(cfg, nlp):
             "live spaCy pipeline structure drifted after registered loading"
         )
 
-    package_version, package_record_sha256 = (
-        verified_installed_package_record(observed.resolved_model)
-    )
+    package = verified_installed_package_payload(observed.resolved_model)
     if (
-        package_version != observed.package_version
-        or package_record_sha256 != observed.package_record_sha256
+        package.package_version != observed.package_version
+        or package.package_payload_sha256
+        != observed.package_payload_sha256
     ):
         raise RuntimeError(
             "live spaCy model files drifted after registered loading"

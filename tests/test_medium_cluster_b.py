@@ -19,7 +19,7 @@ def _resolved_identity():
         resolved_model="synthetic",
         fallback_used=False,
         package_version="1",
-        package_record_sha256="a" * 64,
+        package_payload_sha256="a" * 64,
         spacy_version="test",
         disabled_pipes=("ner",),
         active_pipes=(),
