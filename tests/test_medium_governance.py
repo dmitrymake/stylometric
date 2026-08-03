@@ -61,10 +61,11 @@ def _assert_binding(binding: dict, *, require_hash: bool) -> None:
 def test_normative_status_ledger_is_symbol_and_byte_bound():
     ledger = _strict_json(GOVERNANCE / "status_ledger.json")
     assert set(ledger) == {
-        "schema", "as_of", "authority", "paired_audit", "historical_records"
+        "schema", "as_of", "authority", "paired_audit",
+        "bounded_exploratory_milestones", "historical_records"
     }
-    assert ledger["schema"] == "stylo.governance.status_ledger.v1"
-    assert ledger["as_of"] == "2026-07-26"
+    assert ledger["schema"] == "stylo.governance.status_ledger.v2"
+    assert ledger["as_of"] == "2026-08-03"
     expected_states = {
         "control_plane": "implemented_synthetic",
         "preparation": "implemented_local_candidate_preparation_only",
@@ -83,6 +84,71 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
     for record in ledger["historical_records"]:
         assert set(record) == {"path", "status", "sha256"}
         assert _sha256(ROOT / record["path"]) == record["sha256"]
+
+
+def test_bounded_exploratory_milestone_is_exact_and_non_authorizing():
+    ledger = _strict_json(GOVERNANCE / "status_ledger.json")
+    milestones = ledger["bounded_exploratory_milestones"]
+    assert set(milestones) == {"ruaa_r1_v5"}
+    milestone = milestones["ruaa_r1_v5"]
+    assert set(milestone) == {
+        "status",
+        "source_commit",
+        "packet_generation_id",
+        "run_id",
+        "result_self_hash",
+        "result_file_sha256",
+        "sealed_bundle_manifest_self_hash",
+        "sealed_bundle_archive_sha256",
+        "authorization_exhausted",
+        "evidence_tier",
+        "evidence_location",
+        "release_artifact",
+        "confirmatory_authorized",
+        "publication_authorized",
+        "headline_authorized",
+        "claim",
+    }
+    assert {
+        key: milestone[key]
+        for key in (
+            "status",
+            "source_commit",
+            "packet_generation_id",
+            "run_id",
+            "result_self_hash",
+            "result_file_sha256",
+            "sealed_bundle_manifest_self_hash",
+            "sealed_bundle_archive_sha256",
+            "evidence_tier",
+            "evidence_location",
+            "claim",
+        )
+    } == {
+        "status": "completed_bounded_exploratory_local_not_published",
+        "source_commit": "3c17766c3154fd515e7b5788e1b0278be108f2e1",
+        "packet_generation_id": "d08f8cb772d70df33f5356a3b043bc26345e91d41b6c2da408da694753a13770",
+        "run_id": "c3a97f662cc65788f5ac859cd6ac80f9f6353e95ddc1ce96e5beafb318c7fa3e",
+        "result_self_hash": "d1ddf80a83ff844bbd04a5276b6d8985f1073220414204638d2cf6c24153011b",
+        "result_file_sha256": "78e6d7b48457e050f2e5b6a60f4e6dca9edccfabe1c3b56bcc5822ac21ca8580",
+        "sealed_bundle_manifest_self_hash": "224665b40117ef5ddd93c496b9683c0250c26120ba868227f19c3fb5cc9e2d88",
+        "sealed_bundle_archive_sha256": "e37dfeaf7f5fc423459522b6eb480dce49bdb6fcb79623342ee2e18dfd37df0f",
+        "evidence_tier": "bounded_exploratory",
+        "evidence_location": "ignored-local",
+        "claim": (
+            "This bounded exploratory run does not complete or replace the paired "
+            "audit, is not confirmatory evidence or an external replication, and "
+            "authorizes no publication or headline."
+        ),
+    }
+    assert milestone["authorization_exhausted"] is True
+    for field in (
+        "release_artifact",
+        "confirmatory_authorized",
+        "publication_authorized",
+        "headline_authorized",
+    ):
+        assert milestone[field] is False
 
 
 @pytest.mark.parametrize(

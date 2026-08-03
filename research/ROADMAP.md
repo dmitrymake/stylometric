@@ -10,7 +10,7 @@ prompts, numbered waves, increments, and review rounds. Scientific cell identifi
 `A0/A1/A4` remain stable where they define an estimand; execution chronology belongs in status
 metadata, not filenames or directories.
 
-Last reconciled: 2026-07-26.
+Last reconciled: 2026-08-03.
 
 ## Active scientific deliverable
 
@@ -87,6 +87,9 @@ domain-specific neural baseline and genuinely external replication.
   overlap, so the preserved run is evidence-only and cannot support a new scientific claim;
 - the `lobo_vnext` control plane is a separate path for newly registered corpus runs, not an
   equivalent reproduction or drop-in replacement for the historical run;
+- an independently audited, sealed RuAA R1 v5 bounded exploratory LOBO run is complete as a local,
+  not-published milestone with its execution authorization exhausted; it does not complete or
+  replace the paired audit and is not an external replication;
 - post-validation runtime identity that omits OS/kernel release strings while binding libc and the
   numerical stack;
 - purpose-based research, runner, evaluator, fixture, and test paths, with historical executed

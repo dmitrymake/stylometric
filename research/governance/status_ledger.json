@@ -1,6 +1,6 @@
 {
-  "schema": "stylo.governance.status_ledger.v1",
-  "as_of": "2026-07-26",
+  "schema": "stylo.governance.status_ledger.v2",
+  "as_of": "2026-08-03",
   "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
   "paired_audit": {
     "control_plane": {
@@ -66,6 +66,26 @@
     "headline": {
       "status": "not_authorized",
       "claim": "No paired-audit headline decision or publication is authorized."
+    }
+  },
+  "bounded_exploratory_milestones": {
+    "ruaa_r1_v5": {
+      "status": "completed_bounded_exploratory_local_not_published",
+      "source_commit": "3c17766c3154fd515e7b5788e1b0278be108f2e1",
+      "packet_generation_id": "d08f8cb772d70df33f5356a3b043bc26345e91d41b6c2da408da694753a13770",
+      "run_id": "c3a97f662cc65788f5ac859cd6ac80f9f6353e95ddc1ce96e5beafb318c7fa3e",
+      "result_self_hash": "d1ddf80a83ff844bbd04a5276b6d8985f1073220414204638d2cf6c24153011b",
+      "result_file_sha256": "78e6d7b48457e050f2e5b6a60f4e6dca9edccfabe1c3b56bcc5822ac21ca8580",
+      "sealed_bundle_manifest_self_hash": "224665b40117ef5ddd93c496b9683c0250c26120ba868227f19c3fb5cc9e2d88",
+      "sealed_bundle_archive_sha256": "e37dfeaf7f5fc423459522b6eb480dce49bdb6fcb79623342ee2e18dfd37df0f",
+      "authorization_exhausted": true,
+      "evidence_tier": "bounded_exploratory",
+      "evidence_location": "ignored-local",
+      "release_artifact": false,
+      "confirmatory_authorized": false,
+      "publication_authorized": false,
+      "headline_authorized": false,
+      "claim": "This bounded exploratory run does not complete or replace the paired audit, is not confirmatory evidence or an external replication, and authorizes no publication or headline."
     }
   },
   "historical_records": [
