@@ -93,6 +93,28 @@
       ]
     },
     {
+      "path": "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py",
+      "status": "preparation_only_local_candidate_pending_review",
+      "claim_scope": "Verify only the registered historical v3.1 evidence root, derive the v3.2 corrected child and LOBO/RuAA manifests with the literal three exclusions, and record full work-identity and content-isolation audits. It has no evaluator, fit, prediction, preflight, authorization, publication, push, or deployment authority.",
+      "output_contract": "Create-or-revalidate only a content-addressed corrected corpus and local candidate below an explicit caller-owned output root. It never mutates data/, historical evidence, a current pointer, or an approved freeze pin.",
+      "identity_bindings": [
+        "exact_historical_parent_digest",
+        "exclusion_policy_digest",
+        "identity_contract_version",
+        "full_work_identity_catalog_digest",
+        "basename_collision_audit_digest",
+        "content_isolation_audit_digest",
+        "corrected_content_inventory_digest",
+        "LOBO_RuAA_selection_and_fold_digests",
+        "applicability_matrix_digest"
+      ],
+      "required_nodeids": [
+        "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
+        "tests/test_paired_audit_corrected_v3_2.py::test_content_overlap_inside_adjudicated_pair_remains_fatal",
+        "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation"
+      ]
+    },
+    {
       "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
       "status": "canonical_preparation_only",
       "claim_scope": "Prepare only the exact canonical RuAA R1 acquisition selected-134 packet v5, its pre-corpus acquisition binding, canonicalizer policy v2 with installer-independent verified model payload identity, post-selection content screen, isolated folds, two fixed model roles and inference contract. The command has no cache, factory, fit, prediction, authorization, public-evidence or confirmatory authority.",

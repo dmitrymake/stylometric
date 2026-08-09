@@ -19,17 +19,18 @@ Normative design: [`work_balanced/paired_audit_protocol.md`](work_balanced/paire
 
 The former paired-audit v3.1 snapshot and LOBO/RuAA folds are registered as
 `ineligible_for_new_scientific_runs`; neither its corpus, freeze candidates, nor historical A0
-predictions can be reused for a new scientific run. v3.2 is design-frozen but not implemented.
+predictions can be reused for a new scientific run. v3.2 corrected-corpus/fold preparation is a
+local candidate pending independent review; it is not a reviewed freeze or an execution grant.
 
-The next implementation boundary, in order, is:
+The completed preparation boundary derived a new local candidate with the exact three exclusions,
+full `author_id/work_slug` identities, diagnostic-only expected basename collisions, and the
+252/248/134 universe. The next implementation boundary, in order, is:
 
-1. Build a new immutable corpus and LOBO/RuAA folds that exclude the three adjudicated works and
-   mechanically enforce 47 authors / 252 works, 43 / 248 tested LOBO works, and 22 / 134 RuAA works.
-2. Implement the v3.2 16-cell, 11-comparison matrix without `stylo_stack`; do not substitute a new
-   nested or cross-fitted stack in this correction.
-3. Register a v3.2 production evaluator, build a new preflight and receipts, independently review and
+1. Implement a v3.2 evaluator/evidence adapter for the already-prepared 16-cell, 11-comparison
+   matrix without `stylo_stack`; do not implement authorization in that boundary.
+2. Independently review and
    pin the exact new freeze, then obtain a separate execution authorization.
-4. Execute one full run, verify exact resume, and have a separate clean session independently audit
+3. Execute one full run, verify exact resume, and have a separate clean session independently audit
    the durable result before any separately authorized headline decision.
 
 Until all of these gates are satisfied, the freeze is unapproved, the production evaluator is

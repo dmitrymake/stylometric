@@ -20,8 +20,20 @@
       ]
     },
     "protocol_v3_2": {
-      "status": "design_frozen_pending_implementation",
-      "claim": "v3.2 fixes the corpus contract by excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях; it requires a new 252-work/248-tested-LOBO/134-work-RuAA corpus and a 16-cell/11-comparison matrix without stylo_stack. No v3.2 corpus, folds, evaluator, preflight, receipts, predictions, or result exists."
+      "status": "local_candidate_preparation_pending_review",
+      "claim": "v3.2 preparation now derives a local, unapproved corrected child only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. It binds full NFC author_id/work_slug identities, the diagnostic-only expected basename inventory, content isolation, 252/248/134 folds, and the 16-cell/11-comparison matrix without stylo_stack. No reviewed freeze pin, evaluator, preflight, receipt, prediction, result, execution, headline, or publication exists.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
+          "symbol": "prepare_corrected_v3_2",
+          "sha256": "3a8db66412df1fa2a715b80fd49ef0e6d1e63c621ac5b8686d44119137b7d680"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
+          "symbol": "assert_v3_2_fold_manifest",
+          "sha256": "3a8db66412df1fa2a715b80fd49ef0e6d1e63c621ac5b8686d44119137b7d680"
+        }
+      ]
     },
     "manifest_freeze": {
       "status": "unapproved",

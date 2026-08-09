@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 314,
-  "release_python_paths_sha256": "bd639932d2f1b9b5154d30b0ec5bc43b25c3e05ae9623ab5efe116a4670e5fbc",
+  "release_python_file_count": 317,
+  "release_python_paths_sha256": "72c69163847f3421200eca76b7cd1bf63909d58578f7984301f34f2eb6d22a02",
   "local_only_python_files": [
     "scripts/_fetch_tmp/clean.py",
     "scripts/_fetch_tmp/extract_letters.py",
@@ -93,9 +93,9 @@
     "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/models/stacked_clf.py": "c03141e3f7e6b9c9f02bc14a103769d406905a70619020a78a6fa8d73b65534f",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json": "f5b3eda337dce7b7bf2c691b92c72c8445331b53c3716cf53349061764423bc5",
     "research/evidence/withdrawn_certificates_v1/manifest.json": "d1b7a2528783a515f73f4de8610ab46dcbbf7156998a95a52168984a461b72f0",
-    "research/governance/requirements.json": "a0032cfd4e31f2acb4a97bee31f273fcb6b443c23847f720ad1db1aae8886138",
-    "research/governance/runner_catalog.json": "933bdffb4d5aeb09fe4cc53af6e8abf546289a682e31b8793f323762fb1e0270",
-    "research/governance/status_ledger.json": "74adbb5f0ccb2739deef700443afd9839febc99ce4ed750ffa04c41e4bb2ef01",
+    "research/governance/requirements.json": "41398c2d995c2c1f5ecde9a6b59e38905dbc33676e76073d05bfc4af4fc9b0ee",
+    "research/governance/runner_catalog.json": "344f8ac78edba63ab13c31fdc8022cce5e11f0f8fd80dda0ac5ae97e347033da",
+    "research/governance/status_ledger.json": "9b89c4f597b5581bc65d2332616de785a11eb40bdd374f596f74b7a1474f55ef",
     "research/governance/topology.json": "544f8f15cea018f839a5eddd3b5d0e60854a83b42c1c481bd150a198656c5ad1",
     "research/reviews/stylometry_owner_decision_memo.md": "484ae9e6831596fa5472c38547f459c736171384a1e3480158a64bc9b54f02ba",
     "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",

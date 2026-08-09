@@ -68,7 +68,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
     assert ledger["as_of"] == "2026-08-09"
     expected_states = {
         "protocol_v3_1": "superseded_ineligible_corpus",
-        "protocol_v3_2": "design_frozen_pending_implementation",
+        "protocol_v3_2": "local_candidate_preparation_pending_review",
         "manifest_freeze": "unapproved",
         "production_evaluator": "unregistered",
         "confirmatory_execution": "hard_disabled",
@@ -179,12 +179,8 @@ def test_stale_paired_audit_status_claims_are_not_current_prose():
     assert "No confirmatory audit-corpus builder, paired-audit runner" not in protocol
 
 
-def test_paired_audit_v3_2_design_is_mechanically_accounted_and_non_authorizing():
-    """The correction derives its tested counts from tracked historical manifests and dispositions.
-
-    It intentionally does not exercise the ignored historical corpus or implement v3.2 builders:
-    v3.2 is design-frozen only, while the v3.1 implementation remains historical evidence.
-    """
+def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizing():
+    """The v3.2 preparation contract is local/unapproved and leaves v3.1 evidence immutable."""
     ledger = _strict_json(GOVERNANCE / "status_ledger.json")
     protocol = (
         ROOT / "research" / "work_balanced" / "paired_audit_protocol.md"
@@ -229,8 +225,11 @@ def test_paired_audit_v3_2_design_is_mechanically_accounted_and_non_authorizing(
         "superseded_ineligible_corpus"
     )
     assert ledger["paired_audit"]["protocol_v3_2"]["status"] == (
-        "design_frozen_pending_implementation"
+        "local_candidate_preparation_pending_review"
     )
+    claim = ledger["paired_audit"]["protocol_v3_2"]["claim"]
+    assert "full NFC author_id/work_slug" in claim
+    assert "No reviewed freeze pin, evaluator, preflight" in claim
     for marker in (
         "(v3.2)",
         "47 authors / 252 works",
