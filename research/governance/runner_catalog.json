@@ -95,8 +95,8 @@
     {
       "path": "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py",
       "status": "preparation_only_local_candidate_pending_review",
-      "claim_scope": "Verify only the registered historical v3.1 evidence root, derive the v3.2 corrected child and LOBO/RuAA manifests with the literal three exclusions, and record full work-identity and content-isolation audits. It has no evaluator, fit, prediction, preflight, authorization, publication, push, or deployment authority.",
-      "output_contract": "Create-or-revalidate only a content-addressed corrected corpus and local candidate below an explicit caller-owned output root. It never mutates data/, historical evidence, a current pointer, or an approved freeze pin.",
+      "claim_scope": "Verify only the registered historical v3.1 evidence root, derive the v3.2 bundle-local corrected child and LOBO/RuAA manifests with the literal three exclusions, and record full work-identity and content-isolation audits. It has no evaluator, fit, prediction, preflight, authorization, scientific publication, push, or deployment authority.",
+      "output_contract": "Create or pure-revalidate one storage-contract-versioned atomic bundle below an explicit caller-owned output root. The child, folds, audits, exact recursive inventory, candidate and SHA256SUMS become visible together through one locked no-clobber rename; no current pointer or standalone child is written.",
       "identity_bindings": [
         "exact_historical_parent_digest",
         "exclusion_policy_digest",
@@ -105,13 +105,18 @@
         "basename_collision_audit_digest",
         "content_isolation_audit_digest",
         "corrected_content_inventory_digest",
+        "preparation_bundle_storage_contract",
+        "exact_recursive_inventory_and_SHA256SUMS",
         "LOBO_RuAA_selection_and_fold_digests",
         "applicability_matrix_digest"
       ],
       "required_nodeids": [
         "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
         "tests/test_paired_audit_corrected_v3_2.py::test_content_overlap_inside_adjudicated_pair_remains_fatal",
-        "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation"
+        "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_exact_resume_rejects_rogue_member_without_repair[file]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_self_rehashed_coherent_fold_forgery_rejected_by_reconstruction[corrected_corpus_digest]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_fault_injection_never_publishes_partial_bundle[during_child_assembly]"
       ]
     },
     {

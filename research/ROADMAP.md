@@ -9,7 +9,7 @@ This is the single current roadmap for the repository. Scientific cell identifie
 `A0/A1/A4` remain stable where they define an estimand; execution chronology belongs in status
 metadata, not filenames or directories.
 
-Last reconciled: 2026-08-09.
+Last reconciled: 2026-08-10.
 
 ## Active scientific deliverable
 
@@ -22,9 +22,12 @@ The former paired-audit v3.1 snapshot and LOBO/RuAA folds are registered as
 predictions can be reused for a new scientific run. v3.2 corrected-corpus/fold preparation is a
 local candidate pending independent review; it is not a reviewed freeze or an execution grant.
 
-The completed preparation boundary derived a new local candidate with the exact three exclusions,
+The remediated preparation boundary derives one atomic local bundle with the exact three exclusions,
 full `author_id/work_slug` identities, diagnostic-only expected basename collisions, and the
-252/248/134 universe. The next implementation boundary, in order, is:
+252/248/134 universe. The former `a70d82f2` candidate was unapproved and is superseded by the new
+storage contract. The next gate is a repeated independent preparation review of the exact remediation
+commit. Only after that review may a separately scoped implementation boundary be considered, in
+order:
 
 1. Implement a v3.2 evaluator/evidence adapter for the already-prepared 16-cell, 11-comparison
    matrix without `stylo_stack`; do not implement authorization in that boundary.

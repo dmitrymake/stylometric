@@ -1,6 +1,6 @@
 {
   "schema": "stylo.governance.status_ledger.v2",
-  "as_of": "2026-08-09",
+  "as_of": "2026-08-10",
   "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
   "paired_audit": {
     "protocol_v3_1": {
@@ -21,17 +21,17 @@
     },
     "protocol_v3_2": {
       "status": "local_candidate_preparation_pending_review",
-      "claim": "v3.2 preparation now derives a local, unapproved corrected child only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. It binds full NFC author_id/work_slug identities, the diagnostic-only expected basename inventory, content isolation, 252/248/134 folds, and the 16-cell/11-comparison matrix without stylo_stack. No reviewed freeze pin, evaluator, preflight, receipt, prediction, result, execution, headline, or publication exists.",
+      "claim": "v3.2 preparation derives one local, unapproved atomic bundle only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. The bundle-local corrected child, exact recursive inventory, checksums, audits, and independently reconstructed 252/248/134 fold manifests are fully verified before one no-clobber rename. It binds full NFC author_id/work_slug identities, expected basename diagnostics, content isolation, and the unchanged 16-cell/11-comparison matrix without stylo_stack. A repeat independent preparation review is pending. No reviewed freeze pin, evaluator, preflight, receipt, prediction, result, execution, headline, or scientific publication exists.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
           "symbol": "prepare_corrected_v3_2",
-          "sha256": "3a8db66412df1fa2a715b80fd49ef0e6d1e63c621ac5b8686d44119137b7d680"
+          "sha256": "90834c2d558c3c43faafa3ec9cf1b958080c05386f332481c741994612a8a7fd"
         },
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
-          "symbol": "assert_v3_2_fold_manifest",
-          "sha256": "3a8db66412df1fa2a715b80fd49ef0e6d1e63c621ac5b8686d44119137b7d680"
+          "symbol": "verify_v3_2_candidate",
+          "sha256": "90834c2d558c3c43faafa3ec9cf1b958080c05386f332481c741994612a8a7fd"
         }
       ]
     },

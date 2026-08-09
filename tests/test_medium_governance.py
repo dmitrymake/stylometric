@@ -65,7 +65,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "bounded_exploratory_milestones", "historical_records"
     }
     assert ledger["schema"] == "stylo.governance.status_ledger.v2"
-    assert ledger["as_of"] == "2026-08-09"
+    assert ledger["as_of"] == "2026-08-10"
     expected_states = {
         "protocol_v3_1": "superseded_ineligible_corpus",
         "protocol_v3_2": "local_candidate_preparation_pending_review",

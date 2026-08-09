@@ -67,17 +67,24 @@
     },
     {
       "id": "PA-V3-2-CORRECTED-CORPUS-IDENTITY-AND-ISOLATION",
-      "description": "The preparation-only v3.2 child binds the exact historical parent, literal exclusions, full NFC work identities, expected basename diagnostics, complete content isolation, 252/248/134 folds, and a 16-cell/11-comparison applicability matrix. Bare basenames never join or select work records.",
+      "description": "The preparation-only v3.2 atomic bundle binds the exact historical parent, literal exclusions, full NFC work identities, expected basename diagnostics, complete content isolation, 252/248/134 folds, and the unchanged 16-cell/11-comparison applicability matrix. It rejects unsafe inode/path/mode/inventory state and accepts folds only by exact trusted-input reconstruction.",
       "code": [
         {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "prepare_corrected_v3_2"},
-        {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "assert_v3_2_fold_manifest"}
+        {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "verify_v3_2_candidate"}
       ],
       "tests": [
         "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
         "tests/test_paired_audit_corrected_v3_2.py::test_duplicate_full_id_and_author_prefix_mismatch_are_fatal",
         "tests/test_paired_audit_corrected_v3_2.py::test_collision_inventory_rejects_missing_unexpected_or_third_member",
         "tests/test_paired_audit_corrected_v3_2.py::test_content_overlap_inside_adjudicated_pair_remains_fatal",
-        "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation"
+        "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_historical_and_resume_hardlinks_fail_closed",
+        "tests/test_paired_audit_corrected_v3_2.py::test_staging_child_external_hardlink_is_fatal_without_target_mutation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_mode_drift_is_rejected_without_verifier_mutation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_exact_resume_rejects_rogue_member_without_repair[file]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_self_rehashed_coherent_fold_forgery_rejected_by_reconstruction[corrected_corpus_digest]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_fault_injection_never_publishes_partial_bundle[during_child_assembly]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_actual_final_rename_failure_and_success_resume_semantics"
       ]
     },
     {

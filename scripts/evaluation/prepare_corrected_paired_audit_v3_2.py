@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import pathlib
+import stat
 
 from stylo.config import load_config
 from stylo.eval.paired_audit.corrected_v3_2 import (
@@ -17,12 +18,16 @@ from stylo.jsonio import load_strict
 
 
 def _sha256(path: pathlib.Path) -> str:
-    if path.is_symlink() or not path.is_file():
-        raise RuntimeError(f"missing regular required file: {path}")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise RuntimeError(f"missing, symlinked, hardlinked, or special required file: {path}")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _ruaa_selection(path: pathlib.Path) -> list[str]:
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise RuntimeError("RuAA selection evidence must be a single-link regular file")
     raw = load_strict(path)
     authors = raw.get("authors") if isinstance(raw, dict) else None
     if not isinstance(authors, dict):
@@ -49,7 +54,7 @@ def prepare(repo: pathlib.Path, output: pathlib.Path, *, parent: pathlib.Path | 
     cfg = load_config(repository / "configs" / "default.yaml")
     return prepare_corrected_v3_2(
         historical_parent_root=parent or repository / "data" / "audit_corpus" / HISTORICAL_PARENT_DIGEST,
-        output_root=output.resolve(),
+        output_root=output.absolute(),
         ruaa_parent_selection=_ruaa_selection(ruaa_manifest or repository / "data" / "ruaa_bench_v1" / "manifest.json"),
         config_hash=config_id(cfg),
         protocol_sha256=_sha256(repository / "research" / "work_balanced" / "paired_audit_protocol.md"),
@@ -67,8 +72,11 @@ def main() -> None:
     result = prepare(args.repo_root, args.output_root, parent=args.historical_parent_root,
                      ruaa_manifest=args.ruaa_selection_manifest)
     if args.compare_with:
-        parity = assert_preparation_parity(args.output_root.resolve(), args.compare_with.resolve())
-        print(f"parity={parity['paths_bytes_modes_digest']} entries={parity['n_entries']}")
+        parity = assert_preparation_parity(args.output_root.absolute(), args.compare_with.absolute())
+        print(
+            f"parity={parity['paths_types_sizes_modes_bytes_digest']} "
+            f"entries={parity['n_entries']} contract={parity['contract']}"
+        )
     print(result["candidate_root"])
 
 
