@@ -65,12 +65,12 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "bounded_exploratory_milestones", "historical_records"
     }
     assert ledger["schema"] == "stylo.governance.status_ledger.v2"
-    assert ledger["as_of"] == "2026-08-03"
+    assert ledger["as_of"] == "2026-08-09"
     expected_states = {
-        "control_plane": "implemented_synthetic",
-        "preparation": "implemented_local_candidate_preparation_only",
-        "manifest_freeze": "candidate_unapproved",
-        "production_evaluator": "blocked_unregistered",
+        "protocol_v3_1": "superseded_ineligible_corpus",
+        "protocol_v3_2": "design_frozen_pending_implementation",
+        "manifest_freeze": "unapproved",
+        "production_evaluator": "unregistered",
         "confirmatory_execution": "hard_disabled",
         "headline": "not_authorized",
     }
@@ -177,6 +177,72 @@ def test_stale_paired_audit_status_claims_are_not_current_prose():
     assert "Still required beyond the narrow stylo validation" not in roadmap
     assert "paired audit has not yet been implemented" not in contract
     assert "No confirmatory audit-corpus builder, paired-audit runner" not in protocol
+
+
+def test_paired_audit_v3_2_design_is_mechanically_accounted_and_non_authorizing():
+    """The correction derives its tested counts from tracked historical manifests and dispositions.
+
+    It intentionally does not exercise the ignored historical corpus or implement v3.2 builders:
+    v3.2 is design-frozen only, while the v3.1 implementation remains historical evidence.
+    """
+    ledger = _strict_json(GOVERNANCE / "status_ledger.json")
+    protocol = (
+        ROOT / "research" / "work_balanced" / "paired_audit_protocol.md"
+    ).read_text(encoding="utf-8")
+    registry = _strict_json(
+        ROOT / "research" / "evidence" / "ineligible_corpus_registrations_v1.json"
+    )
+    dispositions = _strict_json(
+        ROOT / "research" / "corpus_sources" / "ruaa_r1_source_dispositions_v1.json"
+    )
+    lobo = _strict_json(ROOT / "docs" / "screening_panel_v1.json")
+    ruaa = _strict_json(ROOT / "docs" / "ruaa_bench_manifest.json")
+
+    excluded = {
+        "turgenev/записки_охотника",
+        "serafimovich/у_нас_и_у_них",
+        "sevsky/дон_на_костылях",
+    }
+    lobo_ids = {row["work_id"] for row in lobo["works"]}
+    ruaa_ids = {
+        f"{author}/{book['book']}"
+        for author, author_record in ruaa["authors"].items()
+        for book in author_record["books"]
+    }
+    disposition_ids = {row["work_id"] for row in dispositions["work_dispositions"]}
+
+    assert registry["status"] == "ineligible_for_new_scientific_runs"
+    assert excluded <= disposition_ids
+    assert len(lobo_ids) == lobo["n_works"] == 251
+    assert len(ruaa_ids) == ruaa["n_books"] == 137
+    assert excluded <= lobo_ids and excluded <= ruaa_ids
+    assert len(lobo_ids - excluded) == 248
+    assert len(ruaa_ids - excluded) == 134
+    # The tracked independent audit fixes the immutable historical parent count at 255.
+    historical_audit = (
+        ROOT / "research" / "evidence" / "stylo_lobo_validation_v1" / "independent_audit.md"
+    ).read_text(encoding="utf-8")
+    assert "47 classes, 255 works, and 251 tested works" in historical_audit
+    assert 255 - len(excluded) == 252
+
+    assert ledger["paired_audit"]["protocol_v3_1"]["status"] == (
+        "superseded_ineligible_corpus"
+    )
+    assert ledger["paired_audit"]["protocol_v3_2"]["status"] == (
+        "design_frozen_pending_implementation"
+    )
+    for marker in (
+        "(v3.2)",
+        "47 authors / 252 works",
+        "43 authors / 248 works",
+        "22 authors / 134 works",
+        "16 applied cells",
+        "11-member set",
+        "`stylo_stack` is withdrawn",
+        "historical evidence only",
+        "No corpus build, fit,",
+    ):
+        assert marker in protocol
 
 
 def test_work_balanced_estimand_is_the_compact_implementation_contract():

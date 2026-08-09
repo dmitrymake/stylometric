@@ -1,11 +1,11 @@
 {
   "schema": "stylo.governance.status_ledger.v2",
-  "as_of": "2026-08-03",
+  "as_of": "2026-08-09",
   "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
   "paired_audit": {
-    "control_plane": {
-      "status": "implemented_synthetic",
-      "claim": "The fail-closed synthetic control plane, audit-corpus builder, run plan, checkpoints, result audit, and publisher exist and are covered by synthetic tests.",
+    "protocol_v3_1": {
+      "status": "superseded_ineligible_corpus",
+      "claim": "The v3.1 corpus snapshot, LOBO/RuAA folds, freeze candidates, exact A0 predictions, and associated corpus bytes are immutable historical evidence only. The ineligible-corpus registry forbids their use for any new scientific run.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/corpus.py",
@@ -19,20 +19,13 @@
         }
       ]
     },
-    "preparation": {
-      "status": "implemented_local_candidate_preparation_only",
-      "claim": "A preparation command and local candidate flow exist; this is not approval to execute a confirmatory estimator.",
-      "bindings": [
-        {
-          "path": "scripts/evaluation/prepare_paired_audit_inputs.py",
-          "symbol": "prepare",
-          "sha256": "469cd4f55a046af4d9799e19d9286f5a70ced6f86da38738748ce25c9bb4b85c"
-        }
-      ]
+    "protocol_v3_2": {
+      "status": "design_frozen_pending_implementation",
+      "claim": "v3.2 fixes the corpus contract by excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях; it requires a new 252-work/248-tested-LOBO/134-work-RuAA corpus and a 16-cell/11-comparison matrix without stylo_stack. No v3.2 corpus, folds, evaluator, preflight, receipts, predictions, or result exists."
     },
     "manifest_freeze": {
-      "status": "candidate_unapproved",
-      "claim": "No reviewed freeze-root digest is pinned in the execution control plane.",
+      "status": "unapproved",
+      "claim": "No reviewed v3.2 immutable corpus root or fold-manifest digest is pinned. The v3.1 candidates are ineligible and cannot be promoted or reused.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/runner.py",
@@ -42,19 +35,19 @@
       ]
     },
     "production_evaluator": {
-      "status": "blocked_unregistered",
-      "claim": "A canonical production evaluator identity has not been registered for confirmatory execution.",
+      "status": "unregistered",
+      "claim": "No canonical v3.2 production evaluator identity or evidence adapter is registered for confirmatory execution.",
       "bindings": [
         {
-          "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "run_execution",
-          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+          "path": "src/stylo/eval/paired_audit/run_plan.py",
+          "symbol": "CONFIRMATORY_EVALUATOR_REGISTRY",
+          "sha256": "71880e9ea41cc56c55772f642d29ebb5187b2119d5142770c2e8db7eb821f5ab"
         }
       ]
     },
     "confirmatory_execution": {
       "status": "hard_disabled",
-      "claim": "Execution must fail until an independently reviewed freeze digest is pinned and the other confirmatory preconditions are satisfied.",
+      "claim": "Execution must fail until a separately implemented and reviewed v3.2 corpus/fold/evaluator/preflight chain is pinned and separately authorized.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/runner.py",
@@ -65,7 +58,7 @@
     },
     "headline": {
       "status": "not_authorized",
-      "claim": "No paired-audit headline decision or publication is authorized."
+      "claim": "No paired-audit headline decision, publication, push, or deployment is authorized. Historical headline artifacts remain immutable."
     }
   },
   "bounded_exploratory_milestones": {

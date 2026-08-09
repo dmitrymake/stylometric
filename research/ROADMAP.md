@@ -1,59 +1,62 @@
 # Research and release roadmap
 
 Normative current status is recorded in
-[`governance/status_ledger.json`](governance/status_ledger.json). If chronology, review-round
-labels, future-tense prose, commit labels, or line references in this document disagree with that
-ledger, the ledger wins.
+[`governance/status_ledger.json`](governance/status_ledger.json). If chronology, review-round labels,
+future-tense prose, commit labels, or line references in this document disagree with that ledger, the
+ledger wins.
 
-This is the single current roadmap for the repository. It replaces root-level TODO files, agent
-prompts, numbered waves, increments, and review rounds. Scientific cell identifiers such as
+This is the single current roadmap for the repository. Scientific cell identifiers such as
 `A0/A1/A4` remain stable where they define an estimand; execution chronology belongs in status
 metadata, not filenames or directories.
 
-Last reconciled: 2026-08-03.
+Last reconciled: 2026-08-09.
 
 ## Active scientific deliverable
 
-### Complete the chunk-weighted versus work-balanced paired audit
+### Complete paired-audit v3.2 on a corrected internal corpus
 
 Normative design: [`work_balanced/paired_audit_protocol.md`](work_balanced/paired_audit_protocol.md).
 
-The synthetic control plane and preparation command now exist. The preparation flow can produce a
-local, explicitly unapproved freeze candidate; this is not permission to execute. Current blockers
-are:
+The former paired-audit v3.1 snapshot and LOBO/RuAA folds are registered as
+`ineligible_for_new_scientific_runs`; neither its corpus, freeze candidates, nor historical A0
+predictions can be reused for a new scientific run. v3.2 is design-frozen but not implemented.
 
-- independent review and approval of the exact freeze candidate, followed by pinning its digest;
-- registration of the canonical production evaluator and evidence adapter;
-- mandatory live golden replay and immutable stage receipts;
-- clean-tree preflight and separate confirmatory execution authorization;
-- confirmatory execution, independent result audit, and a separately authorized headline decision.
+The next implementation boundary, in order, is:
 
-The paired audit is complete only when both the LOBO and RuAA sides are assembled and independently
-reviewed. Exploratory screens cannot substitute for it.
+1. Build a new immutable corpus and LOBO/RuAA folds that exclude the three adjudicated works and
+   mechanically enforce 47 authors / 252 works, 43 / 248 tested LOBO works, and 22 / 134 RuAA works.
+2. Implement the v3.2 16-cell, 11-comparison matrix without `stylo_stack`; do not substitute a new
+   nested or cross-fitted stack in this correction.
+3. Register a v3.2 production evaluator, build a new preflight and receipts, independently review and
+   pin the exact new freeze, then obtain a separate execution authorization.
+4. Execute one full run, verify exact resume, and have a separate clean session independently audit
+   the durable result before any separately authorized headline decision.
 
-The audit-only corpus verifier, immutable builder, and synthetic fail-closed tests satisfy the
-implementation prerequisite. Confirmatory execution remains hard-disabled until all current ledger
-gates are satisfied.
+Until all of these gates are satisfied, the freeze is unapproved, the production evaluator is
+unregistered, execution is hard-disabled, and headline/publication are not authorized. R1 v5,
+sealed evidence, scientific artifacts, historical bytes, and the `0.8805` headline remain unchanged.
 
-## External evidence
+## External evidence after the paired audit
 
-### Run an independent Russian authorship replication
+### Conduct «внешняя репликация на публичном benchmark без независимого ослепления»
 
-The current corpus and RuAA-derived benchmark are internal/reproducible evidence, not a never-seen
-external confirmation. A publication-grade replication needs:
+After the corrected paired audit is complete, run the frozen procedure once on a third-party public
+corpus. This is an external replication without independent blinding, not a blind benchmark or a
+publication decision by itself.
 
-- a frozen public corpus or independently held test set;
-- a preregistered split, metrics, exclusions, seeds, and multiplicity family;
-- classical baselines on exactly the same folds (char-SVM, BoW, Delta and PAN-style features);
-- a domain-specific contrastive authorship baseline;
-- author/work-clustered intervals and effect sizes;
-- no model or threshold selection after test labels are visible.
+First qualify Russian Stylometric Dataset (RSD) v1.0 with a **metadata-only census**: enumerate its
+25 subcorpora, document/document-part and same-novel relationships, available work IDs, author panel,
+fixed-split status, licensing/DOI metadata, and potential overlap with R1. Do not fit, predict, or
+construct an external split before that census demonstrates a clean panel.
 
-### Freeze a reproducible public corpus slice
+If RSD cannot supply 40–60 authors with several independent whole prose works each, stable work IDs,
+and no R1 overlap, do not force it into a prose replication. Instead conduct a public RusDraCor run
+as a cross-genre drama stress test and a separate Russian Poetry 2026 out-of-domain stress test.
+NCRL «Русская классика» remains a source to qualify only after its offline-export terms and mixed-genre
+inventory are separately resolved.
 
-Keep the full local research corpus separate from a redistributable public-domain snapshot. Publish
-the manifest, hashes, licences, acquisition commands, environment lock, and one reconstruction
-command.
+There is presently no known ready corpus that has already demonstrated all of: 40–60 prose authors,
+multiple independent whole works per author, stable work IDs, fixed split, and no R1 overlap.
 
 ## Release and publication
 
@@ -69,36 +72,25 @@ command.
 
 ### Prepare the paper decision
 
-Dialogue/NTI-style submission becomes actionable after the paired audit, external baseline table,
-claim table, and reproducible artifact are complete. A stronger venue additionally requires the
-domain-specific neural baseline and genuinely external replication.
+Dialogue/NTI-style submission becomes actionable after the v3.2 paired audit, the external benchmark
+table, claim table, and reproducible artifact are complete. A stronger venue additionally requires a
+domain-specific neural baseline and a qualified external prose replication.
 
-## Completed foundations
+## Completed foundations and historical records
 
 - work-level document and corpus contracts;
 - work-balanced feature and loss routing;
-- group-aware calibration and stacking support;
-- frozen legacy goldens;
-- weights-only, feature-state, and relative-frequency ablation routing;
-- frozen-panel exploratory signal screen;
-- historical resumable true-LOBO execution and exact legacy parity gate;
-- historical completed `753/753` stylo A0/A4/A1 LOBO validation with independent artifact
-  reassembly and audit; its corpus was later registered as ineligible because of cross-work content
-  overlap, so the preserved run is evidence-only and cannot support a new scientific claim;
-- the `lobo_vnext` control plane is a separate path for newly registered corpus runs, not an
-  equivalent reproduction or drop-in replacement for the historical run;
-- an independently audited, sealed RuAA R1 v5 bounded exploratory LOBO run is complete as a local,
-  not-published milestone with its execution authorization exhausted; it does not complete or
-  replace the paired audit and is not an external replication;
-- post-validation runtime identity that omits OS/kernel release strings while binding libc and the
-  numerical stack;
-- purpose-based research, runner, evaluator, fixture, and test paths, with historical executed
-  sources isolated under [`evidence/stylo_lobo_validation_v1/`](evidence/stylo_lobo_validation_v1/);
+- frozen legacy goldens and historical resumable true-LOBO evidence;
+- historical completed `753/753` stylo A0/A4/A1 LOBO validation, later made evidence-only by the
+  ineligible-corpus registration;
+- v3.1 synthetic paired-audit control-plane components, retained as historical implementation evidence
+  but not an implementation or authorization of v3.2;
+- an independently audited, sealed RuAA R1 v5 bounded exploratory LOBO run, complete as a local,
+  not-published milestone; it neither completes the paired audit nor counts as external replication;
+- runtime identity binding that omits OS/kernel release strings while binding libc and the numerical
+  stack;
 - focused and full Python tests, live frozen-golden replay, provenance verification, and site build
   passed on 2026-07-20.
-
-The verified working-tree rework is intentionally not auto-committed; commit only after reviewing
-the complete rename/delete diff. This is the explicit commit decision for the current session.
 
 Historical implementation handoffs are local-only under `research/local/`; they are not normative
 inputs and must not be linked as the current plan.
