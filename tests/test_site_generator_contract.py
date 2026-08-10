@@ -11,7 +11,6 @@ GENERATOR = ROOT / "scripts" / "gen-site-data.mjs"
 RENDER_SMOKE = ROOT / "site" / "scripts" / "check-render.mjs"
 NO_UNDEF_GATE = ROOT / "site" / "scripts" / "check-no-undef.mjs"
 SITE_INDEX = ROOT / "site" / "index.html"
-PNPM_LOCK = ROOT / "site" / "pnpm-lock.yaml"
 RESEARCH_UPDATE = (
     ROOT / "site" / "src" / "components" / "ResearchUpdate.jsx"
 )
@@ -60,14 +59,6 @@ def test_site_build_executes_a_real_server_render_smoke():
     assert "npm run check:undef" in package["scripts"]["build"]
     assert package["devDependencies"]["@babel/parser"] == "7.29.7"
     assert package["devDependencies"]["@babel/traverse"] == "7.29.7"
-    pnpm_lock = PNPM_LOCK.read_text(encoding="utf-8")
-    for dependency in ("@babel/parser", "@babel/traverse"):
-        importer = (
-            f"      '{dependency}':\n"
-            "        specifier: 7.29.7\n"
-            "        version: 7.29.7"
-        )
-        assert importer in pnpm_lock
 
     source = RENDER_SMOKE.read_text(encoding="utf-8")
     no_undef_source = NO_UNDEF_GATE.read_text(encoding="utf-8")
@@ -90,6 +81,9 @@ def test_site_build_executes_a_real_server_render_smoke():
 def test_site_lock_contains_every_declared_optional_platform_package():
     lock = json.loads((ROOT / "site" / "package-lock.json").read_text(encoding="utf-8"))
     packages = lock["packages"]
+    for dependency in ("@babel/parser", "@babel/traverse"):
+        assert packages[""]["devDependencies"][dependency] == "7.29.7"
+        assert packages[f"node_modules/{dependency}"]["version"] == "7.29.7"
     optional = {
         dependency
         for package in ("node_modules/esbuild", "node_modules/rollup")
