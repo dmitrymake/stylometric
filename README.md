@@ -80,3 +80,74 @@ uv pip install --constraint requirements.lock -e ".[dev]"
 источников собственные лицензионные и правовые ограничения, различающиеся по авторам и юрисдикциям.
 Воспроизводимость привязана к манифестам, хеш-суммам и receipt-записям прогонов, а не к включению
 текстов в Git.
+
+## Agentic Engineering Kit
+
+В репозитории установлен platform-neutral Agentic Engineering Kit **v1.3** (2026-08-10). Product README выше остаётся канонической картой Stylo; этот раздел описывает только инженерный процесс.
+
+### Точное размещение
+
+```text
+<repository-root>/
+├── AGENTS.md
+├── CHAT_INSTRUCTIONS.md
+├── README.md
+└── docs/
+    ├── agentic/
+    │   ├── STANDARD.md
+    │   └── TASK_TEMPLATE.md
+    ├── domains/
+    │   └── BOUNDARIES.md
+    └── handoff/
+        ├── README.md
+        └── CURRENT.md
+```
+
+Все пути относительны к фактическому Git root. Ответственность файлов:
+
+| Файл | Назначение |
+|---|---|
+| `AGENTS.md` | Точка входа для coding sessions: профиль, режимы, safety, evidence, domains, review и handoff. |
+| `CHAT_INSTRUCTIONS.md` | Инструкция внешнему управляющему контуру по формированию task contract из intent и state packet. |
+| `README.md` | Product overview и карта установленного комплекта. |
+| `docs/agentic/STANDARD.md` | Единственный нормативный источник requirement IDs и Definition of Done. |
+| `docs/agentic/TASK_TEMPLATE.md` | Short/full/pruning/context-simplification contracts. |
+| `docs/domains/BOUNDARIES.md` | Domain isolation, cross-domain contracts и шаблон конкретного domain doc. |
+| `docs/handoff/README.md` | Политика freshness и разделения handoff/artifacts. |
+| `docs/handoff/CURRENT.md` | Короткое текущее состояние, привязанное к commit. |
+
+### Первый рабочий цикл
+
+1. Открой coding session в Git root и попроси её прочитать `AGENTS.md`.
+2. Собери проверяемое состояние в режиме `context-only`; формат state packet встроен в `CHAT_INSTRUCTIONS.md`.
+3. Передай внешнему управляющему контуру intent, state packet, `CHAT_INSTRUCTIONS.md` и при необходимости стандарт.
+4. Сохрани утверждённый контракт в `docs/tasks/YYYY-MM-DD-<slug>.md`.
+5. Выполни работу от зафиксированного baseline, затем review против контракта, diff и evidence.
+6. Обнови `docs/handoff/CURRENT.md` только если остаётся незавершённое состояние.
+
+ADR создаются по необходимости в `docs/adr/`, domain contracts — в `docs/domains/<domain>.md`, runbooks — в `docs/runbooks/`. Эти каталоги не требуют пустых файлов.
+
+### Fresh, upgrade и repair
+
+Один bootstrap обслуживает новый комплект (`fresh`), безопасно объединяет старую версию с project-specific правилами (`upgrade`) и восстанавливает неполный manifest (`repair`). Успех требует физического наличия всех восьми путей; legacy `STANDART.md` не заменяет `STANDARD.md`.
+
+Pruning и context simplification не создают девятый постоянный файл. Нормативные `PRUNE-*`, `CTX-*`, `SIMPL-*`, representative context packets и bounded flow `read-only audit → human selection → fixes → integration → stop` находятся в стандарте и task template.
+
+### Проверка комплекта
+
+```bash
+missing=0
+for f in \
+  AGENTS.md CHAT_INSTRUCTIONS.md README.md \
+  docs/agentic/STANDARD.md docs/agentic/TASK_TEMPLATE.md \
+  docs/domains/BOUNDARIES.md docs/handoff/README.md docs/handoff/CURRENT.md
+do
+  test -f "$f" || { echo "MISSING: $f" >&2; missing=1; }
+done
+test "$missing" -eq 0
+
+grep -RInE '\{\{[A-Z0-9_]+\}\}' \
+  AGENTS.md CHAT_INSTRUCTIONS.md README.md docs/agentic docs/domains docs/handoff
+```
+
+Документы не заменяют существующие CI, scientific governance, release/security gates или непосредственное human approval для R3a. Handoff и state packet не являются runtime truth; reviewer не расширяет frozen acceptance; file splitting не является simplification без уменьшения context packet или authoritative sources; следующая cleanup wave требует нового выбора владельца.

@@ -34,6 +34,20 @@ docs/*
 !docs/cases/
 !docs/cases/*.json
 !docs/.gitkeep
+# Canonical Agentic Engineering workflow paths. Keep every other docs/* path
+# closed unless an existing project-specific rule below exposes it.
+!docs/agentic/
+!docs/agentic/**
+!docs/tasks/
+!docs/tasks/**
+!docs/adr/
+!docs/adr/**
+!docs/domains/
+!docs/domains/**
+!docs/runbooks/
+!docs/runbooks/**
+!docs/handoff/
+!docs/handoff/**
 # предрегистрация кампании: публичное обязательство до прогонов
 !docs/prereg_2026Q3.md
 # внутренние рабочие материалы и process-history: НЕ для публичного репо
