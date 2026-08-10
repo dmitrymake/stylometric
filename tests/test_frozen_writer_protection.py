@@ -1,7 +1,7 @@
 """Repo-wide gate: no production writer overwrites a frozen artifact or reintroduces the withdrawn
 macro-F1 CI. Scans ALL production code (src/, scripts/, log/), not just the gen-*.mjs generators —
-a fast/legacy recompute (cli evaluate, log/fast_eval, log/correct_macrof1_convention) must route to
-the exploratory/versioned namespace or fail closed, never to the frozen docs/ headline sources.
+any fast/legacy recompute must route to the exploratory/versioned namespace or fail closed, never
+to the frozen docs/ headline sources.
 """
 from __future__ import annotations
 
