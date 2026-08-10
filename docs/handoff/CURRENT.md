@@ -1,9 +1,9 @@
 # Current Handoff
 
-- State: **v3.2 evaluator accepted/unregistered; bounded cleanup A+B and C1+C2 complete**
+- State: **v3.2 evaluator accepted/unregistered; bounded cleanup A+B, C1+C2 and D1+D2 complete**
 - Updated: 2026-08-11
-- Verified baseline commit: `3b8cb83b` (integrated C1+C2 active-surface cleanup)
-- Branch/worktree at capture: `main`; attached; thirteen commits ahead of `origin/main` before this
+- Verified baseline commit: `bf89f381` (integrated D1+D2 legacy Python surface pruning)
+- Branch/worktree at capture: `main`; attached; seventeen commits ahead of `origin/main` before this
   metadata-only closeout
 - Active task: none; cleanup contract is complete
 - Active standard: `docs/agentic/STANDARD.md` v1.3
@@ -15,7 +15,7 @@ governance ledger, protocol, and executable gates, not by this handoff.
 
 | Item | Verified status | Evidence owner |
 |---|---|---|
-| Cleanup A+B+C1+C2 | Status consolidated; 12 shims, orphan dumper and pnpm contract removed; reviews PASS | cleanup tasks; `3b8cb83b` |
+| Cleanup A+B+C1+C2+D1+D2 | Prior cleanup plus legacy statistic island and superseded macro-F1 writer removed; reviews PASS | cleanup tasks; `bf89f381` |
 | Preparation | Owner-accepted for evaluator implementation | `status_ledger.json`; preparation review |
 | Independent security audit | **Not claimed**; review terminated by owner | `status_ledger.json` |
 | Evaluator candidate | Implemented at `f2f9eb95`; single review FAIL on AC-07 corrected at `4c74df5e`; no second review/PASS claimed | evaluator task Result |
@@ -34,6 +34,9 @@ governance ledger, protocol, and executable gates, not by this handoff.
   hashes and Git evidence remain unchanged.
 - The unbounded codebase dumper was deleted and npm is now the sole site package-manager contract;
   dependency versions, npm lock bytes and generated/public site bytes are unchanged.
+- The internally closed legacy statistic/helper island and hard-disabled macro-F1 correction writer
+  were deleted: 11 Python paths plus one private JSON resource, net -1,098 production Python LOC.
+  Active feature/NLP and erratum implementations, scientific artifacts and claims are unchanged.
 - No corpus bytes, results, receipts, production runtime, publication surface, external system,
   freeze, preflight, authorization, or execution changed.
 
@@ -46,6 +49,9 @@ the real 6112-fold execution from this handoff.
 Primary domain remains `evaluation/paired-audit`; corpus/data access is read-only verified context,
 and research-governance changes are metadata/status only. Legacy v3.1 control-plane modules and
 prepared v3.2 bundle/fold bytes remain frozen.
+
+Cleanup candidates D3-D6 remain unselected; do not start another simplification wave without a new
+state snapshot and explicit owner selection.
 
 ## 4. Revalidation conditions
 
@@ -65,6 +71,7 @@ freeze/preflight/authorization/execution status changes, or a new R3/sensitive-d
 - Task: `docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md`
 - Cleanup: `docs/tasks/2026-08-11-governance-and-retired-shim-cleanup.md`
 - Active surface: `docs/tasks/2026-08-11-active-surface-cleanup.md`
+- Legacy Python surface: `docs/tasks/2026-08-11-legacy-python-surface-pruning.md`
 - Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
 - Preparation/protocol: `research/work_balanced/paired_audit_v3_2_preparation_review.md`,
   `research/work_balanced/paired_audit_protocol.md`

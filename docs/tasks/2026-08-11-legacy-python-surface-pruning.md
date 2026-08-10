@@ -3,7 +3,7 @@
 ## Metadata
 
 - Task ID: `2026-08-11-legacy-python-surface-pruning`
-- Status: active
+- Status: done
 - Owner: repository owner
 - Created: 2026-08-11
 - Baseline commit: `12b5ce74f3fce519040e30586e6bb3ef8ec833fa`
@@ -104,13 +104,13 @@ Constant measurement: complete selected files, physical bytes/lines, token estim
 
 ## 6. Invariants and acceptance
 
-- [ ] AC-01 All 11 D1 files and D2 are absent; no new replacement/wrapper exists.
-- [ ] AC-02 No supported import, CLI, tracked-output producer contract or package entrypoint is lost.
-- [ ] AC-03 Active feature/NLP behavior and active CI-sign erratum behavior are byte-unchanged.
-- [ ] AC-04 Historical p0/scientific artifacts and frozen-writer protections remain unchanged and pass.
-- [ ] AC-05 Inventory, focused tests, full regression, compile, provenance and release/archive hygiene pass.
-- [ ] AC-06 Production Python delta is at most -1,098 LOC; inventory is exactly 298 paths.
-- [ ] AC-07 No corpus, evaluator, registry, freeze, authorization, execution or publication state changes.
+- [x] AC-01 All 11 D1 files and D2 are absent; no new replacement/wrapper exists.
+- [x] AC-02 No supported import, CLI, tracked-output producer contract or package entrypoint is lost.
+- [x] AC-03 Active feature/NLP behavior and active CI-sign erratum behavior are byte-unchanged.
+- [x] AC-04 Historical p0/scientific artifacts and frozen-writer protections remain unchanged and pass.
+- [x] AC-05 Inventory, focused tests, full regression, compile, provenance and release/archive hygiene pass.
+- [x] AC-06 Production Python delta is at most -1,098 LOC; inventory is exactly 298 paths.
+- [x] AC-07 No corpus, evaluator, registry, freeze, authorization, execution or publication state changes.
 
 ## 7. Phases, evidence and review
 
@@ -134,10 +134,32 @@ Constant measurement: complete selected files, physical bytes/lines, token estim
 
 ## 9. Documentation impact and result
 
-- ADR/domain/runbook: none expected; capabilities and semantics are only reduced.
-- Handoff: update at close only.
-- Final commits, cumulative metrics, review, checks, residual risks and campaign stop: pending.
+- Commits: task baseline `8ceafa26`; D1 `84983df0`; D2 `bf89f381`; this task/handoff
+  update is metadata-only closeout.
+- D1 removed the 10-Python-file + one-JSON legacy statistic island and refreshed the executable
+  inventory from 308 to 298 paths. D2 removed the 100-LOC superseded macro-F1 correction script
+  and made the scanner docstring implementation-neutral.
+- Cumulative production Python delta: +0 / -1,098 LOC; 11 Python operational/helper paths and one
+  private JSON resource removed. Overall implementation commits: +4 / -1,224 lines.
+- Context: legacy statistic packet 11 files / 41,365 B -> 0; feature/NLP discovery packet 28 files /
+  182,908 B -> 17 files / 141,543 B; erratum packet 5 files / 25,035 B / 521 lines -> 4 files /
+  19,539 B / 421 lines. Domain transitions did not grow.
+- Clean detached combined deletion review at `bf89f381`: PASS; no unsupported consumer, invariant
+  violation, regression or tripwire breach; zero correction passes.
+- PASS: focused frozen-writer/governance/inventory/release tests, full pytest, physical-file
+  `py_compile`, provenance (93 source + one output digest), checkout hygiene, executable inventory
+  and Git-free archive hygiene. Full pytest retained one expected real-bundle skip and two
+  pre-existing invalid-escape warnings.
+- Two invalid procedural attempts were not counted as passes: the first compile command included
+  deleted index paths, and the first archive command ran `git archive` from the Git-free target.
+  Corrected bounded commands passed without code changes.
+- Active `src/stylo` feature/NLP and CI-erratum blobs, p0/scientific artifacts and publication data
+  remained unchanged. No corpus access, deploy, publication, registry/freeze/preflight/
+  authorization/execution, external write or push occurred.
+- New production files/concepts/framework/state/dependencies/public entrypoints: none.
+- ADR/domain/runbook: none; no durable architecture or scientific semantics changed.
+- Campaign stop: both owner-selected fixes accepted; D3-D6 remain unselected and no next wave starts.
 
 ## 10. DoD references
 
-- [ ] Applicable `DOD-01` through `DOD-15`; `DOD-06` is N/A unless risk changes.
+- [x] Applicable `DOD-01` through `DOD-15`; `DOD-06` is N/A because no R3 action occurred.
