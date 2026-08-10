@@ -21,18 +21,20 @@ The former paired-audit v3.1 snapshot and LOBO/RuAA folds are registered as
 `ineligible_for_new_scientific_runs`; neither its corpus, freeze candidates, nor historical A0
 predictions can be reused for a new scientific run. v3.2 corrected-corpus/fold preparation is
 owner-accepted for evaluator implementation; the security review was terminated by the owner and no
-independent security-audit PASS is claimed. This is not a reviewed freeze or an execution grant.
+independent security-audit PASS is claimed. The evaluator candidate is now implemented. Its single
+bounded scientific review found one incomplete-class-universe blocker, which the one allowed
+correction pass fixed; no second independent-review PASS is claimed. The corrected candidate is
+accepted only as an unregistered input to a later task. This is not a reviewed freeze or an execution
+grant.
 
 The remediated preparation boundary derives one atomic local bundle with the exact three exclusions,
 full `author_id/work_slug` identities, diagnostic-only expected basename collisions, and the
 252/248/134 universe. The former `a70d82f2` candidate was unapproved and is superseded by the new
-storage contract. The active gate is the separately scoped evaluator/evidence-adapter implementation
-and one bounded independent scientific review, in order:
+storage contract. The next gates require separate authorization, in order:
 
-1. Implement a v3.2 evaluator/evidence adapter for the already-prepared 16-cell, 11-comparison
-   matrix without `stylo_stack`; do not implement authorization in that boundary.
-2. Independently review and
-   pin the exact new freeze, then obtain a separate execution authorization.
+1. Scope the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary as a new task; do not
+   infer authorization from the accepted evaluator candidate.
+2. Independently review and pin the exact new freeze, then obtain a separate execution authorization.
 3. Execute one full run, verify exact resume, and have a separate clean session independently audit
    the durable result before any separately authorized headline decision.
 

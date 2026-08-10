@@ -40,8 +40,25 @@
       "claim": "The owner terminated the preparation security review. No independent security-audit PASS or equivalent assurance is claimed; evaluator review is bounded to frozen scientific semantics."
     },
     "evaluator_candidate": {
-      "status": "implementation_in_progress",
-      "claim": "A versioned v3.2 evaluator/evidence-adapter candidate is active under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md; it has no production registration or execution authority."
+      "status": "implemented_single_review_blocker_corrected_verified",
+      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate was implemented under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. The single independent scientific review of commit f2f9eb95816febfe7a82d6050f5e5fc1bdb35331 found one AC-07 incomplete-class-universe blocker; the one allowed correction pass fixed it in commit 4c74df5e. Affected and full regression checks passed afterward. No second independent-review PASS is claimed. The corrected candidate is accepted only as an unregistered input to a separately authorized future freeze/control-plane task and has no production registration or execution authority.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",
+          "symbol": "REGISTRY_V3_2",
+          "sha256": "e8c35910541dd716dc7ab8eb71eb8845cae01fc0e6b0e7425a1f232de6c0559d"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
+          "symbol": "evaluate_fold_v3_2",
+          "sha256": "4ca63970660bd4a6374c7fbb15d8d7664b30c0ceddf5b7639ab9ab5bdc25ca4f"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
+          "symbol": "validate_receipt_v3_2",
+          "sha256": "8f20df0d19c75f266b6461b3208e98c007ae8674c48528838ec98ba8de4215d2"
+        }
+      ]
     },
     "manifest_freeze": {
       "status": "unapproved",
