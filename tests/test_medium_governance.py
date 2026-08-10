@@ -256,6 +256,7 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
         "No corpus build, fit,",
     ):
         assert marker in protocol
+    assert "pending implementation" not in protocol
 
 
 def test_work_balanced_estimand_is_the_compact_implementation_contract():
@@ -520,6 +521,9 @@ def test_requirement_bindings_and_nodeids_are_executable():
     assert requirements["schema"] == "stylo.governance.requirements.v1"
     ids = [item["id"] for item in requirements["requirements"]]
     assert len(ids) == len(set(ids))
+    assert "PA-V3-2-APPLICABILITY-EXACTNESS" in ids
+    assert "PA-V3-1-HISTORICAL-HOLM-FAMILY-EXACTNESS" in ids
+    assert "PA-HOLM-FAMILY-EXACTNESS" not in ids
     for item in requirements["requirements"]:
         assert set(item) == {"id", "description", "code", "tests"}
         assert item["code"] and item["tests"]
@@ -571,6 +575,12 @@ def test_runner_catalog_covers_the_evaluation_directory_exactly():
     }
     registered = {runner["path"] for runner in catalog["runners"]}
     assert registered == discovered
+    corrected = next(
+        runner for runner in catalog["runners"]
+        if runner["path"] == "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py"
+    )
+    assert corrected["status"] == "preparation_only_non_authorizing"
+    assert "owned only by the governance ledger" in corrected["claim_scope"]
     for runner in catalog["runners"]:
         assert set(runner) == {
             "path", "status", "claim_scope", "output_contract",

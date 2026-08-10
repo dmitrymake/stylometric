@@ -105,6 +105,17 @@
       ]
     },
     {
+      "id": "PA-V3-2-APPLICABILITY-EXACTNESS",
+      "description": "The current v3.2 registry is exactly 25 statuses, 16 applied cells, and 11 Holm members and matches the corrected preparation identity.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/applicability_v3_2.py", "symbol": "REGISTRY_V3_2"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_evaluator_v3_2.py::test_registry_is_exact_25_16_11_and_matches_corrected_preparation",
+        "tests/test_paired_audit_evaluator_v3_2.py::test_candidate_has_no_legacy_runtime_reachability_and_registry_stays_empty"
+      ]
+    },
+    {
       "id": "PA-CHECKPOINT-EXACT-RESUME",
       "description": "Only valid exact checkpoints resume; corruption, conflicts, and extras fail.",
       "code": [
@@ -145,8 +156,8 @@
       ]
     },
     {
-      "id": "PA-HOLM-FAMILY-EXACTNESS",
-      "description": "The fixed 15-comparison family cannot shrink or gain members.",
+      "id": "PA-V3-1-HISTORICAL-HOLM-FAMILY-EXACTNESS",
+      "description": "The immutable historical v3.1 15-comparison family cannot shrink, gain members, or be mistaken for the current v3.2 family.",
       "code": [
         {"path": "src/stylo/eval/paired_audit/inference.py", "symbol": "holm_over_registered_family"}
       ],

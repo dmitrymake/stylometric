@@ -6,10 +6,9 @@ normative scientific design. The ledger controls authorization; neither this pro
 implementation artifact grants permission to prepare, preflight, execute, publish, or change a
 headline.
 
-Status: **v3.2 design frozen, pending implementation**. This version supersedes v3.1 for every
-new scientific run. It is a governance/design correction only: no corrected corpus root, fold
-manifest, freeze candidate, evaluator, preflight receipt, prediction, or result artifact is created
-by this release.
+Version v3.2 supersedes v3.1 for every new scientific run. This document fixes the scientific
+design; current implementation, review, freeze, authorization, execution, and publication status is
+recorded only in the governance ledger.
 
 ## 0. Supersession and preserved historical evidence
 
