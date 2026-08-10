@@ -1,6 +1,6 @@
 # Paired-audit v3.2 preparation remediation record
 
-Status: local preparation candidate only, pending a new independent preparation review. This record
+Status: remediation complete, pending one final independent read-only preparation review. This record
 does not approve a freeze, evaluator/evidence adapter, execution preflight, authorization, fit,
 prediction, result, headline, or scientific publication. The v3.2 protocol, the literal three
 exclusions, the 47/252 · 43/248 LOBO and 22/134 RuAA universes, and the 16/11 scientific matrix are
@@ -21,6 +21,38 @@ Existing destinations take the read-only `verify_v3_2_candidate` path. Exact rec
 types, single-link status, modes, sizes, bytes, candidate self-hash/file map, canonical
 `SHA256SUMS`, safe bundle-local child path, child manifest, audits, folds, and all cross-bindings are
 recomputed. A partial/tampered destination is neither overwritten, deleted, repaired, nor chmodded.
+
+The preparation, candidate verification/resume, and CLI entry path first execute one fail-closed
+storage-capability gate, before reading an input or creating an output/lock/stage. The supported
+storage contract requires non-zero `O_NOFOLLOW`, `O_DIRECTORY`, `O_CLOEXEC`, and the other open flags
+the implementation uses; fd-relative `open`, `mkdir`, `stat`, `unlink`, `rename`, and directory
+listing; `fcntl.flock`; and Linux `renameat2(RENAME_NOREPLACE)`. An absent, zero, or unusable
+primitive is an unsupported platform and an immediate hard stop. There is no degraded mode.
+
+All v3.2-reachable candidate, manifest, audit, inventory/file-map, `SHA256SUMS`, historical/corrected
+corpus, work/source, and CLI hash/manifest reads use pinned directory chains and
+`openat(O_NOFOLLOW|O_CLOEXEC)`. Each captured file is a single-link regular file; its type, mode,
+size, inode state, and path binding are checked before and after the descriptor read, and JSON parse
+and hashing consume the same captured bytes. Candidate schema, canonical JSON, self-hash, basename,
+and the two exact literal `corrected_corpus` bindings pass before any child listing, parse, hash, or
+descent. Missing output and bundle-parent directories use mkdirat/openat open-or-create semantics:
+a concurrent `FileExistsError` is reopened and strictly checked, never treated as publication
+failure or repaired.
+
+## Storage threat-model boundary
+
+The application storage contract protects against concurrent unprivileged-writer tampering involving
+symlinks, hardlinks, special files, paths, bytes, sizes, modes, partial publication, and competing
+creation/publication. The kernel and the process's current stable mount namespace are trusted
+computing base. Scientific identity binds bundle-relative paths, types, modes, sizes, and exact bytes;
+it deliberately does not bind physical mount, device, inode, or mount-ID origin. A same-byte bind
+mount therefore does not change scientific identity.
+
+Privileged mount-namespace manipulation, bind-remount or mount swap, kernel/filesystem compromise,
+root or `CAP_SYS_ADMIN` adversaries, and denial of service are outside the application threat model.
+The application does not claim to detect hostile bind mounts. Operational mount attestation or a
+private execution namespace may be considered later as a separate execution-preflight control; it is
+not part of this remediation, the scientific hashes, or this preparation review.
 
 ## Identity disposition
 
@@ -86,6 +118,6 @@ complete bundle, and the next invocation pure-verifies and reuses it without sta
 
 ## Review gate
 
-The implementation is eligible only for a repeated independent preparation review of the exact
-remediation commit. Freeze/evaluator/execution/headline/publication statuses remain respectively
+The implementation is eligible only for one final independent read-only preparation review of the
+exact remediation commit and the already bounded matrix above. Freeze/evaluator/execution/headline/publication statuses remain respectively
 unapproved, unregistered, hard-disabled, not authorized, and not authorized.

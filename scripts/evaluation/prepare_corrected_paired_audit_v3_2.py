@@ -5,30 +5,27 @@ from __future__ import annotations
 import argparse
 import hashlib
 import pathlib
-import stat
 
-from stylo.config import load_config
+import yaml
+
+from stylo.config import ConfigNode
 from stylo.eval.paired_audit.corrected_v3_2 import (
     HISTORICAL_PARENT_DIGEST,
     assert_preparation_parity,
+    load_stable_json,
     prepare_corrected_v3_2,
+    read_stable_bytes,
+    require_storage_capabilities,
 )
 from stylo.eval.paired_audit.run_plan import config_id
-from stylo.jsonio import load_strict
 
 
 def _sha256(path: pathlib.Path) -> str:
-    info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-        raise RuntimeError(f"missing, symlinked, hardlinked, or special required file: {path}")
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(read_stable_bytes(path)).hexdigest()
 
 
 def _ruaa_selection(path: pathlib.Path) -> list[str]:
-    info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-        raise RuntimeError("RuAA selection evidence must be a single-link regular file")
-    raw = load_strict(path)
+    raw = load_stable_json(path)
     authors = raw.get("authors") if isinstance(raw, dict) else None
     if not isinstance(authors, dict):
         raise RuntimeError("RuAA selection evidence must contain authors")
@@ -50,8 +47,16 @@ def _ruaa_selection(path: pathlib.Path) -> list[str]:
 
 def prepare(repo: pathlib.Path, output: pathlib.Path, *, parent: pathlib.Path | None = None,
             ruaa_manifest: pathlib.Path | None = None) -> dict:
+    require_storage_capabilities()
     repository = repo.resolve()
-    cfg = load_config(repository / "configs" / "default.yaml")
+    config_path = repository / "configs" / "default.yaml"
+    try:
+        config_raw = yaml.safe_load(read_stable_bytes(config_path).decode("utf-8"))
+    except Exception as exc:
+        raise RuntimeError(f"invalid stable config input: {config_path}") from exc
+    if not isinstance(config_raw, dict):
+        raise RuntimeError("default config must be a mapping")
+    cfg = ConfigNode(config_raw)
     return prepare_corrected_v3_2(
         historical_parent_root=parent or repository / "data" / "audit_corpus" / HISTORICAL_PARENT_DIGEST,
         output_root=output.absolute(),
@@ -62,6 +67,7 @@ def prepare(repo: pathlib.Path, output: pathlib.Path, *, parent: pathlib.Path | 
 
 
 def main() -> None:
+    require_storage_capabilities()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[2])
     parser.add_argument("--output-root", type=pathlib.Path, required=True)

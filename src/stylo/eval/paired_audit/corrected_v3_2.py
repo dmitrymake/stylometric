@@ -9,24 +9,23 @@ from __future__ import annotations
 
 import contextlib
 import ctypes
+import dataclasses
 import errno
 import fcntl
 import hashlib
 import os
 import pathlib
 import re
+import secrets
 import shutil
 import stat
-import tempfile
 import unicodedata
 from collections import Counter, defaultdict
 from typing import Callable, Iterable, Iterator, Mapping, Sequence
 
-from ...jsonio import dump_strict, dumps_strict, load_strict
-from ...pipeline.bundle import _verify_real_dir_chain
-from ...workdoc import MANIFEST_NAME, load_work_manifest
+from ...jsonio import dump_strict, dumps_strict, loads_strict
+from ...workdoc import MANIFEST_NAME, WorkManifest, canonical_chunk_text, sha256_text
 from ...domain.corpus_identity import find_cross_work_content_overlaps
-from . import corpus as historical_corpus
 
 
 PROTOCOL_VERSION = "paired_audit_protocol_v3_2"
@@ -73,10 +72,366 @@ HISTORICAL_WORK_COUNT = 255
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _SAFE = re.compile(r"^[^/\\\x00]+$")
+_RENAME_NOREPLACE = 1
+_HISTORICAL_CORPUS_DIGEST_VERSION = "paired_audit.corpus.v1"
 
 
 class CorrectedCorpusError(RuntimeError):
     """A v3.2 preparation identity, content, or output contract failed closed."""
+
+
+def _renameat2_primitive():
+    primitive = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+    if primitive is None:
+        return None
+    primitive.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    primitive.restype = ctypes.c_int
+    return primitive
+
+
+def require_storage_capabilities() -> None:
+    """Fail closed before any v3.2 input read or filesystem mutation."""
+    required_flags = (
+        "O_NOFOLLOW", "O_DIRECTORY", "O_CLOEXEC", "O_NONBLOCK",
+        "O_CREAT", "O_EXCL", "O_WRONLY", "O_RDWR",
+    )
+    missing = [name for name in required_flags if type(getattr(os, name, None)) is not int
+               or getattr(os, name, None) == 0]
+    required_dir_fd = (os.open, os.mkdir, os.stat, os.unlink, os.rename)
+    if any(operation not in os.supports_dir_fd for operation in required_dir_fd):
+        missing.append("required dir_fd operations")
+    if os.listdir not in os.supports_fd:
+        missing.append("fd-backed directory listing")
+    if not callable(getattr(fcntl, "flock", None)) or not getattr(fcntl, "LOCK_EX", 0):
+        missing.append("fcntl.flock")
+    renameat2 = _renameat2_primitive()
+    if renameat2 is None:
+        missing.append("renameat2(RENAME_NOREPLACE)")
+    else:
+        ctypes.set_errno(0)
+        result = renameat2(-1, b"capability-probe", -1, b"capability-probe", _RENAME_NOREPLACE)
+        error = ctypes.get_errno()
+        if result == 0 or error in (errno.ENOSYS, errno.EINVAL):
+            missing.append("renameat2(RENAME_NOREPLACE)")
+    if missing:
+        raise CorrectedCorpusError(
+            "unsupported storage platform; required fail-closed primitives unavailable: "
+            + ", ".join(sorted(set(missing)))
+        )
+
+
+@contextlib.contextmanager
+def _open_or_create_directory_path(path: pathlib.Path | str, *, leaf_mode: int = 0o755) -> Iterator[int]:
+    """Race-safe mkdirat/openat chain; a lost creation race is strictly reopened."""
+    descriptors: list[int] = [os.open("/", _dir_flags())]
+    links: list[tuple[int, str, int, os.stat_result]] = []
+    parts = _absolute_parts(path)
+    if not parts:
+        raise CorrectedCorpusError("output root cannot be the filesystem root")
+    entered = False
+    try:
+        for index, component in enumerate(parts):
+            parent_fd = descriptors[-1]
+            created = False
+            try:
+                before = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                try:
+                    _mkdir_at(component, 0o755, dir_fd=parent_fd)
+                    created = True
+                except FileExistsError:
+                    pass
+                before = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(before.st_mode):
+                raise CorrectedCorpusError(f"output path race produced a non-directory: {component}")
+            child_fd = os.open(component, _dir_flags(), dir_fd=parent_fd)
+            opened = os.fstat(child_fd)
+            if not _same_directory_state(before, opened):
+                os.close(child_fd)
+                raise CorrectedCorpusError(f"output directory replaced while opening: {component}")
+            expected_mode = (leaf_mode if index == len(parts) - 1 else 0o755) if created else (
+                leaf_mode if index == len(parts) - 1 else None
+            )
+            if expected_mode is not None and stat.S_IMODE(opened.st_mode) != expected_mode:
+                os.close(child_fd)
+                raise CorrectedCorpusError(
+                    f"mode drift in output directory {component}: "
+                    f"{stat.S_IMODE(opened.st_mode):04o} != {expected_mode:04o}"
+                )
+            descriptors.append(child_fd)
+            links.append((parent_fd, component, child_fd, before))
+        entered = True
+        yield descriptors[-1]
+        for parent_fd, component, child_fd, before in reversed(links):
+            if (not _same_directory_state(before, os.fstat(child_fd))
+                    or not _same_directory_state(
+                        before, os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+                    )):
+                raise CorrectedCorpusError(f"output directory changed during operation: {component}")
+    except CorrectedCorpusError:
+        raise
+    except OSError as exc:
+        if entered:
+            raise
+        raise CorrectedCorpusError(f"unsafe output directory chain: {path}") from exc
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+def _dir_flags() -> int:
+    return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+
+
+def _file_flags() -> int:
+    return os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+
+
+def _mkdir_at(name: str, mode: int, *, dir_fd: int) -> None:
+    os.mkdir(name, mode, dir_fd=dir_fd)
+
+
+def _stable_fields(info: os.stat_result) -> tuple[int, ...]:
+    return (
+        info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size,
+        info.st_mtime_ns, info.st_ctime_ns,
+    )
+
+
+def _same_inode_state(left: os.stat_result, right: os.stat_result) -> bool:
+    return _stable_fields(left) == _stable_fields(right)
+
+
+def _same_directory_state(left: os.stat_result, right: os.stat_result) -> bool:
+    return (left.st_dev, left.st_ino, left.st_mode) == (
+        right.st_dev, right.st_ino, right.st_mode,
+    )
+
+
+def _absolute_parts(path: pathlib.Path | str) -> tuple[str, ...]:
+    absolute = pathlib.Path(os.path.abspath(os.fspath(path)))
+    return tuple(part for part in absolute.parts if part != absolute.anchor)
+
+
+@contextlib.contextmanager
+def _open_directory_path(path: pathlib.Path | str) -> Iterator[int]:
+    """Open and pin every component of a directory path without following links."""
+    descriptors: list[int] = [os.open("/", _dir_flags())]
+    links: list[tuple[int, str, int, os.stat_result]] = []
+    entered = False
+    try:
+        for component in _absolute_parts(path):
+            parent_fd = descriptors[-1]
+            before = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(before.st_mode):
+                raise CorrectedCorpusError(f"unsafe non-directory path component: {component}")
+            child_fd = os.open(component, _dir_flags(), dir_fd=parent_fd)
+            opened = os.fstat(child_fd)
+            if not _same_directory_state(before, opened):
+                os.close(child_fd)
+                raise CorrectedCorpusError(f"directory path changed while opening: {component}")
+            descriptors.append(child_fd)
+            links.append((parent_fd, component, child_fd, before))
+        entered = True
+        yield descriptors[-1]
+        for parent_fd, component, child_fd, before in reversed(links):
+            after_path = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+            after_fd = os.fstat(child_fd)
+            if (not _same_directory_state(before, after_path)
+                    or not _same_directory_state(before, after_fd)):
+                raise CorrectedCorpusError(f"directory path changed during operation: {component}")
+    except CorrectedCorpusError:
+        raise
+    except OSError as exc:
+        if entered:
+            raise
+        raise CorrectedCorpusError(f"unsafe or unavailable directory path: {path}") from exc
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+def _read_file_from_dir(
+    parent_fd: int, name: str, *, label: str, expected: os.stat_result | None = None,
+    expected_mode: int | None = None,
+) -> tuple[bytes, os.stat_result]:
+    try:
+        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise CorrectedCorpusError(f"symlink, hardlink, or special file in {label}: {name}")
+        if expected is not None and not _same_inode_state(expected, before):
+            raise CorrectedCorpusError(f"file changed since validated in {label}: {name}")
+        if expected_mode is not None and stat.S_IMODE(before.st_mode) != expected_mode:
+            raise CorrectedCorpusError(
+                f"mode drift in {label}: {name} has {stat.S_IMODE(before.st_mode):04o}, "
+                f"expected {expected_mode:04o}"
+            )
+        fd = os.open(name, _file_flags(), dir_fd=parent_fd)
+        try:
+            opened = os.fstat(fd)
+            if not _same_inode_state(before, opened):
+                raise CorrectedCorpusError(f"file replaced between validation and open in {label}: {name}")
+            blocks: list[bytes] = []
+            while True:
+                block = os.read(fd, 1 << 20)
+                if not block:
+                    break
+                blocks.append(block)
+            payload = b"".join(blocks)
+            after_fd = os.fstat(fd)
+        finally:
+            os.close(fd)
+        after_path = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        if (not _same_inode_state(before, after_fd)
+                or not _same_inode_state(before, after_path)
+                or len(payload) != before.st_size):
+            raise CorrectedCorpusError(f"file changed while reading in {label}: {name}")
+        return payload, before
+    except CorrectedCorpusError:
+        raise
+    except OSError as exc:
+        raise CorrectedCorpusError(f"missing or unsafe file in {label}: {name}") from exc
+
+
+def _open_relative_parent(root_fd: int, parts: Sequence[str], *, label: str):
+    if not parts or any(not _SAFE.fullmatch(part) or part in (".", "..") for part in parts):
+        raise CorrectedCorpusError(f"unsafe relative file path in {label}")
+    descriptors: list[int] = []
+    current_fd = root_fd
+    links: list[tuple[int, str, int, os.stat_result]] = []
+    try:
+        for component in parts[:-1]:
+            before = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(before.st_mode):
+                raise CorrectedCorpusError(f"non-directory component in {label}: {component}")
+            child_fd = os.open(component, _dir_flags(), dir_fd=current_fd)
+            if not _same_directory_state(before, os.fstat(child_fd)):
+                os.close(child_fd)
+                raise CorrectedCorpusError(f"directory replaced while opening in {label}: {component}")
+            descriptors.append(child_fd)
+            links.append((current_fd, component, child_fd, before))
+            current_fd = child_fd
+        yield current_fd, parts[-1]
+        for parent_fd, component, child_fd, before in reversed(links):
+            if (not _same_directory_state(before, os.fstat(child_fd))
+                    or not _same_directory_state(
+                        before, os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
+                    )):
+                raise CorrectedCorpusError(f"directory changed during read in {label}: {component}")
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+_open_relative_parent = contextlib.contextmanager(_open_relative_parent)
+
+
+def _read_relative(
+    root_fd: int, relative: str, *, label: str, expected: os.stat_result | None = None,
+    expected_mode: int | None = None,
+) -> tuple[bytes, os.stat_result]:
+    parts = tuple(pathlib.PurePosixPath(relative).parts)
+    with _open_relative_parent(root_fd, parts, label=label) as (parent_fd, name):
+        return _read_file_from_dir(
+            parent_fd, name, label=label, expected=expected, expected_mode=expected_mode,
+        )
+
+
+def _read_stable_path(path: pathlib.Path | str, *, expected: os.stat_result | None = None,
+                      expected_mode: int | None = None) -> bytes:
+    target = pathlib.Path(path)
+    with _open_directory_path(target.parent) as parent_fd:
+        payload, _ = _read_file_from_dir(
+            parent_fd, target.name, label="stable path read", expected=expected,
+            expected_mode=expected_mode,
+        )
+        return payload
+
+
+def read_stable_bytes(path: pathlib.Path | str, *, expected_mode: int | None = None) -> bytes:
+    """Public preparation-CLI read primitive: one descriptor supplies all bytes and checks."""
+    require_storage_capabilities()
+    return _read_stable_path(path, expected_mode=expected_mode)
+
+
+def _parse_json_bytes(payload: bytes, *, label: str, canonical: bool = False):
+    try:
+        text = payload.decode("utf-8")
+        value = loads_strict(text)
+    except Exception as exc:
+        raise CorrectedCorpusError(f"invalid strict UTF-8 JSON in {label}") from exc
+    if canonical and payload != (dumps_strict(value, indent=2) + "\n").encode("utf-8"):
+        raise CorrectedCorpusError(f"non-canonical JSON encoding in {label}")
+    return value
+
+
+def load_stable_json(path: pathlib.Path | str, *, canonical: bool = False):
+    return _parse_json_bytes(read_stable_bytes(path), label=str(path), canonical=canonical)
+
+
+@dataclasses.dataclass(frozen=True)
+class _FileSnapshot:
+    info: os.stat_result
+    sha256: str
+    payload: bytes | None
+
+
+@dataclasses.dataclass(frozen=True)
+class _TreeSnapshot:
+    root_info: os.stat_result
+    directories: Mapping[str, os.stat_result]
+    files: Mapping[str, _FileSnapshot]
+
+
+def _snapshot_tree_fd(root_fd: int, *, label: str) -> _TreeSnapshot:
+    directories: dict[str, os.stat_result] = {"": os.fstat(root_fd)}
+    files: dict[str, _FileSnapshot] = {}
+
+    def visit(directory_fd: int, prefix: str) -> None:
+        before_dir = os.fstat(directory_fd)
+        names = sorted(os.listdir(directory_fd))
+        for name in names:
+            if not _SAFE.fullmatch(name) or name in (".", ".."):
+                raise CorrectedCorpusError(f"unsafe entry name in {label}: {name!r}")
+            relative = f"{prefix}/{name}" if prefix else name
+            before = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if stat.S_ISDIR(before.st_mode):
+                child_fd = os.open(name, _dir_flags(), dir_fd=directory_fd)
+                try:
+                    if not _same_directory_state(before, os.fstat(child_fd)):
+                        raise CorrectedCorpusError(f"directory replaced during {label}: {relative}")
+                    directories[relative] = before
+                    visit(child_fd, relative)
+                    if (not _same_directory_state(before, os.fstat(child_fd))
+                            or not _same_directory_state(
+                                before, os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                            )):
+                        raise CorrectedCorpusError(f"directory changed during {label}: {relative}")
+                finally:
+                    os.close(child_fd)
+            elif stat.S_ISREG(before.st_mode) and before.st_nlink == 1:
+                payload, captured = _read_file_from_dir(
+                    directory_fd, name, label=label, expected=before,
+                )
+                cache = payload if name.endswith(".json") or name == SHA256SUMS_NAME else None
+                files[relative] = _FileSnapshot(
+                    captured, hashlib.sha256(payload).hexdigest(), cache,
+                )
+            else:
+                raise CorrectedCorpusError(f"symlink, hardlink, or special entry in {label}: {relative}")
+        if (names != sorted(os.listdir(directory_fd))
+                or not _same_directory_state(before_dir, os.fstat(directory_fd))):
+            raise CorrectedCorpusError(f"directory changed while enumerating {label}: {prefix or '.'}")
+
+    if not stat.S_ISDIR(directories[""].st_mode):
+        raise CorrectedCorpusError(f"root is not a directory in {label}")
+    visit(root_fd, "")
+    return _TreeSnapshot(directories[""], directories, files)
+
+
+def _snapshot_path(root: pathlib.Path, *, label: str) -> _TreeSnapshot:
+    with _open_directory_path(root) as root_fd:
+        return _snapshot_tree_fd(root_fd, label=label)
 
 
 def _digest(namespace: str, value: object) -> str:
@@ -90,25 +445,7 @@ def _self_hash(value: Mapping) -> str:
 
 
 def _file_hash(path: pathlib.Path) -> str:
-    _regular(path, "hashed payload")
-    digest = hashlib.sha256()
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-            raise CorrectedCorpusError(f"hashed payload changed after lstat: {path}")
-        while True:
-            block = os.read(fd, 1 << 20)
-            if not block:
-                break
-            digest.update(block)
-    finally:
-        os.close(fd)
-    return digest.hexdigest()
-
-
-def _mode(path: pathlib.Path) -> str:
-    return f"{stat.S_IMODE(path.lstat().st_mode):04o}"
+    return hashlib.sha256(read_stable_bytes(path)).hexdigest()
 
 
 def _normalised_hash(text: str) -> str:
@@ -175,34 +512,6 @@ def applicability_matrix() -> dict:
     return {**body, "digest": _digest(body["schema"], body)}
 
 
-def _regular(path: pathlib.Path, label: str) -> os.stat_result:
-    """Require one real, single-link regular file using exactly one ``lstat``."""
-    try:
-        info = path.lstat()
-    except OSError as exc:
-        raise CorrectedCorpusError(f"missing or unreadable file in {label}: {path}") from exc
-    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-        raise CorrectedCorpusError(f"symlink, hardlink, or special file in {label}: {path}")
-    return info
-
-
-def _directory(path: pathlib.Path, label: str) -> None:
-    try:
-        mode = path.lstat().st_mode
-    except OSError as exc:
-        raise CorrectedCorpusError(f"missing or unreadable directory in {label}: {path}") from exc
-    if not stat.S_ISDIR(mode):
-        raise CorrectedCorpusError(f"symlink or non-directory in {label}: {path}")
-
-
-def _require_mode(path: pathlib.Path, expected: int, label: str) -> None:
-    actual = stat.S_IMODE(path.lstat().st_mode)
-    if actual != expected:
-        raise CorrectedCorpusError(
-            f"mode drift in {label}: {path} has {actual:04o}, expected {expected:04o}"
-        )
-
-
 def _created_dir(path: pathlib.Path, *, parents: bool = False) -> None:
     """Create a staging/output directory and set its creation-time canonical mode."""
     path.mkdir(mode=0o755, parents=parents, exist_ok=False)
@@ -214,41 +523,88 @@ def _created_file_mode(path: pathlib.Path) -> None:
     os.chmod(path, 0o644)
 
 
-def _entries(path: pathlib.Path, label: str) -> list[os.DirEntry]:
-    _directory(path, label)
-    return sorted(os.scandir(path), key=lambda item: item.name)
+def _immediate_children(values: Iterable[str], parent: str) -> set[str]:
+    prefix = f"{parent}/" if parent else ""
+    return {
+        value[len(prefix):] for value in values
+        if value != parent and value.startswith(prefix)
+        and value[len(prefix):] and "/" not in value[len(prefix):]
+    }
 
 
-def _work_record(root: pathlib.Path, author: str, slug: str) -> dict:
-    work_id = full_work_id(f"{author}/{slug}")
-    work_root = root / "frags" / author / slug
-    source = root / "input_clean" / author / f"{slug}.txt"
-    _regular(source, f"source {work_id}")
-    _regular(work_root / MANIFEST_NAME, f"manifest {work_id}")
+def _snapshot_payload(snapshot: _TreeSnapshot, relative: str, *, label: str) -> bytes:
     try:
-        manifest, texts = load_work_manifest(work_root, input_clean_root=root / "input_clean")
+        payload = snapshot.files[relative].payload
+    except KeyError as exc:
+        raise CorrectedCorpusError(f"missing file in {label}: {relative}") from exc
+    if payload is None:
+        raise CorrectedCorpusError(f"internal stable-read cache missing in {label}: {relative}")
+    return payload
+
+
+def _work_record(root_fd: int, snapshot: _TreeSnapshot, author: str, slug: str,
+                 *, prefix: str = "") -> dict:
+    work_id = full_work_id(f"{author}/{slug}")
+    base = f"{prefix}/" if prefix else ""
+    work_root = f"{base}frags/{author}/{slug}"
+    manifest_path = f"{work_root}/{MANIFEST_NAME}"
+    source_path = f"{base}input_clean/{author}/{slug}.txt"
+    try:
+        manifest_bytes = _snapshot_payload(snapshot, manifest_path, label=f"manifest {work_id}")
+        manifest = WorkManifest.from_dict(
+            _parse_json_bytes(manifest_bytes, label=f"manifest {work_id}")
+        )
     except Exception as exc:
         raise CorrectedCorpusError(f"invalid work manifest for {work_id}: {exc}") from exc
     if manifest.work_id != work_id or manifest.author_id != author:
         raise CorrectedCorpusError(f"manifest author/work identity mismatch for {work_id}")
+    if manifest.overlap != 0.0:
+        raise CorrectedCorpusError(f"manifest overlap must be zero for {work_id}")
+    if [entry.span_ordinal for entry in manifest.chunks] != list(range(len(manifest.chunks))):
+        raise CorrectedCorpusError(f"manifest span ordinals are not contiguous for {work_id}")
+    listed = [entry.path for entry in manifest.chunks]
+    if len(listed) != len(set(listed)):
+        raise CorrectedCorpusError(f"duplicate chunk path in manifest for {work_id}")
+
+    source_bytes, _ = _read_relative(
+        root_fd, source_path, label=f"source {work_id}",
+        expected=snapshot.files[source_path].info,
+        expected_mode=0o644 if prefix else None,
+    )
+    try:
+        source_text = source_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CorrectedCorpusError(f"source is not valid UTF-8 for {work_id}") from exc
+    if sha256_text(source_text.strip()) != manifest.provenance_sha256:
+        raise CorrectedCorpusError(f"manifest provenance mismatch for {work_id}")
+
     chunks = []
-    for entry, text in zip(manifest.chunks, texts, strict=True):
-        path = work_root / entry.path
-        _regular(path, f"chunk {work_id}")
+    for entry in manifest.chunks:
+        relative = f"{work_root}/{entry.path}"
+        chunk_bytes, _ = _read_relative(
+            root_fd, relative, label=f"chunk {work_id}",
+            expected=snapshot.files[relative].info,
+            expected_mode=0o644 if prefix else None,
+        )
+        try:
+            text = canonical_chunk_text(chunk_bytes.decode("utf-8"))
+        except UnicodeDecodeError as exc:
+            raise CorrectedCorpusError(f"chunk is not valid UTF-8 for {work_id}") from exc
+        if not text or sha256_text(text) != entry.text_sha256:
+            raise CorrectedCorpusError(f"chunk text hash mismatch for {work_id}/{entry.path}")
         chunks.append({
             "path": entry.path,
             "span_ordinal": entry.span_ordinal,
-            "byte_sha256": _file_hash(path),
+            "byte_sha256": hashlib.sha256(chunk_bytes).hexdigest(),
             "text_sha256": entry.text_sha256,
             "normalized_sha256": _normalised_hash(text),
             "text": text,
         })
-    source_text = source.read_text(encoding="utf-8")
     identity = {
         "schema": IDENTITY_CONTRACT_VERSION,
         "work_id": work_id,
-        "manifest_sha256": _file_hash(work_root / MANIFEST_NAME),
-        "source_sha256": _file_hash(source),
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "source_sha256": hashlib.sha256(source_bytes).hexdigest(),
         "chunks": [{key: row[key] for key in row if key != "text"} for row in chunks],
     }
     return {
@@ -267,98 +623,124 @@ def _work_record(root: pathlib.Path, author: str, slug: str) -> dict:
     }
 
 
-def _validate_corpus_structure(root: pathlib.Path, *, child: bool) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """Validate the complete path/type/link shape before parsing any manifest."""
-    try:
-        _verify_real_dir_chain(root)
-    except Exception as exc:
-        raise CorrectedCorpusError(f"unsafe corpus root path chain: {root}") from exc
+def _validate_corpus_structure(snapshot: _TreeSnapshot, *, child: bool,
+                               prefix: str = "") -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Validate a descriptor-captured complete path/type/link shape before parsing."""
+    base = f"{prefix}/" if prefix else ""
     manifest_name = CORRECTED_MANIFEST_NAME if child else "corpus_manifest.json"
-    expected = {"frags", "input_clean", manifest_name}
-    top = _entries(root, "corpus root")
-    if {entry.name for entry in top} != expected:
+    expected = {f"{base}frags", f"{base}input_clean"}
+    expected_file = f"{base}{manifest_name}"
+    if (_immediate_children(snapshot.directories, prefix) != {"frags", "input_clean"}
+            or _immediate_children(snapshot.files, prefix) != {manifest_name}):
         raise CorrectedCorpusError("corpus root has missing or extra top-level members")
-    _directory(root / "frags", "frags")
-    _directory(root / "input_clean", "input_clean")
-    _regular(root / manifest_name, "corpus manifest")
     if child:
-        _require_mode(root, 0o755, "corrected corpus root")
-        _require_mode(root / "frags", 0o755, "frags")
-        _require_mode(root / "input_clean", 0o755, "input_clean")
-        _require_mode(root / manifest_name, 0o644, "corrected corpus manifest")
+        root_info = snapshot.directories[prefix]
+        if any(stat.S_IMODE(snapshot.directories[path].st_mode) != 0o755 for path in expected):
+            raise CorrectedCorpusError("mode drift in corrected corpus directory")
+        if stat.S_IMODE(root_info.st_mode) != 0o755:
+            raise CorrectedCorpusError("mode drift in corrected corpus root")
+        if stat.S_IMODE(snapshot.files[expected_file].info.st_mode) != 0o644:
+            raise CorrectedCorpusError("mode drift in corrected corpus manifest")
 
-    frag_authors = _entries(root / "frags", "frags")
-    clean_authors = _entries(root / "input_clean", "input_clean")
-    if [entry.name for entry in frag_authors] != [entry.name for entry in clean_authors]:
+    frag_parent = f"{base}frags"
+    clean_parent = f"{base}input_clean"
+    frag_authors = sorted(_immediate_children(snapshot.directories, frag_parent))
+    clean_authors = sorted(_immediate_children(snapshot.directories, clean_parent))
+    if frag_authors != clean_authors:
         raise CorrectedCorpusError("frags/input_clean author inventories differ")
     works: list[tuple[str, tuple[str, ...]]] = []
-    for entry in frag_authors:
-        author = entry.name
-        if not _SAFE.fullmatch(author) or entry.is_symlink() or not entry.is_dir(follow_symlinks=False):
+    for author in frag_authors:
+        if not _SAFE.fullmatch(author) or author in (".", ".."):
             raise CorrectedCorpusError("unsafe author entry")
-        frag_author = pathlib.Path(entry.path)
-        clean_author = root / "input_clean" / author
-        _directory(frag_author, f"frags author {author}")
-        _directory(clean_author, f"input_clean author {author}")
+        frag_author = f"{frag_parent}/{author}"
+        clean_author = f"{clean_parent}/{author}"
         if child:
-            _require_mode(frag_author, 0o755, f"frags author {author}")
-            _require_mode(clean_author, 0o755, f"input_clean author {author}")
-        expected_sources = set()
-        slugs = []
-        for book in _entries(frag_author, f"author {author}"):
-            slug = book.name
-            if not _SAFE.fullmatch(slug) or book.is_symlink() or not book.is_dir(follow_symlinks=False):
+            if any(stat.S_IMODE(snapshot.directories[path].st_mode) != 0o755
+                   for path in (frag_author, clean_author)):
+                raise CorrectedCorpusError(f"mode drift in author directory {author}")
+        if _immediate_children(snapshot.files, frag_author):
+            raise CorrectedCorpusError("frags author directory contains files")
+        if _immediate_children(snapshot.directories, clean_author):
+            raise CorrectedCorpusError("input_clean author directory contains directories")
+        slugs = sorted(_immediate_children(snapshot.directories, frag_author))
+        expected_sources = {f"{slug}.txt" for slug in slugs}
+        if _immediate_children(snapshot.files, clean_author) != expected_sources:
+            raise CorrectedCorpusError("input_clean has missing, extra, symlinked, or special members")
+        for slug in slugs:
+            if not _SAFE.fullmatch(slug) or slug in (".", ".."):
                 raise CorrectedCorpusError("unsafe work entry")
-            work_dir = pathlib.Path(book.path)
+            work_dir = f"{frag_author}/{slug}"
             if child:
-                _require_mode(work_dir, 0o755, f"work {author}/{slug}")
-            files = _entries(work_dir, f"work {author}/{slug}")
-            names = {item.name for item in files}
+                if stat.S_IMODE(snapshot.directories[work_dir].st_mode) != 0o755:
+                    raise CorrectedCorpusError(f"mode drift in work {author}/{slug}")
+            if _immediate_children(snapshot.directories, work_dir):
+                raise CorrectedCorpusError("work has a nested directory")
+            names = _immediate_children(snapshot.files, work_dir)
             if MANIFEST_NAME not in names or len(names) < 2 or any(
                 name != MANIFEST_NAME and (not _SAFE.fullmatch(name) or not name.endswith(".txt"))
                 for name in names
             ):
                 raise CorrectedCorpusError("work has an extra, missing, or unsafe member")
-            for item in files:
-                path = pathlib.Path(item.path)
-                _regular(path, f"work {author}/{slug}")
-                if child:
-                    _require_mode(path, 0o644, f"work {author}/{slug}")
-            expected_sources.add(f"{slug}.txt")
-            slugs.append(slug)
-        clean_entries = _entries(clean_author, f"input_clean {author}")
-        if {entry.name for entry in clean_entries} != expected_sources:
-            raise CorrectedCorpusError("input_clean has missing, extra, symlinked, or special members")
-        for source_entry in clean_entries:
-            source = pathlib.Path(source_entry.path)
-            _regular(source, f"input_clean {author}")
             if child:
-                _require_mode(source, 0o644, f"input_clean {author}")
+                if any(stat.S_IMODE(snapshot.files[f"{work_dir}/{name}"].info.st_mode) != 0o644
+                       for name in names):
+                    raise CorrectedCorpusError(f"mode drift in work {author}/{slug}")
+        if child and any(
+            stat.S_IMODE(snapshot.files[f"{clean_author}/{name}"].info.st_mode) != 0o644
+            for name in expected_sources
+        ):
+            raise CorrectedCorpusError(f"mode drift in input_clean {author}")
         works.append((author, tuple(slugs)))
     return tuple(works)
 
 
-def _scan_root(root: pathlib.Path, *, child: bool) -> tuple[dict, ...]:
-    works = _validate_corpus_structure(root, child=child)
+def _scan_root(root_fd: int, snapshot: _TreeSnapshot, *, child: bool,
+               prefix: str = "") -> tuple[dict, ...]:
+    works = _validate_corpus_structure(snapshot, child=child, prefix=prefix)
     records = []
     for author, slugs in works:
         for slug in slugs:
-            records.append(_work_record(root, author, slug))
+            records.append(_work_record(root_fd, snapshot, author, slug, prefix=prefix))
     records.sort(key=lambda row: row["work_id"])
     if len({row["work_id"] for row in records}) != len(records):
         raise CorrectedCorpusError("duplicate full work_id is fatal")
     return tuple(records)
 
 
-def verify_historical_parent(root: pathlib.Path | str) -> tuple[dict, tuple[dict, ...]]:
+def _historical_tree_digest(snapshot: _TreeSnapshot) -> str:
+    digest = hashlib.sha256()
+    namespace = _HISTORICAL_CORPUS_DIGEST_VERSION.encode("utf-8")
+    digest.update(len(namespace).to_bytes(8, "big") + namespace)
+    for subtree in ("frags", "input_clean"):
+        prefix = subtree + "/"
+        for relative in sorted(path for path in snapshot.files if path.startswith(prefix)):
+            encoded = relative.encode("utf-8")
+            # Historical v3.1 deliberately retains its original character-count framing.
+            digest.update(len(relative).to_bytes(8, "big") + encoded)
+            digest.update(bytes.fromhex(snapshot.files[relative].sha256))
+    return digest.hexdigest()
+
+
+def _verify_historical_parent_with_snapshot(
+    root: pathlib.Path,
+) -> tuple[dict, tuple[dict, ...], _TreeSnapshot]:
     root = pathlib.Path(root)
     if root.name != HISTORICAL_PARENT_DIGEST:
         raise CorrectedCorpusError("historical parent digest identity-first rejection")
-    records = _scan_root(root, child=False)
-    try:
-        manifest = historical_corpus.verify_published_corpus(root)
-    except Exception as exc:
-        raise CorrectedCorpusError(f"historical parent verification failed: {exc}") from exc
+    with _open_directory_path(root) as root_fd:
+        snapshot = _snapshot_tree_fd(root_fd, label="historical corpus")
+        records = _scan_root(root_fd, snapshot, child=False)
+    manifest = _parse_json_bytes(
+        _snapshot_payload(snapshot, "corpus_manifest.json", label="historical manifest"),
+        label="historical manifest",
+    )
+    if not isinstance(manifest, dict):
+        raise CorrectedCorpusError("historical parent manifest must be an object")
+    manifest_body = dict(manifest)
+    if manifest_body.pop("self_hash", None) != _self_hash(manifest_body):
+        raise CorrectedCorpusError("historical parent manifest self-hash mismatch")
+    if _historical_tree_digest(snapshot) != HISTORICAL_PARENT_DIGEST:
+        raise CorrectedCorpusError("historical parent content digest mismatch")
     if manifest.get("schema") != HISTORICAL_PARENT_SCHEMA or manifest.get("audit_corpus_digest") != HISTORICAL_PARENT_DIGEST:
         raise CorrectedCorpusError("historical parent schema/digest mismatch")
     if len(records) != HISTORICAL_WORK_COUNT or manifest.get("n_works") != HISTORICAL_WORK_COUNT:
@@ -366,12 +748,19 @@ def verify_historical_parent(root: pathlib.Path | str) -> tuple[dict, tuple[dict
             f"historical parent must contain exactly {HISTORICAL_WORK_COUNT} works"
         )
     catalog = work_identity_catalog(records)
-    return {
+    identity = {
         "historical_parent_digest": HISTORICAL_PARENT_DIGEST,
         "historical_parent_manifest_self_hash": manifest.get("self_hash"),
-        "historical_parent_manifest_sha256": _file_hash(root / "corpus_manifest.json"),
+        "historical_parent_manifest_sha256": snapshot.files["corpus_manifest.json"].sha256,
         "full_work_identity_catalog_digest": catalog["digest"],
-    }, records
+    }
+    return identity, records, snapshot
+
+
+def verify_historical_parent(root: pathlib.Path | str) -> tuple[dict, tuple[dict, ...]]:
+    require_storage_capabilities()
+    identity, records, _ = _verify_historical_parent_with_snapshot(pathlib.Path(root))
+    return identity, records
 
 
 def work_identity_catalog(records: Sequence[Mapping]) -> dict:
@@ -490,88 +879,100 @@ def _assert_counts(records: Sequence[Mapping], lobo_tested: Sequence[str], ruaa:
         raise CorrectedCorpusError("RuAA counts drift")
 
 
-def _copy(source: pathlib.Path, destination: pathlib.Path) -> None:
-    _regular(source, "historical parent copy source")
-    source_fd = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    try:
-        source_info = os.fstat(source_fd)
-        if not stat.S_ISREG(source_info.st_mode) or source_info.st_nlink != 1:
-            raise CorrectedCorpusError("historical parent copy source changed after lstat")
-        destination_fd = os.open(
-            destination,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-            0o644,
-        )
+def _write_new_file(destination: pathlib.Path, payload: bytes, *, mode: int = 0o644) -> None:
+    with _open_directory_path(destination.parent) as parent_fd:
         try:
-            destination_info = os.fstat(destination_fd)
-            if not stat.S_ISREG(destination_info.st_mode) or destination_info.st_nlink != 1:
-                raise CorrectedCorpusError("staging copy destination is not a new single-link file")
-            while True:
-                block = os.read(source_fd, 1 << 20)
-                if not block:
-                    break
-                view = memoryview(block)
-                while view:
-                    written = os.write(destination_fd, view)
-                    view = view[written:]
-            os.fchmod(destination_fd, 0o644)
+            fd = os.open(
+                destination.name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+                | os.O_NONBLOCK,
+                mode,
+                dir_fd=parent_fd,
+            )
+        except OSError as exc:
+            raise CorrectedCorpusError(f"cannot create staging file safely: {destination}") from exc
+        try:
+            created = os.fstat(fd)
+            if not stat.S_ISREG(created.st_mode) or created.st_nlink != 1:
+                raise CorrectedCorpusError("staging destination is not a new single-link file")
+            view = memoryview(payload)
+            while view:
+                written = os.write(fd, view)
+                view = view[written:]
+            os.fchmod(fd, mode)
+            completed = os.fstat(fd)
+            if (not stat.S_ISREG(completed.st_mode) or completed.st_nlink != 1
+                    or completed.st_size != len(payload)
+                    or stat.S_IMODE(completed.st_mode) != mode):
+                raise CorrectedCorpusError("staging destination changed while writing")
         finally:
-            os.close(destination_fd)
-    finally:
-        os.close(source_fd)
-    if _file_hash(source) != _file_hash(destination):
+            os.close(fd)
+
+
+def _copy(source: pathlib.Path, destination: pathlib.Path, *,
+          expected: _FileSnapshot | None = None) -> None:
+    payload = _read_stable_path(source, expected=expected.info if expected is not None else None)
+    if expected is not None and hashlib.sha256(payload).hexdigest() != expected.sha256:
+        raise CorrectedCorpusError("historical parent copy source changed since verification")
+    _write_new_file(destination, payload)
+    if hashlib.sha256(payload).hexdigest() != _file_hash(destination):
         raise CorrectedCorpusError("byte copy mismatch")
 
 
-def _inventory(root: pathlib.Path) -> tuple[list[dict], str]:
+def _inventory(root: pathlib.Path, *, snapshot: _TreeSnapshot | None = None,
+               prefix: str = "") -> tuple[list[dict], str]:
     """Pure read-only child-content inventory (the historical digest domain)."""
+    snapshot = snapshot or _snapshot_path(root, label="child inventory")
+    base = f"{prefix}/" if prefix else ""
     rows = []
-    for subtree in ("frags", "input_clean"):
-        _directory(root / subtree, "child inventory")
-        for current, dirs, files in os.walk(root / subtree, followlinks=False):
-            directory = pathlib.Path(current)
-            _directory(directory, "child inventory")
-            for name in dirs:
-                path = directory / name
-                _directory(path, "child inventory")
-            for name in files:
-                path = directory / name
-                _regular(path, "generated child")
-                rows.append({"path": path.relative_to(root).as_posix(), "sha256": _file_hash(path), "mode": _mode(path)})
+    for relative, record in snapshot.files.items():
+        if relative.startswith(f"{base}frags/") or relative.startswith(f"{base}input_clean/"):
+            local = relative[len(base):]
+            rows.append({
+                "path": local, "sha256": record.sha256,
+                "mode": f"{stat.S_IMODE(record.info.st_mode):04o}",
+            })
     rows.sort(key=lambda row: row["path"])
     return rows, _digest("paired_audit.content_inventory.v3_2", rows)
 
 
-def _recursive_inventory(root: pathlib.Path, *, excluded: Iterable[str] = ()) -> list[dict]:
+def _recursive_inventory(root: pathlib.Path, *, excluded: Iterable[str] = (),
+                         snapshot: _TreeSnapshot | None = None,
+                         prefix: str = "") -> list[dict]:
     """Pure exact recursive inventory, including directories and rejecting every unsafe inode."""
     excluded_set = set(excluded)
-    _directory(root, "bundle root")
+    snapshot = snapshot or _snapshot_path(root, label="bundle inventory")
+    base = f"{prefix}/" if prefix else ""
     rows: list[dict] = []
-    for current, dirs, files in os.walk(root, topdown=True, followlinks=False):
-        directory = pathlib.Path(current)
-        _directory(directory, "bundle inventory")
-        relative_dir = directory.relative_to(root).as_posix()
-        if relative_dir != ".":
-            rows.append({"path": relative_dir + "/", "type": "directory", "mode": _mode(directory)})
-        dirs.sort()
-        files.sort()
-        for name in dirs:
-            _directory(directory / name, "bundle inventory")
-        for name in files:
-            path = directory / name
-            relative = path.relative_to(root).as_posix()
-            info = _regular(path, "bundle inventory")
-            if relative not in excluded_set:
-                rows.append({
-                    "path": relative, "type": "file", "mode": _mode(path),
-                    "size": info.st_size, "sha256": _file_hash(path),
-                })
+    for relative, info in snapshot.directories.items():
+        if relative == prefix:
+            continue
+        if prefix and not relative.startswith(base):
+            continue
+        local = relative[len(base):]
+        rows.append({
+            "path": local + "/", "type": "directory",
+            "mode": f"{stat.S_IMODE(info.st_mode):04o}",
+        })
+    for relative, record in snapshot.files.items():
+        if prefix and not relative.startswith(base):
+            continue
+        local = relative[len(base):]
+        if local not in excluded_set:
+            rows.append({
+                "path": local, "type": "file",
+                "mode": f"{stat.S_IMODE(record.info.st_mode):04o}",
+                "size": record.info.st_size, "sha256": record.sha256,
+            })
     rows.sort(key=lambda row: row["path"])
     return rows
 
 
-def _canonical_sums(root: pathlib.Path) -> str:
-    rows = _recursive_inventory(root, excluded=(SHA256SUMS_NAME,))
+def _canonical_sums(root: pathlib.Path, *, snapshot: _TreeSnapshot | None = None,
+                    prefix: str = "") -> str:
+    rows = _recursive_inventory(
+        root, excluded=(SHA256SUMS_NAME,), snapshot=snapshot, prefix=prefix,
+    )
     files = [row for row in rows if row["type"] == "file"]
     return "".join(f"{row['sha256']}  {row['path']}\n" for row in files)
 
@@ -583,8 +984,9 @@ def _write_json(value: Mapping, path: pathlib.Path) -> None:
 
 def _corpus_manifest(*, root: pathlib.Path, records: Sequence[Mapping], parent_identity: Mapping,
                      policy: Mapping, catalog: Mapping, basename: Mapping, isolation: Mapping,
-                     config_hash: str, protocol_sha256: str) -> dict:
-    inventory, digest = _inventory(root)
+                     config_hash: str, protocol_sha256: str,
+                     snapshot: _TreeSnapshot | None = None, prefix: str = "") -> dict:
+    inventory, digest = _inventory(root, snapshot=snapshot, prefix=prefix)
     body = {
         "schema": CORPUS_SCHEMA, "protocol_version": PROTOCOL_VERSION,
         "identity_contract_version": IDENTITY_CONTRACT_VERSION,
@@ -603,6 +1005,7 @@ def _corpus_manifest(*, root: pathlib.Path, records: Sequence[Mapping], parent_i
 def _assemble_child(parent: pathlib.Path, root: pathlib.Path, records: Sequence[Mapping], *,
                     parent_identity: Mapping, policy: Mapping, catalog: Mapping, basename: Mapping,
                     isolation: Mapping, config_hash: str, protocol_sha256: str,
+                    parent_snapshot: _TreeSnapshot,
                     fault_inject: Callable[[str], None] | None) -> dict:
     _created_dir(root)
     _created_dir(root / "frags")
@@ -618,11 +1021,22 @@ def _assemble_child(parent: pathlib.Path, root: pathlib.Path, records: Sequence[
         source = parent / "frags" / author / row["work_slug"]
         destination = root / "frags" / author / row["work_slug"]
         _created_dir(destination)
-        _copy(source / MANIFEST_NAME, destination / MANIFEST_NAME)
+        manifest_relative = f"frags/{author}/{row['work_slug']}/{MANIFEST_NAME}"
+        _copy(
+            source / MANIFEST_NAME, destination / MANIFEST_NAME,
+            expected=parent_snapshot.files[manifest_relative],
+        )
         for chunk in row["chunks"]:
-            _copy(source / chunk["path"], destination / chunk["path"])
-        _copy(parent / "input_clean" / author / f"{row['work_slug']}.txt",
-              root / "input_clean" / author / f"{row['work_slug']}.txt")
+            relative = f"frags/{author}/{row['work_slug']}/{chunk['path']}"
+            _copy(
+                source / chunk["path"], destination / chunk["path"],
+                expected=parent_snapshot.files[relative],
+            )
+        source_relative = f"input_clean/{author}/{row['work_slug']}.txt"
+        _copy(
+            parent / source_relative, root / source_relative,
+            expected=parent_snapshot.files[source_relative],
+        )
         if not injected:
             injected = True
             _fault(fault_inject, "during_child_assembly")
@@ -635,19 +1049,37 @@ def _assemble_child(parent: pathlib.Path, root: pathlib.Path, records: Sequence[
     return body
 
 
-def _verify_child(root: pathlib.Path, expected: Mapping) -> tuple[dict, ...]:
-    records = _scan_root(root, child=True)
-    manifest = load_strict(root / CORRECTED_MANIFEST_NAME)
+def _verify_child_snapshot(root_fd: int, snapshot: _TreeSnapshot, expected: Mapping,
+                           *, prefix: str) -> tuple[dict, ...]:
+    records = _scan_root(root_fd, snapshot, child=True, prefix=prefix)
+    manifest_relative = f"{prefix}/{CORRECTED_MANIFEST_NAME}" if prefix else CORRECTED_MANIFEST_NAME
+    manifest = _parse_json_bytes(
+        _snapshot_payload(snapshot, manifest_relative, label="corrected corpus manifest"),
+        label="corrected corpus manifest", canonical=True,
+    )
+    if not isinstance(manifest, dict):
+        raise CorrectedCorpusError("corrected corpus manifest must be an object")
     if manifest.get("schema") != CORPUS_SCHEMA:
         raise CorrectedCorpusError("historical/v3.1 corpus schema rejected identity-first")
     body = dict(manifest)
     self_hash = body.pop("self_hash", None)
     if self_hash != _self_hash(body) or manifest != expected:
         raise CorrectedCorpusError("corrected corpus manifest tamper/conflict")
-    inventory, digest = _inventory(root)
+    inventory, digest = _inventory(pathlib.Path("."), snapshot=snapshot, prefix=prefix)
     if digest != manifest["corrected_content_inventory_digest"] or inventory != manifest["corrected_content_inventory"]:
         raise CorrectedCorpusError("corrected corpus bytes/modes inventory drift")
     return records
+
+
+def _verify_child(root_or_fd, snapshot_or_expected, expected: Mapping | None = None,
+                  *, prefix: str = CORRECTED_CORPUS_DIR) -> tuple[dict, ...]:
+    """Descriptor verifier plus a compatibility path wrapper used by focused unit tests."""
+    if expected is not None:
+        return _verify_child_snapshot(root_or_fd, snapshot_or_expected, expected, prefix=prefix)
+    root = pathlib.Path(root_or_fd)
+    with _open_directory_path(root) as root_fd:
+        snapshot = _snapshot_tree_fd(root_fd, label="corrected child")
+        return _verify_child_snapshot(root_fd, snapshot, snapshot_or_expected, prefix="")
 
 
 def _fold(kind: str, records: Sequence[Mapping], corpus: Mapping, *, selection_digest: str, config_hash: str) -> dict:
@@ -731,7 +1163,7 @@ def _fault(callback: Callable[[str], None] | None, point: str) -> None:
 
 
 def _trusted_derivation(parent: pathlib.Path, ruaa_parent_selection: Sequence[str]) -> dict:
-    parent_identity, all_records = verify_historical_parent(parent)
+    parent_identity, all_records, parent_snapshot = _verify_historical_parent_with_snapshot(parent)
     parent_ids = [row["work_id"] for row in all_records]
     if any(parent_ids.count(value) != 1 for value in EXCLUDED_WORK_IDS):
         raise CorrectedCorpusError("the exact three registered exclusions cannot derive the corrected child")
@@ -758,12 +1190,15 @@ def _trusted_derivation(parent: pathlib.Path, ruaa_parent_selection: Sequence[st
         "parent_identity": parent_identity, "all_records": all_records, "records": records,
         "policy": exclusion_policy(), "catalog": catalog, "basename": basename,
         "isolation": isolation, "ruaa": ruaa, "ruaa_records": ruaa_records,
-        "ruaa_selection": ruaa_selection,
+        "ruaa_selection": ruaa_selection, "parent_snapshot": parent_snapshot,
     }
 
 
-def _file_map(root: pathlib.Path) -> dict[str, dict]:
-    rows = _recursive_inventory(root, excluded=("candidate.json", SHA256SUMS_NAME))
+def _file_map(root: pathlib.Path, *, snapshot: _TreeSnapshot | None = None,
+              prefix: str = "") -> dict[str, dict]:
+    rows = _recursive_inventory(
+        root, excluded=("candidate.json", SHA256SUMS_NAME), snapshot=snapshot, prefix=prefix,
+    )
     return {
         row["path"]: {key: row[key] for key in ("sha256", "size", "mode")}
         for row in rows if row["type"] == "file"
@@ -812,25 +1247,34 @@ _BUNDLE_TOP = {
 }
 
 
-def _verify_bundle_shape(root: pathlib.Path) -> None:
-    try:
-        _verify_real_dir_chain(root)
-    except Exception as exc:
-        raise CorrectedCorpusError(f"unsafe bundle path chain: {root}") from exc
-    entries = _entries(root, "preparation bundle")
-    if {entry.name for entry in entries} != _BUNDLE_TOP:
+def _verify_bundle_shape(snapshot: _TreeSnapshot) -> None:
+    if (_immediate_children(snapshot.directories, "")
+            | _immediate_children(snapshot.files, "")) != _BUNDLE_TOP:
         raise CorrectedCorpusError("bundle has missing or unexpected members")
-    _require_mode(root, 0o755, "bundle root")
-    _directory(root / CORRECTED_CORPUS_DIR, "bundle-local corrected corpus")
-    for name in _BUNDLE_TOP - {CORRECTED_CORPUS_DIR}:
-        _regular(root / name, f"bundle payload {name}")
-    for row in _recursive_inventory(root):
+    if _immediate_children(snapshot.directories, "") != {CORRECTED_CORPUS_DIR}:
+        raise CorrectedCorpusError("bundle top-level type mismatch")
+    if stat.S_IMODE(snapshot.root_info.st_mode) != 0o755:
+        raise CorrectedCorpusError("mode drift in bundle root")
+    for row in _recursive_inventory(pathlib.Path("."), snapshot=snapshot):
         expected = "0755" if row["type"] == "directory" else "0644"
         if row["mode"] != expected:
             raise CorrectedCorpusError(
                 f"mode drift in bundle member {row['path']}: {row['mode']} != {expected}"
             )
-    _validate_corpus_structure(root / CORRECTED_CORPUS_DIR, child=True)
+    _validate_corpus_structure(snapshot, child=True, prefix=CORRECTED_CORPUS_DIR)
+
+
+def _require_literal_child_binding(candidate: Mapping) -> None:
+    layout = candidate.get("bundle_layout")
+    corrected = candidate.get("corrected_corpus")
+    left = layout.get("corrected_corpus_relative_root") if type(layout) is dict else None
+    right = corrected.get("relative_root") if type(corrected) is dict else None
+    if (type(left) is not str or type(right) is not str
+            or left != CORRECTED_CORPUS_DIR or right != CORRECTED_CORPUS_DIR
+            or left != right):
+        raise CorrectedCorpusError(
+            "candidate corrected-corpus child binding must be the exact literal corrected_corpus"
+        )
 
 
 def verify_v3_2_candidate(bundle_root: pathlib.Path | str, *,
@@ -839,82 +1283,114 @@ def verify_v3_2_candidate(bundle_root: pathlib.Path | str, *,
                           protocol_sha256: str, require_basename: bool = True,
                           fault_inject: Callable[[str], None] | None = None) -> dict:
     """Pure disk-backed reconstruction and exact verification of one complete bundle."""
+    require_storage_capabilities()
     if not _HEX64.fullmatch(config_hash) or not _HEX64.fullmatch(protocol_sha256):
         raise CorrectedCorpusError("config/protocol hashes must be SHA256")
     root = pathlib.Path(bundle_root)
     parent = pathlib.Path(historical_parent_root)
     selection = tuple(ruaa_parent_selection)
-    _verify_bundle_shape(root)  # path/type/link/mode checks happen before every parse
+    with _open_directory_path(root) as root_fd:
+        candidate_bytes, candidate_info = _read_file_from_dir(
+            root_fd, "candidate.json", label="candidate envelope", expected_mode=0o644,
+        )
+        candidate = _parse_json_bytes(
+            candidate_bytes, label="candidate envelope", canonical=True,
+        )
+        if not isinstance(candidate, dict) or candidate.get("schema") != CANDIDATE_SCHEMA:
+            raise CorrectedCorpusError("old or malformed candidate schema rejected identity-first")
+        if candidate.get("storage_contract_version") != BUNDLE_STORAGE_CONTRACT_VERSION:
+            raise CorrectedCorpusError("old unsafe preparation storage contract rejected")
+        candidate_body = dict(candidate)
+        candidate_hash = candidate_body.pop("self_hash", None)
+        if candidate_hash != _self_hash(candidate_body):
+            raise CorrectedCorpusError("candidate self-hash mismatch")
+        if require_basename and root.name != candidate_hash:
+            raise CorrectedCorpusError("bundle directory basename differs from committed candidate digest")
+        _require_literal_child_binding(candidate)
 
-    candidate = load_strict(root / "candidate.json")
-    if not isinstance(candidate, dict) or candidate.get("schema") != CANDIDATE_SCHEMA:
-        raise CorrectedCorpusError("old or malformed candidate schema rejected identity-first")
-    if candidate.get("storage_contract_version") != BUNDLE_STORAGE_CONTRACT_VERSION:
-        raise CorrectedCorpusError("old unsafe preparation storage contract rejected")
-    candidate_body = dict(candidate)
-    candidate_hash = candidate_body.pop("self_hash", None)
-    if candidate_hash != _self_hash(candidate_body):
-        raise CorrectedCorpusError("candidate self-hash mismatch")
-    if require_basename and root.name != candidate_hash:
-        raise CorrectedCorpusError("bundle directory basename differs from committed candidate digest")
+        # No child listing, parse, hash, or descent occurs before the exact envelope gate above.
+        snapshot = _snapshot_tree_fd(root_fd, label="preparation bundle")
+        captured_candidate = snapshot.files.get("candidate.json")
+        if (captured_candidate is None
+                or not _same_inode_state(candidate_info, captured_candidate.info)
+                or captured_candidate.sha256 != hashlib.sha256(candidate_bytes).hexdigest()):
+            raise CorrectedCorpusError("candidate changed after envelope verification")
+        _verify_bundle_shape(snapshot)
 
-    inventory = load_strict(root / BUNDLE_INVENTORY_NAME)
-    payload_rows = _recursive_inventory(
-        root, excluded=(BUNDLE_INVENTORY_NAME, "candidate.json", SHA256SUMS_NAME),
-    )
-    inventory_body = {
-        "schema": "paired_audit.preparation_bundle_inventory.v1",
-        "storage_contract_version": BUNDLE_STORAGE_CONTRACT_VERSION,
-        "root_mode": "0755", "entries": payload_rows,
-    }
-    inventory_body["self_hash"] = _self_hash(inventory_body)
-    if inventory != inventory_body:
-        raise CorrectedCorpusError("exact bundle inventory mismatch")
-    files = _file_map(root)
-    if candidate.get("files") != files:
-        raise CorrectedCorpusError("candidate recursive file map mismatch")
-    expected_sums = _canonical_sums(root)
-    if (root / SHA256SUMS_NAME).read_bytes() != expected_sums.encode("utf-8"):
-        raise CorrectedCorpusError("non-canonical or stale SHA256SUMS")
+        inventory = _parse_json_bytes(
+            _snapshot_payload(snapshot, BUNDLE_INVENTORY_NAME, label="exact inventory"),
+            label="exact inventory", canonical=True,
+        )
+        payload_rows = _recursive_inventory(
+            root, excluded=(BUNDLE_INVENTORY_NAME, "candidate.json", SHA256SUMS_NAME),
+            snapshot=snapshot,
+        )
+        inventory_body = {
+            "schema": "paired_audit.preparation_bundle_inventory.v1",
+            "storage_contract_version": BUNDLE_STORAGE_CONTRACT_VERSION,
+            "root_mode": "0755", "entries": payload_rows,
+        }
+        inventory_body["self_hash"] = _self_hash(inventory_body)
+        if inventory != inventory_body:
+            raise CorrectedCorpusError("exact bundle inventory mismatch")
+        files = _file_map(root, snapshot=snapshot)
+        if candidate.get("files") != files:
+            raise CorrectedCorpusError("candidate recursive file map mismatch")
+        expected_sums = _canonical_sums(root, snapshot=snapshot)
+        if _snapshot_payload(snapshot, SHA256SUMS_NAME, label="SHA256SUMS") != expected_sums.encode("utf-8"):
+            raise CorrectedCorpusError("non-canonical or stale SHA256SUMS")
 
-    trusted = _trusted_derivation(parent, selection)
-    child_root = root / CORRECTED_CORPUS_DIR
-    expected_corpus = _corpus_manifest(
-        root=child_root, records=trusted["records"], parent_identity=trusted["parent_identity"],
-        policy=trusted["policy"], catalog=trusted["catalog"], basename=trusted["basename"],
-        isolation=trusted["isolation"], config_hash=config_hash, protocol_sha256=protocol_sha256,
-    )
-    child_records = _verify_child(child_root, expected_corpus)
-    if child_records != trusted["records"]:
-        raise CorrectedCorpusError("corrected child is not the exact trusted three-exclusion derivation")
+        trusted = _trusted_derivation(parent, selection)
+        child_root = root / CORRECTED_CORPUS_DIR
+        expected_corpus = _corpus_manifest(
+            root=child_root, records=trusted["records"], parent_identity=trusted["parent_identity"],
+            policy=trusted["policy"], catalog=trusted["catalog"], basename=trusted["basename"],
+            isolation=trusted["isolation"], config_hash=config_hash, protocol_sha256=protocol_sha256,
+            snapshot=snapshot, prefix=CORRECTED_CORPUS_DIR,
+        )
+        child_records = _verify_child(root_fd, snapshot, expected_corpus)
+        if child_records != trusted["records"]:
+            raise CorrectedCorpusError("corrected child is not the exact trusted three-exclusion derivation")
 
-    loaded_basename = load_strict(root / "basename_collision_audit_v3_2.json")
-    loaded_isolation = load_strict(root / "content_isolation_audit_v3_2.json")
-    if loaded_basename != trusted["basename"] or loaded_isolation != trusted["isolation"]:
-        raise CorrectedCorpusError("audit differs from trusted-input reconstruction")
-    lobo_expected = _fold(
-        "lobo", trusted["records"], expected_corpus,
-        selection_digest=_digest(
-            "paired_audit.lobo_selection.v3_2", [row["work_id"] for row in trusted["records"]]
-        ), config_hash=config_hash,
-    )
-    ruaa_expected = _fold(
-        "ruaa", trusted["ruaa_records"], expected_corpus,
-        selection_digest=trusted["ruaa_selection"]["selection_digest"], config_hash=config_hash,
-    )
-    lobo_loaded = load_strict(root / "lobo_fold_manifest_v3_2.json")
-    ruaa_loaded = load_strict(root / "ruaa_fold_manifest_v3_2.json")
-    assert_v3_2_fold_manifest(lobo_loaded, kind="lobo", expected=lobo_expected)
-    _fault(fault_inject, "verifying_ruaa_fold")
-    assert_v3_2_fold_manifest(ruaa_loaded, kind="ruaa", expected=ruaa_expected)
-    expected_candidate = _candidate_body(
-        corpus=expected_corpus, lobo=lobo_expected, ruaa=ruaa_expected,
-        isolation=trusted["isolation"], basename=trusted["basename"],
-        parent_identity=trusted["parent_identity"], ruaa_selection=trusted["ruaa_selection"],
-        inventory=inventory_body, files=files,
-    )
-    if candidate != expected_candidate:
-        raise CorrectedCorpusError("candidate differs from trusted-input reconstruction")
+        loaded_basename = _parse_json_bytes(
+            _snapshot_payload(snapshot, "basename_collision_audit_v3_2.json", label="basename audit"),
+            label="basename audit", canonical=True,
+        )
+        loaded_isolation = _parse_json_bytes(
+            _snapshot_payload(snapshot, "content_isolation_audit_v3_2.json", label="content audit"),
+            label="content audit", canonical=True,
+        )
+        if loaded_basename != trusted["basename"] or loaded_isolation != trusted["isolation"]:
+            raise CorrectedCorpusError("audit differs from trusted-input reconstruction")
+        lobo_expected = _fold(
+            "lobo", trusted["records"], expected_corpus,
+            selection_digest=_digest(
+                "paired_audit.lobo_selection.v3_2", [row["work_id"] for row in trusted["records"]]
+            ), config_hash=config_hash,
+        )
+        ruaa_expected = _fold(
+            "ruaa", trusted["ruaa_records"], expected_corpus,
+            selection_digest=trusted["ruaa_selection"]["selection_digest"], config_hash=config_hash,
+        )
+        lobo_loaded = _parse_json_bytes(
+            _snapshot_payload(snapshot, "lobo_fold_manifest_v3_2.json", label="LOBO fold"),
+            label="LOBO fold", canonical=True,
+        )
+        ruaa_loaded = _parse_json_bytes(
+            _snapshot_payload(snapshot, "ruaa_fold_manifest_v3_2.json", label="RuAA fold"),
+            label="RuAA fold", canonical=True,
+        )
+        assert_v3_2_fold_manifest(lobo_loaded, kind="lobo", expected=lobo_expected)
+        _fault(fault_inject, "verifying_ruaa_fold")
+        assert_v3_2_fold_manifest(ruaa_loaded, kind="ruaa", expected=ruaa_expected)
+        expected_candidate = _candidate_body(
+            corpus=expected_corpus, lobo=lobo_expected, ruaa=ruaa_expected,
+            isolation=trusted["isolation"], basename=trusted["basename"],
+            parent_identity=trusted["parent_identity"], ruaa_selection=trusted["ruaa_selection"],
+            inventory=inventory_body, files=files,
+        )
+        if candidate != expected_candidate:
+            raise CorrectedCorpusError("candidate differs from trusted-input reconstruction")
     return {
         "bundle_root": root, "candidate_root": root, "corrected_corpus_root": child_root,
         "candidate": candidate, "corpus_manifest": expected_corpus,
@@ -926,55 +1402,82 @@ def verify_v3_2_candidate(bundle_root: pathlib.Path | str, *,
 
 @contextlib.contextmanager
 def _publish_lock(parent: pathlib.Path) -> Iterator[None]:
-    path = parent / PUBLISH_LOCK_NAME
-    flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-    created = False
-    try:
-        fd = os.open(path, flags | os.O_CREAT | os.O_EXCL, 0o644)
-        created = True
-    except FileExistsError:
-        fd = os.open(path, flags)
-    try:
-        if created:
-            os.fchmod(fd, 0o644)
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o644:
-            raise CorrectedCorpusError("publish lock is symlinked, hardlinked, special, or mode-drifted")
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-            raise CorrectedCorpusError("publish lock inode changed while acquiring lock")
-        yield
-    finally:
-        os.close(fd)
+    flags = os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    with _open_directory_path(parent) as parent_fd:
+        created = False
+        try:
+            fd = os.open(
+                PUBLISH_LOCK_NAME, flags | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=parent_fd,
+            )
+            created = True
+        except FileExistsError:
+            before = os.stat(PUBLISH_LOCK_NAME, dir_fd=parent_fd, follow_symlinks=False)
+            fd = os.open(PUBLISH_LOCK_NAME, flags, dir_fd=parent_fd)
+            if not _same_inode_state(before, os.fstat(fd)):
+                os.close(fd)
+                raise CorrectedCorpusError("publish lock replaced between validation and open")
+        try:
+            if created:
+                os.fchmod(fd, 0o644)
+            locked = os.fstat(fd)
+            if (not stat.S_ISREG(locked.st_mode) or locked.st_nlink != 1
+                    or stat.S_IMODE(locked.st_mode) != 0o644):
+                raise CorrectedCorpusError("publish lock is symlinked, hardlinked, special, or mode-drifted")
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            locked = os.fstat(fd)
+            current = os.stat(PUBLISH_LOCK_NAME, dir_fd=parent_fd, follow_symlinks=False)
+            if not _same_inode_state(locked, current):
+                raise CorrectedCorpusError("publish lock inode changed while acquiring lock")
+            yield
+            if not _same_inode_state(locked, os.fstat(fd)):
+                raise CorrectedCorpusError("publish lock changed while held")
+        finally:
+            os.close(fd)
 
 
 def _rename_noreplace(source: pathlib.Path, destination: pathlib.Path) -> None:
-    renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+    renameat2 = _renameat2_primitive()
     if renameat2 is None:
         raise CorrectedCorpusError("atomic no-clobber renameat2 is unavailable")
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    renameat2.restype = ctypes.c_int
-    if renameat2(-100, os.fsencode(source), -100, os.fsencode(destination), 1) != 0:
-        error = ctypes.get_errno()
-        if error == errno.EEXIST:
-            raise FileExistsError(error, os.strerror(error), destination)
-        raise OSError(error, os.strerror(error), destination)
+    with _open_directory_path(source.parent) as source_fd, _open_directory_path(destination.parent) as destination_fd:
+        if renameat2(
+            source_fd, os.fsencode(source.name), destination_fd, os.fsencode(destination.name),
+            _RENAME_NOREPLACE,
+        ) != 0:
+            error = ctypes.get_errno()
+            if error == errno.EEXIST:
+                raise FileExistsError(error, os.strerror(error), destination)
+            raise OSError(error, os.strerror(error), destination)
 
 
 def _ensure_directory(path: pathlib.Path) -> None:
-    try:
-        _verify_real_dir_chain(path)
-    except Exception as exc:
-        raise CorrectedCorpusError(f"unsafe output path chain: {path}") from exc
-    if path.exists():
-        _directory(path, "output root")
-        return
-    path.mkdir(parents=True, mode=0o755)
-    try:
-        _verify_real_dir_chain(path)
-    except Exception as exc:
-        raise CorrectedCorpusError(f"unsafe output path chain after creation: {path}") from exc
+    with _open_or_create_directory_path(path):
+        pass
+
+
+def _existing_destinations(parent: pathlib.Path) -> list[pathlib.Path]:
+    with _open_directory_path(parent) as parent_fd:
+        return [parent / name for name in sorted(os.listdir(parent_fd)) if not name.startswith(".")]
+
+
+def _create_stage_parent(parent: pathlib.Path) -> pathlib.Path:
+    with _open_directory_path(parent) as parent_fd:
+        for _ in range(128):
+            name = f".staging_v3_2_{secrets.token_hex(12)}"
+            try:
+                _mkdir_at(name, 0o700, dir_fd=parent_fd)
+            except FileExistsError:
+                continue
+            before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            fd = os.open(name, _dir_flags(), dir_fd=parent_fd)
+            try:
+                if (not _same_directory_state(before, os.fstat(fd))
+                        or stat.S_IMODE(before.st_mode) != 0o700):
+                    raise CorrectedCorpusError("new staging directory is unsafe or mode-drifted")
+            finally:
+                os.close(fd)
+            return parent / name
+    raise CorrectedCorpusError("could not allocate a unique hidden staging directory")
 
 
 def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
@@ -983,6 +1486,7 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
                            protocol_sha256: str,
                            fault_inject: Callable[[str], None] | None = None) -> dict:
     """Build, fully verify, then atomically publish one unapproved preparation bundle."""
+    require_storage_capabilities()
     if not _HEX64.fullmatch(config_hash) or not _HEX64.fullmatch(protocol_sha256):
         raise CorrectedCorpusError("config/protocol hashes must be SHA256")
     parent = pathlib.Path(historical_parent_root)
@@ -990,13 +1494,8 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
     selection = tuple(ruaa_parent_selection)
     _ensure_directory(output)
     bundle_parent = output / BUNDLE_PARENT_NAME
-    if not bundle_parent.exists():
-        _created_dir(bundle_parent)
-    else:
-        _directory(bundle_parent, "bundle parent")
-        _verify_real_dir_chain(bundle_parent)
-    existing = [pathlib.Path(entry.path) for entry in _entries(bundle_parent, "bundle parent")
-                if not entry.name.startswith(".")]
+    _ensure_directory(bundle_parent)
+    existing = _existing_destinations(bundle_parent)
     if existing:
         if len(existing) != 1:
             raise CorrectedCorpusError("bundle parent has multiple existing destinations")
@@ -1005,8 +1504,7 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
             config_hash=config_hash, protocol_sha256=protocol_sha256,
         )
     trusted = _trusted_derivation(parent, selection)
-    stage_parent = pathlib.Path(tempfile.mkdtemp(prefix=".staging_v3_2_", dir=bundle_parent))
-    os.chmod(stage_parent, 0o755)
+    stage_parent = _create_stage_parent(bundle_parent)
     work_root = stage_parent / "bundle"
     published = False
     try:
@@ -1016,6 +1514,7 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
             parent, corpus_root, trusted["records"], parent_identity=trusted["parent_identity"],
             policy=trusted["policy"], catalog=trusted["catalog"], basename=trusted["basename"],
             isolation=trusted["isolation"], config_hash=config_hash, protocol_sha256=protocol_sha256,
+            parent_snapshot=trusted["parent_snapshot"],
             fault_inject=fault_inject,
         )
         _fault(fault_inject, "building_lobo_fold")
@@ -1058,8 +1557,7 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
         _write_json(candidate, work_root / "candidate.json")
         _fault(fault_inject, "writing_sha256sums")
         sums_path = work_root / SHA256SUMS_NAME
-        sums_path.write_text(_canonical_sums(work_root), encoding="utf-8")
-        _created_file_mode(sums_path)
+        _write_new_file(sums_path, _canonical_sums(work_root).encode("utf-8"))
         stage = work_root.rename(stage_parent / candidate["self_hash"])
         verified = verify_v3_2_candidate(
             stage, historical_parent_root=parent, ruaa_parent_selection=selection,
@@ -1070,12 +1568,12 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
         _fault(fault_inject, "before_final_rename")
         collision = False
         with _publish_lock(bundle_parent):
-            if destination.exists() or destination.is_symlink():
-                collision = True
-            else:
-                _fault(fault_inject, "final_rename")
+            _fault(fault_inject, "final_rename")
+            try:
                 _rename_noreplace(stage, destination)
                 published = True
+            except FileExistsError:
+                collision = True
         if collision:
             existing_result = verify_v3_2_candidate(
                 destination, historical_parent_root=parent, ruaa_parent_selection=selection,
@@ -1105,13 +1603,20 @@ PARITY_CONTRACT_VERSION = "paired_audit.preparation_bundle_parity.v1"
 
 
 def _parity_bundle_root(value: pathlib.Path | str) -> pathlib.Path:
+    require_storage_capabilities()
     root = pathlib.Path(value)
-    if (root / "candidate.json").exists() or (root / "candidate.json").is_symlink():
-        return root
+    with _open_directory_path(root) as root_fd:
+        try:
+            candidate = os.stat("candidate.json", dir_fd=root_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            candidate = None
+        if candidate is not None:
+            if not stat.S_ISREG(candidate.st_mode) or candidate.st_nlink != 1:
+                raise CorrectedCorpusError("parity candidate is symlinked, hardlinked, or special")
+            return root
     parent = root / BUNDLE_PARENT_NAME
-    _directory(parent, "parity bundle parent")
-    candidates = [pathlib.Path(entry.path) for entry in _entries(parent, "parity bundle parent")
-                  if not entry.name.startswith(".")]
+    with _open_directory_path(parent) as parent_fd:
+        candidates = [parent / name for name in sorted(os.listdir(parent_fd)) if not name.startswith(".")]
     if len(candidates) != 1:
         raise CorrectedCorpusError("parity root must contain exactly one digest-named bundle")
     return candidates[0]
@@ -1119,9 +1624,12 @@ def _parity_bundle_root(value: pathlib.Path | str) -> pathlib.Path:
 
 def tree_bytes_modes(root: pathlib.Path | str) -> tuple[dict[str, tuple], str]:
     """Canonical parity over one bundle root and every descendant path/type/size/mode/byte hash."""
+    require_storage_capabilities()
     bundle = _parity_bundle_root(root)
-    _require_mode(bundle, 0o755, "parity bundle root")
-    inventory = _recursive_inventory(bundle)
+    snapshot = _snapshot_path(bundle, label="preparation parity")
+    if stat.S_IMODE(snapshot.root_info.st_mode) != 0o755:
+        raise CorrectedCorpusError("mode drift in parity bundle root")
+    inventory = _recursive_inventory(bundle, snapshot=snapshot)
     rows: dict[str, tuple] = {}
     for row in inventory:
         if row["type"] == "directory":
@@ -1158,6 +1666,7 @@ __all__ = [
     "HISTORICAL_PARENT_DIGEST", "IDENTITY_CONTRACT_VERSION", "PARITY_CONTRACT_VERSION",
     "PREPARATION_STATUS", "assert_preparation_parity", "assert_v3_2_fold_manifest", "applicability_matrix",
     "basename_collision_inventory", "content_isolation_audit", "full_work_id", "prepare_corrected_v3_2",
-    "resolve_full_work", "tree_bytes_modes", "verify_historical_parent", "verify_v3_2_candidate",
+    "load_stable_json", "read_stable_bytes", "require_storage_capabilities", "resolve_full_work",
+    "tree_bytes_modes", "verify_historical_parent", "verify_v3_2_candidate",
     "work_identity_catalog",
 ]
