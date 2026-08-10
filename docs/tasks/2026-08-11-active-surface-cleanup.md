@@ -3,7 +3,7 @@
 ## Metadata
 
 - Task ID: `2026-08-11-active-surface-cleanup`
-- Status: active
+- Status: done
 - Owner: repository owner
 - Created: 2026-08-11
 - Baseline commit: `9cfac1badea75f542e619d254dc1623a9e6ede44`
@@ -133,13 +133,13 @@ Constant method: full required files, physical UTF-8 bytes/lines, token estimate
 
 ## 9. Acceptance criteria
 
-- [ ] AC-01 Orphan dumper and dead ignore rule are absent; no `codebase.txt` appears.
-- [ ] AC-02 npm is the sole package-manager contract; all pnpm live references are absent.
-- [ ] AC-03 Package names/specs/resolved versions and package-lock bytes are unchanged.
-- [ ] AC-04 Exact Babel and optional-platform lock assertions remain executable.
-- [ ] AC-05 npm install/build, focused/full regression and release/archive gates pass.
-- [ ] AC-06 Net production LOC is negative; no new files/concepts/dependencies/entrypoints.
-- [ ] AC-07 Scientific and production/publication state is unchanged.
+- [x] AC-01 Orphan dumper and dead ignore rule are absent; no `codebase.txt` appears.
+- [x] AC-02 npm is the sole package-manager contract; all pnpm live references are absent.
+- [x] AC-03 Package names/specs/resolved versions and package-lock bytes are unchanged.
+- [x] AC-04 Exact Babel and optional-platform lock assertions remain executable.
+- [x] AC-05 npm install/build, focused/full regression and release/archive gates pass.
+- [x] AC-06 Net production LOC is negative; no new files/concepts/dependencies/entrypoints.
+- [x] AC-07 Scientific and production/publication state is unchanged.
 
 ## 10. Verification plan
 
@@ -156,10 +156,33 @@ Constant method: full required files, physical UTF-8 bytes/lines, token estimate
 
 ## 12. Result
 
-- Pending implementation, review and verification.
+- Commits: task baseline `b15da00b`; C1 `0e11c444`; C2 `3b8cb83b`; this task/handoff
+  update is metadata-only closeout.
+- C1 deleted the unreferenced 19-LOC codebase dumper and its three-line dead ignore block. No
+  `codebase.txt` existed and no tracked consumer was found.
+- C2 deleted the 1,131-line/36,644-byte pnpm lock and five pnpm-only package-config lines. Npm is
+  the sole live package-manager contract; exact Babel assertions now use `package-lock.json`.
+- `package-lock.json` remained byte-identical at SHA256
+  `e63c2a4bb8dc0b6f796574049e52f451e6dd1c04f0d5006e1ced0c82d8b7bad9`; dependency names,
+  specs, resolved versions, integrity records and generated site bytes did not change.
+- Combined clean-context deletion review at `3b8cb83b`: PASS; zero correction passes.
+- Verification PASS: focused site/inventory/governance tests; full pytest; py_compile; provenance
+  (93 source + 1 output digest); npm ci, site generator/build/render; executable inventory;
+  checkout and Git-free archive hygiene.
+- One full-suite skip remained because `STYLO_V32_BUNDLE_ROOT` was unset; two pre-existing
+  invalid-escape deprecation warnings remained. Npm reported a locally blocked esbuild install
+  script and Vite reported the pre-existing >500 KB chunk warning; the complete build passed.
+- Implementation delta: +4 / -1,170 lines overall. Operational production: +0 / -24; tests:
+  +3 / -9; one operational entrypoint and one package-manager authority removed.
+- The two deleted archive artifacts alone remove 37,187 bytes; all five representative packets
+  are unchanged or smaller and domain transitions did not grow.
+- New production files/concepts/framework/state/dependencies/public entrypoints: none.
+- No deploy, publication, scientific change, registry/freeze/preflight/authorization/execution,
+  external write or push occurred.
+- Campaign stop: both selected fixes accepted; no automatic next wave.
 
 ## 13. DoD references
 
-- [ ] DOD-01 through DOD-05
-- [ ] DOD-07 through DOD-15
-- DOD-06 not applicable unless risk changes.
+- [x] DOD-01 through DOD-05
+- [x] DOD-07 through DOD-15 (`DOD-09` satisfied by clean-context deletion review)
+- DOD-06 not applicable: no R3 or production action occurred.
