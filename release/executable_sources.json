@@ -78,7 +78,7 @@
     "tests/fixtures/work_balanced_ablation_goldens_v1.json"
   ],
   "sha256_bindings": {
-    ".gitattributes": "42c73c2b87b9fbcae92a971d5a78d2a84af7ba0b02da0f61bbf42e6dab9927d5",
+    ".gitattributes": "8720a7c0cc2fb089a94245646884cd5871193514747775907f465d42fe9f445f",
     ".github/workflows/ci.yml": "8c02cfd6c0513957d748a8a82df90378c16edea4098033f9bf836007408b4bed",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "README.md": "99f30e75826db20fa00c8bec88e4bf70b6785181ed4e2fc8f491570249d810d9",
