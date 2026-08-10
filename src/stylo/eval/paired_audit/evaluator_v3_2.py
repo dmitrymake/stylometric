@@ -279,6 +279,9 @@ def _class_alignment(classes, probability_order: Sequence[str], dataset_authors:
     values = np.asarray(classes)
     if values.ndim != 1 or len(values) == 0:
         raise V32EvaluationError("estimator classes must be a nonempty vector")
+    frozen_order = list(probability_order)
+    if len(set(frozen_order)) != len(frozen_order):
+        raise V32EvaluationError("frozen probability class order contains duplicates")
     alignment = []
     seen = set()
     for column, raw in enumerate(values):
@@ -289,12 +292,16 @@ def _class_alignment(classes, probability_order: Sequence[str], dataset_authors:
             raise V32EvaluationError("estimator class label is duplicate/out of range")
         author = dataset_authors[label]
         try:
-            target = list(probability_order).index(author)
+            target = frozen_order.index(author)
         except ValueError as exc:
             raise V32EvaluationError("estimator class is outside frozen probability order") from exc
         seen.add(label)
         alignment.append({"estimator_column": column, "dataset_label": label,
                           "author": author, "probability_column": target})
+    if len(alignment) != len(frozen_order):
+        raise V32EvaluationError(
+            "estimator classes do not cover the complete frozen probability class universe"
+        )
     return alignment
 
 
@@ -343,14 +350,14 @@ def evaluate_fold_v3_2(
     test_texts = np.asarray(dataset.texts, dtype=object)[mask_test]
     with observe_fit_v3_2() as fit_trace:
         fit_estimator(estimator, train_texts, y_train, train_groups)
-    raw = np.asarray(estimator.predict_proba(test_texts), dtype=np.float64)
     classes = np.asarray(estimator.classes_)
     # The estimator may expose the complete class universe in a different column order; validate
     # probability math independently, then align those explicit classes to the frozen author order.
+    alignment = _class_alignment(classes, probability_class_order, dataset.authors)
+    raw = np.asarray(estimator.predict_proba(test_texts), dtype=np.float64)
     validate_probabilities(
         raw, rows=len(test_texts), n_classes=len(classes), name="predict_proba"
     )
-    alignment = _class_alignment(classes, probability_class_order, dataset.authors)
     aligned_chunks = np.zeros((len(test_texts), len(probability_class_order)), dtype=np.float64)
     for item in alignment:
         aligned_chunks[:, item["probability_column"]] = raw[:, item["estimator_column"]]

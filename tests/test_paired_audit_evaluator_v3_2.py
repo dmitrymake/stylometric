@@ -307,6 +307,29 @@ def test_class_alignment_ties_and_worst_rank_are_coherent(monkeypatch):
     ).true_rank == 3
 
 
+def test_incomplete_estimator_class_universe_rejects_before_predict(monkeypatch):
+    cfg, context = _toy_context()
+    predicted = False
+
+    class PartialUniverseEstimator:
+        def fit(self, texts, y):
+            assert set(map(int, y)) == {0, 1, 2}
+            self.classes_ = np.array([0, 1], dtype=np.int64)
+            return self
+
+        def predict_proba(self, texts):
+            nonlocal predicted
+            predicted = True
+            raise AssertionError("incomplete class universe reached predict")
+
+    monkeypatch.setattr(
+        ev, "make_factory_for_ablation", lambda *a, **k: PartialUniverseEstimator
+    )
+    with pytest.raises(ev.V32EvaluationError, match="complete frozen probability class universe"):
+        _evaluate_majority(cfg, context)
+    assert predicted is False
+
+
 def test_probability_and_evidence_mutation_rotate_or_reject():
     cfg, context = _toy_context()
     receipt = _evaluate_majority(cfg, context)
