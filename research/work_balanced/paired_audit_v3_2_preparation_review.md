@@ -1,6 +1,7 @@
 # Paired-audit v3.2 preparation remediation record
 
-Status: remediation complete, pending one final independent read-only preparation review. This record
+Status: remediation complete and owner-accepted for evaluator implementation. The security review
+was terminated by the owner; no independent security-audit PASS or equivalent claim is made. This record
 does not approve a freeze, evaluator/evidence adapter, execution preflight, authorization, fit,
 prediction, result, headline, or scientific publication. The v3.2 protocol, the literal three
 exclusions, the 47/252 · 43/248 LOBO and 22/134 RuAA universes, and the 16/11 scientific matrix are
@@ -116,8 +117,11 @@ and directories `0755`, files `0644`. Two pristine Git-free preparations and exa
 Crash-after-success semantics are intentionally different: a successful atomic rename leaves the
 complete bundle, and the next invocation pure-verifies and reuses it without staging or mutation.
 
-## Review gate
+## Owner disposition and next gate
 
-The implementation is eligible only for one final independent read-only preparation review of the
-exact remediation commit and the already bounded matrix above. Freeze/evaluator/execution/headline/publication statuses remain respectively
-unapproved, unregistered, hard-disabled, not authorized, and not authorized.
+The owner accepted this preparation for the bounded evaluator/evidence-adapter implementation on
+2026-08-10 and terminated the security review. This is an owner-side disposition, not an independent
+security review verdict. The next independent gate is the evaluator candidate's single bounded
+scientific review. Freeze/production-registry/preflight/authorization/execution/headline/publication
+remain respectively unapproved, empty, absent, absent, hard-disabled, not authorized, and not
+authorized.

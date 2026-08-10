@@ -2,9 +2,9 @@
 
 - State: **verified baseline plus bounded material changes**
 - Updated: 2026-08-10
-- Verified baseline commit: `c6b936dba235edbdc250e7e090da4e9d280fc370`
-- Branch/worktree at capture: `main`; attached; baseline equals `origin/main`; bootstrap integration is the only material change
-- Active task baseline: evaluator contract will start from the bootstrap integration commit
+- Verified baseline commit: `df663d0bff48944dcc5b4f939f10fcdaf4809c0b`
+- Branch/worktree at capture: `main`; attached; ahead of `origin/main` by the local bootstrap commit
+- Active task baseline: `df663d0bff48944dcc5b4f939f10fcdaf4809c0b`
 - Prepared by: Dmitry Purtov (repository owner) and implementation session
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
@@ -13,11 +13,8 @@ work-balanced artifacts, not by this handoff.
 
 ## 1. Material changes since verified baseline
 
-- The eight Agentic Engineering Kit v1.3 canonical files were integrated with scoped documentation
-  unignore rules and the project release inventory.
-- Handoff freshness uses a verified baseline plus captured branch/worktree state, active task
-  baseline, material changes, and explicit revalidation conditions; it does not predict its own
-  future commit.
+- `docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md` is the active frozen M/R2 implementation
+  contract; governance metadata records its activation and the owner disposition.
 - No product runtime, corpus bytes, production publication surface, external system, freeze,
   preflight, authorization, or scientific execution was changed or invoked.
 

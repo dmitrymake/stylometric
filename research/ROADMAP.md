@@ -19,15 +19,15 @@ Normative design: [`work_balanced/paired_audit_protocol.md`](work_balanced/paire
 
 The former paired-audit v3.1 snapshot and LOBO/RuAA folds are registered as
 `ineligible_for_new_scientific_runs`; neither its corpus, freeze candidates, nor historical A0
-predictions can be reused for a new scientific run. v3.2 corrected-corpus/fold preparation is a
-local candidate pending independent review; it is not a reviewed freeze or an execution grant.
+predictions can be reused for a new scientific run. v3.2 corrected-corpus/fold preparation is
+owner-accepted for evaluator implementation; the security review was terminated by the owner and no
+independent security-audit PASS is claimed. This is not a reviewed freeze or an execution grant.
 
 The remediated preparation boundary derives one atomic local bundle with the exact three exclusions,
 full `author_id/work_slug` identities, diagnostic-only expected basename collisions, and the
 252/248/134 universe. The former `a70d82f2` candidate was unapproved and is superseded by the new
-storage contract. The next gate is a repeated independent preparation review of the exact remediation
-commit. Only after that review may a separately scoped implementation boundary be considered, in
-order:
+storage contract. The active gate is the separately scoped evaluator/evidence-adapter implementation
+and one bounded independent scientific review, in order:
 
 1. Implement a v3.2 evaluator/evidence adapter for the already-prepared 16-cell, 11-comparison
    matrix without `stylo_stack`; do not implement authorization in that boundary.

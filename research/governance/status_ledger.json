@@ -20,8 +20,8 @@
       ]
     },
     "protocol_v3_2": {
-      "status": "local_candidate_preparation_pending_review",
-      "claim": "v3.2 preparation remediation is complete pending one final independent read-only review. It derives one local, unapproved atomic bundle only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. A fail-closed POSIX/Linux capability gate precedes all input reads and writes; pinned descriptor reads, an exact pre-descent corrected_corpus binding, race-safe absent-root creation, exact recursive inventory, checksums, audits, and independently reconstructed 252/248/134 folds are verified before one no-clobber rename. It binds full NFC author_id/work_slug identities, expected basename diagnostics, content isolation, and the unchanged 16-cell/11-comparison matrix without stylo_stack. No reviewed freeze pin, evaluator, preflight, receipt, prediction, result, execution, headline, or scientific publication exists.",
+      "status": "owner_accepted_for_evaluator_implementation",
+      "claim": "The repository owner accepted the remediated v3.2 preparation for bounded evaluator implementation. It derives one local, unapproved atomic bundle only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. It binds full NFC author_id/work_slug identities, content isolation, independently reconstructed 252/248/134 folds, and the unchanged 16-cell/11-comparison matrix without stylo_stack. This owner disposition is not a freeze, execution grant, or independent security verdict.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
@@ -34,6 +34,14 @@
           "sha256": "fd0546e593ce66baffeb97aa8d1a42dcd341631a7c3caa6f4a20da2ffe60da47"
         }
       ]
+    },
+    "independent_security_audit": {
+      "status": "not_claimed_review_terminated_by_owner",
+      "claim": "The owner terminated the preparation security review. No independent security-audit PASS or equivalent assurance is claimed; evaluator review is bounded to frozen scientific semantics."
+    },
+    "evaluator_candidate": {
+      "status": "implementation_in_progress",
+      "claim": "A versioned v3.2 evaluator/evidence-adapter candidate is active under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md; it has no production registration or execution authority."
     },
     "manifest_freeze": {
       "status": "unapproved",
@@ -56,6 +64,14 @@
           "sha256": "71880e9ea41cc56c55772f642d29ebb5187b2119d5142770c2e8db7eb821f5ab"
         }
       ]
+    },
+    "preflight": {
+      "status": "absent",
+      "claim": "No v3.2 execution preflight or preflight receipt exists."
+    },
+    "execution_authorization": {
+      "status": "absent",
+      "claim": "No authorization exists for a v3.2 fit, prediction, checkpoint, result, or confirmatory execution."
     },
     "confirmatory_execution": {
       "status": "hard_disabled",

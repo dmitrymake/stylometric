@@ -68,9 +68,13 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
     assert ledger["as_of"] == "2026-08-10"
     expected_states = {
         "protocol_v3_1": "superseded_ineligible_corpus",
-        "protocol_v3_2": "local_candidate_preparation_pending_review",
+        "protocol_v3_2": "owner_accepted_for_evaluator_implementation",
+        "independent_security_audit": "not_claimed_review_terminated_by_owner",
+        "evaluator_candidate": "implementation_in_progress",
         "manifest_freeze": "unapproved",
         "production_evaluator": "unregistered",
+        "preflight": "absent",
+        "execution_authorization": "absent",
         "confirmatory_execution": "hard_disabled",
         "headline": "not_authorized",
     }
@@ -225,11 +229,14 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
         "superseded_ineligible_corpus"
     )
     assert ledger["paired_audit"]["protocol_v3_2"]["status"] == (
-        "local_candidate_preparation_pending_review"
+        "owner_accepted_for_evaluator_implementation"
     )
     claim = ledger["paired_audit"]["protocol_v3_2"]["claim"]
     assert "full NFC author_id/work_slug" in claim
-    assert "No reviewed freeze pin, evaluator, preflight" in claim
+    assert "not a freeze, execution grant, or independent security verdict" in claim
+    assert ledger["paired_audit"]["independent_security_audit"]["status"] == (
+        "not_claimed_review_terminated_by_owner"
+    )
     for marker in (
         "(v3.2)",
         "47 authors / 252 works",
