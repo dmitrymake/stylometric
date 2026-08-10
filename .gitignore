@@ -91,9 +91,6 @@ input_personal_fr/
 input_disputed/
 _staging_corpora/
 
-# Generated single-file codebase dump
-codebase.txt
-
 # ───────────────────────── OS ─────────────────────────────
 .DS_Store
 Thumbs.db
