@@ -27,19 +27,7 @@
       "scripts/evaluation/run_stylo_lobo_vnext.py"
     ],
     "legacy_script_basenames": [
-      "ablation.py",
-      "anomaly_stats.py",
-      "clean_text.py",
-      "clustering.py",
-      "consistency.py",
-      "experiments.py",
-      "lobo_cv.py",
-      "predict.py",
-      "report.py",
-      "split.py",
-      "train.py",
-      "umap_vis.py",
-      "validate_books.py"
+      "report.py"
     ],
     "contract": "Entries exactly cover every canonical path and every Python file below scripts/ whose basename is in legacy_script_basenames."
   },
@@ -169,78 +157,6 @@
       "status": "compatibility_entrypoint",
       "responsibility": "canonical_report_forwarder",
       "replacement": "stylo report"
-    },
-    {
-      "path": "scripts/train.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_loose_artifact_training",
-      "replacement": "stylo train"
-    },
-    {
-      "path": "scripts/predict.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_unauthenticated_prediction",
-      "replacement": "stylo predict --model-bundle-token TOKEN"
-    },
-    {
-      "path": "scripts/experiments.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_automatic_lobo_experiments",
-      "replacement": "stylo evaluate"
-    },
-    {
-      "path": "scripts/clean_text.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_non_atomic_clean_overlay",
-      "replacement": "stylo clean"
-    },
-    {
-      "path": "scripts/split.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_multi_root_fragment_builder",
-      "replacement": "stylo split"
-    },
-    {
-      "path": "scripts/lobo_cv.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_unbounded_mutable_lobo",
-      "replacement": "none; scripts/evaluation/run_stylo_lobo_vnext.py is a separate new-corpus control plane"
-    },
-    {
-      "path": "scripts/ablation.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_independent_corpus_ablation",
-      "replacement": "none; the registered screen is complete and its frozen historical result is preserved at research/work_balanced/exploratory_ablation_screen.md"
-    },
-    {
-      "path": "scripts/clustering.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_loose_artifact_clustering",
-      "replacement": "none_until_content_bound_representation_exists"
-    },
-    {
-      "path": "scripts/umap_vis.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_loose_artifact_umap",
-      "replacement": "none_until_content_bound_representation_exists"
-    },
-    {
-      "path": "scripts/validate_books.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_loose_artifact_book_validation",
-      "replacement": "stylo validate"
-    },
-    {
-      "path": "scripts/statistic/anomaly_stats.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_loose_artifact_anomaly_statistics",
-      "replacement": "none_until_content_bound_representation_exists"
-    },
-    {
-      "path": "scripts/statistic/consistency.py",
-      "status": "retired_hard_disabled_shim",
-      "responsibility": "historical_loose_artifact_consistency",
-      "replacement": "none_until_content_bound_representation_exists"
     }
   ],
   "output_owners": [

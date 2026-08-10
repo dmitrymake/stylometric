@@ -163,34 +163,6 @@ def test_aud002_release_has_no_loose_executable_deserializers():
     ]
 
 
-@pytest.mark.parametrize(
-    "relative",
-    [
-        "scripts/clustering.py",
-        "scripts/umap_vis.py",
-        "scripts/validate_books.py",
-        "scripts/statistic/anomaly_stats.py",
-        "scripts/statistic/consistency.py",
-    ],
-)
-def test_aud002_retired_loose_artifact_scripts_exit_without_writing(
-    relative, tmp_path
-):
-    root = Path(__file__).resolve().parents[1]
-    before = set(tmp_path.iterdir())
-    result = subprocess.run(
-        [sys.executable, str(root / relative)],
-        cwd=tmp_path,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    assert result.returncode != 0
-    assert "retired" in (result.stdout + result.stderr)
-    assert set(tmp_path.iterdir()) == before
-
-
 def _clean_cfg(tmp_path):
     return _Cfg(
         {

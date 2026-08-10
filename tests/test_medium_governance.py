@@ -612,10 +612,8 @@ def test_topology_has_one_owner_per_output_and_distinct_eval_roles():
     assert set(paths) == set(discovery["canonical_paths"]) | discovered_legacy
     statuses = {entry["path"]: entry["status"] for entry in topology["entries"]}
     assert statuses["scripts/report.py"] == "compatibility_entrypoint"
-    assert all(
-        statuses[path].startswith("retired_hard_disabled")
-        for path in discovered_legacy - {"scripts/report.py"}
-    )
+    assert discovered_legacy == {"scripts/report.py"}
+    assert not any(status.startswith("retired_hard_disabled") for status in statuses.values())
     namespaces = [item["namespace"] for item in topology["output_owners"]]
     assert len(namespaces) == len(set(namespaces))
     for item in topology["output_owners"]:
@@ -697,38 +695,6 @@ def test_topology_has_one_owner_per_output_and_distinct_eval_roles():
     ):
         assert len(historical_hashes[path]) == 64
         assert set(historical_hashes[path]) <= HEX64
-
-
-@pytest.mark.parametrize(
-    ("relative", "message"),
-    [
-        ("scripts/ablation.py", "retired"),
-        ("scripts/clean_text.py", "retired"),
-        ("scripts/clustering.py", "retired"),
-        ("scripts/lobo_cv.py", "retired"),
-        ("scripts/train.py", "retired"),
-        ("scripts/predict.py", "retired"),
-        ("scripts/experiments.py", "retired historical source"),
-        ("scripts/split.py", "retired"),
-        ("scripts/statistic/anomaly_stats.py", "retired"),
-        ("scripts/statistic/consistency.py", "retired"),
-        ("scripts/umap_vis.py", "retired"),
-        ("scripts/validate_books.py", "retired"),
-    ],
-)
-def test_retired_root_scripts_exit_before_writing(relative, message, tmp_path):
-    before = set(tmp_path.iterdir())
-    result = subprocess.run(
-        [sys.executable, str(ROOT / relative)],
-        cwd=tmp_path,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    assert result.returncode != 0
-    assert message in (result.stdout + result.stderr)
-    assert set(tmp_path.iterdir()) == before
 
 
 def test_active_taras_masking_consumer_imports_without_running_retired_cleaner():

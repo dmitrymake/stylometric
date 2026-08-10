@@ -2443,26 +2443,6 @@ def test_benchmark_dsp_cache_is_run_local_and_nlp_identity_scoped():
     assert len(cache) == 2
 
 
-@pytest.mark.parametrize(
-    "relative",
-    ["scripts/clean_text.py", "scripts/split.py"],
-)
-def test_legacy_corpus_builders_are_hard_disabled(relative, tmp_path):
-    root = pathlib.Path(__file__).resolve().parents[1]
-    before = set(tmp_path.iterdir())
-    result = subprocess.run(
-        [sys.executable, str(root / relative)],
-        cwd=tmp_path,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    assert result.returncode != 0
-    assert "retired" in (result.stdout + result.stderr)
-    assert set(tmp_path.iterdir()) == before
-
-
 def test_legacy_report_name_delegates_fail_closed_without_evidence(tmp_path):
     root = pathlib.Path(__file__).resolve().parents[1]
     before = set(tmp_path.iterdir())
