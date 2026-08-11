@@ -7,53 +7,36 @@ prediction, result, headline, or scientific publication. The v3.2 protocol, the 
 exclusions, the 47/252 · 43/248 LOBO and 22/134 RuAA universes, and the 16/11 scientific matrix are
 unchanged.
 
-## Atomic storage contract
+## Cooperative physical storage contract
 
 `paired_audit.preparation_bundle.v1` stores exactly one digest-named object below
 `paired_audit_v3_2_bundles/`. Its bundle-local `corrected_corpus/`, both fold manifests, both audits,
 `bundle_inventory_v1.json`, `candidate.json`, and `SHA256SUMS` are assembled below one hidden stage.
 The staged tree is reconstructed and exact-verified from the historical parent, RuAA selection,
-config, and protocol before publication. The only publication operation is
-`renameat2(RENAME_NOREPLACE)` under `.publish.lock`. No fallible scientific gate runs after that
-rename. A child outside a complete verified bundle has no published/promoteable status, and no
-`current` or candidate pointer is created.
+config, and protocol before publication. A cooperative local single writer renames the complete
+stage only after verification and refuses to replace an existing destination. A child outside a
+complete verified bundle has no published/promoteable status, and no `current` or candidate pointer
+is created.
 
 Existing destinations take the read-only `verify_v3_2_candidate` path. Exact recursive inventory,
-types, single-link status, modes, sizes, bytes, candidate self-hash/file map, canonical
+types, modes, sizes, bytes, candidate self-hash/file map, canonical
 `SHA256SUMS`, safe bundle-local child path, child manifest, audits, folds, and all cross-bindings are
 recomputed. A partial/tampered destination is neither overwritten, deleted, repaired, nor chmodded.
 
-The preparation, candidate verification/resume, and CLI entry path first execute one fail-closed
-storage-capability gate, before reading an input or creating an output/lock/stage. The supported
-storage contract requires non-zero `O_NOFOLLOW`, `O_DIRECTORY`, `O_CLOEXEC`, and the other open flags
-the implementation uses; fd-relative `open`, `mkdir`, `stat`, `unlink`, `rename`, and directory
-listing; `fcntl.flock`; and Linux `renameat2(RENAME_NOREPLACE)`. An absent, zero, or unusable
-primitive is an unsupported platform and an immediate hard stop. There is no degraded mode.
+The implementation uses ordinary portable path and file operations. It rejects symlinks and special
+members, requires the expected regular-file/directory modes, and hashes the same bytes supplied to
+JSON parsing. Hardlinks have no separate meaning: exact relative path, type, mode, size, and byte
+content are the physical bindings. Candidate schema, canonical JSON, self-hash, basename, and the two
+exact literal `corrected_corpus` bindings pass before child interpretation.
 
-All v3.2-reachable candidate, manifest, audit, inventory/file-map, `SHA256SUMS`, historical/corrected
-corpus, work/source, and CLI hash/manifest reads use pinned directory chains and
-`openat(O_NOFOLLOW|O_CLOEXEC)`. Each captured file is a single-link regular file; its type, mode,
-size, inode state, and path binding are checked before and after the descriptor read, and JSON parse
-and hashing consume the same captured bytes. Candidate schema, canonical JSON, self-hash, basename,
-and the two exact literal `corrected_corpus` bindings pass before any child listing, parse, hash, or
-descent. Missing output and bundle-parent directories use mkdirat/openat open-or-create semantics:
-a concurrent `FileExistsError` is reopened and strictly checked, never treated as publication
-failure or repaired.
+## Physical-contract boundary
 
-## Storage threat-model boundary
-
-The application storage contract protects against concurrent unprivileged-writer tampering involving
-symlinks, hardlinks, special files, paths, bytes, sizes, modes, partial publication, and competing
-creation/publication. The kernel and the process's current stable mount namespace are trusted
-computing base. Scientific identity binds bundle-relative paths, types, modes, sizes, and exact bytes;
-it deliberately does not bind physical mount, device, inode, or mount-ID origin. A same-byte bind
-mount therefore does not change scientific identity.
-
-Privileged mount-namespace manipulation, bind-remount or mount swap, kernel/filesystem compromise,
-root or `CAP_SYS_ADMIN` adversaries, and denial of service are outside the application threat model.
-The application does not claim to detect hostile bind mounts. Operational mount attestation or a
-private execution namespace may be considered later as a separate execution-preflight control; it is
-not part of this remediation, the scientific hashes, or this preparation review.
+This is a trusted, cooperative local-filesystem contract, not a hostile-writer security boundary.
+Concurrent writers, path replacement during a read, mount/inode provenance, hardlink provenance,
+kernel/filesystem compromise, and denial of service are not claimed as detected or prevented.
+Scientific identity remains independent of those physical details and binds bundle-relative paths,
+types, modes, sizes, canonical metadata, and exact bytes. This simplification makes no independent
+security-review claim and changes no freeze, preflight, authorization, or execution gate.
 
 ## Identity disposition
 
@@ -67,6 +50,7 @@ and storage contract changed, so the candidate/bundle identity rotated.
 | historical manifest self-hash | `8d39132b8b7732af0d39112a4884947caa1125e24adae2281ab8f5f6d4287705` | same | stable bytes |
 | parent identity catalog | `d7690b5a7774967a71da8a4556165d77cd1a22bcb68562b773bb4e4b0899047c` | same | reconstructed |
 | exclusion policy | `0907c9acd93375d74d404fa88d36b0d5c6061a5a4caf398de44afe9392d9e4bc` | same | protocol unchanged |
+| frozen protocol bytes | `02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334` | same | accepted preparation identity; later status prose is not substituted |
 | corrected identity catalog | `85dfafc859912b83e88e8400565580eb01db9eac0afff51564d9ab4b57f12137` | same | universe/content unchanged |
 | basename audit | `791bf2cc31e439aab50d750177c1fe1a8e56829c525ca34db88153b073f57326` | same | audit unchanged |
 | content-isolation audit | `a561bbde00a15071e9d5e0805e4e168ea705c4f52b803a167b2b715fcaf45784` | same | audit unchanged |
@@ -74,7 +58,7 @@ and storage contract changed, so the candidate/bundle identity rotated.
 | corrected corpus manifest | `a2dc0c4a6d3313354295a482466693d513ee8f77b297dfe4feb852104b2af3f7` | same | serialized manifest unchanged |
 | LOBO fold | `117b8ec9f51ef8c6359768a232660b156a16e0d124b8450e9c497b39cf4cc658` | same | rebuilt bytes unchanged |
 | RuAA fold | `d8428290c1895ea397367fbea0cab72317e5e3116176244c488d1f7c6f2b682b` | same | rebuilt bytes unchanged |
-| candidate / bundle | `eca941167f7a6497a7eb071125fd66f16cb6d16f6fd948e3687ae44152e9fcf7` | `ff620b05f20b81c21732014b553aa739a393c74fe344e6d9f2bd8d80996cef21` | rotated: atomic layout + storage version + recursive inventory/map |
+| candidate / bundle | `eca941167f7a6497a7eb071125fd66f16cb6d16f6fd948e3687ae44152e9fcf7` | `ff620b05f20b81c21732014b553aa739a393c74fe344e6d9f2bd8d80996cef21` | rotated previously: complete layout + storage version + recursive inventory/map |
 
 The new exact-inventory self-hash is
 `bd54023bc6b9e18bb033f4c7c38c16c7f315c8db2ad8b918cd6ab6e01e25a438`.
@@ -114,7 +98,7 @@ and directories `0755`, files `0644`. Two pristine Git-free preparations and exa
 | immediately before final rename | absent | absent | removed | unchanged |
 | injected final-rename call/failure | absent | absent | removed | unchanged |
 
-Crash-after-success semantics are intentionally different: a successful atomic rename leaves the
+Crash-after-success semantics are intentionally different: a successful final rename leaves the
 complete bundle, and the next invocation pure-verifies and reuses it without staging or mutation.
 
 ## Owner disposition and next gate

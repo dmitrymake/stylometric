@@ -15,7 +15,6 @@ from stylo.eval.paired_audit.corrected_v3_2 import (
     load_stable_json,
     prepare_corrected_v3_2,
     read_stable_bytes,
-    require_storage_capabilities,
 )
 from stylo.eval.paired_audit.run_plan import config_id
 
@@ -47,7 +46,6 @@ def _ruaa_selection(path: pathlib.Path) -> list[str]:
 
 def prepare(repo: pathlib.Path, output: pathlib.Path, *, parent: pathlib.Path | None = None,
             ruaa_manifest: pathlib.Path | None = None) -> dict:
-    require_storage_capabilities()
     repository = repo.resolve()
     config_path = repository / "configs" / "default.yaml"
     try:
@@ -67,7 +65,6 @@ def prepare(repo: pathlib.Path, output: pathlib.Path, *, parent: pathlib.Path | 
 
 
 def main() -> None:
-    require_storage_capabilities()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[2])
     parser.add_argument("--output-root", type=pathlib.Path, required=True)

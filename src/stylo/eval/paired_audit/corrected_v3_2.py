@@ -8,10 +8,7 @@ writes unapproved v3.2 fold manifests to a caller-owned output root.
 from __future__ import annotations
 
 import contextlib
-import ctypes
 import dataclasses
-import errno
-import fcntl
 import hashlib
 import os
 import pathlib
@@ -42,7 +39,6 @@ BUNDLE_INVENTORY_NAME = "bundle_inventory_v1.json"
 CORRECTED_CORPUS_DIR = "corrected_corpus"
 CORRECTED_MANIFEST_NAME = "corrected_corpus_manifest_v3_2.json"
 SHA256SUMS_NAME = "SHA256SUMS"
-PUBLISH_LOCK_NAME = ".publish.lock"
 PREPARATION_STATUS = "local_candidate_preparation_pending_review"
 
 EXCLUSIONS = (
@@ -72,7 +68,6 @@ HISTORICAL_WORK_COUNT = 255
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _SAFE = re.compile(r"^[^/\\\x00]+$")
-_RENAME_NOREPLACE = 1
 _HISTORICAL_CORPUS_DIGEST_VERSION = "paired_audit.corpus.v1"
 
 
@@ -80,212 +75,70 @@ class CorrectedCorpusError(RuntimeError):
     """A v3.2 preparation identity, content, or output contract failed closed."""
 
 
-def _renameat2_primitive():
-    primitive = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
-    if primitive is None:
-        return None
-    primitive.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    primitive.restype = ctypes.c_int
-    return primitive
-
-
-def require_storage_capabilities() -> None:
-    """Fail closed before any v3.2 input read or filesystem mutation."""
-    required_flags = (
-        "O_NOFOLLOW", "O_DIRECTORY", "O_CLOEXEC", "O_NONBLOCK",
-        "O_CREAT", "O_EXCL", "O_WRONLY", "O_RDWR",
-    )
-    missing = [name for name in required_flags if type(getattr(os, name, None)) is not int
-               or getattr(os, name, None) == 0]
-    required_dir_fd = (os.open, os.mkdir, os.stat, os.unlink, os.rename)
-    if any(operation not in os.supports_dir_fd for operation in required_dir_fd):
-        missing.append("required dir_fd operations")
-    if os.listdir not in os.supports_fd:
-        missing.append("fd-backed directory listing")
-    if not callable(getattr(fcntl, "flock", None)) or not getattr(fcntl, "LOCK_EX", 0):
-        missing.append("fcntl.flock")
-    renameat2 = _renameat2_primitive()
-    if renameat2 is None:
-        missing.append("renameat2(RENAME_NOREPLACE)")
-    else:
-        ctypes.set_errno(0)
-        result = renameat2(-1, b"capability-probe", -1, b"capability-probe", _RENAME_NOREPLACE)
-        error = ctypes.get_errno()
-        if result == 0 or error in (errno.ENOSYS, errno.EINVAL):
-            missing.append("renameat2(RENAME_NOREPLACE)")
-    if missing:
-        raise CorrectedCorpusError(
-            "unsupported storage platform; required fail-closed primitives unavailable: "
-            + ", ".join(sorted(set(missing)))
-        )
+def _without_symlink_components(path: pathlib.Path | str) -> pathlib.Path:
+    """Return an absolute local path only when no existing component is a symlink."""
+    target = pathlib.Path(path).absolute()
+    current = pathlib.Path(target.anchor)
+    for component in target.parts[1:]:
+        current /= component
+        if current.is_symlink():
+            raise CorrectedCorpusError(f"symlink path component is not allowed: {current}")
+    return target
 
 
 @contextlib.contextmanager
-def _open_or_create_directory_path(path: pathlib.Path | str, *, leaf_mode: int = 0o755) -> Iterator[int]:
-    """Race-safe mkdirat/openat chain; a lost creation race is strictly reopened."""
-    descriptors: list[int] = [os.open("/", _dir_flags())]
-    links: list[tuple[int, str, int, os.stat_result]] = []
-    parts = _absolute_parts(path)
-    if not parts:
+def _open_or_create_directory_path(
+    path: pathlib.Path | str, *, leaf_mode: int = 0o755
+) -> Iterator[pathlib.Path]:
+    """Create/open one trusted local directory for a cooperative single writer."""
+    target = _without_symlink_components(path)
+    if target == pathlib.Path(target.anchor):
         raise CorrectedCorpusError("output root cannot be the filesystem root")
-    entered = False
     try:
-        for index, component in enumerate(parts):
-            parent_fd = descriptors[-1]
-            created = False
-            try:
-                before = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
-            except FileNotFoundError:
-                try:
-                    _mkdir_at(component, 0o755, dir_fd=parent_fd)
-                    created = True
-                except FileExistsError:
-                    pass
-                before = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
-            if not stat.S_ISDIR(before.st_mode):
-                raise CorrectedCorpusError(f"output path race produced a non-directory: {component}")
-            child_fd = os.open(component, _dir_flags(), dir_fd=parent_fd)
-            opened = os.fstat(child_fd)
-            if not _same_directory_state(before, opened):
-                os.close(child_fd)
-                raise CorrectedCorpusError(f"output directory replaced while opening: {component}")
-            expected_mode = (leaf_mode if index == len(parts) - 1 else 0o755) if created else (
-                leaf_mode if index == len(parts) - 1 else None
-            )
-            if expected_mode is not None and stat.S_IMODE(opened.st_mode) != expected_mode:
-                os.close(child_fd)
-                raise CorrectedCorpusError(
-                    f"mode drift in output directory {component}: "
-                    f"{stat.S_IMODE(opened.st_mode):04o} != {expected_mode:04o}"
-                )
-            descriptors.append(child_fd)
-            links.append((parent_fd, component, child_fd, before))
-        entered = True
-        yield descriptors[-1]
-        for parent_fd, component, child_fd, before in reversed(links):
-            if (not _same_directory_state(before, os.fstat(child_fd))
-                    or not _same_directory_state(
-                        before, os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
-                    )):
-                raise CorrectedCorpusError(f"output directory changed during operation: {component}")
-    except CorrectedCorpusError:
-        raise
+        target.mkdir(mode=leaf_mode, parents=True, exist_ok=True)
     except OSError as exc:
-        if entered:
-            raise
-        raise CorrectedCorpusError(f"unsafe output directory chain: {path}") from exc
-    finally:
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
-
-
-def _dir_flags() -> int:
-    return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
-
-
-def _file_flags() -> int:
-    return os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
-
-
-def _mkdir_at(name: str, mode: int, *, dir_fd: int) -> None:
-    os.mkdir(name, mode, dir_fd=dir_fd)
-
-
-def _stable_fields(info: os.stat_result) -> tuple[int, ...]:
-    return (
-        info.st_dev, info.st_ino, info.st_mode, info.st_nlink, info.st_size,
-        info.st_mtime_ns, info.st_ctime_ns,
-    )
-
-
-def _same_inode_state(left: os.stat_result, right: os.stat_result) -> bool:
-    return _stable_fields(left) == _stable_fields(right)
-
-
-def _same_directory_state(left: os.stat_result, right: os.stat_result) -> bool:
-    return (left.st_dev, left.st_ino, left.st_mode) == (
-        right.st_dev, right.st_ino, right.st_mode,
-    )
-
-
-def _absolute_parts(path: pathlib.Path | str) -> tuple[str, ...]:
-    absolute = pathlib.Path(os.path.abspath(os.fspath(path)))
-    return tuple(part for part in absolute.parts if part != absolute.anchor)
+        raise CorrectedCorpusError(f"unavailable output directory: {target}") from exc
+    _without_symlink_components(target)
+    if not target.is_dir():
+        raise CorrectedCorpusError(f"output path is not a real directory: {target}")
+    yield target
 
 
 @contextlib.contextmanager
-def _open_directory_path(path: pathlib.Path | str) -> Iterator[int]:
-    """Open and pin every component of a directory path without following links."""
-    descriptors: list[int] = [os.open("/", _dir_flags())]
-    links: list[tuple[int, str, int, os.stat_result]] = []
-    entered = False
+def _open_directory_path(path: pathlib.Path | str) -> Iterator[pathlib.Path]:
+    """Validate and expose one ordinary local directory path."""
+    target = _without_symlink_components(path)
     try:
-        for component in _absolute_parts(path):
-            parent_fd = descriptors[-1]
-            before = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
-            if not stat.S_ISDIR(before.st_mode):
-                raise CorrectedCorpusError(f"unsafe non-directory path component: {component}")
-            child_fd = os.open(component, _dir_flags(), dir_fd=parent_fd)
-            opened = os.fstat(child_fd)
-            if not _same_directory_state(before, opened):
-                os.close(child_fd)
-                raise CorrectedCorpusError(f"directory path changed while opening: {component}")
-            descriptors.append(child_fd)
-            links.append((parent_fd, component, child_fd, before))
-        entered = True
-        yield descriptors[-1]
-        for parent_fd, component, child_fd, before in reversed(links):
-            after_path = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
-            after_fd = os.fstat(child_fd)
-            if (not _same_directory_state(before, after_path)
-                    or not _same_directory_state(before, after_fd)):
-                raise CorrectedCorpusError(f"directory path changed during operation: {component}")
-    except CorrectedCorpusError:
-        raise
+        is_directory = target.is_dir()
     except OSError as exc:
-        if entered:
-            raise
-        raise CorrectedCorpusError(f"unsafe or unavailable directory path: {path}") from exc
-    finally:
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
+        raise CorrectedCorpusError(f"unavailable directory path: {target}") from exc
+    if not is_directory:
+        raise CorrectedCorpusError(f"path is not a real directory: {target}")
+    yield target
 
 
 def _read_file_from_dir(
-    parent_fd: int, name: str, *, label: str, expected: os.stat_result | None = None,
+    parent_fd: pathlib.Path, name: str, *, label: str, expected: os.stat_result | None = None,
     expected_mode: int | None = None,
 ) -> tuple[bytes, os.stat_result]:
+    target = parent_fd / name
     try:
-        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
-            raise CorrectedCorpusError(f"symlink, hardlink, or special file in {label}: {name}")
-        if expected is not None and not _same_inode_state(expected, before):
-            raise CorrectedCorpusError(f"file changed since validated in {label}: {name}")
+        before = target.lstat()
+        if not stat.S_ISREG(before.st_mode):
+            raise CorrectedCorpusError(f"symlink or special file in {label}: {name}")
+        if expected is not None and (
+            expected.st_size != before.st_size
+            or stat.S_IMODE(expected.st_mode) != stat.S_IMODE(before.st_mode)
+        ):
+            raise CorrectedCorpusError(f"file differs from validated shape in {label}: {name}")
         if expected_mode is not None and stat.S_IMODE(before.st_mode) != expected_mode:
             raise CorrectedCorpusError(
                 f"mode drift in {label}: {name} has {stat.S_IMODE(before.st_mode):04o}, "
                 f"expected {expected_mode:04o}"
             )
-        fd = os.open(name, _file_flags(), dir_fd=parent_fd)
-        try:
-            opened = os.fstat(fd)
-            if not _same_inode_state(before, opened):
-                raise CorrectedCorpusError(f"file replaced between validation and open in {label}: {name}")
-            blocks: list[bytes] = []
-            while True:
-                block = os.read(fd, 1 << 20)
-                if not block:
-                    break
-                blocks.append(block)
-            payload = b"".join(blocks)
-            after_fd = os.fstat(fd)
-        finally:
-            os.close(fd)
-        after_path = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-        if (not _same_inode_state(before, after_fd)
-                or not _same_inode_state(before, after_path)
-                or len(payload) != before.st_size):
-            raise CorrectedCorpusError(f"file changed while reading in {label}: {name}")
+        payload = target.read_bytes()
+        if len(payload) != before.st_size:
+            raise CorrectedCorpusError(f"file size changed while reading in {label}: {name}")
         return payload, before
     except CorrectedCorpusError:
         raise
@@ -293,41 +146,20 @@ def _read_file_from_dir(
         raise CorrectedCorpusError(f"missing or unsafe file in {label}: {name}") from exc
 
 
-def _open_relative_parent(root_fd: int, parts: Sequence[str], *, label: str):
+def _open_relative_parent(root_fd: pathlib.Path, parts: Sequence[str], *, label: str):
     if not parts or any(not _SAFE.fullmatch(part) or part in (".", "..") for part in parts):
         raise CorrectedCorpusError(f"unsafe relative file path in {label}")
-    descriptors: list[int] = []
-    current_fd = root_fd
-    links: list[tuple[int, str, int, os.stat_result]] = []
-    try:
-        for component in parts[:-1]:
-            before = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
-            if not stat.S_ISDIR(before.st_mode):
-                raise CorrectedCorpusError(f"non-directory component in {label}: {component}")
-            child_fd = os.open(component, _dir_flags(), dir_fd=current_fd)
-            if not _same_directory_state(before, os.fstat(child_fd)):
-                os.close(child_fd)
-                raise CorrectedCorpusError(f"directory replaced while opening in {label}: {component}")
-            descriptors.append(child_fd)
-            links.append((current_fd, component, child_fd, before))
-            current_fd = child_fd
-        yield current_fd, parts[-1]
-        for parent_fd, component, child_fd, before in reversed(links):
-            if (not _same_directory_state(before, os.fstat(child_fd))
-                    or not _same_directory_state(
-                        before, os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
-                    )):
-                raise CorrectedCorpusError(f"directory changed during read in {label}: {component}")
-    finally:
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
+    current = root_fd.joinpath(*parts[:-1])
+    if current.is_symlink() or not current.is_dir():
+        raise CorrectedCorpusError(f"non-directory component in {label}")
+    yield current, parts[-1]
 
 
 _open_relative_parent = contextlib.contextmanager(_open_relative_parent)
 
 
 def _read_relative(
-    root_fd: int, relative: str, *, label: str, expected: os.stat_result | None = None,
+    root_fd: pathlib.Path, relative: str, *, label: str, expected: os.stat_result | None = None,
     expected_mode: int | None = None,
 ) -> tuple[bytes, os.stat_result]:
     parts = tuple(pathlib.PurePosixPath(relative).parts)
@@ -349,8 +181,7 @@ def _read_stable_path(path: pathlib.Path | str, *, expected: os.stat_result | No
 
 
 def read_stable_bytes(path: pathlib.Path | str, *, expected_mode: int | None = None) -> bytes:
-    """Public preparation-CLI read primitive: one descriptor supplies all bytes and checks."""
-    require_storage_capabilities()
+    """Read one regular local file under the cooperative filesystem contract."""
     return _read_stable_path(path, expected_mode=expected_mode)
 
 
@@ -383,45 +214,31 @@ class _TreeSnapshot:
     files: Mapping[str, _FileSnapshot]
 
 
-def _snapshot_tree_fd(root_fd: int, *, label: str) -> _TreeSnapshot:
-    directories: dict[str, os.stat_result] = {"": os.fstat(root_fd)}
+def _snapshot_tree_fd(root_fd: pathlib.Path, *, label: str) -> _TreeSnapshot:
+    directories: dict[str, os.stat_result] = {"": root_fd.lstat()}
     files: dict[str, _FileSnapshot] = {}
 
-    def visit(directory_fd: int, prefix: str) -> None:
-        before_dir = os.fstat(directory_fd)
-        names = sorted(os.listdir(directory_fd))
+    def visit(directory: pathlib.Path, prefix: str) -> None:
+        names = sorted(path.name for path in directory.iterdir())
         for name in names:
             if not _SAFE.fullmatch(name) or name in (".", ".."):
                 raise CorrectedCorpusError(f"unsafe entry name in {label}: {name!r}")
             relative = f"{prefix}/{name}" if prefix else name
-            before = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            target = directory / name
+            before = target.lstat()
             if stat.S_ISDIR(before.st_mode):
-                child_fd = os.open(name, _dir_flags(), dir_fd=directory_fd)
-                try:
-                    if not _same_directory_state(before, os.fstat(child_fd)):
-                        raise CorrectedCorpusError(f"directory replaced during {label}: {relative}")
-                    directories[relative] = before
-                    visit(child_fd, relative)
-                    if (not _same_directory_state(before, os.fstat(child_fd))
-                            or not _same_directory_state(
-                                before, os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-                            )):
-                        raise CorrectedCorpusError(f"directory changed during {label}: {relative}")
-                finally:
-                    os.close(child_fd)
-            elif stat.S_ISREG(before.st_mode) and before.st_nlink == 1:
+                directories[relative] = before
+                visit(target, relative)
+            elif stat.S_ISREG(before.st_mode):
                 payload, captured = _read_file_from_dir(
-                    directory_fd, name, label=label, expected=before,
+                    directory, name, label=label, expected=before,
                 )
                 cache = payload if name.endswith(".json") or name == SHA256SUMS_NAME else None
                 files[relative] = _FileSnapshot(
                     captured, hashlib.sha256(payload).hexdigest(), cache,
                 )
             else:
-                raise CorrectedCorpusError(f"symlink, hardlink, or special entry in {label}: {relative}")
-        if (names != sorted(os.listdir(directory_fd))
-                or not _same_directory_state(before_dir, os.fstat(directory_fd))):
-            raise CorrectedCorpusError(f"directory changed while enumerating {label}: {prefix or '.'}")
+                raise CorrectedCorpusError(f"symlink or special entry in {label}: {relative}")
 
     if not stat.S_ISDIR(directories[""].st_mode):
         raise CorrectedCorpusError(f"root is not a directory in {label}")
@@ -625,7 +442,7 @@ def _work_record(root_fd: int, snapshot: _TreeSnapshot, author: str, slug: str,
 
 def _validate_corpus_structure(snapshot: _TreeSnapshot, *, child: bool,
                                prefix: str = "") -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """Validate a descriptor-captured complete path/type/link shape before parsing."""
+    """Validate the complete captured path/type shape before parsing."""
     base = f"{prefix}/" if prefix else ""
     manifest_name = CORRECTED_MANIFEST_NAME if child else "corpus_manifest.json"
     expected = {f"{base}frags", f"{base}input_clean"}
@@ -758,7 +575,6 @@ def _verify_historical_parent_with_snapshot(
 
 
 def verify_historical_parent(root: pathlib.Path | str) -> tuple[dict, tuple[dict, ...]]:
-    require_storage_capabilities()
     identity, records, _ = _verify_historical_parent_with_snapshot(pathlib.Path(root))
     return identity, records
 
@@ -880,33 +696,16 @@ def _assert_counts(records: Sequence[Mapping], lobo_tested: Sequence[str], ruaa:
 
 
 def _write_new_file(destination: pathlib.Path, payload: bytes, *, mode: int = 0o644) -> None:
-    with _open_directory_path(destination.parent) as parent_fd:
-        try:
-            fd = os.open(
-                destination.name,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
-                | os.O_NONBLOCK,
-                mode,
-                dir_fd=parent_fd,
-            )
-        except OSError as exc:
-            raise CorrectedCorpusError(f"cannot create staging file safely: {destination}") from exc
-        try:
-            created = os.fstat(fd)
-            if not stat.S_ISREG(created.st_mode) or created.st_nlink != 1:
-                raise CorrectedCorpusError("staging destination is not a new single-link file")
-            view = memoryview(payload)
-            while view:
-                written = os.write(fd, view)
-                view = view[written:]
-            os.fchmod(fd, mode)
-            completed = os.fstat(fd)
-            if (not stat.S_ISREG(completed.st_mode) or completed.st_nlink != 1
-                    or completed.st_size != len(payload)
-                    or stat.S_IMODE(completed.st_mode) != mode):
-                raise CorrectedCorpusError("staging destination changed while writing")
-        finally:
-            os.close(fd)
+    if destination.exists() or destination.is_symlink():
+        raise CorrectedCorpusError(f"staging file already exists: {destination}")
+    try:
+        destination.write_bytes(payload)
+        os.chmod(destination, mode)
+    except OSError as exc:
+        raise CorrectedCorpusError(f"cannot create staging file: {destination}") from exc
+    info = destination.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size != len(payload):
+        raise CorrectedCorpusError("staging destination is not the expected regular file")
 
 
 def _copy(source: pathlib.Path, destination: pathlib.Path, *,
@@ -939,7 +738,7 @@ def _inventory(root: pathlib.Path, *, snapshot: _TreeSnapshot | None = None,
 def _recursive_inventory(root: pathlib.Path, *, excluded: Iterable[str] = (),
                          snapshot: _TreeSnapshot | None = None,
                          prefix: str = "") -> list[dict]:
-    """Pure exact recursive inventory, including directories and rejecting every unsafe inode."""
+    """Pure exact recursive inventory of regular files and directories."""
     excluded_set = set(excluded)
     snapshot = snapshot or _snapshot_path(root, label="bundle inventory")
     base = f"{prefix}/" if prefix else ""
@@ -1073,7 +872,7 @@ def _verify_child_snapshot(root_fd: int, snapshot: _TreeSnapshot, expected: Mapp
 
 def _verify_child(root_or_fd, snapshot_or_expected, expected: Mapping | None = None,
                   *, prefix: str = CORRECTED_CORPUS_DIR) -> tuple[dict, ...]:
-    """Descriptor verifier plus a compatibility path wrapper used by focused unit tests."""
+    """Snapshot verifier plus a compatibility path wrapper used by focused unit tests."""
     if expected is not None:
         return _verify_child_snapshot(root_or_fd, snapshot_or_expected, expected, prefix=prefix)
     root = pathlib.Path(root_or_fd)
@@ -1283,7 +1082,6 @@ def verify_v3_2_candidate(bundle_root: pathlib.Path | str, *,
                           protocol_sha256: str, require_basename: bool = True,
                           fault_inject: Callable[[str], None] | None = None) -> dict:
     """Pure disk-backed reconstruction and exact verification of one complete bundle."""
-    require_storage_capabilities()
     if not _HEX64.fullmatch(config_hash) or not _HEX64.fullmatch(protocol_sha256):
         raise CorrectedCorpusError("config/protocol hashes must be SHA256")
     root = pathlib.Path(bundle_root)
@@ -1312,7 +1110,7 @@ def verify_v3_2_candidate(bundle_root: pathlib.Path | str, *,
         snapshot = _snapshot_tree_fd(root_fd, label="preparation bundle")
         captured_candidate = snapshot.files.get("candidate.json")
         if (captured_candidate is None
-                or not _same_inode_state(candidate_info, captured_candidate.info)
+                or candidate_info.st_size != captured_candidate.info.st_size
                 or captured_candidate.sha256 != hashlib.sha256(candidate_bytes).hexdigest()):
             raise CorrectedCorpusError("candidate changed after envelope verification")
         _verify_bundle_shape(snapshot)
@@ -1400,54 +1198,11 @@ def verify_v3_2_candidate(bundle_root: pathlib.Path | str, *,
     }
 
 
-@contextlib.contextmanager
-def _publish_lock(parent: pathlib.Path) -> Iterator[None]:
-    flags = os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
-    with _open_directory_path(parent) as parent_fd:
-        created = False
-        try:
-            fd = os.open(
-                PUBLISH_LOCK_NAME, flags | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=parent_fd,
-            )
-            created = True
-        except FileExistsError:
-            before = os.stat(PUBLISH_LOCK_NAME, dir_fd=parent_fd, follow_symlinks=False)
-            fd = os.open(PUBLISH_LOCK_NAME, flags, dir_fd=parent_fd)
-            if not _same_inode_state(before, os.fstat(fd)):
-                os.close(fd)
-                raise CorrectedCorpusError("publish lock replaced between validation and open")
-        try:
-            if created:
-                os.fchmod(fd, 0o644)
-            locked = os.fstat(fd)
-            if (not stat.S_ISREG(locked.st_mode) or locked.st_nlink != 1
-                    or stat.S_IMODE(locked.st_mode) != 0o644):
-                raise CorrectedCorpusError("publish lock is symlinked, hardlinked, special, or mode-drifted")
-            fcntl.flock(fd, fcntl.LOCK_EX)
-            locked = os.fstat(fd)
-            current = os.stat(PUBLISH_LOCK_NAME, dir_fd=parent_fd, follow_symlinks=False)
-            if not _same_inode_state(locked, current):
-                raise CorrectedCorpusError("publish lock inode changed while acquiring lock")
-            yield
-            if not _same_inode_state(locked, os.fstat(fd)):
-                raise CorrectedCorpusError("publish lock changed while held")
-        finally:
-            os.close(fd)
-
-
 def _rename_noreplace(source: pathlib.Path, destination: pathlib.Path) -> None:
-    renameat2 = _renameat2_primitive()
-    if renameat2 is None:
-        raise CorrectedCorpusError("atomic no-clobber renameat2 is unavailable")
-    with _open_directory_path(source.parent) as source_fd, _open_directory_path(destination.parent) as destination_fd:
-        if renameat2(
-            source_fd, os.fsencode(source.name), destination_fd, os.fsencode(destination.name),
-            _RENAME_NOREPLACE,
-        ) != 0:
-            error = ctypes.get_errno()
-            if error == errno.EEXIST:
-                raise FileExistsError(error, os.strerror(error), destination)
-            raise OSError(error, os.strerror(error), destination)
+    """Publish for a cooperative single writer without overwriting a destination."""
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(destination)
+    source.rename(destination)
 
 
 def _ensure_directory(path: pathlib.Path) -> None:
@@ -1456,27 +1211,24 @@ def _ensure_directory(path: pathlib.Path) -> None:
 
 
 def _existing_destinations(parent: pathlib.Path) -> list[pathlib.Path]:
-    with _open_directory_path(parent) as parent_fd:
-        return [parent / name for name in sorted(os.listdir(parent_fd)) if not name.startswith(".")]
+    with _open_directory_path(parent) as directory:
+        return sorted(
+            (path for path in directory.iterdir() if not path.name.startswith(".")),
+            key=lambda path: path.name,
+        )
 
 
 def _create_stage_parent(parent: pathlib.Path) -> pathlib.Path:
-    with _open_directory_path(parent) as parent_fd:
+    with _open_directory_path(parent) as directory:
         for _ in range(128):
             name = f".staging_v3_2_{secrets.token_hex(12)}"
+            stage = directory / name
             try:
-                _mkdir_at(name, 0o700, dir_fd=parent_fd)
+                stage.mkdir(mode=0o700)
             except FileExistsError:
                 continue
-            before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-            fd = os.open(name, _dir_flags(), dir_fd=parent_fd)
-            try:
-                if (not _same_directory_state(before, os.fstat(fd))
-                        or stat.S_IMODE(before.st_mode) != 0o700):
-                    raise CorrectedCorpusError("new staging directory is unsafe or mode-drifted")
-            finally:
-                os.close(fd)
-            return parent / name
+            os.chmod(stage, 0o700)
+            return stage
     raise CorrectedCorpusError("could not allocate a unique hidden staging directory")
 
 
@@ -1485,8 +1237,7 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
                            ruaa_parent_selection: Iterable[str], config_hash: str,
                            protocol_sha256: str,
                            fault_inject: Callable[[str], None] | None = None) -> dict:
-    """Build, fully verify, then atomically publish one unapproved preparation bundle."""
-    require_storage_capabilities()
+    """Build, verify, then publish one unapproved single-writer preparation bundle."""
     if not _HEX64.fullmatch(config_hash) or not _HEX64.fullmatch(protocol_sha256):
         raise CorrectedCorpusError("config/protocol hashes must be SHA256")
     parent = pathlib.Path(historical_parent_root)
@@ -1567,13 +1318,12 @@ def prepare_corrected_v3_2(*, historical_parent_root: pathlib.Path | str,
         destination = bundle_parent / candidate["self_hash"]
         _fault(fault_inject, "before_final_rename")
         collision = False
-        with _publish_lock(bundle_parent):
-            _fault(fault_inject, "final_rename")
-            try:
-                _rename_noreplace(stage, destination)
-                published = True
-            except FileExistsError:
-                collision = True
+        _fault(fault_inject, "final_rename")
+        try:
+            _rename_noreplace(stage, destination)
+            published = True
+        except FileExistsError:
+            collision = True
         if collision:
             existing_result = verify_v3_2_candidate(
                 destination, historical_parent_root=parent, ruaa_parent_selection=selection,
@@ -1603,20 +1353,24 @@ PARITY_CONTRACT_VERSION = "paired_audit.preparation_bundle_parity.v1"
 
 
 def _parity_bundle_root(value: pathlib.Path | str) -> pathlib.Path:
-    require_storage_capabilities()
     root = pathlib.Path(value)
-    with _open_directory_path(root) as root_fd:
-        try:
-            candidate = os.stat("candidate.json", dir_fd=root_fd, follow_symlinks=False)
-        except FileNotFoundError:
-            candidate = None
+    with _open_directory_path(root) as directory:
+        candidate_path = directory / "candidate.json"
+        candidate = (
+            candidate_path.lstat()
+            if candidate_path.exists() or candidate_path.is_symlink()
+            else None
+        )
         if candidate is not None:
-            if not stat.S_ISREG(candidate.st_mode) or candidate.st_nlink != 1:
-                raise CorrectedCorpusError("parity candidate is symlinked, hardlinked, or special")
+            if not stat.S_ISREG(candidate.st_mode):
+                raise CorrectedCorpusError("parity candidate is symlinked or special")
             return root
     parent = root / BUNDLE_PARENT_NAME
-    with _open_directory_path(parent) as parent_fd:
-        candidates = [parent / name for name in sorted(os.listdir(parent_fd)) if not name.startswith(".")]
+    with _open_directory_path(parent) as directory:
+        candidates = sorted(
+            (path for path in directory.iterdir() if not path.name.startswith(".")),
+            key=lambda path: path.name,
+        )
     if len(candidates) != 1:
         raise CorrectedCorpusError("parity root must contain exactly one digest-named bundle")
     return candidates[0]
@@ -1624,7 +1378,6 @@ def _parity_bundle_root(value: pathlib.Path | str) -> pathlib.Path:
 
 def tree_bytes_modes(root: pathlib.Path | str) -> tuple[dict[str, tuple], str]:
     """Canonical parity over one bundle root and every descendant path/type/size/mode/byte hash."""
-    require_storage_capabilities()
     bundle = _parity_bundle_root(root)
     snapshot = _snapshot_path(bundle, label="preparation parity")
     if stat.S_IMODE(snapshot.root_info.st_mode) != 0o755:
@@ -1666,7 +1419,7 @@ __all__ = [
     "HISTORICAL_PARENT_DIGEST", "IDENTITY_CONTRACT_VERSION", "PARITY_CONTRACT_VERSION",
     "PREPARATION_STATUS", "assert_preparation_parity", "assert_v3_2_fold_manifest", "applicability_matrix",
     "basename_collision_inventory", "content_isolation_audit", "full_work_id", "prepare_corrected_v3_2",
-    "load_stable_json", "read_stable_bytes", "require_storage_capabilities", "resolve_full_work",
+    "load_stable_json", "read_stable_bytes", "resolve_full_work",
     "tree_bytes_modes", "verify_historical_parent", "verify_v3_2_candidate",
     "work_identity_catalog",
 ]

@@ -95,8 +95,8 @@
     {
       "path": "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py",
       "status": "preparation_only_non_authorizing",
-      "claim_scope": "Fail closed before I/O unless every required POSIX/Linux primitive is available; verify only the registered historical v3.1 evidence root through stable descriptors; reject a non-literal corrected_corpus binding before descent; derive the v3.2 bundle-local corrected child and LOBO/RuAA manifests with the literal three exclusions; and record full work-identity and content-isolation audits. It may supply verified context to the separately versioned evaluator candidate but has no fit, prediction, preflight, authorization, scientific publication, push, or deployment authority. Mutable acceptance and review status is owned only by the governance ledger.",
-      "output_contract": "Race-safely create or open the explicit output and bundle-parent directory chain, then create or pure-revalidate one storage-contract-versioned atomic bundle. The child, folds, audits, exact recursive inventory, candidate and SHA256SUMS become visible together through one locked no-clobber rename; concurrent writers converge on one verified digest, and no current pointer or standalone child is written.",
+      "claim_scope": "Under a trusted cooperative local-filesystem and single-writer assumption, verify only the registered historical v3.1 evidence root; reject symlinks, special members and a non-literal corrected_corpus binding; derive the v3.2 bundle-local corrected child and LOBO/RuAA manifests with the literal three exclusions; and record full work-identity and content-isolation audits. Hostile writers and inode, hardlink or mount provenance are not covered. It may supply verified context to the separately versioned evaluator candidate but has no fit, prediction, preflight, authorization, scientific publication, push, or deployment authority. Mutable acceptance and review status is owned only by the governance ledger.",
+      "output_contract": "Create or open the explicit output and bundle-parent directory chain for one cooperative writer, then create or pure-revalidate one storage-contract-versioned complete bundle. The child, folds, audits, exact recursive inventory, candidate and SHA256SUMS are staged and renamed together after verification; an existing destination is never overwritten, and no current pointer or standalone child is written.",
       "identity_bindings": [
         "exact_historical_parent_digest",
         "exclusion_policy_digest",
@@ -117,10 +117,10 @@
         "tests/test_paired_audit_corrected_v3_2.py::test_exact_resume_rejects_rogue_member_without_repair[file]",
         "tests/test_paired_audit_corrected_v3_2.py::test_self_rehashed_coherent_fold_forgery_rejected_by_reconstruction[corrected_corpus_digest]",
         "tests/test_paired_audit_corrected_v3_2.py::test_fault_injection_never_publishes_partial_bundle[during_child_assembly]",
-        "tests/test_paired_audit_corrected_v3_2.py::test_nofollow_capability_is_fail_closed_before_output_creation[absent]",
-        "tests/test_paired_audit_corrected_v3_2.py::test_stable_read_rejects_path_replacement_between_validation_and_open",
+        "tests/test_paired_audit_corrected_v3_2.py::test_child_manifest_external_symlink_rejected_before_parse",
+        "tests/test_paired_audit_corrected_v3_2.py::test_content_equivalent_hardlink_is_accepted",
         "tests/test_paired_audit_corrected_v3_2.py::test_invalid_self_rehashed_child_binding_rejected_with_zero_child_use[absolute]",
-        "tests/test_paired_audit_corrected_v3_2.py::test_two_writers_from_absent_output_publish_once_and_reuse_once"
+        "tests/test_paired_audit_corrected_v3_2.py::test_crash_after_successful_rename_is_exactly_reused"
       ]
     },
     {

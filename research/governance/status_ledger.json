@@ -26,12 +26,12 @@
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
           "symbol": "prepare_corrected_v3_2",
-          "sha256": "fd0546e593ce66baffeb97aa8d1a42dcd341631a7c3caa6f4a20da2ffe60da47"
+          "sha256": "ba3a991040776bdac8083d5c44d4c90d62f441f44dd34033a95566edccfabd1c"
         },
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
           "symbol": "verify_v3_2_candidate",
-          "sha256": "fd0546e593ce66baffeb97aa8d1a42dcd341631a7c3caa6f4a20da2ffe60da47"
+          "sha256": "ba3a991040776bdac8083d5c44d4c90d62f441f44dd34033a95566edccfabd1c"
         }
       ]
     },

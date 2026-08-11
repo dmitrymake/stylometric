@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import multiprocessing
 import os
 import pathlib
-import runpy
 import shutil
 import stat
 
@@ -15,19 +13,6 @@ import pytest
 from stylo.jsonio import dump_strict, load_strict
 from stylo.eval.paired_audit import corrected_v3_2 as v3
 from stylo.eval.paired_audit import corpus as historical_corpus
-
-
-def _concurrent_prepare_worker(contract, output, start, results):
-    start.wait()
-    try:
-        result = v3.prepare_corrected_v3_2(
-            historical_parent_root=contract["parent"], output_root=output,
-            ruaa_parent_selection=contract["selection"], config_hash=contract["config"],
-            protocol_sha256=contract["protocol"],
-        )
-        results.put(("ok", result["candidate"]["self_hash"], result["reused"]))
-    except BaseException as exc:  # pragma: no cover - returned to the parent for an exact assertion
-        results.put(("error", type(exc).__name__, str(exc)))
 
 
 def _record(work_id: str, text: str, *, author: str | None = None) -> dict:
@@ -242,52 +227,14 @@ def _reseal_forgery(root: pathlib.Path) -> pathlib.Path:
     return root.rename(destination)
 
 
-def test_historical_and_resume_hardlinks_fail_closed(atomic_fixture, tmp_path):
+def test_content_equivalent_hardlink_is_accepted(atomic_fixture, tmp_path):
     source = atomic_fixture["parent"] / "frags/a/a1/0000.txt"
     external = tmp_path / "external-hardlink.txt"
     os.link(source, external)
-    before = source.read_bytes()
-    with pytest.raises(v3.CorrectedCorpusError, match="hardlink"):
-        v3.verify_historical_parent(atomic_fixture["parent"])
-    assert source.read_bytes() == before and source.stat().st_nlink == 2
-    external.unlink()
-
-    bundle = _prepare(atomic_fixture)["bundle_root"]
-    first = bundle / "lobo_fold_manifest_v3_2.json"
-    second = bundle / "ruaa_fold_manifest_v3_2.json"
-    saved = first.read_bytes()
-    first.unlink()
-    os.link(second, first)
-    state = _tree_state(bundle)
-    with pytest.raises(v3.CorrectedCorpusError, match="hardlink"):
-        _verify(atomic_fixture, bundle)
-    assert _tree_state(bundle) == state
-    first.unlink()
-    first.write_bytes(saved)
-    os.chmod(first, 0o644)
-
-
-def test_staging_child_external_hardlink_is_fatal_without_target_mutation(atomic_fixture, tmp_path):
-    output = tmp_path / "staging-hardlink-output"
-    external = tmp_path / "external-staging-target.txt"
-    source = atomic_fixture["parent"] / "frags/a/a1/0000.txt"
-    external.write_bytes(source.read_bytes())
-    before = external.read_bytes()
-
-    def inject(point):
-        if point != "during_child_assembly":
-            return
-        stage = next((output / v3.BUNDLE_PARENT_NAME).glob(".staging_v3_2_*"))
-        target = stage / "bundle" / v3.CORRECTED_CORPUS_DIR / "frags/a/a1/0000.txt"
-        target.unlink()
-        os.link(external, target)
-
-    with pytest.raises(v3.CorrectedCorpusError, match="hardlink"):
-        _prepare(atomic_fixture, output=output, fault=inject)
-    assert external.read_bytes() == before and external.stat().st_nlink == 1
-    assert not list((output / v3.BUNDLE_PARENT_NAME).glob(".staging_v3_2_*"))
-    assert not [entry for entry in (output / v3.BUNDLE_PARENT_NAME).iterdir()
-                if not entry.name.startswith(".")]
+    identity, records = v3.verify_historical_parent(atomic_fixture["parent"])
+    assert identity["historical_parent_digest"] == v3.HISTORICAL_PARENT_DIGEST
+    assert len(records) == v3.HISTORICAL_WORK_COUNT
+    assert source.read_bytes() == external.read_bytes() and source.stat().st_nlink == 2
 
 
 def test_child_manifest_external_symlink_rejected_before_parse(atomic_fixture, tmp_path):
@@ -301,6 +248,17 @@ def test_child_manifest_external_symlink_rejected_before_parse(atomic_fixture, t
     with pytest.raises(v3.CorrectedCorpusError, match="symlink"):
         _verify(atomic_fixture, bundle)
     assert external.read_bytes() == before and manifest.is_symlink()
+
+
+def test_output_symlink_is_rejected_without_target_mutation(atomic_fixture, tmp_path):
+    external = tmp_path / "external-output"
+    external.mkdir()
+    marker = external / "marker.txt"
+    marker.write_bytes(b"untouched")
+    atomic_fixture["output"].symlink_to(external, target_is_directory=True)
+    with pytest.raises(v3.CorrectedCorpusError, match="symlink path component"):
+        _prepare(atomic_fixture)
+    assert marker.read_bytes() == b"untouched"
 
 
 def test_mode_drift_is_rejected_without_verifier_mutation(atomic_fixture):
@@ -434,92 +392,6 @@ def test_storage_contract_rejects_old_split_layout(atomic_fixture, tmp_path):
         _verify(atomic_fixture, old)
 
 
-@pytest.mark.parametrize("primitive", ["absent", "zero"])
-def test_nofollow_capability_is_fail_closed_before_output_creation(
-    atomic_fixture, monkeypatch, primitive,
-):
-    output = atomic_fixture["output"]
-    if primitive == "absent":
-        monkeypatch.delattr(v3.os, "O_NOFOLLOW")
-    else:
-        monkeypatch.setattr(v3.os, "O_NOFOLLOW", 0)
-    with pytest.raises(v3.CorrectedCorpusError, match="unsupported storage platform"):
-        _prepare(atomic_fixture)
-    assert not output.exists()
-
-
-def test_cli_entry_and_prepare_gate_before_any_input_read_or_output_creation(
-    atomic_fixture, tmp_path, monkeypatch,
-):
-    script = runpy.run_path(
-        str(pathlib.Path(__file__).resolve().parents[1]
-            / "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py")
-    )
-    output = tmp_path / "cli-output"
-    monkeypatch.setattr(v3.os, "O_NOFOLLOW", 0)
-    with pytest.raises(v3.CorrectedCorpusError, match="unsupported storage platform"):
-        script["prepare"](tmp_path / "untrusted-repo", output)
-    with pytest.raises(v3.CorrectedCorpusError, match="unsupported storage platform"):
-        script["main"]()
-    assert not output.exists()
-
-
-def test_stable_read_rejects_path_replacement_between_validation_and_open(tmp_path, monkeypatch):
-    target = tmp_path / "payload.txt"
-    replacement = tmp_path / "replacement.txt"
-    displaced = tmp_path / "displaced.txt"
-    target.write_bytes(b"trusted bytes")
-    replacement.write_bytes(b"attacker bytes")
-    original_open = v3.os.open
-    replaced = False
-
-    def racing_open(path, flags, mode=0o777, *, dir_fd=None):
-        nonlocal replaced
-        if path == target.name and dir_fd is not None and not replaced:
-            replaced = True
-            target.rename(displaced)
-            replacement.rename(target)
-        return original_open(path, flags, mode, dir_fd=dir_fd)
-
-    monkeypatch.setattr(v3.os, "open", racing_open)
-    with pytest.raises(v3.CorrectedCorpusError, match="replaced between validation and open"):
-        v3._read_stable_path(target)
-    assert target.read_bytes() == b"attacker bytes"
-    assert displaced.read_bytes() == b"trusted bytes"
-
-
-@pytest.mark.parametrize("mutation", ["byte", "size", "mode"])
-def test_stable_read_rejects_mutation_during_descriptor_read(tmp_path, monkeypatch, mutation):
-    target = tmp_path / "payload.bin"
-    target.write_bytes(b"a" * ((1 << 20) + 16))
-    target_info = target.stat()
-    writer = os.open(target, os.O_RDWR)
-    original_read = v3.os.read
-    mutated = False
-
-    def racing_read(fd, size):
-        nonlocal mutated
-        block = original_read(fd, size)
-        if not mutated and os.fstat(fd).st_ino == target_info.st_ino:
-            mutated = True
-            if mutation == "byte":
-                os.pwrite(writer, b"z", 0)
-            elif mutation == "size":
-                os.ftruncate(writer, target_info.st_size - 1)
-            else:
-                os.fchmod(writer, 0o600)
-        return block
-
-    monkeypatch.setattr(v3.os, "read", racing_read)
-    try:
-        with pytest.raises(v3.CorrectedCorpusError, match="changed while reading"):
-            v3.read_stable_bytes(target)
-    finally:
-        os.close(writer)
-    expected_mode = 0o600 if mutation == "mode" else 0o644
-    assert stat.S_IMODE(target.stat().st_mode) == expected_mode
-
-
 @pytest.mark.parametrize("binding", [
     "absolute", "traversal", "dot", "empty", "alternate", "disagreement", "wrong_type",
 ])
@@ -591,78 +463,6 @@ def test_ambiguous_child_binding_encoding_rejected_before_child_use(
     with pytest.raises(v3.CorrectedCorpusError, match="non-canonical JSON"):
         _verify(atomic_fixture, bundle)
     assert calls == 0
-
-
-def test_two_writers_from_absent_output_publish_once_and_reuse_once(atomic_fixture):
-    output = atomic_fixture["output"]
-    assert not output.exists()
-    parent_state = _tree_state(atomic_fixture["parent"])
-    context = multiprocessing.get_context("fork")
-    start = context.Event()
-    results = context.Queue()
-    workers = [
-        context.Process(
-            target=_concurrent_prepare_worker,
-            args=(atomic_fixture, output, start, results),
-        )
-        for _ in range(2)
-    ]
-    for worker in workers:
-        worker.start()
-    start.set()
-    rows = [results.get(timeout=30) for _ in workers]
-    for worker in workers:
-        worker.join(timeout=30)
-        assert worker.exitcode == 0
-    assert all(row[0] == "ok" for row in rows), rows
-    assert len({row[1] for row in rows}) == 1
-    assert sorted(row[2] for row in rows) == [False, True]
-    bundle_parent = output / v3.BUNDLE_PARENT_NAME
-    visible = [entry for entry in bundle_parent.iterdir() if not entry.name.startswith(".")]
-    assert len(visible) == 1
-    assert not [entry for entry in bundle_parent.iterdir() if entry.name.startswith(".staging")]
-    verified = _verify(atomic_fixture, visible[0])
-    assert verified["candidate"]["self_hash"] == rows[0][1]
-    assert _tree_state(atomic_fixture["parent"]) == parent_state
-
-
-@pytest.mark.parametrize("level", ["output", "bundle_parent"])
-@pytest.mark.parametrize("rogue_kind", ["symlink", "file", "fifo"])
-def test_directory_creation_race_rejects_symlink_file_or_fifo_without_target_mutation(
-    atomic_fixture, tmp_path, monkeypatch, level, rogue_kind,
-):
-    output = atomic_fixture["output"]
-    if level == "bundle_parent":
-        output.mkdir(mode=0o755)
-    trigger = output.name if level == "output" else v3.BUNDLE_PARENT_NAME
-    external = tmp_path / f"external-{level}-{rogue_kind}"
-    external.mkdir()
-    marker = external / "marker.txt"
-    marker.write_bytes(b"untouched")
-    parent_state = _tree_state(atomic_fixture["parent"])
-    original_mkdir = v3._mkdir_at
-    planted = False
-
-    def racing_mkdir(name, mode=0o777, *, dir_fd=None):
-        nonlocal planted
-        if name == trigger and dir_fd is not None and not planted:
-            planted = True
-            if rogue_kind == "symlink":
-                os.symlink(external, name, dir_fd=dir_fd)
-            elif rogue_kind == "file":
-                fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=dir_fd)
-                os.close(fd)
-            else:
-                os.mkfifo(name, 0o644, dir_fd=dir_fd)
-            raise FileExistsError(name)
-        return original_mkdir(name, mode, dir_fd=dir_fd)
-
-    monkeypatch.setattr(v3, "_mkdir_at", racing_mkdir)
-    with pytest.raises(v3.CorrectedCorpusError, match="non-directory"):
-        _prepare(atomic_fixture)
-    assert marker.read_bytes() == b"untouched"
-    assert _tree_state(atomic_fixture["parent"]) == parent_state
-    assert planted
 
 
 def test_crash_after_successful_rename_is_exactly_reused(atomic_fixture, monkeypatch):

@@ -371,9 +371,9 @@ def test_two_real_context_loads_are_identical_and_never_fit_predict(monkeypatch)
     if not bundle_raw:
         pytest.skip("set STYLO_V32_BUNDLE_ROOT to the exact verified local v3.2 bundle")
     bundle = pathlib.Path(bundle_raw)
-    protocol = hashlib.sha256(
-        (ROOT / "research/work_balanced/paired_audit_protocol.md").read_bytes()
-    ).hexdigest()
+    # The accepted candidate binds the immutable scientific protocol bytes from its preparation
+    # baseline, not later status-only prose edits to the tracked protocol document.
+    protocol = "02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334"
     parent = ROOT / "data/audit_corpus/15d265e0878dbf1acd9224e2558598ff7266fd6fc650585d1433fbd65a717029"
 
     def forbidden(*args, **kwargs):

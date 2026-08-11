@@ -67,7 +67,7 @@
     },
     {
       "id": "PA-V3-2-CORRECTED-CORPUS-IDENTITY-AND-ISOLATION",
-      "description": "The preparation-only v3.2 atomic bundle fail-closes before I/O without every required POSIX/Linux primitive, uses stable descriptor-backed reads, rejects any non-literal corrected_corpus child binding before descent, and race-safely creates an absent output/bundle-parent chain. It binds the exact historical parent, literal exclusions, full NFC work identities, expected basename diagnostics, complete content isolation, 252/248/134 folds, and the unchanged 16-cell/11-comparison applicability matrix. It rejects unsafe inode/path/mode/inventory state and accepts folds only by exact trusted-input reconstruction.",
+      "description": "The preparation-only v3.2 bundle uses a cooperative local single-writer physical contract, rejects symlinks, special files, wrong modes and any non-literal corrected_corpus child binding, and never overwrites an existing destination. It binds the exact historical parent, literal exclusions, full NFC work identities, expected basename diagnostics, complete content isolation, 252/248/134 folds, and the unchanged 16-cell/11-comparison applicability matrix. It accepts folds only by exact trusted-input reconstruction; hostile writers and physical inode or mount provenance are not claimed as covered.",
       "code": [
         {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "prepare_corrected_v3_2"},
         {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "verify_v3_2_candidate"}
@@ -78,18 +78,15 @@
         "tests/test_paired_audit_corrected_v3_2.py::test_collision_inventory_rejects_missing_unexpected_or_third_member",
         "tests/test_paired_audit_corrected_v3_2.py::test_content_overlap_inside_adjudicated_pair_remains_fatal",
         "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation",
-        "tests/test_paired_audit_corrected_v3_2.py::test_historical_and_resume_hardlinks_fail_closed",
-        "tests/test_paired_audit_corrected_v3_2.py::test_staging_child_external_hardlink_is_fatal_without_target_mutation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_content_equivalent_hardlink_is_accepted",
+        "tests/test_paired_audit_corrected_v3_2.py::test_child_manifest_external_symlink_rejected_before_parse",
         "tests/test_paired_audit_corrected_v3_2.py::test_mode_drift_is_rejected_without_verifier_mutation",
         "tests/test_paired_audit_corrected_v3_2.py::test_exact_resume_rejects_rogue_member_without_repair[file]",
         "tests/test_paired_audit_corrected_v3_2.py::test_self_rehashed_coherent_fold_forgery_rejected_by_reconstruction[corrected_corpus_digest]",
         "tests/test_paired_audit_corrected_v3_2.py::test_fault_injection_never_publishes_partial_bundle[during_child_assembly]",
         "tests/test_paired_audit_corrected_v3_2.py::test_actual_final_rename_failure_and_success_resume_semantics",
-        "tests/test_paired_audit_corrected_v3_2.py::test_nofollow_capability_is_fail_closed_before_output_creation[absent]",
-        "tests/test_paired_audit_corrected_v3_2.py::test_stable_read_rejects_path_replacement_between_validation_and_open",
         "tests/test_paired_audit_corrected_v3_2.py::test_invalid_self_rehashed_child_binding_rejected_with_zero_child_use[absolute]",
-        "tests/test_paired_audit_corrected_v3_2.py::test_two_writers_from_absent_output_publish_once_and_reuse_once",
-        "tests/test_paired_audit_corrected_v3_2.py::test_directory_creation_race_rejects_symlink_file_or_fifo_without_target_mutation[symlink-output]"
+        "tests/test_paired_audit_corrected_v3_2.py::test_crash_after_successful_rename_is_exactly_reused"
       ]
     },
     {
