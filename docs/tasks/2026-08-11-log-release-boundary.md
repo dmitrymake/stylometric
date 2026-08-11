@@ -3,7 +3,7 @@
 ## Metadata
 
 - Task ID: `2026-08-11-log-release-boundary`
-- Status: active
+- Status: done
 - Owner: repository owner
 - Created: 2026-08-11
 - Baseline commit: `29cbc966b9f8eade52d36bf00822cfc5c18a7cb3`
@@ -102,13 +102,13 @@ Constant measurement: tracked file bytes and `git archive --format=tar HEAD` mem
 
 ## 6. Invariants and acceptance
 
-- [ ] AC-01 `git archive HEAD` contains no path under `log/` and no unrelated member disappears.
-- [ ] AC-02 All 22 baseline `log/` files remain tracked and byte-identical in the checkout/Git tree.
-- [ ] AC-03 Executable inventory remains exactly 298 paths; evidence snapshots remain present.
-- [ ] AC-04 Existing checkout and Git-free archive tests, provenance and hygiene gates pass.
-- [ ] AC-05 No production/scientific/site/publication bytes or behavior changes.
-- [ ] AC-06 Diff stays inside allowed paths with zero production/test LOC growth.
-- [ ] AC-07 No deploy, registry/freeze/preflight/authorization/execution, external write or push occurs.
+- [x] AC-01 `git archive HEAD` contains no path under `log/` and no unrelated member disappears.
+- [x] AC-02 All 22 baseline `log/` files remain tracked and byte-identical in the checkout/Git tree.
+- [x] AC-03 Executable inventory remains exactly 298 paths; evidence snapshots remain present.
+- [x] AC-04 Existing checkout and Git-free archive tests, provenance and hygiene gates pass.
+- [x] AC-05 No production/scientific/site/publication bytes or behavior changes.
+- [x] AC-06 Diff stays inside allowed paths with zero production/test LOC growth.
+- [x] AC-07 No deploy, registry/freeze/preflight/authorization/execution, external write or push occurs.
 
 ## 7. Phases, evidence and review
 
@@ -132,7 +132,31 @@ Constant measurement: tracked file bytes and `git archive --format=tar HEAD` mem
 
 ## 9. Result and DoD
 
-- Result, commits, cumulative metrics, review, warnings and campaign stop: pending.
-- ADR/domain/runbook: none expected; distribution membership is reduced without new architecture.
-- Handoff: update at close only.
-- [ ] Applicable `DOD-01` through `DOD-15`; `DOD-06` is N/A unless risk changes.
+- Commits: task baseline `a3b59cca`; implementation `73f31e3a`; this task/handoff update is a
+  metadata-only closeout.
+- `.gitattributes` now excludes the directory-level `/log` from `git archive`; the prior redundant
+  one-file exception is gone. The release-integrity assertion and `.gitattributes` SHA binding were
+  updated with no code/test LOC growth.
+- Archive delta: `log/` tar members 23 -> 0, Python members 327 -> 306 and content at least 215,791
+  bytes smaller. The non-`log/` archive member set is identical; the 298-path executable inventory
+  and eight evidence-source snapshots remain.
+- All 22 baseline `log/` files remain tracked and byte-identical; no scientific producer, artifact,
+  claim or Git history was removed or rewritten.
+- Clean detached deletion review at candidate `6c280481` (patch-equivalent to integrated
+  `73f31e3a`): PASS; no unsupported archive consumer, regression or tripwire; zero correction passes.
+- PASS: focused release/inventory/governance tests; exact Git-free archive full pytest and gates;
+  checkout full pytest; physical-file `py_compile`; provenance (93 source + one output digest);
+  checkout/archive hygiene and inventory. Checkout retained one expected real-bundle skip and two
+  pre-existing invalid-escape warnings; archive-only skips reflected absent Git/local data.
+- Invalid environment/procedure attempts were not counted as passes: `/log/**` left an empty tar
+  directory before candidate commit; one archive gate ran from the checkout; one checkout full run
+  exhausted `/tmp`; another used a missing basetemp parent. Each falsifier was resolved within scope,
+  and the exact final commands passed.
+- Separately authorized local disk hygiene removed rebuildable caches/temp environments after D6
+  evidence capture; it changed no tracked file and is not counted as D6 simplification progress.
+- New production files/code/concepts/framework/state/dependencies/public entrypoints: none.
+- No deploy, publication, corpus/scientific execution, registry/freeze/preflight/authorization,
+  external write or push occurred.
+- ADR/domain/runbook: none; archive membership was reduced without new architecture.
+- Campaign stop: selected D6 accepted; D3-D5 remain unselected and no next wave starts.
+- [x] Applicable `DOD-01` through `DOD-15`; `DOD-06` is N/A because no R3 action occurred.
