@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .._strict_fields import ExactFieldReader
 from ..jsonio import StrictJSONError, canonical_hash, loads_strict
 
 
@@ -117,31 +118,12 @@ def _canonical_sha256(value: object) -> str:
         ) from exc
 
 
-def _exact_object(
-    value: object,
-    keys: frozenset[str],
-    label: str,
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise OwnerDecisionContractError(f"{label} must be an exact JSON object")
-    actual = set(value)
-    if actual != set(keys):
-        missing = sorted(set(keys) - actual)
-        extra = sorted(actual - set(keys))
-        raise OwnerDecisionContractError(
-            f"{label} keys must be exact; missing={missing}, extra={extra}"
-        )
-    return value
-
-
-def _exact_string(value: object, label: str) -> str:
-    if type(value) is not str or not value or value != value.strip():
-        raise OwnerDecisionContractError(
-            f"{label} must be an exact non-empty trimmed string"
-        )
-    if any(ord(character) < 32 or ord(character) == 127 for character in value):
-        raise OwnerDecisionContractError(f"{label} contains a control character")
-    return value
+_STRICT = ExactFieldReader(
+    OwnerDecisionContractError,
+    string_policy="trimmed_control_separate",
+)
+_exact_object = _STRICT.object
+_exact_string = _STRICT.string
 
 
 def _exact_bool(value: object, label: str) -> bool:
@@ -150,21 +132,8 @@ def _exact_bool(value: object, label: str) -> bool:
     return value
 
 
-def _exact_int(value: object, label: str, *, minimum: int) -> int:
-    if type(value) is not int or value < minimum:
-        raise OwnerDecisionContractError(
-            f"{label} must be an exact integer >= {minimum}"
-        )
-    return value
-
-
-def _sha256(value: object, label: str) -> str:
-    text = _exact_string(value, label)
-    if _HEX64_RE.fullmatch(text) is None:
-        raise OwnerDecisionContractError(
-            f"{label} must be 64 lowercase hexadecimal characters"
-        )
-    return text
+_exact_int = _STRICT.integer
+_sha256 = _STRICT.sha256
 
 
 def _looks_like_absolute_host_path(value: str) -> bool:

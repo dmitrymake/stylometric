@@ -29,6 +29,7 @@ from html.parser import HTMLParser
 from pathlib import PurePosixPath
 from typing import Any, Protocol
 
+from .._strict_fields import ExactFieldReader
 from ..jsonio import (
     StrictJSONError,
     canonical_hash,
@@ -115,46 +116,14 @@ class JSONTransport(Protocol):
     def __call__(self, params: Mapping[str, str]) -> object: ...
 
 
-def _exact_object(
-    value: object,
-    keys: set[str] | frozenset[str],
-    label: str,
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise WikisourceAcquisitionError(f"{label} must be an exact JSON object")
-    expected = set(keys)
-    actual = set(value)
-    if actual != expected:
-        raise WikisourceAcquisitionError(
-            f"{label} keys must be exact; "
-            f"missing={sorted(expected - actual)}, "
-            f"extra={sorted(actual - expected)}"
-        )
-    return value
-
-
-def _exact_list(
-    value: object,
-    label: str,
-    *,
-    nonempty: bool = False,
-) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = " non-empty" if nonempty else ""
-        raise WikisourceAcquisitionError(
-            f"{label} must be an exact{qualifier} array"
-        )
-    return value
-
-
-def _exact_str(value: object, label: str) -> str:
-    if type(value) is not str or not value:
-        raise WikisourceAcquisitionError(
-            f"{label} must be an exact non-empty string"
-        )
-    if "\x00" in value:
-        raise WikisourceAcquisitionError(f"{label} must not contain NUL")
-    return value
+_STRICT = ExactFieldReader(
+    WikisourceAcquisitionError,
+    string_policy="nul_separate",
+    hash_message="must be 64 lowercase hex characters",
+)
+_exact_object = _STRICT.object
+_exact_list = _STRICT.array
+_exact_str = _STRICT.string
 
 
 def _title(value: object, label: str) -> str:
@@ -166,26 +135,8 @@ def _title(value: object, label: str) -> str:
     return title
 
 
-def _exact_int(
-    value: object,
-    label: str,
-    *,
-    minimum: int = 0,
-) -> int:
-    if type(value) is not int or value < minimum:
-        raise WikisourceAcquisitionError(
-            f"{label} must be an exact integer >= {minimum}"
-        )
-    return value
-
-
-def _sha256(value: object, label: str) -> str:
-    digest = _exact_str(value, label)
-    if _HEX64_RE.fullmatch(digest) is None:
-        raise WikisourceAcquisitionError(
-            f"{label} must be 64 lowercase hex characters"
-        )
-    return digest
+_exact_int = _STRICT.integer
+_sha256 = _STRICT.sha256
 
 
 def _wiki_sha1(value: object, label: str) -> str:

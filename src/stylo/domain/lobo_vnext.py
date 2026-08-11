@@ -18,6 +18,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .._strict_fields import ExactFieldReader
 from ..jsonio import StrictJSONError, dumps_strict, load_strict, loads_strict
 
 CORPUS_VNEXT_SCHEMA_VERSION = "stylo.lobo-vnext.corpus-manifest.v1"
@@ -98,34 +99,16 @@ def _validate_json_value(value: object, path: str) -> None:
     )
 
 
-def _exact_object(
-    value: object,
-    keys: set[str] | frozenset[str],
-    label: str,
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise VNextContractError(f"{label} must be a JSON object")
-    actual = set(value)
-    if actual != set(keys):
-        missing = sorted(set(keys) - actual)
-        extra = sorted(actual - set(keys))
-        raise VNextContractError(
-            f"{label} keys must be exact; missing={missing}, extra={extra}"
-        )
-    return value
-
-
-def _exact_list(value: object, label: str, *, nonempty: bool = False) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = " non-empty" if nonempty else ""
-        raise VNextContractError(f"{label} must be an exact{qualifier} array")
-    return value
-
-
-def _exact_str(value: object, label: str) -> str:
-    if type(value) is not str or not value:
-        raise VNextContractError(f"{label} must be an exact non-empty string")
-    return value
+_STRICT = ExactFieldReader(
+    VNextContractError,
+    object_type_message="must be a JSON object",
+    string_policy="nonempty",
+    hash_message="must be 64 lowercase hex characters",
+    default_minimum=None,
+)
+_exact_object = _STRICT.object
+_exact_list = _STRICT.array
+_exact_str = _STRICT.string
 
 
 def _exact_bool(value: object, label: str) -> bool:
@@ -134,23 +117,8 @@ def _exact_bool(value: object, label: str) -> bool:
     return value
 
 
-def _exact_int(
-    value: object,
-    label: str,
-    *,
-    minimum: int | None = None,
-) -> int:
-    if type(value) is not int or (minimum is not None and value < minimum):
-        suffix = f" >= {minimum}" if minimum is not None else ""
-        raise VNextContractError(f"{label} must be an exact integer{suffix}")
-    return value
-
-
-def _sha256(value: object, label: str) -> str:
-    text = _exact_str(value, label)
-    if len(text) != 64 or any(char not in _HEX64 for char in text):
-        raise VNextContractError(f"{label} must be 64 lowercase hex characters")
-    return text
+_exact_int = _STRICT.integer
+_sha256 = _STRICT.sha256
 
 
 def _relative_path(value: object, label: str) -> str:

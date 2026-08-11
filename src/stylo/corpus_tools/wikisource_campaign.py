@@ -40,6 +40,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import PurePosixPath
 from typing import Any
 
+from .._strict_fields import ExactFieldReader
 from ..jsonio import (
     StrictJSONError,
     canonical_hash,
@@ -71,52 +72,11 @@ class WikisourceCampaignError(WikisourceAcquisitionError):
     """A campaign spec, HTTP response, or materialized generation is unsafe."""
 
 
-def _exact_object(
-    value: object,
-    keys: set[str] | frozenset[str],
-    label: str,
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise WikisourceCampaignError(f"{label} must be an exact JSON object")
-    expected = set(keys)
-    actual = set(value)
-    if actual != expected:
-        raise WikisourceCampaignError(
-            f"{label} keys must be exact; "
-            f"missing={sorted(expected - actual)}, "
-            f"extra={sorted(actual - expected)}"
-        )
-    return value
-
-
-def _exact_list(
-    value: object,
-    label: str,
-    *,
-    nonempty: bool = False,
-) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = " non-empty" if nonempty else ""
-        raise WikisourceCampaignError(
-            f"{label} must be an exact{qualifier} array"
-        )
-    return value
-
-
-def _exact_str(value: object, label: str) -> str:
-    if type(value) is not str or not value or "\x00" in value:
-        raise WikisourceCampaignError(
-            f"{label} must be an exact non-empty NUL-free string"
-        )
-    return value
-
-
-def _exact_int(value: object, label: str, *, minimum: int = 0) -> int:
-    if type(value) is not int or value < minimum:
-        raise WikisourceCampaignError(
-            f"{label} must be an exact integer >= {minimum}"
-        )
-    return value
+_STRICT = ExactFieldReader(WikisourceCampaignError)
+_exact_object = _STRICT.object
+_exact_list = _STRICT.array
+_exact_str = _STRICT.string
+_exact_int = _STRICT.integer
 
 
 def _exact_bool(value: object, label: str) -> bool:
@@ -125,13 +85,7 @@ def _exact_bool(value: object, label: str) -> bool:
     return value
 
 
-def _sha256(value: object, label: str) -> str:
-    digest = _exact_str(value, label)
-    if _HEX64_RE.fullmatch(digest) is None:
-        raise WikisourceCampaignError(
-            f"{label} must be 64 lowercase hexadecimal characters"
-        )
-    return digest
+_sha256 = _STRICT.sha256
 
 
 def _relative_path(value: object, label: str) -> str:

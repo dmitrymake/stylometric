@@ -25,6 +25,7 @@ from collections.abc import Sequence
 from pathlib import PurePosixPath
 from typing import Any
 
+from .._strict_fields import ExactFieldReader
 from ..jsonio import StrictJSONError, load_strict, loads_strict
 from .lobo_vnext import (
     InnerCVPlan,
@@ -84,47 +85,13 @@ _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@+-]*$")
 
 
-def _exact_object(
-    value: object,
-    keys: set[str] | frozenset[str],
-    label: str,
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise VNextContractError(f"{label} must be an exact JSON object")
-    expected = set(keys)
-    actual = set(value)
-    if actual != expected:
-        raise VNextContractError(
-            f"{label} keys must be exact; "
-            f"missing={sorted(expected - actual)}, "
-            f"extra={sorted(actual - expected)}"
-        )
-    return value
-
-
-def _exact_list(
-    value: object,
-    label: str,
-    *,
-    nonempty: bool = False,
-) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = " non-empty" if nonempty else ""
-        raise VNextContractError(f"{label} must be an exact{qualifier} array")
-    return value
-
-
-def _exact_str(value: object, label: str) -> str:
-    if (
-        type(value) is not str
-        or not value
-        or value != value.strip()
-        or any(ord(char) < 32 or ord(char) == 127 for char in value)
-    ):
-        raise VNextContractError(
-            f"{label} must be an exact non-empty trimmed string"
-        )
-    return value
+_STRICT = ExactFieldReader(
+    VNextContractError,
+    string_policy="trimmed_control",
+)
+_exact_object = _STRICT.object
+_exact_list = _STRICT.array
+_exact_str = _STRICT.string
 
 
 def _token(value: object, label: str) -> str:
@@ -134,13 +101,7 @@ def _token(value: object, label: str) -> str:
     return text
 
 
-def _sha256(value: object, label: str) -> str:
-    text = _exact_str(value, label)
-    if _HEX64_RE.fullmatch(text) is None:
-        raise VNextContractError(
-            f"{label} must be 64 lowercase hexadecimal characters"
-        )
-    return text
+_sha256 = _STRICT.sha256
 
 
 def _exact_bool(value: object, label: str) -> bool:
@@ -149,12 +110,7 @@ def _exact_bool(value: object, label: str) -> bool:
     return value
 
 
-def _exact_int(value: object, label: str, *, minimum: int) -> int:
-    if type(value) is not int or value < minimum:
-        raise VNextContractError(
-            f"{label} must be an exact integer >= {minimum}"
-        )
-    return value
+_exact_int = _STRICT.integer
 
 
 def _literal(value: object, expected: object, label: str) -> None:

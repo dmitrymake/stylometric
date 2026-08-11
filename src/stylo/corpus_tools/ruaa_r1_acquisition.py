@@ -32,6 +32,7 @@ from fractions import Fraction
 from pathlib import PurePosixPath
 from typing import Any
 
+from .._strict_fields import ExactFieldReader
 from ..domain.corpus_identity import CONTENT_OVERLAP_POLICY_VERSION
 from ..jsonio import (
     StrictJSONError,
@@ -164,52 +165,11 @@ class R1AcquisitionAuditError(R1AcquisitionError):
         self.report_path = report_path
 
 
-def _exact_object(
-    value: object,
-    keys: set[str] | frozenset[str],
-    label: str,
-) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise R1AcquisitionError(f"{label} must be an exact JSON object")
-    expected = set(keys)
-    actual = set(value)
-    if actual != expected:
-        raise R1AcquisitionError(
-            f"{label} keys must be exact; "
-            f"missing={sorted(expected - actual)}, "
-            f"extra={sorted(actual - expected)}"
-        )
-    return value
-
-
-def _exact_list(
-    value: object,
-    label: str,
-    *,
-    nonempty: bool = False,
-) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = " non-empty" if nonempty else ""
-        raise R1AcquisitionError(
-            f"{label} must be an exact{qualifier} array"
-        )
-    return value
-
-
-def _exact_str(value: object, label: str) -> str:
-    if type(value) is not str or not value or "\x00" in value:
-        raise R1AcquisitionError(
-            f"{label} must be an exact non-empty NUL-free string"
-        )
-    return value
-
-
-def _exact_int(value: object, label: str, *, minimum: int = 0) -> int:
-    if type(value) is not int or value < minimum:
-        raise R1AcquisitionError(
-            f"{label} must be an exact integer >= {minimum}"
-        )
-    return value
+_STRICT = ExactFieldReader(R1AcquisitionError)
+_exact_object = _STRICT.object
+_exact_list = _STRICT.array
+_exact_str = _STRICT.string
+_exact_int = _STRICT.integer
 
 
 def _exact_bool(value: object, label: str) -> bool:
@@ -218,13 +178,7 @@ def _exact_bool(value: object, label: str) -> bool:
     return value
 
 
-def _sha256(value: object, label: str) -> str:
-    digest = _exact_str(value, label)
-    if _HEX64_RE.fullmatch(digest) is None:
-        raise R1AcquisitionError(
-            f"{label} must be 64 lowercase hexadecimal characters"
-        )
-    return digest
+_sha256 = _STRICT.sha256
 
 
 def _work_id(value: object, label: str = "work_id") -> str:

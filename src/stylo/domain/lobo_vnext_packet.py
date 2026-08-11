@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .._strict_fields import ExactFieldReader
 from ..jsonio import StrictJSONError, load_strict, loads_strict
 from .lobo_vnext import (
     CorpusVNextManifest,
@@ -62,49 +63,15 @@ class VNextTextRow:
     raw_sha256: str
 
 
-def _exact_object(value: object, keys: set[str], label: str) -> dict[str, Any]:
-    if type(value) is not dict:
-        raise VNextPacketError(f"{label} must be an exact JSON object")
-    actual = set(value)
-    if actual != keys:
-        raise VNextPacketError(
-            f"{label} keys must be exact; "
-            f"missing={sorted(keys - actual)}, extra={sorted(actual - keys)}"
-        )
-    return value
-
-
-def _exact_list(
-    value: object,
-    label: str,
-    *,
-    nonempty: bool = False,
-) -> list[Any]:
-    if type(value) is not list or (nonempty and not value):
-        qualifier = " non-empty" if nonempty else ""
-        raise VNextPacketError(f"{label} must be an exact{qualifier} array")
-    return value
-
-
-def _exact_str(value: object, label: str) -> str:
-    if (
-        type(value) is not str
-        or not value
-        or value != value.strip()
-        or "\x00" in value
-    ):
-        raise VNextPacketError(
-            f"{label} must be an exact non-empty trimmed string"
-        )
-    return value
-
-
-def _exact_int(value: object, label: str, *, minimum: int) -> int:
-    if type(value) is not int or value < minimum:
-        raise VNextPacketError(
-            f"{label} must be an exact integer >= {minimum}"
-        )
-    return value
+_STRICT = ExactFieldReader(
+    VNextPacketError,
+    string_policy="trimmed_nul",
+    hash_message="must be 64 lowercase hex characters",
+)
+_exact_object = _STRICT.object
+_exact_list = _STRICT.array
+_exact_str = _STRICT.string
+_exact_int = _STRICT.integer
 
 
 def _exact_bool(value: object, label: str) -> bool:
@@ -113,11 +80,7 @@ def _exact_bool(value: object, label: str) -> bool:
     return value
 
 
-def _sha256(value: object, label: str) -> str:
-    text = _exact_str(value, label)
-    if len(text) != 64 or any(char not in _HEX64 for char in text):
-        raise VNextPacketError(f"{label} must be 64 lowercase hex characters")
-    return text
+_sha256 = _STRICT.sha256
 
 
 def _relative_path(value: object, label: str) -> str:
