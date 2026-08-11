@@ -1,12 +1,12 @@
 # Current Handoff
 
-- State: **v3.2 evaluator accepted/unregistered; E1+E2+E3 simplification complete**
+- State: **v3.2 evaluator accepted/unregistered; frozen-input reconciliation active**
 - Updated: 2026-08-11
 - Verified baseline commit: `9ad57506` (integrated E2+E3 simplification candidate)
 - Branch/worktree at capture: `main`; attached; twenty-five commits ahead of `origin/main` before
   this metadata-only closeout
-- Active task: none; completed task:
-  `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
+- Active task: `docs/tasks/2026-08-11-v3-2-frozen-input-reconciliation.md`
+- Active task baseline: `c65ca28ab2c387a9e4deedb071f778cbe0ebeb23`
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
 This file routes the next session. Scientific and authorization status remains owned by the task,
@@ -47,11 +47,11 @@ governance ledger, protocol, and executable gates, not by this handoff.
 - No corpus bytes, results, receipts, production runtime, publication surface, external system,
   freeze, preflight, authorization, or execution changed.
 
-## 3. Completed bounded task
+## 3. Active bounded task
 
-The selected E1+E2+E3 wave is closed. Scientific identities and real bundle bytes remain frozen.
-One deletion/adversarial review passed with no correction pass. No next simplification wave is
-active.
+The owner authorized reconciliation of the accepted bundle's immutable protocol-byte identity and
+the corpus manifests' spaCy 3.8.14 runtime identity. The task may update only the bounded v3.2
+preparation/context dependency contract and must not begin freeze, preflight or execution.
 
 No R1/v3.2 execution, publication or external action is authorized by this task.
 
