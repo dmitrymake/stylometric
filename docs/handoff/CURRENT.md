@@ -1,11 +1,12 @@
 # Current Handoff
 
-- State: **v3.2 evaluator accepted/unregistered; bounded cleanup through D6 complete**
+- State: **v3.2 evaluator accepted/unregistered; E1+E2+E3 simplification active**
 - Updated: 2026-08-11
 - Verified baseline commit: `73f31e3a` (integrated D6 tracked-log release boundary)
 - Branch/worktree at capture: `main`; attached; twenty commits ahead of `origin/main` before this
   metadata-only closeout
-- Active task: none; cleanup contract is complete
+- Active task: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
+- Active task baseline: `e4dad4c419a85adee78651f6a2dc544ba7314f82`
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
 This file routes the next session. Scientific and authorization status remains owned by the task,
@@ -42,7 +43,15 @@ governance ledger, protocol, and executable gates, not by this handoff.
 - No corpus bytes, results, receipts, production runtime, publication surface, external system,
   freeze, preflight, authorization, or execution changed.
 
-## 3. Next separately authorized task
+## 3. Active bounded task
+
+The owner selected deletion of local-only `_fetch_tmp`, consolidation of repeated neutral R1 strict
+primitives, and replacement of the hostile Linux-filesystem v3.2 preparation claim with a trusted
+cooperative local-filesystem contract. Scientific identities and real bundle bytes remain frozen.
+
+No R1/v3.2 execution, publication or external action is authorized by this task.
+
+## 4. Next separately authorized task
 
 Define the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary under a new task contract.
 Do not begin checkpoints, inference, result auditing, publishing, freeze pinning, authorization, or
@@ -55,26 +64,27 @@ prepared v3.2 bundle/fold bytes remain frozen.
 Cleanup candidates D3-D5 remain unselected; do not start another simplification wave without a new
 state snapshot and explicit owner selection.
 
-## 4. Revalidation conditions
+## 5. Revalidation conditions
 
 Revalidate before mutation if HEAD history does not contain baseline `3b8cb83b` plus this closeout,
 branch is not attached `main`, task/governance bindings differ, the production registry is nonempty,
 freeze/preflight/authorization/execution status changes, or a new R3/sensitive-data factor appears.
 
-## 5. Available and unavailable evidence
+## 6. Available and unavailable evidence
 
 - Available: tracked task/governance/protocol/code/tests, local Git history, and the verified local
   bundle for bounded read-only context construction.
 - Unavailable/not inspected: external services, GitHub Pages runtime, secrets, production publication
   state, and raw/private corpus content as reportable evidence.
 
-## 6. References
+## 7. References
 
 - Task: `docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md`
 - Cleanup: `docs/tasks/2026-08-11-governance-and-retired-shim-cleanup.md`
 - Active surface: `docs/tasks/2026-08-11-active-surface-cleanup.md`
 - Legacy Python surface: `docs/tasks/2026-08-11-legacy-python-surface-pruning.md`
 - Log release boundary: `docs/tasks/2026-08-11-log-release-boundary.md`
+- Active simplification: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
 - Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
 - Preparation/protocol: `research/work_balanced/paired_audit_v3_2_preparation_review.md`,
   `research/work_balanced/paired_audit_protocol.md`
