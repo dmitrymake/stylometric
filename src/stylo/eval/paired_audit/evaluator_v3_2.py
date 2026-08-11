@@ -19,6 +19,8 @@ from ...jsonio import canonical_hash, dumps_strict
 from ...workdoc import load_work_balanced_dataset
 from .applicability_v3_2 import APPLICABILITY_V3_2_DIGEST, resolve_cell_v3_2
 from .corrected_v3_2 import (
+    FROZEN_CORPUS_CHUNKER_CONFIG_SHA256,
+    FROZEN_PROTOCOL_SHA256,
     LOBO_SINGLETON_AUTHORS,
     PROTOCOL_VERSION,
     verify_v3_2_candidate,
@@ -189,7 +191,7 @@ def _assert_universe(kind: str, dataset, manifest: Mapping, identity: Mapping) -
 
 def build_evaluation_context_v3_2(
     *, cfg, bundle_root: pathlib.Path | str, historical_parent_root: pathlib.Path | str,
-    ruaa_parent_selection: Sequence[str], protocol_sha256: str,
+    ruaa_parent_selection: Sequence[str],
 ) -> V32EvaluationContext:
     """Call the exact verifier first, then load only its bundle-local corrected child."""
     config_identity = _config_identity(cfg)
@@ -198,7 +200,7 @@ def build_evaluation_context_v3_2(
         historical_parent_root=historical_parent_root,
         ruaa_parent_selection=ruaa_parent_selection,
         config_hash=config_identity,
-        protocol_sha256=protocol_sha256,
+        protocol_sha256=FROZEN_PROTOCOL_SHA256,
     )
     candidate = verified["candidate"]
     corpus = verified["corpus_manifest"]
@@ -227,6 +229,7 @@ def build_evaluation_context_v3_2(
         corrected_root / "frags", cfg=cfg,
         input_clean_root=corrected_root / "input_clean",
         exclude_authors=(), unknown_name="unknown",
+        expected_chunker_config_hash=FROZEN_CORPUS_CHUNKER_CONFIG_SHA256,
     )
     ruaa_work_ids = [row["work_id"] for row in ruaa_manifest["works"]]
     ruaa_dataset = derive_work_subset(lobo_dataset, ruaa_work_ids, expected_n_works=134)
@@ -243,7 +246,7 @@ def build_evaluation_context_v3_2(
         corrected_corpus_identity=CORRECTED_CORPUS_IDENTITY,
         corpus_manifest_identity=CORPUS_MANIFEST_IDENTITY,
         config_identity=config_identity,
-        protocol_identity=protocol_sha256,
+        protocol_identity=FROZEN_PROTOCOL_SHA256,
         applicability_identity=APPLICABILITY_V3_2_DIGEST,
         content_isolation_identity=corpus["content_isolation_audit_digest"],
         work_identity_catalog_identity=corpus["full_work_identity_catalog_digest"],

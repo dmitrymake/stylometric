@@ -9,7 +9,7 @@ This is the single current roadmap for the repository. Scientific cell identifie
 `A0/A1/A4` remain stable where they define an estimand; execution chronology belongs in status
 metadata, not filenames or directories.
 
-Last reconciled: 2026-08-10.
+Last reconciled: 2026-08-11.
 
 ## Active scientific deliverable
 
@@ -26,6 +26,11 @@ bounded scientific review found one incomplete-class-universe blocker, which the
 correction pass fixed; no second independent-review PASS is claimed. The corrected candidate is
 accepted only as an unregistered input to a later task. This is not a reviewed freeze or an execution
 grant.
+
+Frozen-input reconciliation now binds the candidate to the immutable design-freeze protocol bytes
+and validates the historical corpus manifests by their recorded chunker identity during read-only
+context construction. The supported lock remains spaCy 3.8.11; no chunking, fit, prediction, freeze,
+or execution occurred, and a future run must bind its actual execution environment separately.
 
 The remediated preparation boundary derives one atomic local bundle with the exact three exclusions,
 full `author_id/work_slug` identities, diagnostic-only expected basename collisions, and the

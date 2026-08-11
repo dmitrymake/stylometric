@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import pathlib
 
 import yaml
 
 from stylo.config import ConfigNode
 from stylo.eval.paired_audit.corrected_v3_2 import (
+    FROZEN_PROTOCOL_SHA256,
     HISTORICAL_PARENT_DIGEST,
     assert_preparation_parity,
     load_stable_json,
@@ -17,10 +17,6 @@ from stylo.eval.paired_audit.corrected_v3_2 import (
     read_stable_bytes,
 )
 from stylo.eval.paired_audit.run_plan import config_id
-
-
-def _sha256(path: pathlib.Path) -> str:
-    return hashlib.sha256(read_stable_bytes(path)).hexdigest()
 
 
 def _ruaa_selection(path: pathlib.Path) -> list[str]:
@@ -60,7 +56,7 @@ def prepare(repo: pathlib.Path, output: pathlib.Path, *, parent: pathlib.Path | 
         output_root=output.absolute(),
         ruaa_parent_selection=_ruaa_selection(ruaa_manifest or repository / "data" / "ruaa_bench_v1" / "manifest.json"),
         config_hash=config_id(cfg),
-        protocol_sha256=_sha256(repository / "research" / "work_balanced" / "paired_audit_protocol.md"),
+        protocol_sha256=FROZEN_PROTOCOL_SHA256,
     )
 
 

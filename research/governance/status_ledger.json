@@ -1,6 +1,6 @@
 {
   "schema": "stylo.governance.status_ledger.v2",
-  "as_of": "2026-08-10",
+  "as_of": "2026-08-11",
   "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
   "paired_audit": {
     "protocol_v3_1": {
@@ -21,17 +21,17 @@
     },
     "protocol_v3_2": {
       "status": "owner_accepted_for_evaluator_implementation",
-      "claim": "The repository owner accepted the remediated v3.2 preparation for bounded evaluator implementation. It derives one local, unapproved atomic bundle only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. It binds full NFC author_id/work_slug identities, content isolation, independently reconstructed 252/248/134 folds, and the unchanged 16-cell/11-comparison matrix without stylo_stack. This owner disposition is not a freeze, execution grant, or independent security verdict.",
+      "claim": "The repository owner accepted the remediated v3.2 preparation for bounded evaluator implementation. It derives one local, unapproved atomic bundle only from the exact historical parent, excluding turgenev/записки_охотника, serafimovich/у_нас_и_у_них, and sevsky/дон_на_костылях. It binds full NFC author_id/work_slug identities, content isolation, independently reconstructed 252/248/134 folds, and the unchanged 16-cell/11-comparison matrix without stylo_stack. Frozen-input reconciliation binds immutable design-freeze protocol bytes and explicitly validates the already-chunked corpus by its recorded manifest identity; it does not represent that identity as the current runtime. This owner disposition is not a freeze, execution grant, or independent security verdict.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
           "symbol": "prepare_corrected_v3_2",
-          "sha256": "ba3a991040776bdac8083d5c44d4c90d62f441f44dd34033a95566edccfabd1c"
+          "sha256": "58bef16be6659d5e5f9f06a2dfcae1c3a1668f1417a25ce5fc8caa964c527cad"
         },
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
           "symbol": "verify_v3_2_candidate",
-          "sha256": "ba3a991040776bdac8083d5c44d4c90d62f441f44dd34033a95566edccfabd1c"
+          "sha256": "58bef16be6659d5e5f9f06a2dfcae1c3a1668f1417a25ce5fc8caa964c527cad"
         }
       ]
     },
@@ -41,7 +41,7 @@
     },
     "evaluator_candidate": {
       "status": "implemented_single_review_blocker_corrected_verified",
-      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate was implemented under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. The single independent scientific review of commit f2f9eb95816febfe7a82d6050f5e5fc1bdb35331 found one AC-07 incomplete-class-universe blocker; the one allowed correction pass fixed it in commit 4c74df5e. Affected and full regression checks passed afterward. No second independent-review PASS is claimed. The corrected candidate is accepted only as an unregistered input to a separately authorized future freeze/control-plane task and has no production registration or execution authority.",
+      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate was implemented under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. The single independent scientific review of commit f2f9eb95816febfe7a82d6050f5e5fc1bdb35331 found one AC-07 incomplete-class-universe blocker; the one allowed correction pass fixed it in commit 4c74df5e. Affected and full regression checks passed afterward. No second independent-review PASS is claimed. Frozen-input reconciliation makes context construction consume the immutable protocol identity and exact stored manifest identity while the lock remains spaCy 3.8.11; this performs no chunking, fit, or prediction. The corrected candidate is accepted only as an unregistered input to a separately authorized future freeze/control-plane task and has no production registration or execution authority.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",
@@ -51,7 +51,7 @@
         {
           "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
           "symbol": "evaluate_fold_v3_2",
-          "sha256": "4ca63970660bd4a6374c7fbb15d8d7664b30c0ceddf5b7639ab9ab5bdc25ca4f"
+          "sha256": "08f3a06a0aad3599c1becb741f25410f1b7cc4d12a8390d2d8ceca4c46d99b88"
         },
         {
           "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",

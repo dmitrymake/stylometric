@@ -26,6 +26,10 @@ from ...domain.corpus_identity import find_cross_work_content_overlaps
 
 
 PROTOCOL_VERSION = "paired_audit_protocol_v3_2"
+# Exact paired_audit_protocol.md bytes at design-freeze commit adc395638e186b290b83caac9bf71eb42f4ed89e.
+FROZEN_PROTOCOL_SHA256 = "02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334"
+# Exact chunker identity recorded by every accepted corrected-corpus work manifest.
+FROZEN_CORPUS_CHUNKER_CONFIG_SHA256 = "23361b5f07514f15b681e575a685d1119f38a9982facb102a8b692f8180c1963"
 IDENTITY_CONTRACT_VERSION = "paired_audit.full_work_identity.v3_2"
 HISTORICAL_PARENT_DIGEST = "15d265e0878dbf1acd9224e2558598ff7266fd6fc650585d1433fbd65a717029"
 HISTORICAL_PARENT_SCHEMA = "paired_audit.corpus.v1"
@@ -1416,7 +1420,8 @@ def assert_preparation_parity(first: pathlib.Path | str, second: pathlib.Path | 
 
 __all__ = [
     "BUNDLE_STORAGE_CONTRACT_VERSION", "CorrectedCorpusError", "EXCLUDED_WORK_IDS",
-    "HISTORICAL_PARENT_DIGEST", "IDENTITY_CONTRACT_VERSION", "PARITY_CONTRACT_VERSION",
+    "FROZEN_CORPUS_CHUNKER_CONFIG_SHA256", "FROZEN_PROTOCOL_SHA256", "HISTORICAL_PARENT_DIGEST",
+    "IDENTITY_CONTRACT_VERSION", "PARITY_CONTRACT_VERSION",
     "PREPARATION_STATUS", "assert_preparation_parity", "assert_v3_2_fold_manifest", "applicability_matrix",
     "basename_collision_inventory", "content_isolation_audit", "full_work_id", "prepare_corrected_v3_2",
     "load_stable_json", "read_stable_bytes", "resolve_full_work",

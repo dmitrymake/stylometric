@@ -228,6 +228,26 @@ class TestCanonicalLoader:
                     for a, b, n in [("a1", "b1", 3), ("a1", "b2", 2), ("a2", "b3", 5)] for i in range(n)]
         assert list(ds._manifest_paths) == expected
 
+    def test_frozen_manifest_identity_is_explicit_and_fail_closed(self, tmp_path):
+        frags, ic = self._corpus(tmp_path)
+        cfg = load_config(overrides=parse_set_overrides([f"paths.input_clean={ic}"]))
+        ds = wd.load_work_balanced_dataset(
+            frags, cfg=cfg, expected_chunker_config_hash=_CH,
+        )
+        assert ds.provenance.chunker_config_hash == _CH
+        with pytest.raises(wd.ManifestError, match="chunker_config_hash mismatch"):
+            wd.load_work_balanced_dataset(
+                frags, cfg=cfg, expected_chunker_config_hash="f" * 64,
+            )
+
+    def test_frozen_manifest_identity_must_be_canonical_sha256(self, tmp_path):
+        frags, ic = self._corpus(tmp_path)
+        cfg = load_config(overrides=parse_set_overrides([f"paths.input_clean={ic}"]))
+        with pytest.raises(wd.ManifestError, match="64 lowercase hex"):
+            wd.load_work_balanced_dataset(
+                frags, cfg=cfg, expected_chunker_config_hash="not-a-digest",
+            )
+
     def test_stray_author_txt_rejected(self, tmp_path, monkeypatch):
         frags, ic = self._corpus(tmp_path)
         (frags / "a1" / "rogue.txt").write_text("x", encoding="utf-8")

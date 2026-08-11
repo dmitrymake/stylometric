@@ -108,7 +108,9 @@
         "preparation_bundle_storage_contract",
         "exact_recursive_inventory_and_SHA256SUMS",
         "LOBO_RuAA_selection_and_fold_digests",
-        "applicability_matrix_digest"
+        "applicability_matrix_digest",
+        "immutable_design_freeze_protocol_sha256",
+        "frozen_corpus_chunker_config_sha256"
       ],
       "required_nodeids": [
         "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
@@ -120,7 +122,9 @@
         "tests/test_paired_audit_corrected_v3_2.py::test_child_manifest_external_symlink_rejected_before_parse",
         "tests/test_paired_audit_corrected_v3_2.py::test_content_equivalent_hardlink_is_accepted",
         "tests/test_paired_audit_corrected_v3_2.py::test_invalid_self_rehashed_child_binding_rejected_with_zero_child_use[absolute]",
-        "tests/test_paired_audit_corrected_v3_2.py::test_crash_after_successful_rename_is_exactly_reused"
+        "tests/test_paired_audit_corrected_v3_2.py::test_crash_after_successful_rename_is_exactly_reused",
+        "tests/test_paired_audit_corrected_v3_2.py::test_preparation_cli_uses_only_the_frozen_protocol_identity",
+        "tests/test_workdoc.py::TestCanonicalLoader::test_frozen_manifest_identity_is_explicit_and_fail_closed"
       ]
     },
     {

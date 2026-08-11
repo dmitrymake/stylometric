@@ -51,6 +51,7 @@ and storage contract changed, so the candidate/bundle identity rotated.
 | parent identity catalog | `d7690b5a7774967a71da8a4556165d77cd1a22bcb68562b773bb4e4b0899047c` | same | reconstructed |
 | exclusion policy | `0907c9acd93375d74d404fa88d36b0d5c6061a5a4caf398de44afe9392d9e4bc` | same | protocol unchanged |
 | frozen protocol bytes | `02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334` | same | accepted preparation identity; later status prose is not substituted |
+| frozen corpus chunker config | `23361b5f07514f15b681e575a685d1119f38a9982facb102a8b692f8180c1963` | same | manifest identity supplied explicitly for read-only validation; not represented as the current spaCy 3.8.11 runtime |
 | corrected identity catalog | `85dfafc859912b83e88e8400565580eb01db9eac0afff51564d9ab4b57f12137` | same | universe/content unchanged |
 | basename audit | `791bf2cc31e439aab50d750177c1fe1a8e56829c525ca34db88153b073f57326` | same | audit unchanged |
 | content-isolation audit | `a561bbde00a15071e9d5e0805e4e168ea705c4f52b803a167b2b715fcaf45784` | same | audit unchanged |
@@ -109,3 +110,9 @@ security review verdict. The next independent gate is the evaluator candidate's 
 scientific review. Freeze/production-registry/preflight/authorization/execution/headline/publication
 remain respectively unapproved, empty, absent, absent, hard-disabled, not authorized, and not
 authorized.
+
+The frozen-input reconciliation keeps `requirements.lock` and the local runtime at spaCy 3.8.11.
+Read-only context construction does not invoke the chunker: it validates the already-created chunk
+bytes against the exact 3.8.14-derived manifest identity above. A future scientific RunPlan must bind
+its actual locked execution environment separately. No claim about new experimental metrics, and no
+fit or prediction, follows from this reconciliation.

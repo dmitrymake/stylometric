@@ -27,7 +27,10 @@ from stylo.eval.paired_audit.applicability_v3_2 import (
     V32ApplicabilityError,
     resolve_cell_v3_2,
 )
-from stylo.eval.paired_audit.corrected_v3_2 import applicability_matrix
+from stylo.eval.paired_audit.corrected_v3_2 import (
+    FROZEN_CORPUS_CHUNKER_CONFIG_SHA256,
+    applicability_matrix,
+)
 from stylo.eval.paired_audit.evidence_v3_2 import (
     V32EvidenceError,
     validate_receipt_v3_2,
@@ -371,9 +374,6 @@ def test_two_real_context_loads_are_identical_and_never_fit_predict(monkeypatch)
     if not bundle_raw:
         pytest.skip("set STYLO_V32_BUNDLE_ROOT to the exact verified local v3.2 bundle")
     bundle = pathlib.Path(bundle_raw)
-    # The accepted candidate binds the immutable scientific protocol bytes from its preparation
-    # baseline, not later status-only prose edits to the tracked protocol document.
-    protocol = "02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334"
     parent = ROOT / "data/audit_corpus/15d265e0878dbf1acd9224e2558598ff7266fd6fc650585d1433fbd65a717029"
 
     def forbidden(*args, **kwargs):
@@ -384,16 +384,17 @@ def test_two_real_context_loads_are_identical_and_never_fit_predict(monkeypatch)
     cfg2 = load_config(ROOT / "configs/default.yaml")
     first = ev.build_evaluation_context_v3_2(
         cfg=cfg1, bundle_root=bundle, historical_parent_root=parent,
-        ruaa_parent_selection=_real_selection(), protocol_sha256=protocol,
+        ruaa_parent_selection=_real_selection(),
     )
     second = ev.build_evaluation_context_v3_2(
         cfg=cfg2, bundle_root=bundle, historical_parent_root=parent,
-        ruaa_parent_selection=_real_selection(), protocol_sha256=protocol,
+        ruaa_parent_selection=_real_selection(),
     )
     assert first.context_identity == second.context_identity
     assert first.context_identity == "2805aff91988173561be783c92c048d0276b9e0caeeef42318fe354d05680b81"
     assert (len(first.lobo_dataset.authors), len(set(first.lobo_dataset.groups))) == (47, 252)
     assert (len(first.ruaa_dataset.authors), len(set(first.ruaa_dataset.groups))) == (22, 134)
+    assert first.lobo_dataset.provenance.chunker_config_hash == FROZEN_CORPUS_CHUNKER_CONFIG_SHA256
     assert first.ruaa_work_selection_identity != first.ruaa_dataset_identity["row_selection_identity"]
 
 

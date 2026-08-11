@@ -65,7 +65,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "bounded_exploratory_milestones", "historical_records"
     }
     assert ledger["schema"] == "stylo.governance.status_ledger.v2"
-    assert ledger["as_of"] == "2026-08-10"
+    assert ledger["as_of"] == "2026-08-11"
     expected_states = {
         "protocol_v3_1": "superseded_ineligible_corpus",
         "protocol_v3_2": "owner_accepted_for_evaluator_implementation",
@@ -233,6 +233,8 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
     )
     claim = ledger["paired_audit"]["protocol_v3_2"]["claim"]
     assert "full NFC author_id/work_slug" in claim
+    assert "immutable design-freeze protocol bytes" in claim
+    assert "recorded manifest identity" in claim
     assert "not a freeze, execution grant, or independent security verdict" in claim
     assert ledger["paired_audit"]["independent_security_audit"]["status"] == (
         "not_claimed_review_terminated_by_owner"

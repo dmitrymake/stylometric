@@ -5,6 +5,7 @@ import copy
 import hashlib
 import os
 import pathlib
+import runpy
 import shutil
 import stat
 
@@ -13,6 +14,35 @@ import pytest
 from stylo.jsonio import dump_strict, load_strict
 from stylo.eval.paired_audit import corrected_v3_2 as v3
 from stylo.eval.paired_audit import corpus as historical_corpus
+
+
+def test_preparation_cli_uses_only_the_frozen_protocol_identity(tmp_path):
+    script = runpy.run_path(
+        str(pathlib.Path(__file__).resolve().parents[1]
+            / "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py")
+    )
+    reads = []
+    captured = {}
+
+    def read_config(path):
+        reads.append(pathlib.Path(path).name)
+        return b"{}\n"
+
+    def capture(**kwargs):
+        captured.update(kwargs)
+        return {"candidate_root": tmp_path / "candidate"}
+
+    script_globals = script["prepare"].__globals__
+    script_globals["read_stable_bytes"] = read_config
+    script_globals["_ruaa_selection"] = lambda _path: ["author/work"]
+    script_globals["prepare_corrected_v3_2"] = capture
+    script["prepare"](tmp_path, tmp_path / "output", parent=tmp_path / "parent")
+
+    assert reads == ["default.yaml"]
+    assert captured["protocol_sha256"] == v3.FROZEN_PROTOCOL_SHA256
+    assert v3.FROZEN_PROTOCOL_SHA256 == (
+        "02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334"
+    )
 
 
 def _record(work_id: str, text: str, *, author: str | None = None) -> dict:

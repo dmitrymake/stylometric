@@ -413,6 +413,7 @@ def load_work_balanced_dataset(
     input_clean_root: str | pathlib.Path | None = None,
     exclude_authors: Iterable[str] = (),
     unknown_name: str = "unknown",
+    expected_chunker_config_hash: str | None = None,
 ):
     """The single canonical loader for the ``work_balanced`` path.
 
@@ -420,7 +421,9 @@ def load_work_balanced_dataset(
     order). Rejects symlinked author/work dirs and paths escaping the corpus root, stray
     .txt directly under an author dir, and enforces global work-id uniqueness and full
     author coverage. ``input_clean_root`` defaults to ``cfg.paths.input_clean`` (provenance
-    is mandatory).
+    is mandatory). A caller loading an immutable, already-chunked corpus may supply its frozen
+    manifest hash; this validates stored bytes and does not claim that the current runtime created
+    them. Otherwise the expected hash is derived from the current config/runtime as before.
     """
     from .corpus import Dataset  # local import to avoid a cycle
 
@@ -430,7 +433,11 @@ def load_work_balanced_dataset(
     root_resolved = root.resolve()
     if input_clean_root is None:
         input_clean_root = cfg.get_path("paths.input_clean", "input_clean")
-    expected_hash = chunker_config_hash(cfg)
+    expected_hash = expected_chunker_config_hash
+    if expected_hash is None:
+        expected_hash = chunker_config_hash(cfg)
+    elif type(expected_hash) is not str or not _SHA256_RE.fullmatch(expected_hash):
+        raise ManifestError("expected_chunker_config_hash must be 64 lowercase hex chars")
     if isinstance(exclude_authors, (str, bytes)):     # a bare string would become a set of letters
         raise ManifestError("exclude_authors must be an iterable of author ids, not a string")
     exclude_authors = tuple(exclude_authors)          # materialize ONCE (a generator is consumed twice)
