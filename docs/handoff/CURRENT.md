@@ -1,12 +1,12 @@
 # Current Handoff
 
-- State: **v3.2 evaluator accepted/unregistered; E1+E2+E3 simplification active**
+- State: **v3.2 evaluator accepted/unregistered; E1+E2+E3 simplification complete**
 - Updated: 2026-08-11
-- Verified baseline commit: `73f31e3a` (integrated D6 tracked-log release boundary)
-- Branch/worktree at capture: `main`; attached; twenty commits ahead of `origin/main` before this
-  metadata-only closeout
-- Active task: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
-- Active task baseline: `e4dad4c419a85adee78651f6a2dc544ba7314f82`
+- Verified baseline commit: `9ad57506` (integrated E2+E3 simplification candidate)
+- Branch/worktree at capture: `main`; attached; twenty-five commits ahead of `origin/main` before
+  this metadata-only closeout
+- Active task: none; completed task:
+  `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
 This file routes the next session. Scientific and authorization status remains owned by the task,
@@ -39,21 +39,30 @@ governance ledger, protocol, and executable gates, not by this handoff.
   were deleted: 11 Python paths plus one private JSON resource, net -1,098 production Python LOC.
   Active feature/NLP and erratum implementations, scientific artifacts and claims are unchanged.
 - All 22 tracked historical `log/` files remain in Git but are excluded from the Git-free source
-  archive; archive Python exposure is 327 -> 306 while the reviewed 298-path inventory is unchanged.
+  archive; archive Python exposure is 327 -> 306. The then-reviewed inventory had 298 paths.
+- The ignored 26-file `_fetch_tmp` island was deleted; repeated R1 strict primitives now use one
+  internal helper; the v3.2 preparation uses a cooperative local single-writer physical contract.
+  Cumulative tracked production/test LOC changed by -597/-200 with full regression and archive
+  gates passing. The executable inventory is now 299 paths because of the one internal helper.
 - No corpus bytes, results, receipts, production runtime, publication surface, external system,
   freeze, preflight, authorization, or execution changed.
 
-## 3. Active bounded task
+## 3. Completed bounded task
 
-The owner selected deletion of local-only `_fetch_tmp`, consolidation of repeated neutral R1 strict
-primitives, and replacement of the hostile Linux-filesystem v3.2 preparation claim with a trusted
-cooperative local-filesystem contract. Scientific identities and real bundle bytes remain frozen.
+The selected E1+E2+E3 wave is closed. Scientific identities and real bundle bytes remain frozen.
+One deletion/adversarial review passed with no correction pass. No next simplification wave is
+active.
 
 No R1/v3.2 execution, publication or external action is authorized by this task.
 
 ## 4. Next separately authorized task
 
-Define the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary under a new task contract.
+Before defining the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary, reconcile two
+explicit immutable-input prerequisites under a new task contract: the accepted bundle's frozen
+protocol-byte hash `023418...` versus later status-only protocol prose, and corpus chunker runtime
+identity spaCy 3.8.14 versus `requirements.lock` spaCy 3.8.11.
+
+Then define the RunPlan/freeze boundary under separate authorization.
 Do not begin checkpoints, inference, result auditing, publishing, freeze pinning, authorization, or
 the real 6112-fold execution from this handoff.
 
@@ -66,14 +75,16 @@ state snapshot and explicit owner selection.
 
 ## 5. Revalidation conditions
 
-Revalidate before mutation if HEAD history does not contain baseline `3b8cb83b` plus this closeout,
+Revalidate before mutation if HEAD history does not contain integrated candidate `9ad57506` plus
+this closeout,
 branch is not attached `main`, task/governance bindings differ, the production registry is nonempty,
 freeze/preflight/authorization/execution status changes, or a new R3/sensitive-data factor appears.
 
 ## 6. Available and unavailable evidence
 
-- Available: tracked task/governance/protocol/code/tests, local Git history, and the verified local
-  bundle for bounded read-only context construction.
+- Available: tracked task/governance/protocol/code/tests, local Git history, the exact historical
+  parent and RuAA selection, and frozen identities sufficient to reconstruct a temporary bundle for
+  bounded read-only context construction.
 - Unavailable/not inspected: external services, GitHub Pages runtime, secrets, production publication
   state, and raw/private corpus content as reportable evidence.
 
@@ -84,7 +95,7 @@ freeze/preflight/authorization/execution status changes, or a new R3/sensitive-d
 - Active surface: `docs/tasks/2026-08-11-active-surface-cleanup.md`
 - Legacy Python surface: `docs/tasks/2026-08-11-legacy-python-surface-pruning.md`
 - Log release boundary: `docs/tasks/2026-08-11-log-release-boundary.md`
-- Active simplification: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
+- Completed simplification: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
 - Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
 - Preparation/protocol: `research/work_balanced/paired_audit_v3_2_preparation_review.md`,
   `research/work_balanced/paired_audit_protocol.md`
