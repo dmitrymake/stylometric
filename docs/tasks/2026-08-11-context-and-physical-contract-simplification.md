@@ -132,7 +132,8 @@ filesystem mutator.
 - E2 allowed production paths: R1 `src/stylo/domain/lobo_vnext*.py`,
   `src/stylo/corpus_tools/*vnext.py`, `ruaa_r1_*.py`, `src/stylo/eval/lobo_vnext*.py`, plus one
   internal helper under `src/stylo/`.
-- E3 allowed production path: `src/stylo/eval/paired_audit/corrected_v3_2.py` only.
+- E3 allowed production paths: `src/stylo/eval/paired_audit/corrected_v3_2.py` and its direct
+  preparation CLI consumer `scripts/evaluation/prepare_corrected_paired_audit_v3_2.py` only.
 - Tests may change only in directly owning R1/v3.2 tests and governance tests; cumulative test LOC
   must be non-positive.
 - Task/governance/handoff docs net addition ceiling: 320 lines.
