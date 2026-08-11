@@ -70,7 +70,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "protocol_v3_1": "superseded_ineligible_corpus",
         "protocol_v3_2": "owner_accepted_for_evaluator_implementation",
         "independent_security_audit": "not_claimed_review_terminated_by_owner",
-        "evaluator_candidate": "implemented_single_review_blocker_corrected_verified",
+        "evaluator_candidate": "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled",
         "manifest_freeze": "unapproved",
         "production_evaluator": "unregistered",
         "preflight": "absent",
@@ -240,9 +240,12 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
         "not_claimed_review_terminated_by_owner"
     )
     evaluator = ledger["paired_audit"]["evaluator_candidate"]
-    assert evaluator["status"] == "implemented_single_review_blocker_corrected_verified"
+    assert evaluator["status"] == (
+        "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled"
+    )
     assert "one AC-07 incomplete-class-universe blocker" in evaluator["claim"]
-    assert "No second independent-review PASS is claimed" in evaluator["claim"]
+    assert "No second review of the original evaluator acceptance is claimed" in evaluator["claim"]
+    assert "bounded review of commit a4908d08 passed" in evaluator["claim"]
     assert [binding["symbol"] for binding in evaluator["bindings"]] == [
         "REGISTRY_V3_2", "evaluate_fold_v3_2", "validate_receipt_v3_2",
     ]

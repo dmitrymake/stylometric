@@ -1,12 +1,12 @@
 # Current Handoff
 
-- State: **v3.2 evaluator accepted/unregistered; frozen-input reconciliation active**
+- State: **v3.2 evaluator accepted/unregistered; frozen inputs reconciled**
 - Updated: 2026-08-11
-- Verified baseline commit: `9ad57506` (integrated E2+E3 simplification candidate)
-- Branch/worktree at capture: `main`; attached; twenty-five commits ahead of `origin/main` before
+- Verified baseline commit: `a4908d08` (reviewed frozen-input reconciliation candidate)
+- Branch/worktree at capture: `main`; attached; twenty-nine commits ahead of `origin/main` before
   this metadata-only closeout
-- Active task: `docs/tasks/2026-08-11-v3-2-frozen-input-reconciliation.md`
-- Active task baseline: `c65ca28ab2c387a9e4deedb071f778cbe0ebeb23`
+- Active task: none
+- Last completed task: `docs/tasks/2026-08-11-v3-2-frozen-input-reconciliation.md`
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
 This file routes the next session. Scientific and authorization status remains owned by the task,
@@ -47,22 +47,21 @@ governance ledger, protocol, and executable gates, not by this handoff.
 - No corpus bytes, results, receipts, production runtime, publication surface, external system,
   freeze, preflight, authorization, or execution changed.
 
-## 3. Active bounded task
+## 3. Completed bounded task
 
-The owner authorized reconciliation of the accepted bundle's immutable protocol-byte identity and
-the corpus manifests' spaCy 3.8.14 runtime identity. The task may update only the bounded v3.2
-preparation/context dependency contract and must not begin freeze, preflight or execution.
+The accepted candidate now binds the immutable design-freeze protocol SHA `023418...`; later
+status-only protocol prose is not substituted. Read-only context construction validates the frozen
+corpus manifests by exact chunker identity `23361...` without representing it as the current runtime.
+The lock and local runtime remain spaCy 3.8.11. Exact bundle `ff620b05...` and context `2805aff9...`
+were reproduced twice without fit/predict. The single bounded reconciliation review passed at
+`a4908d08`; no correction pass was needed.
 
 No R1/v3.2 execution, publication or external action is authorized by this task.
 
 ## 4. Next separately authorized task
 
-Before defining the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary, reconcile two
-explicit immutable-input prerequisites under a new task contract: the accepted bundle's frozen
-protocol-byte hash `023418...` versus later status-only protocol prose, and corpus chunker runtime
-identity spaCy 3.8.14 versus `requirements.lock` spaCy 3.8.11.
-
-Then define the RunPlan/freeze boundary under separate authorization.
+Define the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary under a new task and
+separate authorization. The completed frozen-input reconciliation does not grant that authority.
 Do not begin checkpoints, inference, result auditing, publishing, freeze pinning, authorization, or
 the real 6112-fold execution from this handoff.
 
@@ -75,8 +74,8 @@ state snapshot and explicit owner selection.
 
 ## 5. Revalidation conditions
 
-Revalidate before mutation if HEAD history does not contain integrated candidate `9ad57506` plus
-this closeout,
+Revalidate before mutation if HEAD history does not contain reviewed candidate `a4908d08` plus this
+closeout,
 branch is not attached `main`, task/governance bindings differ, the production registry is nonempty,
 freeze/preflight/authorization/execution status changes, or a new R3/sensitive-data factor appears.
 
@@ -91,6 +90,7 @@ freeze/preflight/authorization/execution status changes, or a new R3/sensitive-d
 ## 7. References
 
 - Task: `docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md`
+- Frozen inputs: `docs/tasks/2026-08-11-v3-2-frozen-input-reconciliation.md`
 - Cleanup: `docs/tasks/2026-08-11-governance-and-retired-shim-cleanup.md`
 - Active surface: `docs/tasks/2026-08-11-active-surface-cleanup.md`
 - Legacy Python surface: `docs/tasks/2026-08-11-legacy-python-surface-pruning.md`

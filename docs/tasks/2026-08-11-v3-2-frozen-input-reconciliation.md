@@ -3,7 +3,7 @@
 ## Metadata
 
 - Task ID: `2026-08-11-v3-2-frozen-input-reconciliation`
-- Status: active
+- Status: complete
 - Owner: repository owner
 - Created: 2026-08-11
 - Baseline commit: `c65ca28ab2c387a9e4deedb071f778cbe0ebeb23`
@@ -76,20 +76,20 @@ the accepted identities without monkeypatching and without fit/predict.
 
 ## 4. Frozen acceptance
 
-- [ ] AC-01 One capability-owned constant equals `023418...` and names design-freeze commit
+- [x] AC-01 One capability-owned constant equals `023418...` and names design-freeze commit
   `adc39563`; CLI and evaluator consume it without a duplicate literal or current-document hash.
-- [ ] AC-02 Preparation with supported inputs reproduces candidate `ff620b05...`, manifest
+- [x] AC-02 Preparation with supported inputs reproduces candidate `ff620b05...`, manifest
   `a2dc0c4a...`, LOBO `117b8ec9...` and RuAA `d8428290...`; passing current status-prose SHA does
   not become accepted provenance.
-- [ ] AC-03 `requirements.lock` and local runtime remain at spaCy 3.8.11; dependency validation
+- [x] AC-03 `requirements.lock` and local runtime remain at spaCy 3.8.11; dependency validation
   passes; the v3.2 context supplies exact frozen chunker identity `23361b5f...` to the canonical
   loader, which accepts only matching manifests and never represents it as current runtime state.
-- [ ] AC-04 Two real read-only context loads without metadata patching both produce `2805aff9...`,
+- [x] AC-04 Two real read-only context loads without metadata patching both produce `2805aff9...`,
   exact 47/252 and 22/134 universes, and never reach fit/predict.
-- [ ] AC-05 Candidate/bundle/fold/applicability identities and bytes remain unchanged; production
+- [x] AC-05 Candidate/bundle/fold/applicability identities and bytes remain unchanged; production
   registry stays empty, freeze unapproved, preflight/authorization absent, execution hard-disabled,
   publication not authorized.
-- [ ] AC-06 Focused/full tests, py_compile, dependency validation, inventory, provenance,
+- [x] AC-06 Focused/full tests, py_compile, dependency validation, inventory, provenance,
   checkout/archive release hygiene and diff check pass.
 
 ## 5. Complexity tripwires and review
@@ -116,4 +116,24 @@ the accepted identities without monkeypatching and without fit/predict.
 - Review only AC/invariants/regression/tripwires. Existing absence of freeze/control-plane is not a
   blocker and must not be implemented here.
 
-Result: pending.
+Result: PASS at review-candidate commit `a4908d08` with zero correction passes.
+
+- Frozen identities are capability-owned and single-routed: protocol `02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334`
+  and corpus chunker manifest `23361b5f07514f15b681e575a685d1119f38a9982facb102a8b692f8180c1963`.
+  The mutable current protocol document remains `4efcc7...` and is not candidate provenance.
+- Preparation reproduced candidate `ff620b05...`, corpus manifest `a2dc0c4a...`, LOBO `117b8ec9...`
+  and RuAA `d8428290...`. Two ordinary real read-only context loads produced `2805aff9...`, exact
+  47/252 and 22/134 universes, and never reached the forbidden fit/predict hook.
+- A dry-run spaCy 3.8.14 resolver expansion was rejected before environment mutation. The tracked
+  lock and runtime remain 3.8.11; `uv pip check` verified 61 compatible packages and local loading
+  verified `ru_core_news_lg` 3.8.0 (`>=3.8.0,<3.9.0`). The network-dependent spaCy compatibility
+  table was unavailable, which is not substituted for local evidence.
+- Focused tests, full pytest, physical-file py_compile, provenance (93 sources + one output),
+  299-path executable inventory, checkout and Git-free archive hygiene/inventory/provenance, and
+  diff check passed. Full pytest retained two pre-existing invalid-escape warnings.
+- The single clean detached review of exact `a4908d08` reproduced the frozen hashes, context,
+  universes, empty production registry and no-fit/predict invariant: PASS, no blocker. This was the
+  bounded reconciliation review, not a second review of the original evaluator acceptance.
+- Tripwires held: four existing production paths, +23/-12 production LOC, +57 test LOC, no new
+  dependency, module, entrypoint, framework, state or prepared-byte change. Freeze, preflight,
+  authorization, execution, headline and publication remain unchanged and non-authorizing.
