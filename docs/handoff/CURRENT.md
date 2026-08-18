@@ -1,12 +1,11 @@
 # Current Handoff
 
 - State: **v3.2 evaluator accepted/unregistered; frozen inputs reconciled**
-- Updated: 2026-08-11
-- Verified baseline commit: `a4908d08` (reviewed frozen-input reconciliation candidate)
-- Branch/worktree at capture: `main`; attached; twenty-nine commits ahead of `origin/main` before
-  this metadata-only closeout
+- Updated: 2026-08-18
+- Verified baseline commit: `d0114de3` (current HEAD; lineage includes reviewed frozen-input reconciliation candidate `a4908d08`)
+- Branch/worktree at capture: `main`; attached; thirty-seven commits ahead of `origin/main`
 - Active task: none
-- Last completed task: `docs/tasks/2026-08-11-v3-2-frozen-input-reconciliation.md`
+- Last completed task: `docs/tasks/2026-08-18-d3-d5-simplification-campaign.md`
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
 This file routes the next session. Scientific and authorization status remains owned by the task,
@@ -69,8 +68,8 @@ Primary domain remains `evaluation/paired-audit`; corpus/data access is read-onl
 and research-governance changes are metadata/status only. Legacy v3.1 control-plane modules and
 prepared v3.2 bundle/fold bytes remain frozen.
 
-Cleanup candidates D3-D5 remain unselected; do not start another simplification wave without a new
-state snapshot and explicit owner selection.
+D3-D5 simplification campaign is closed: all three selected candidates were accepted. Do not start
+another simplification wave without a new state snapshot and explicit owner selection.
 
 ## 5. Revalidation conditions
 
@@ -96,6 +95,7 @@ freeze/preflight/authorization/execution status changes, or a new R3/sensitive-d
 - Legacy Python surface: `docs/tasks/2026-08-11-legacy-python-surface-pruning.md`
 - Log release boundary: `docs/tasks/2026-08-11-log-release-boundary.md`
 - Completed simplification: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
+- D3-D5 campaign: `docs/tasks/2026-08-18-d3-d5-simplification-campaign.md`
 - Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
 - Preparation/protocol: `research/work_balanced/paired_audit_v3_2_preparation_review.md`,
   `research/work_balanced/paired_audit_protocol.md`

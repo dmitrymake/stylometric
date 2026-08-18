@@ -3,7 +3,7 @@
 ## Metadata
 
 - Task ID: `2026-08-18-d3-d5-simplification-campaign`
-- Status: active
+- Status: completed
 - Owner: repository owner
 - Created: 2026-08-18
 - Baseline commit: `0f2897af9bcff40119dfda9b0963f467e81abe98`
@@ -210,3 +210,43 @@ review and at most one bounded correction per fix.
 - DOD-13: pruning/deletion review and reduction or partial/block.
 - DOD-14: identical before/after context-packet method.
 - DOD-15: audit, selection, bounded fixes, integration, metrics, and finite stop without auto-wave.
+
+## Result
+
+### Commits
+
+- `493325c6` — task baseline (`docs: activate D3-D5 simplification campaign`)
+- `1935a99d` — D3 implementation (`refactor: remove stale _fetch_tmp entries from executable-source inventory`)
+- `1a606467` — D4 implementation (`docs: link work-balanced preparation review in README`)
+- `dc3b09c9` — D5 implementation (`docs: collapse cases orientation into one README table`)
+- `2cf7afd3` — D3 merge (`merge: D3 inventory reconciliation (release/executable_sources.json)`)
+- `90bcaf55` — D4 merge (`merge: D4 work-balanced README navigation`)
+- `d0114de3` — D5 merge (`merge: D5 cases README orientation table`)
+
+### Cumulative result
+
+- **Cumulative diff vs task baseline (`493325c6`):** 3 files changed, +11 insertions, -58 deletions. No new production/test/docs files.
+- **Inventory state preserved:** `release_python_file_count=299`, `release_python_paths_sha256=747a07c57648d91467d477cab6c68fc8f3d17e0db4a7ddba8250ac8abcd7811f`, `local_only_python_files` reduced from 28 to 2 (the two verified Petersburg builders).
+- **D3:** 26 phantom `_fetch_tmp/*.py` rows removed; Petersburg builders verified via `git ls-files` (empty), `git check-ignore` (matched), `git archive` (absent), and `file` (ordinary Python).
+- **D4:** `research/work_balanced/README.md` 16 → 8 lines, 813 → 770 bytes. All 6 markdown links resolve. No forbidden keywords (freeze/registered/preflight/authorization/execution/security-PASS/publication) in added content.
+- **D5:** `docs/cases/README.md` 95 → 82 lines, 4958 → 3944 bytes. Compact table replaces fragmented intro. v2 abstention / Taras withdrawal / Petersburg historical closed-set semantics preserved. No `strong`/`moderate` revival in added content. Pre-existing `docs/cases/HANDOFF.md` referenced but not present in baseline; preserved as pre-existing.
+
+### Verification PASS
+
+- `git diff --check 493325c6..HEAD` empty
+- `python3 -c "..."` inventory check: 299 paths, sha256 unchanged
+- `.venv/bin/python scripts/check_executable_source_inventory.py` → OK
+- `.venv/bin/python scripts/check_release_hygiene.py` → no private corpus paths
+- `pytest tests/test_release_integrity.py`: 100%
+- `pytest tests/test_executable_source_inventory.py`: 100%
+- `pytest tests/test_medium_governance.py`: 23/23
+- `pytest tests/test_release_hygiene.py`: 5/5
+- `pytest tests/test_cases_framework.py`: 23/23
+- `pytest tests/test_ci_release_matrix.py`: 3/3
+- Git-free archive: 299 paths, sha256 unchanged, no `log/` subtree
+
+### Campaign stop
+
+All 3 selected candidates accepted; no automatic next wave.
+
+No deploy, publication, scientific change, registry/freeze/preflight/authorization/execution, external write, or push.
