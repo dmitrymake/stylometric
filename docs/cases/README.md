@@ -1,25 +1,12 @@
 # Case Gate Specs
 
-`stylo case` выполняет work-level feasibility gate и описательные closed-set
-диагностики. Научная атрибуция target сейчас всегда воздерживается: в проекте
-ещё нет зарегистрированного калиброванного open-set/negative-control gate,
-который мог бы установить применимость панели к спорному тексту.
+| Classification | Boundary |
+|---|---|
+| Current v2 | abstain/inconclusive: no registered calibrated open-set gate; work-level feasibility remains, and `diagnostic_closed_set_top` is descriptive only. Old passports are rejected. |
+| Taras hardened v1 | Historical family; the former positive target claim is withdrawn and not a current verdict. |
+| Petersburg hardened v1 | Historical closed-set diagnostics only; not an attribution verdict. |
 
-> **WITHDRAWAL (case-passport v1):** все ранее сохранённые паспорта со статусами
-> `strong`/`moderate` получены до work-level target uncertainty и без
-> обязательного open-set gate. Они остаются историческими артефактами, но их
-> target-вердикты отозваны и не могут ранжироваться/публиковаться текущим CLI.
-> Текущий формат — `stylo.case-passport.v2`.
-
-Текущий handoff по реализованному слою и главному hardened-кейсу:
-`docs/cases/HANDOFF.md`.
-
-Hardened case families:
-
-- `docs/cases/taras_hardened/` — историческая v1-серия; прежний positive public
-  target claim отозван до появления calibrated open-set gate.
-- `docs/cases/petersburg_hardened/` — исторические v1 closed-set diagnostics,
-  не научные атрибуционные решения.
+Detailed handoff: `docs/cases/HANDOFF.md`.
 
 Минимальный `case.yaml`:
 
