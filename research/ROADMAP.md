@@ -40,9 +40,9 @@ storage contract. The next gates require separate authorization, in order:
 1. Resolve the model topic-validity gate. Synthetic counterfactuals confirm that active `stylo` MFW
    can encode label-correlated content nouns, while the evaluation-only `topic_strict` control removes
    that exact controlled dependency. A versioned research-only A0/A4 adapter and aggregate schema are
-   implemented but unexecuted and review-pending; its corrected-corpus effect remains unmeasured.
-   Independently review the candidate, then authorize the separate R3b aggregate-only run before any
-   registration decision.
+   implemented but unexecuted; its one review blocker was corrected and frozen verification passed
+   without a second-review PASS claim. Its corrected-corpus effect remains unmeasured. Authorize the
+   separate R3b aggregate-only run before any registration decision.
 2. After the model-semantics decision, scope the v3.2 RunPlan/evaluator-registration/freeze/preflight
    boundary as a new task; do not infer authority from an accepted evaluator candidate.
 3. Independently review and pin the exact new freeze, then obtain separate execution authorization.
