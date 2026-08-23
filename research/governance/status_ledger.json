@@ -60,6 +60,17 @@
         }
       ]
     },
+    "topic_validity_challenger": {
+      "status": "implemented_unexecuted_review_pending",
+      "claim": "A separate research-only A0/A4 current-versus-topic_strict adapter and aggregate-only schema candidate is implemented under docs/tasks/2026-08-23-topic-validity-challenger-v1.md. It has no CLI, runner, registry entry, official receipt/result/run identity, protected-corpus execution, model decision, readiness claim, publication or authorization. Real corrected-LOBO use remains a separately approved R3b task.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "build_topic_study_context_v1",
+          "sha256": "a0dea6ad29cfd6348a8409eac87eaba9a6e572931904e6246c373dfd596559f2"
+        }
+      ]
+    },
     "manifest_freeze": {
       "status": "unapproved",
       "claim": "No reviewed v3.2 immutable corpus root or fold-manifest digest is pinned. The v3.1 candidates are ineligible and cannot be promoted or reused.",

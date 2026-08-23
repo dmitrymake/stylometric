@@ -140,6 +140,21 @@
       ]
     },
     {
+      "id": "PA-TOPIC-VALIDITY-CHALLENGER-V1",
+      "description": "The versioned research-only A0/A4 topic-strict adapter and aggregate schema bind verified context/source identities, preserve the authoritative non-vectorizer route, recompute aggregate metrics from transient probabilities, persist no row-level evidence, and grant no real execution or registration authority.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "build_topic_study_context_v1"},
+        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "make_topic_challenger_factory_v1"},
+        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "validate_topic_aggregate_v1"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_topic_validity_v1.py::test_binding_and_fresh_factories_preserve_only_topic_strict_delta",
+        "tests/test_paired_audit_topic_validity_v1.py::test_context_drift_rejects_before_factory",
+        "tests/test_paired_audit_topic_validity_v1.py::test_aggregate_is_recomputed_and_contains_only_whitelisted_detail",
+        "tests/test_paired_audit_topic_validity_v1.py::test_strict_json_and_official_gates_remain_closed"
+      ]
+    },
+    {
       "id": "PA-CHECKPOINT-EXACT-RESUME",
       "description": "Only valid exact checkpoints resume; corruption, conflicts, and extras fail.",
       "code": [

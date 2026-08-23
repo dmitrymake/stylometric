@@ -71,6 +71,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "protocol_v3_2": "owner_accepted_for_evaluator_implementation",
         "independent_security_audit": "not_claimed_review_terminated_by_owner",
         "evaluator_candidate": "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled",
+        "topic_validity_challenger": "implemented_unexecuted_review_pending",
         "manifest_freeze": "unapproved",
         "production_evaluator": "unregistered",
         "preflight": "absent",
@@ -251,6 +252,9 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
     assert [binding["symbol"] for binding in evaluator["bindings"]] == [
         "REGISTRY_V3_2", "evaluate_fold_v3_2", "validate_receipt_v3_2",
     ]
+    challenger = ledger["paired_audit"]["topic_validity_challenger"]
+    assert "no CLI, runner, registry entry" in challenger["claim"]
+    assert "separately approved R3b task" in challenger["claim"]
     for marker in (
         "(v3.2)",
         "47 authors / 252 works",
