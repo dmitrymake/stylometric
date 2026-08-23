@@ -432,7 +432,8 @@ def test_runner_cli_has_only_fixed_preflight_timing_execute_modes():
         "--execute", *common, "--output", runner.EXPECTED_OUTPUT.as_posix(),
     ])
     assert execute.execute is True
-    assert runner.FIXED_WORKERS == 16
+    assert runner.FIXED_WORKERS == 8
+    assert runner.MAX_EXECUTION_SECONDS == 30 * 60 * 60
     assert "fork" in runner.multiprocessing.get_all_start_methods()
     source = RUNNER_PATH.read_text(encoding="utf-8")
     for forbidden_option in ("--cell", "--arm", "--model", "--dataset", "--workers"):
@@ -513,5 +514,5 @@ def test_fixed8_deadline_terminates_before_records(tmp_path, monkeypatch):
     study = build_topic_study_context_v1(cfg=cfg, context=context)
     monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
     monkeypatch.setattr(runner, "MAX_EXECUTION_SECONDS", 0)
-    with pytest.raises(runner.TopicRunV1Error, match="16-hour no-output deadline"):
+    with pytest.raises(runner.TopicRunV1Error, match="30-hour no-output deadline"):
         runner._parallel_records(study, started=time.monotonic())

@@ -32,8 +32,8 @@ from stylo.jsonio import canonical_hash, dumps_strict, load_strict
 EXPECTED_OUTPUT = pathlib.Path("research/evidence/topic_validity_lobo_v1/aggregate.json")
 THREAD_ENV = {"PYTHONHASHSEED": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
               "OPENBLAS_NUM_THREADS": "1"}
-FIXED_WORKERS = 16
-MAX_EXECUTION_SECONDS = 16 * 60 * 60
+FIXED_WORKERS = 8
+MAX_EXECUTION_SECONDS = 30 * 60 * 60
 _WORKER_STUDY = None
 
 
@@ -180,12 +180,12 @@ def _parallel_records(study, *, started: float):
         for completed in range(1, len(tasks) + 1):
             remaining = started + MAX_EXECUTION_SECONDS - time.monotonic()
             if remaining <= 0:
-                raise TopicRunV1Error("fixed-8 execution exceeded the 16-hour no-output deadline")
+                raise TopicRunV1Error("fixed-8 execution exceeded the 30-hour no-output deadline")
             try:
                 cell, arm, record = iterator.next(timeout=remaining)
             except multiprocessing.TimeoutError as exc:
                 raise TopicRunV1Error(
-                    "fixed-8 execution exceeded the 16-hour no-output deadline"
+                    "fixed-8 execution exceeded the 30-hour no-output deadline"
                 ) from exc
             records[cell][arm].append(record)
             if completed % 10 == 0 or completed == len(tasks):

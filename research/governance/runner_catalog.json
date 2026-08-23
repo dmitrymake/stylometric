@@ -177,10 +177,10 @@
     },
     {
       "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
-      "status": "owner_authorized_fixed16_reviewed_ready",
-      "claim_scope": "Exact corrected LOBO-248 topic-validity study only: stylo A0/A4 current versus topic_strict, after sequential and fixed-8 measured load stops and fixed-16 fork equivalence proof. This is aggregate decision support, not confirmatory execution, evaluator registration, model selection, headline or publication authority.",
+      "status": "owner_authorized_measured_fixed8_review_pending",
+      "claim_scope": "Exact corrected LOBO-248 topic-validity study only: stylo A0/A4 current versus topic_strict, after sequential, fixed-8 and fixed-16 measured load stops selected fixed-8 as the faster observed orchestration. The exact fixed-8/30-hour candidate awaits review. This is aggregate decision support, not confirmatory execution, evaluator registration, model selection, headline or publication authority.",
       "output_contract": "Create-once research/evidence/topic_validity_lobo_v1/aggregate.json only. The retained strict aggregate contains bound identities, rational accuracy/delta, prediction digests and per-author transition counts; transient probabilities/fold identities are memory-only and no work IDs, text, vocabulary, checkpoints, official receipts/results or row predictions persist.",
-      "identity_bindings": ["verified_v3_2_context", "topic_challenger_binding", "lobo_fold_order", "probability_class_order", "metric_label_order", "executable_sources", "environment_lock", "runtime", "thread_contract", "fixed_fork16_process_contract"],
+      "identity_bindings": ["verified_v3_2_context", "topic_challenger_binding", "lobo_fold_order", "probability_class_order", "metric_label_order", "executable_sources", "environment_lock", "runtime", "thread_contract", "fixed_fork8_process_30h_contract"],
       "required_nodeids": [
         "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
         "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_has_only_fixed_preflight_timing_execute_modes",

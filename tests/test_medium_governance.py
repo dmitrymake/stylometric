@@ -72,7 +72,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "independent_security_audit": "not_claimed_review_terminated_by_owner",
         "evaluator_candidate": "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled",
         "topic_validity_challenger": "implemented_review_blocker_corrected_unexecuted",
-        "topic_validity_execution": "owner_authorized_fixed16_reviewed_ready",
+        "topic_validity_execution": "owner_authorized_measured_fixed8_review_pending",
         "manifest_freeze": "unapproved",
         "production_evaluator": "unregistered",
         "preflight": "absent",
@@ -261,8 +261,9 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
     execution = ledger["paired_audit"]["topic_validity_execution"]
     assert "Sequential timing projected 98.4 hours" in execution["claim"]
     assert "fixed-8 reached 10/992" in execution["claim"]
-    assert "fixed sixteen-process fork" in execution["claim"]
-    assert "review passed with no blocker" in execution["claim"]
+    assert "fixed-16 reached 10/992 at 1162.4 seconds" in execution["claim"]
+    assert "fixed eight-process fork with a 30-hour" in execution["claim"]
+    assert "Review of that exact orchestration delta is pending" in execution["claim"]
     assert "not confirmatory, registration, freeze" in execution["claim"]
     for marker in (
         "(v3.2)",
