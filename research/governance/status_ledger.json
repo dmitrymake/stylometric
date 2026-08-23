@@ -67,7 +67,23 @@
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
           "symbol": "build_topic_study_context_v1",
-          "sha256": "5bbf69f15036dfa93b814d91be48e64999548529cf13774bf27452718ae91c5b"
+          "sha256": "52f51874ec0b13ebd89bbaf808d25e99e9517174b587333305bc724008e265cc"
+        }
+      ]
+    },
+    "topic_validity_execution": {
+      "status": "owner_authorized_runner_review_pending",
+      "claim": "The repository owner explicitly authorized the bounded R3b corrected-LOBO topic-validity study in the 2026-08-23 operator turn. Scope is exactly 248 LOBO folds, stylo A0/A4, current/topic_strict, 992 fresh fits and one aggregate-only create-once artifact. Runner implementation must pass independent review and timing preflight before execution. This is not confirmatory, registration, freeze, model-selection, headline or publication authority.",
+      "bindings": [
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "evaluate_topic_fold_v1",
+          "sha256": "52f51874ec0b13ebd89bbaf808d25e99e9517174b587333305bc724008e265cc"
+        },
+        {
+          "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
+          "symbol": "main",
+          "sha256": "bbfdc6d625a1aaa27f8a2b0965cfa52f0574e5d04e58420cbf9da9b37f63251f"
         }
       ]
     },

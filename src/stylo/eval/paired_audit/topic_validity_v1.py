@@ -11,17 +11,26 @@ import pathlib
 from dataclasses import dataclass
 from typing import Mapping
 
+import numpy as np
+
 from ...domain.prediction_contract import (
     PredictionContractError,
     stable_top1_and_worst_tie_rank,
     validate_author_universe,
+    validate_probabilities,
     validate_probability_vector,
 )
 from ...jsonio import artifact_self_hash, canonical_hash, loads_strict
 from ...vectorizer import StyloVectorizer
+from ..dispatch import fit_estimator
 from ..lobo import make_factory_for_ablation
 from .applicability_v3_2 import resolve_cell_v3_2
-from .evaluator_v3_2 import CONTEXT_SCHEMA, V32EvaluationContext, _validate_context
+from .evaluator_v3_2 import (
+    CONTEXT_SCHEMA,
+    V32EvaluationContext,
+    _class_alignment,
+    _validate_context,
+)
 
 TOPIC_CHALLENGER_SCHEMA_V1 = "stylo.paired-audit.topic-strict-challenger.v1"
 TOPIC_AGGREGATE_SCHEMA_V1 = "stylo.topic_validity.aggregate.v1"
@@ -230,6 +239,48 @@ def make_topic_challenger_factory_v1(*, study: TopicStudyContextV1, cell: str, a
     return factory
 
 
+def evaluate_topic_fold_v1(*, study: TopicStudyContextV1, cell: str, arm: str,
+                           fold_index: int) -> dict:
+    """Fit one transient research arm and return only its in-memory whole-work probability row."""
+    _validate_study(study)
+    cell = _assert_selector(cell, TOPIC_CELLS_V1, "cell")
+    arm = _assert_selector(arm, TOPIC_ARMS_V1, "arm")
+    if type(fold_index) is not int or not 0 <= fold_index < len(study.folds):
+        raise TopicValidityV1Error("fold_index is outside the sealed study")
+    expected = study.folds[fold_index]
+    dataset, manifest, _identity = study.parent.dataset("lobo")
+    tested = [row for row in manifest["works"] if row["tested"]]
+    row = tested[fold_index]
+    if row["fold_index"] != fold_index or row["author_id"] != expected.author:
+        raise TopicValidityV1Error("manifest fold drifted from the sealed study")
+    groups = np.asarray(dataset.groups, dtype=object)
+    test_mask = groups == row["work_id"]
+    train_mask = ~test_mask
+    if not test_mask.any() or row["work_id"] in set(map(str, groups[train_mask])):
+        raise TopicValidityV1Error("whole-work train/test isolation failed")
+    y_train = np.asarray(dataset.y)[train_mask]
+    if expected.true_label not in set(map(int, y_train)):
+        raise TopicValidityV1Error("held-out author is absent from train")
+    estimator = make_topic_challenger_factory_v1(study=study, cell=cell, arm=arm)()
+    train_texts = np.asarray(dataset.texts, dtype=object)[train_mask]
+    test_texts = np.asarray(dataset.texts, dtype=object)[test_mask]
+    fit_estimator(estimator, train_texts, y_train, groups[train_mask])
+    classes = np.asarray(estimator.classes_)
+    alignment = _class_alignment(classes, study.probability_order, dataset.authors)
+    raw = np.asarray(estimator.predict_proba(test_texts), dtype=np.float64)
+    validate_probabilities(raw, rows=len(test_texts), n_classes=len(classes), name="predict_proba")
+    aligned = np.zeros((len(test_texts), len(study.probability_order)), dtype=np.float64)
+    for item in alignment:
+        aligned[:, item["probability_column"]] = raw[:, item["estimator_column"]]
+    probability = [float(value) for value in np.round(aligned.mean(axis=0), 12)]
+    validate_probability_vector(probability, expected_width=len(study.probability_order))
+    return {
+        "fold_index": fold_index,
+        "fold_identity": expected.fold_identity,
+        "whole_work_probabilities": probability,
+    }
+
+
 def _validated_predictions(study: TopicStudyContextV1, records: Mapping) -> dict:
     _validate_study(study)
     if type(records) is not dict or tuple(records) != TOPIC_CELLS_V1:
@@ -331,15 +382,20 @@ def _cell_aggregate(study, cell: str, predictions: dict) -> dict:
     }
 
 
-def _assemble_aggregate(study, records, implementation_source_identity, environment_lock_identity) -> dict:
+def _assemble_aggregate(study, records, implementation_source_identity, environment_lock_identity,
+                        runtime_identity, thread_identity) -> dict:
     _hex64(implementation_source_identity, "implementation_source_identity")
     _hex64(environment_lock_identity, "environment_lock_identity")
+    _hex64(runtime_identity, "runtime_identity")
+    _hex64(thread_identity, "thread_identity")
     predictions = _validated_predictions(study, records)
     bindings = {
         **dict(study.binding["identities"]),
         "study_binding_identity": study.binding["self_hash"],
         "implementation_source_identity": implementation_source_identity,
         "environment_lock_identity": environment_lock_identity,
+        "runtime_identity": runtime_identity,
+        "thread_identity": thread_identity,
     }
     design = {
         "dataset": "lobo",
@@ -374,17 +430,21 @@ def _assemble_aggregate(study, records, implementation_source_identity, environm
 
 def build_topic_aggregate_v1(*, study: TopicStudyContextV1, records: Mapping,
                              implementation_source_identity: str,
-                             environment_lock_identity: str) -> dict:
+                             environment_lock_identity: str, runtime_identity: str,
+                             thread_identity: str) -> dict:
     return _assemble_aggregate(
-        study, records, implementation_source_identity, environment_lock_identity
+        study, records, implementation_source_identity, environment_lock_identity,
+        runtime_identity, thread_identity,
     )
 
 
 def validate_topic_aggregate_v1(artifact: Mapping, *, study: TopicStudyContextV1, records: Mapping,
                                 implementation_source_identity: str,
-                                environment_lock_identity: str) -> None:
+                                environment_lock_identity: str, runtime_identity: str,
+                                thread_identity: str) -> None:
     expected = _assemble_aggregate(
-        study, records, implementation_source_identity, environment_lock_identity
+        study, records, implementation_source_identity, environment_lock_identity,
+        runtime_identity, thread_identity,
     )
     if type(artifact) is not dict or not _same(artifact, expected):
         raise TopicValidityV1Error("aggregate differs from independently reconstructed evidence")

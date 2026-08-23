@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 import pathlib
 
@@ -27,6 +28,7 @@ from stylo.eval.paired_audit.topic_validity_v1 import (
     TopicValidityV1Error,
     build_topic_aggregate_v1,
     build_topic_study_context_v1,
+    evaluate_topic_fold_v1,
     make_topic_challenger_factory_v1,
     validate_topic_aggregate_json_v1,
     validate_topic_aggregate_v1,
@@ -35,10 +37,19 @@ from stylo.jsonio import artifact_self_hash, dumps_strict
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+RUNNER_PATH = ROOT / "scripts" / "evaluation" / "run_topic_validity_lobo_v1.py"
 
 
 def _sha(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _runner_module():
+    spec = importlib.util.spec_from_file_location("topic_validity_runner_v1", RUNNER_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _cfg(tmp_path) -> ConfigNode:
@@ -229,6 +240,23 @@ def test_context_drift_rejects_before_factory(tmp_path, monkeypatch):
         make_topic_challenger_factory_v1(study=binding_study, cell="A0", arm="current")
 
 
+def test_transient_fold_evaluator_uses_sealed_whole_work_route(tmp_path):
+    pytest.importorskip("ru_core_news_lg")
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    for cell in TOPIC_CELLS_V1:
+        for arm in TOPIC_ARMS_V1:
+            record = evaluate_topic_fold_v1(study=study, cell=cell, arm=arm, fold_index=0)
+            assert set(record) == {"fold_index", "fold_identity", "whole_work_probabilities"}
+            assert record["fold_index"] == 0
+            assert record["fold_identity"] == study.folds[0].fold_identity
+            assert len(record["whole_work_probabilities"]) == len(study.probability_order)
+            assert all(type(value) is float for value in record["whole_work_probabilities"])
+            assert sum(record["whole_work_probabilities"]) == pytest.approx(1.0)
+    with pytest.raises(TopicValidityV1Error):
+        evaluate_topic_fold_v1(study=study, cell="A0", arm="current", fold_index=False)
+
+
 def test_aggregate_is_recomputed_and_contains_only_whitelisted_detail(tmp_path):
     cfg, context = _context(tmp_path)
     study = build_topic_study_context_v1(cfg=cfg, context=context)
@@ -236,6 +264,7 @@ def test_aggregate_is_recomputed_and_contains_only_whitelisted_detail(tmp_path):
     kwargs = dict(
         study=study, records=records,
         implementation_source_identity="1" * 64, environment_lock_identity="2" * 64,
+        runtime_identity="3" * 64, thread_identity="4" * 64,
     )
     artifact = build_topic_aggregate_v1(**kwargs)
     validate_topic_aggregate_v1(artifact, **kwargs)
@@ -267,6 +296,7 @@ def test_aggregate_is_recomputed_and_contains_only_whitelisted_detail(tmp_path):
     changed_artifact = build_topic_aggregate_v1(
         study=study, records=changed_records,
         implementation_source_identity="1" * 64, environment_lock_identity="2" * 64,
+        runtime_identity="3" * 64, thread_identity="4" * 64,
     )
     with pytest.raises(TopicValidityV1Error, match="reconstructed"):
         validate_topic_aggregate_v1(changed_artifact, **kwargs)
@@ -282,6 +312,7 @@ def test_coherently_rehashed_aggregate_falsehoods_reject(tmp_path, mutation):
     kwargs = dict(
         study=study, records=records,
         implementation_source_identity="1" * 64, environment_lock_identity="2" * 64,
+        runtime_identity="3" * 64, thread_identity="4" * 64,
     )
     forged = copy.deepcopy(build_topic_aggregate_v1(**kwargs))
     if mutation == "metric":
@@ -339,6 +370,7 @@ def test_transient_record_contract_rejects_misalignment_and_bad_numbers(tmp_path
             study=study, records=records,
             implementation_source_identity="1" * 64,
             environment_lock_identity="2" * 64,
+            runtime_identity="3" * 64, thread_identity="4" * 64,
         )
 
 
@@ -348,9 +380,58 @@ def test_strict_json_and_official_gates_remain_closed(tmp_path):
     kwargs = dict(
         study=study, records=_records(study),
         implementation_source_identity="1" * 64, environment_lock_identity="2" * 64,
+        runtime_identity="3" * 64, thread_identity="4" * 64,
     )
     for malformed in ('{"x":1,"x":2}', '{"x":NaN}', '{"x":Infinity}'):
         with pytest.raises(TopicValidityV1Error, match="strict JSON"):
             validate_topic_aggregate_json_v1(malformed, **kwargs)
     assert dict(run_plan.CONFIRMATORY_EVALUATOR_REGISTRY) == {}
     assert APPROVED_FREEZE_ROOT_SHA256 is None
+
+
+def test_runner_cli_has_only_fixed_preflight_timing_execute_modes():
+    runner = _runner_module()
+    with pytest.raises(SystemExit):
+        runner._parser().parse_args([])
+    common = [
+        "--bundle-root", "/tmp/bundle",
+        "--historical-parent-root", "/tmp/parent",
+        "--ruaa-selection-manifest", "/tmp/ruaa.json",
+    ]
+    for mode in ("--preflight-only", "--timing-probe"):
+        args = runner._parser().parse_args([mode, *common])
+        assert getattr(args, mode.removeprefix("--").replace("-", "_")) is True
+        assert args.output is None
+    execute = runner._parser().parse_args([
+        "--execute", *common, "--output", runner.EXPECTED_OUTPUT.as_posix(),
+    ])
+    assert execute.execute is True
+    source = RUNNER_PATH.read_text(encoding="utf-8")
+    for forbidden_option in ("--cell", "--arm", "--model", "--dataset", "--workers"):
+        assert forbidden_option not in source
+    assert "checkpoint" not in source.lower()
+
+
+def test_runner_rejects_wrong_output_before_context_load(tmp_path, monkeypatch):
+    runner = _runner_module()
+    loaded = []
+    monkeypatch.setattr(runner, "_load_study", lambda args: loaded.append(args))
+    common = [
+        "--bundle-root", str(tmp_path / "bundle"),
+        "--historical-parent-root", str(tmp_path / "parent"),
+        "--ruaa-selection-manifest", str(tmp_path / "ruaa.json"),
+    ]
+    with pytest.raises(runner.TopicRunV1Error, match="not accept"):
+        runner.main(["--preflight-only", *common, "--output", str(tmp_path / "x")])
+    with pytest.raises(runner.TopicRunV1Error, match="must be exactly"):
+        runner.main(["--execute", *common, "--output", str(tmp_path / "wrong")])
+    assert loaded == []
+
+
+def test_runner_atomic_output_is_create_once(tmp_path):
+    runner = _runner_module()
+    path = tmp_path / "evidence" / "aggregate.json"
+    runner._write_new_json(path, {"schema": "synthetic", "value": 1})
+    assert json.loads(path.read_text(encoding="utf-8")) == {"schema": "synthetic", "value": 1}
+    with pytest.raises(runner.TopicRunV1Error, match="already exists"):
+        runner._write_new_json(path, {"schema": "synthetic", "value": 2})
