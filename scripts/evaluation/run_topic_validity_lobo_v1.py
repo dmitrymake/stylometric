@@ -32,7 +32,7 @@ from stylo.jsonio import canonical_hash, dumps_strict, load_strict
 EXPECTED_OUTPUT = pathlib.Path("research/evidence/topic_validity_lobo_v1/aggregate.json")
 THREAD_ENV = {"PYTHONHASHSEED": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
               "OPENBLAS_NUM_THREADS": "1"}
-FIXED_WORKERS = 8
+FIXED_WORKERS = 16
 MAX_EXECUTION_SECONDS = 16 * 60 * 60
 _WORKER_STUDY = None
 

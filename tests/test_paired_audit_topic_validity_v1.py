@@ -432,7 +432,7 @@ def test_runner_cli_has_only_fixed_preflight_timing_execute_modes():
         "--execute", *common, "--output", runner.EXPECTED_OUTPUT.as_posix(),
     ])
     assert execute.execute is True
-    assert runner.FIXED_WORKERS == 8
+    assert runner.FIXED_WORKERS == 16
     assert "fork" in runner.multiprocessing.get_all_start_methods()
     source = RUNNER_PATH.read_text(encoding="utf-8")
     for forbidden_option in ("--cell", "--arm", "--model", "--dataset", "--workers"):
