@@ -57,8 +57,9 @@ or load estimate that cannot be bounded in the current environment.
 
 Allowed artifact fields are exactly those accepted by `stylo.topic_validity.aggregate.v1`: identities,
 design counts, rational accuracy/delta, prediction digests and per-author aggregate transitions.
-Transient probabilities/fold identities live only in process memory. No cache/checkpoint/result sidecar
-is written; the temporary bundle is outside Git and may be deleted after independent aggregate audit.
+Transient probabilities/fold identities live only in process memory. Existing identity-scoped,
+ignored NLP/RepCache may be warmed as regenerable runtime acceleration; it is not evidence. No study
+checkpoint/result sidecar is written; the temporary bundle stays outside Git.
 
 ## Implementation and load tripwires
 

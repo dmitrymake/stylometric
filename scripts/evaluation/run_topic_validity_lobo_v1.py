@@ -10,11 +10,8 @@ import tempfile
 import time
 
 from stylo.config import load_config
-from stylo.eval.paired_audit.evaluator_v3_2 import (
-    CANDIDATE_IDENTITY,
-    LOBO_FOLD_IDENTITY,
-    build_evaluation_context_v3_2,
-)
+from stylo.eval.paired_audit.evaluator_v3_2 import (CANDIDATE_IDENTITY, LOBO_FOLD_IDENTITY,
+                                                    build_evaluation_context_v3_2)
 from stylo.eval.paired_audit.run_plan import (
     blas_thread_fingerprint,
     env_lock_sha256,
@@ -23,23 +20,17 @@ from stylo.eval.paired_audit.run_plan import (
     runtime_fingerprint,
     verify_installed_environment,
 )
-from stylo.eval.paired_audit.topic_validity_v1 import (
-    TOPIC_ARMS_V1,
-    TOPIC_CELLS_V1,
-    build_topic_aggregate_v1,
-    build_topic_study_context_v1,
-    evaluate_topic_fold_v1,
-    validate_topic_aggregate_v1,
-)
+from stylo.eval.paired_audit.topic_validity_v1 import (TOPIC_ARMS_V1, TOPIC_CELLS_V1,
+                                                       build_topic_aggregate_v1,
+                                                       build_topic_study_context_v1,
+                                                       evaluate_topic_fold_v1,
+                                                       validate_topic_aggregate_v1)
+from stylo.features.reps import make_rep_cache
 from stylo.jsonio import canonical_hash, dumps_strict, load_strict
 
 EXPECTED_OUTPUT = pathlib.Path("research/evidence/topic_validity_lobo_v1/aggregate.json")
-THREAD_ENV = {
-    "PYTHONHASHSEED": "0",
-    "OMP_NUM_THREADS": "1",
-    "MKL_NUM_THREADS": "1",
-    "OPENBLAS_NUM_THREADS": "1",
-}
+THREAD_ENV = {"PYTHONHASHSEED": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
+              "OPENBLAS_NUM_THREADS": "1"}
 
 
 class TopicRunV1Error(RuntimeError):
@@ -148,12 +139,14 @@ def _write_new_json(path: pathlib.Path, value: dict) -> None:
             pass
 
 
-def _safe_preflight(study, identities, commit) -> None:
-    print("preflight=ok", f"commit={commit}",
-          f"context={study.binding['identities']['context_identity']}",
-          f"binding={study.binding['self_hash']}", f"folds={len(study.folds)}",
-          f"authors={len(study.metric_order)}", f"classes={len(study.probability_order)}",
-          f"runtime={identities['runtime_identity']}", f"threads={identities['thread_identity']}")
+def _warm_representations(study) -> None:
+    started = time.monotonic()
+    workers = min(8, max(1, int(study.cfg.get_path("language.parse_n_process", 1))))
+    created = make_rep_cache(study.cfg).warm(
+        list(study.parent.lobo_dataset.texts), n_process=workers, batch_size=32
+    )
+    print(f"representation_warm=ok rows={len(study.parent.lobo_dataset.texts)} created={created} "
+          f"workers={workers} seconds={time.monotonic() - started:.1f}", flush=True)
 
 
 def main(argv=None) -> int:
@@ -166,10 +159,14 @@ def main(argv=None) -> int:
     ):
         raise TopicRunV1Error(f"--output must be exactly {EXPECTED_OUTPUT.as_posix()}")
     repo, study, identities, commit = _load_study(args)
-    _safe_preflight(study, identities, commit)
+    print("preflight=ok", f"commit={commit}", f"context={study.binding['identities']['context_identity']}",
+          f"binding={study.binding['self_hash']}", f"folds={len(study.folds)}",
+          f"authors={len(study.metric_order)}", f"classes={len(study.probability_order)}",
+          f"runtime={identities['runtime_identity']}", f"threads={identities['thread_identity']}")
     if args.preflight_only:
         return 0
     if args.timing_probe:
+        _warm_representations(study)
         started = time.monotonic()
         evaluate_topic_fold_v1(study=study, cell="A0", arm="current", fold_index=0)
         print(f"timing_probe=ok fits=1 seconds={time.monotonic() - started:.3f}")
@@ -182,6 +179,7 @@ def main(argv=None) -> int:
     total = len(study.folds) * len(TOPIC_CELLS_V1) * len(TOPIC_ARMS_V1)
     completed = 0
     started = time.monotonic()
+    _warm_representations(study)
     for cell in TOPIC_CELLS_V1:
         for arm in TOPIC_ARMS_V1:
             for fold_index in range(len(study.folds)):

@@ -83,7 +83,7 @@
         {
           "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
           "symbol": "main",
-          "sha256": "bbfdc6d625a1aaa27f8a2b0965cfa52f0574e5d04e58420cbf9da9b37f63251f"
+          "sha256": "5679105ea6508ad47e81adabb77bdb40823eabc1a49e1c1cb97552e74d43c796"
         }
       ]
     },

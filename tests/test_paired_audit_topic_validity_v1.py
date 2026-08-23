@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -435,3 +436,18 @@ def test_runner_atomic_output_is_create_once(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == {"schema": "synthetic", "value": 1}
     with pytest.raises(runner.TopicRunV1Error, match="already exists"):
         runner._write_new_json(path, {"schema": "synthetic", "value": 2})
+
+
+def test_runner_warms_only_existing_regenerable_rep_cache(monkeypatch, capsys):
+    runner = _runner_module()
+    calls = []
+    cache = SimpleNamespace(warm=lambda texts, **kwargs: calls.append((texts, kwargs)) or len(texts))
+    monkeypatch.setattr(runner, "make_rep_cache", lambda cfg: cache)
+    cfg = SimpleNamespace(get_path=lambda path, default=None: 12 if path == "language.parse_n_process" else default)
+    study = SimpleNamespace(
+        cfg=cfg,
+        parent=SimpleNamespace(lobo_dataset=SimpleNamespace(texts=np.asarray(["a", "b", "c"]))),
+    )
+    runner._warm_representations(study)
+    assert calls == [(["a", "b", "c"], {"n_process": 8, "batch_size": 32})]
+    assert "representation_warm=ok rows=3 created=3 workers=8" in capsys.readouterr().out
