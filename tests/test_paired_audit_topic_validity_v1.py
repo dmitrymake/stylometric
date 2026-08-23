@@ -170,6 +170,12 @@ def test_binding_and_fresh_factories_preserve_only_topic_strict_delta(tmp_path):
     assert study.binding["confirmatory_authorized"] is False
     assert not ({"text", "work_id", "probabilities", "prediction", "receipt", "result", "run_id"}
                 & set(_walk_keys(study.binding)))
+    binding_text = json.dumps(study.binding, ensure_ascii=False, sort_keys=True)
+    assert "src/" not in binding_text and str(ROOT) not in binding_text
+    assert set(study.binding["source_identities"]) == {
+        "adapter", "official_evaluator", "authoritative_factory", "stylo_vectorizer",
+        "feature_registry", "function_word_block",
+    }
 
     for cell in TOPIC_CELLS_V1:
         row = resolve_cell_v3_2("stylo", cell)

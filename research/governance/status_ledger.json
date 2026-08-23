@@ -67,7 +67,7 @@
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
           "symbol": "build_topic_study_context_v1",
-          "sha256": "a0dea6ad29cfd6348a8409eac87eaba9a6e572931904e6246c373dfd596559f2"
+          "sha256": "5bbf69f15036dfa93b814d91be48e64999548529cf13774bf27452718ae91c5b"
         }
       ]
     },

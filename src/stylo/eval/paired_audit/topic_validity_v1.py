@@ -28,13 +28,13 @@ TOPIC_AGGREGATE_SCHEMA_V1 = "stylo.topic_validity.aggregate.v1"
 TOPIC_CELLS_V1 = ("A0", "A4")
 TOPIC_ARMS_V1 = ("current", "topic_strict")
 _STUDY_SEAL = object()
-_SOURCE_PATHS = (
-    "src/stylo/eval/paired_audit/topic_validity_v1.py",
-    "src/stylo/eval/paired_audit/evaluator_v3_2.py",
-    "src/stylo/eval/lobo.py",
-    "src/stylo/vectorizer.py",
-    "src/stylo/features/registry.py",
-    "src/stylo/features/function_words.py",
+_SOURCE_FILES = (
+    ("adapter", "src/stylo/eval/paired_audit/topic_validity_v1.py"),
+    ("official_evaluator", "src/stylo/eval/paired_audit/evaluator_v3_2.py"),
+    ("authoritative_factory", "src/stylo/eval/lobo.py"),
+    ("stylo_vectorizer", "src/stylo/vectorizer.py"),
+    ("feature_registry", "src/stylo/features/registry.py"),
+    ("function_word_block", "src/stylo/features/function_words.py"),
 )
 
 
@@ -88,7 +88,7 @@ def _hex64(value, where: str) -> str:
 
 def _source_identities() -> dict[str, str]:
     root = pathlib.Path(__file__).resolve().parents[4]
-    return {relative: _sha256_file(root / relative) for relative in _SOURCE_PATHS}
+    return {role: _sha256_file(root / relative) for role, relative in _SOURCE_FILES}
 
 
 def _derive_study(cfg, context: V32EvaluationContext) -> dict:
