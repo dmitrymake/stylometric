@@ -8,10 +8,15 @@ from typing import Iterator, Mapping, Sequence
 
 import numpy as np
 
-from ...domain.prediction_contract import validate_prediction_record
+from ...domain.prediction_contract import (
+    PredictionContractError,
+    validate_author_universe,
+    validate_prediction_record,
+)
 from ...domain.work_weighting import work_sample_weights
 from ...features.work_vectorizer import WorkLevelVectorizer, _group_indicator
 from ...jsonio import artifact_self_hash, canonical_hash
+from .applicability_v3_2 import V32ApplicabilityError, resolve_cell_v3_2
 
 RECEIPT_SCHEMA = "paired_audit.fold_receipt.v3_2.candidate"
 NUMERIC_CONTRACT = {
@@ -21,10 +26,80 @@ NUMERIC_CONTRACT = {
     "round_decimals": 12,
     "nonfinite": "rejected",
 }
+_TOP_LEVEL_KEYS = frozenset({
+    "schema", "numeric_contract", "context_identity", "bindings", "dataset", "model", "cell", "fold_index",
+    "work_id", "work_content_identity", "content_component_identity", "requested_axes", "effective_axes",
+    "train", "test", "class_orders", "factory_route", "estimator_class", "estimator_classes",
+    "class_alignment", "whole_work_probabilities", "whole_work_probability_digest", "vote",
+    "axis_evidence", "actual_fitted_state", "self_hash",
+})
+_EXPECTATION_KEYS = frozenset({
+    "context_identity", "bindings", "dataset", "model", "cell", "fold_index", "work_id", "work_content_identity",
+    "content_component_identity", "probability_class_order", "metric_label_order", "train", "test",
+    "estimator_class", "estimator_classes", "whole_work_probabilities", "axis_evidence_digest",
+    "actual_fitted_state_digest",
+})
+_BINDING_KEYS = frozenset({
+    "candidate", "corrected_corpus", "corpus_manifest", "fold_manifest", "applicability", "config", "protocol",
+    "content_isolation", "work_identity_catalog", "dataset_rows", "ruaa_work_selection", "dataset_row_selection",
+})
 
 
 class V32EvidenceError(ValueError):
     """Receipt or fitted-state evidence is incomplete, incoherent, or mutated."""
+
+
+def _exact_dict(value, keys, where: str) -> dict:
+    if type(value) is not dict or set(value) != set(keys):
+        raise V32EvidenceError(f"{where} must carry exactly {sorted(keys)}; got {type(value).__name__}")
+    return value
+
+def _same(value, expected) -> bool:
+    if type(value) is not type(expected): return False
+    if type(value) is dict: return value.keys() == expected.keys() and all(_same(value[k], expected[k]) for k in value)
+    if type(value) is list: return len(value) == len(expected) and all(map(_same, value, expected))
+    return value == expected
+
+
+def _validated_expectation(expected: Mapping) -> tuple[dict, tuple[str, ...], tuple[str, ...]]:
+    expected = _exact_dict(expected, _EXPECTATION_KEYS, "receipt expectation")
+    try:
+        probability_order = validate_author_universe(expected["probability_class_order"])
+        metric_order = validate_author_universe(expected["metric_label_order"])
+    except PredictionContractError as exc:
+        raise V32EvidenceError(f"invalid expected class order: {exc}") from exc
+    if not set(metric_order).issubset(probability_order):
+        raise V32EvidenceError("expected metric order is outside the probability order")
+    if (expected["dataset"] not in ("lobo", "ruaa") or type(expected["fold_index"]) is not int
+            or expected["fold_index"] < 0 or type(expected["work_id"]) is not str
+            or "/" not in expected["work_id"]):
+        raise V32EvidenceError("expected dataset/fold/full work identity is invalid")
+    if expected["work_id"].split("/", 1)[0] not in set(metric_order):
+        raise V32EvidenceError("expected held-out author is outside the metric order")
+    bindings = _exact_dict(expected["bindings"], _BINDING_KEYS, "expected bindings")
+    if ((expected["dataset"] == "ruaa" and None in (
+            bindings["ruaa_work_selection"], bindings["dataset_row_selection"]))
+            or (expected["dataset"] == "lobo" and bindings["ruaa_work_selection"] is not None)):
+        raise V32EvidenceError("expected dataset selection identities are invalid")
+    for split in ("train", "test"):
+        row = _exact_dict(expected[split], {"n_rows", "work_ids", "row_identity_digest"},
+                          f"expected {split}")
+        if (type(row["n_rows"]) is not int or row["n_rows"] < 1
+                or type(row["work_ids"]) is not list or not row["work_ids"]
+                or any(type(work) is not str or "/" not in work for work in row["work_ids"])
+                or len(set(row["work_ids"])) != len(row["work_ids"])):
+            raise V32EvidenceError(f"expected {split} identity is invalid")
+    if (expected["test"]["work_ids"] != [expected["work_id"]]
+            or expected["work_id"] in expected["train"]["work_ids"]):
+        raise V32EvidenceError("expected held-out work partition is invalid")
+    classes = expected["estimator_classes"]
+    width = len(probability_order)
+    if (type(classes) is not list or any(type(label) is not int for label in classes)
+            or sorted(classes) != list(range(width))):
+        raise V32EvidenceError("expected estimator classes must permute the complete class universe")
+    if type(expected["whole_work_probabilities"]) is not list:
+        raise V32EvidenceError("expected whole-work probabilities must be a list")
+    return expected, probability_order, metric_order
 
 
 def _sha(payload: bytes) -> str:
@@ -283,39 +358,125 @@ def training_axis_evidence(*, model: str, requested_axes: Mapping[str, bool],
     return row
 
 
-def build_receipt_v3_2(body: dict) -> dict:
+def build_receipt_v3_2(body: dict, *, expected: Mapping) -> dict:
     if type(body) is not dict or "self_hash" in body:
         raise V32EvidenceError("receipt body must be a plain dict without self_hash")
     receipt = {"schema": RECEIPT_SCHEMA, "numeric_contract": NUMERIC_CONTRACT, **body}
     receipt["self_hash"] = artifact_self_hash(receipt)
-    validate_receipt_v3_2(receipt)
+    validate_receipt_v3_2(receipt, expected=expected)
     return receipt
 
 
-def validate_receipt_v3_2(receipt: Mapping) -> None:
-    if not isinstance(receipt, Mapping) or receipt.get("schema") != RECEIPT_SCHEMA:
+def validate_receipt_v3_2(receipt: Mapping, *, expected: Mapping) -> None:
+    """Re-derive receipt semantics from context/live-state expectations, never from the receipt."""
+    expected, probability_order, metric_order = _validated_expectation(expected)
+    receipt = _exact_dict(receipt, _TOP_LEVEL_KEYS, "receipt")
+    if receipt["schema"] != RECEIPT_SCHEMA:
         raise V32EvidenceError("wrong v3.2 receipt schema")
-    if receipt.get("numeric_contract") != NUMERIC_CONTRACT:
+    if not _same(receipt["numeric_contract"], NUMERIC_CONTRACT):
         raise V32EvidenceError("numeric contract drift")
-    if receipt.get("self_hash") != artifact_self_hash(dict(receipt)):
+    if receipt["self_hash"] != artifact_self_hash(receipt):
         raise V32EvidenceError("receipt self-hash mismatch")
-    vote = receipt.get("vote")
-    probabilities = receipt.get("whole_work_probabilities")
-    if not isinstance(vote, Mapping) or not isinstance(probabilities, list):
-        raise V32EvidenceError("receipt vote/probabilities missing")
-    validate_prediction_record(
-        probabilities=probabilities,
-        pred_label=vote["pred_label"],
-        true_label=vote["true_label"],
-        correct=vote["correct"],
-        rank=vote["rank"],
-        expected_width=len(probabilities),
+    for key in ("context_identity", "dataset", "model", "cell", "fold_index", "work_id",
+                "work_content_identity", "content_component_identity", "estimator_class",
+                "estimator_classes", "whole_work_probabilities"):
+        if not _same(receipt[key], expected[key]):
+            raise V32EvidenceError(f"receipt {key} differs from the verified expectation")
+    if not _same(receipt["bindings"], expected["bindings"]):
+        raise V32EvidenceError("receipt bindings differ from the verified expectation")
+
+    try:
+        cell = resolve_cell_v3_2(receipt["model"], receipt["cell"], require_applied=True)
+    except V32ApplicabilityError as exc:
+        raise V32EvidenceError(f"receipt route is not an applied v3.2 cell: {exc}") from exc
+    if not _same(receipt["requested_axes"], cell.requested_axes):
+        raise V32EvidenceError("receipt requested axes differ from the applicability registry")
+    if not _same(receipt["effective_axes"], cell.effective_axes):
+        raise V32EvidenceError("receipt effective axes differ from the applicability registry")
+    if receipt["factory_route"] != "stylo.eval.lobo.make_factory_for_ablation":
+        raise V32EvidenceError("receipt factory route is not the exact v3.2 evaluator route")
+
+    class_orders = _exact_dict(receipt["class_orders"], {"probability", "metric"}, "class orders")
+    if not _same(class_orders["probability"], ordered_strings_evidence(probability_order)):
+        raise V32EvidenceError("receipt probability-order evidence differs from the verified order")
+    if not _same(class_orders["metric"], ordered_strings_evidence(metric_order)):
+        raise V32EvidenceError("receipt metric-order evidence differs from the verified order")
+
+    classes = expected["estimator_classes"]
+    alignment = receipt["class_alignment"]
+    if type(alignment) is not list or len(alignment) != len(probability_order):
+        raise V32EvidenceError("receipt class alignment is not class-complete")
+    derived_alignment = []
+    for column, label in enumerate(classes):
+        author = probability_order[label]
+        derived_alignment.append({
+            "estimator_column": column,
+            "dataset_label": label,
+            "author": author,
+            "probability_column": probability_order.index(author),
+        })
+    if not _same(alignment, derived_alignment):
+        raise V32EvidenceError("receipt class alignment is not the verified class bijection")
+
+    probabilities = receipt["whole_work_probabilities"]
+    if not _same(receipt["whole_work_probability_digest"], numeric_evidence(probabilities)):
+        raise V32EvidenceError("whole-work probability digest differs from literal probabilities")
+    vote = _exact_dict(receipt["vote"], {"true_label", "pred_label", "pred_author", "correct", "rank"},
+                       "receipt vote")
+    try:
+        decision = validate_prediction_record(
+            probabilities=probabilities,
+            pred_label=vote["pred_label"],
+            true_label=vote["true_label"],
+            correct=vote["correct"],
+            rank=vote["rank"],
+            expected_width=len(probability_order),
+        )
+    except (PredictionContractError, KeyError, TypeError, ValueError) as exc:
+        raise V32EvidenceError(f"invalid receipt vote: {exc}") from exc
+    true_author = receipt["work_id"].split("/", 1)[0]
+    if vote["true_label"] != probability_order.index(true_author):
+        raise V32EvidenceError("receipt true label differs from the held-out work author")
+    if vote["pred_author"] != probability_order[decision.top1]:
+        raise V32EvidenceError("receipt predicted author differs from the probability decision")
+
+    for split in ("train", "test"):
+        actual = _exact_dict(receipt[split], {"n_rows", "n_works", "work_ids", "row_identity_digest"},
+                             f"receipt {split}")
+        wanted = expected[split]
+        if not _same(actual, {
+            "n_rows": wanted["n_rows"],
+            "n_works": len(wanted["work_ids"]),
+            "work_ids": ordered_strings_evidence(wanted["work_ids"]),
+            "row_identity_digest": wanted["row_identity_digest"],
+        }):
+            raise V32EvidenceError(f"receipt {split} identities differ from the verified split")
+
+    axis = _exact_dict(
+        receipt["axis_evidence"],
+        {"origin_contract", "W", "F", "R", "majority"} if receipt["model"] == "majority"
+        else {"origin_contract", "W", "F", "R"},
+        "receipt axis evidence",
     )
-    state = receipt.get("actual_fitted_state")
+    for name in "WFR":
+        item = axis[name]
+        if not isinstance(item, Mapping) or item.get("requested") is not cell.requested_axes[name]:
+            raise V32EvidenceError(f"receipt axis evidence {name} has the wrong requested state")
+    if canonical_hash(axis) != expected["axis_evidence_digest"]:
+        raise V32EvidenceError("receipt axis evidence differs from the live evaluation expectation")
+
+    state = receipt["actual_fitted_state"]
     if not isinstance(state, Mapping) or state.get("digest") != canonical_hash(
         {key: value for key, value in state.items() if key != "digest"}
     ):
         raise V32EvidenceError("actual fitted-state digest mismatch")
+    if state.get("digest") != expected["actual_fitted_state_digest"]:
+        raise V32EvidenceError("actual fitted state differs from the live evaluation expectation")
+    if (state.get("schema") != "paired_audit.actual_fitted_state.v3_2"
+            or state.get("model") != receipt["model"]
+            or state.get("estimator_class") != receipt["estimator_class"]
+            or not _same(state.get("classes"), numeric_evidence(classes, integer=True))):
+        raise V32EvidenceError("actual fitted state disagrees with the receipt route/classes")
 
 
 __all__ = [

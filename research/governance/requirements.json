@@ -115,6 +115,18 @@
       ]
     },
     {
+      "id": "PA-V3-2-RECEIPT-SEMANTIC-CLOSURE",
+      "description": "Every v3.2 fold receipt is validated against independently constructed context, fold, route, order, split, probability, axis, and fitted-state expectations; a coherent outer rehash cannot authenticate a scientific falsehood.",
+      "code": [
+        {"path": "src/stylo/eval/paired_audit/evidence_v3_2.py", "symbol": "validate_receipt_v3_2"},
+        {"path": "src/stylo/eval/paired_audit/evaluator_v3_2.py", "symbol": "evaluate_fold_v3_2"}
+      ],
+      "tests": [
+        "tests/test_paired_audit_evaluator_v3_2.py::test_all_16_applied_factory_routes_fit_and_predict_toy_data",
+        "tests/test_paired_audit_evaluator_v3_2.py::test_coherently_rehashed_semantic_falsehoods_are_rejected"
+      ]
+    },
+    {
       "id": "PA-CHECKPOINT-EXACT-RESUME",
       "description": "Only valid exact checkpoints resume; corruption, conflicts, and extras fail.",
       "code": [

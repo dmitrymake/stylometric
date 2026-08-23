@@ -35,6 +35,7 @@ from stylo.eval.paired_audit.evidence_v3_2 import (
     V32EvidenceError,
     validate_receipt_v3_2,
 )
+from stylo.jsonio import artifact_self_hash, canonical_hash
 from stylo.models.baselines import MajorityBaseline
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -148,6 +149,24 @@ def _evaluate_majority(cfg, context, **overrides):
     return ev.evaluate_fold_v3_2(**kwargs)
 
 
+def _evaluate_with_expectation(monkeypatch, cfg, context, **overrides):
+    """Capture the evaluator's independently constructed trusted expectation."""
+    original = ev.build_receipt_v3_2
+    captured = []
+
+    def capture(body, *, expected):
+        captured.append(copy.deepcopy(expected))
+        return original(body, expected=expected)
+
+    monkeypatch.setattr(ev, "build_receipt_v3_2", capture)
+    try:
+        receipt = _evaluate_majority(cfg, context, **overrides)
+    finally:
+        monkeypatch.setattr(ev, "build_receipt_v3_2", original)
+    assert len(captured) == 1
+    return receipt, captured[0]
+
+
 def test_registry_is_exact_25_16_11_and_matches_corrected_preparation():
     assert len(REGISTRY_V3_2) == 25
     assert len(APPLIED_CELLS) == 16
@@ -191,19 +210,21 @@ def test_stylo_stack_withdrawn_before_any_factory(monkeypatch):
     assert called is False
 
 
-@pytest.mark.parametrize(("model", "cell"), APPLIED_CELLS)
-def test_all_16_applied_factory_routes_fit_and_predict_toy_data(monkeypatch, model, cell):
+def test_all_16_applied_factory_routes_fit_and_predict_toy_data(monkeypatch):
     class DummyRepCache:
         def get_reps(self, texts):
             return [None] * len(texts)
 
     monkeypatch.setattr("stylo.vectorizer.make_rep_cache", lambda cfg: DummyRepCache())
     cfg, context = _toy_context()
-    receipt = _evaluate_majority(cfg, context, model=model, cell=cell)
-    assert receipt["model"] == model and receipt["cell"] == cell
-    assert receipt["test"]["n_rows"] == 2
-    assert len(receipt["whole_work_probabilities"]) == 3
-    validate_receipt_v3_2(receipt)
+    for model, cell in APPLIED_CELLS:
+        receipt, expected = _evaluate_with_expectation(
+            monkeypatch, cfg, context, model=model, cell=cell
+        )
+        assert (receipt["model"], receipt["cell"]) == (model, cell)
+        assert receipt["test"]["n_rows"] == 2
+        assert len(receipt["whole_work_probabilities"]) == 3
+        validate_receipt_v3_2(receipt, expected=expected)
 
 
 def test_repeat_evaluation_is_identical_and_factory_is_fresh(monkeypatch):
@@ -333,31 +354,108 @@ def test_incomplete_estimator_class_universe_rejects_before_predict(monkeypatch)
     assert predicted is False
 
 
-def test_probability_and_evidence_mutation_rotate_or_reject():
+def test_probability_and_evidence_mutation_rotate_or_reject(monkeypatch):
     cfg, context = _toy_context()
-    receipt = _evaluate_majority(cfg, context)
+    receipt, expected = _evaluate_with_expectation(monkeypatch, cfg, context)
     changed = copy.deepcopy(receipt)
     changed["whole_work_probabilities"][0] = 0.5
     with pytest.raises(V32EvidenceError, match="self-hash"):
-        validate_receipt_v3_2(changed)
+        validate_receipt_v3_2(changed, expected=expected)
     coherent_outer = copy.deepcopy(receipt)
     coherent_outer["actual_fitted_state"]["majority_class"] = 2
     coherent_outer["self_hash"] = ev.canonical_hash(
         {key: value for key, value in coherent_outer.items() if key != "self_hash"}
     )
     with pytest.raises(V32EvidenceError, match="fitted-state"):
-        validate_receipt_v3_2(coherent_outer)
+        validate_receipt_v3_2(coherent_outer, expected=expected)
 
 
-def test_receipt_binds_train_derived_and_actual_fitted_evidence_without_repr_pickle():
+def test_coherently_rehashed_semantic_falsehoods_are_rejected(monkeypatch):
     cfg, context = _toy_context()
-    receipt = _evaluate_majority(cfg, context)
+    receipt, expected = _evaluate_with_expectation(monkeypatch, cfg, context)
+    for mutation, match in (
+        ("pred_author", "predicted author"), ("probability_digest", "probability digest"),
+        ("model", "model differs"), ("fold_binding", "bindings differ"),
+        ("empty_alignment", "class alignment"), ("requested_axis", "requested axes"),
+        ("probability_order", "probability-order evidence"), ("train_count", "train identities"),
+        ("probability_vector", "whole_work_probabilities differs"),
+        ("fitted_state", "fitted state differs"), ("extra_field", "carry exactly"),
+        ("missing_field", "carry exactly"), ("wrong_type", "fold_index differs"),
+        ("fold_bool", "fold_index differs"), ("axis_int", "requested axes"),
+        ("class_bool", "estimator_classes differs"), ("train_float", "train identities"),
+        ("probability_int", "whole_work_probabilities differs"),
+        ("numeric_float", "numeric contract drift"),
+        ("class_order_float", "probability-order evidence"),
+    ):
+        forged = copy.deepcopy(receipt)
+        if mutation == "pred_author":
+            forged["vote"]["pred_author"] = "forged_author"
+        elif mutation == "probability_digest":
+            forged["whole_work_probability_digest"]["sha256"] = "0" * 64
+        elif mutation == "model":
+            forged["model"] = forged["actual_fitted_state"]["model"] = "stylo"
+            forged["actual_fitted_state"]["digest"] = canonical_hash({
+                key: value for key, value in forged["actual_fitted_state"].items() if key != "digest"
+            })
+        elif mutation == "fold_binding":
+            forged["bindings"]["fold_manifest"] = "0" * 64
+        elif mutation == "empty_alignment":
+            forged["class_alignment"] = []
+        elif mutation == "requested_axis":
+            forged["requested_axes"]["W"] = forged["axis_evidence"]["W"]["requested"] = True
+        elif mutation == "probability_order":
+            forged["class_orders"]["probability"] = {"count": 3, "sha256": _sha("forged-order")}
+        elif mutation == "train_count":
+            forged["train"]["n_rows"] += 1
+        elif mutation == "probability_vector":
+            forged["whole_work_probabilities"] = [1.0, 0.0, 0.0]
+            forged["whole_work_probability_digest"] = ev.numeric_evidence(
+                forged["whole_work_probabilities"]
+            )
+            forged["vote"] = {"true_label": 0, "pred_label": 0, "pred_author": "a",
+                              "correct": True, "rank": 1}
+        elif mutation == "fitted_state":
+            forged["actual_fitted_state"]["majority_class"] = 2
+            forged["actual_fitted_state"]["digest"] = canonical_hash({
+                key: value for key, value in forged["actual_fitted_state"].items() if key != "digest"
+            })
+        elif mutation == "extra_field":
+            forged["unregistered"] = True
+        elif mutation == "missing_field":
+            del forged["vote"]
+        elif mutation == "wrong_type":
+            forged["fold_index"] = "0"
+        elif mutation == "fold_bool":
+            forged["fold_index"] = False
+        elif mutation == "axis_int":
+            forged["requested_axes"]["W"] = forged["axis_evidence"]["W"]["requested"] = 0
+        elif mutation == "class_bool":
+            forged["estimator_classes"][0] = False
+        elif mutation == "train_float":
+            forged["train"]["n_rows"] = float(forged["train"]["n_rows"])
+        elif mutation == "probability_int":
+            forged["whole_work_probabilities"] = [0, 1, 0]
+            forged["whole_work_probability_digest"] = ev.numeric_evidence(
+                forged["whole_work_probabilities"]
+            )
+        elif mutation == "numeric_float":
+            forged["numeric_contract"]["round_decimals"] = 12.0
+        elif mutation == "class_order_float":
+            forged["class_orders"]["probability"]["count"] = 3.0
+        forged["self_hash"] = artifact_self_hash(forged)
+        with pytest.raises(V32EvidenceError, match=match):
+            validate_receipt_v3_2(forged, expected=expected)
+
+
+def test_receipt_binds_train_derived_and_actual_fitted_evidence_without_repr_pickle(monkeypatch):
+    cfg, context = _toy_context()
+    receipt, expected = _evaluate_with_expectation(monkeypatch, cfg, context)
     assert receipt["axis_evidence"]["W"]["source"] == "train_inputs_canonical_derivation"
     assert receipt["axis_evidence"]["majority"]["source"] == "train_inputs_canonical_derivation"
     assert receipt["actual_fitted_state"]["schema"] == "paired_audit.actual_fitted_state.v3_2"
     encoded = json.dumps(receipt, sort_keys=True)
     assert "pickle" not in encoded and "repr" not in encoded
-    validate_receipt_v3_2(receipt)
+    validate_receipt_v3_2(receipt, expected=expected)
 
 
 def _real_selection() -> list[str]:

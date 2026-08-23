@@ -385,22 +385,39 @@ def evaluate_fold_v3_2(
              item.provenance_sha256, item.chunker_config_hash]
             for item in rows
         ])
+    bindings = {
+        "candidate": context.candidate_identity, "corrected_corpus": context.corrected_corpus_identity,
+        "corpus_manifest": context.corpus_manifest_identity, "fold_manifest": manifest["self_hash"],
+        "applicability": context.applicability_identity, "config": context.config_identity,
+        "protocol": context.protocol_identity, "content_isolation": context.content_isolation_identity,
+        "work_identity_catalog": context.work_identity_catalog_identity,
+        "dataset_rows": dataset_identity["rows_digest"],
+        "ruaa_work_selection": context.ruaa_work_selection_identity if dataset_kind == "ruaa" else None,
+        "dataset_row_selection": dataset_identity["row_selection_identity"],
+    }
+    train_identity = {"n_rows": int(mask_train.sum()), "work_ids": train_work_ids,
+                      "row_identity_digest": row_digest(train_row_ids)}
+    test_identity = {"n_rows": int(mask_test.sum()), "work_ids": [work_id],
+                     "row_identity_digest": row_digest(test_row_ids)}
+    axis_evidence = training_axis_evidence(
+        model=model, requested_axes=row.requested_axes, texts=train_texts,
+        y=y_train, groups=train_groups, fit_trace=fit_trace,
+    )
+    estimator_classes = [int(value) for value in classes]
+    probability_values = [float(value) for value in work_probabilities]
+    expected = {
+        "context_identity": context.context_identity, "bindings": dict(bindings), "dataset": dataset_kind,
+        "model": model, "cell": cell, "fold_index": fold_index, "work_id": work_id,
+        "work_content_identity": work_content_identity, "content_component_identity": content_component_identity,
+        "probability_class_order": list(probability_class_order),
+        "metric_label_order": list(metric_label_order), "train": dict(train_identity), "test": dict(test_identity),
+        "estimator_class": f"{type(estimator).__module__}.{type(estimator).__qualname__}",
+        "estimator_classes": list(estimator_classes), "whole_work_probabilities": list(probability_values),
+        "axis_evidence_digest": canonical_hash(axis_evidence), "actual_fitted_state_digest": fitted_state["digest"],
+    }
     receipt = build_receipt_v3_2({
         "context_identity": context.context_identity,
-        "bindings": {
-            "candidate": context.candidate_identity,
-            "corrected_corpus": context.corrected_corpus_identity,
-            "corpus_manifest": context.corpus_manifest_identity,
-            "fold_manifest": manifest["self_hash"],
-            "applicability": context.applicability_identity,
-            "config": context.config_identity,
-            "protocol": context.protocol_identity,
-            "content_isolation": context.content_isolation_identity,
-            "work_identity_catalog": context.work_identity_catalog_identity,
-            "dataset_rows": dataset_identity["rows_digest"],
-            "ruaa_work_selection": context.ruaa_work_selection_identity if dataset_kind == "ruaa" else None,
-            "dataset_row_selection": dataset_identity["row_selection_identity"],
-        },
+        "bindings": dict(bindings),
         "dataset": dataset_kind,
         "model": model,
         "cell": cell,
@@ -411,24 +428,24 @@ def evaluate_fold_v3_2(
         "requested_axes": row.requested_axes,
         "effective_axes": row.effective_axes,
         "train": {
-            "n_rows": int(mask_train.sum()), "n_works": len(train_work_ids),
+            "n_rows": train_identity["n_rows"], "n_works": len(train_work_ids),
             "work_ids": ordered_strings_evidence(train_work_ids),
-            "row_identity_digest": row_digest(train_row_ids),
+            "row_identity_digest": train_identity["row_identity_digest"],
         },
         "test": {
-            "n_rows": int(mask_test.sum()), "n_works": 1,
+            "n_rows": test_identity["n_rows"], "n_works": 1,
             "work_ids": ordered_strings_evidence([work_id]),
-            "row_identity_digest": row_digest(test_row_ids),
+            "row_identity_digest": test_identity["row_identity_digest"],
         },
         "class_orders": {
             "probability": ordered_strings_evidence(list(probability_class_order)),
             "metric": ordered_strings_evidence(list(metric_label_order)),
         },
         "factory_route": "stylo.eval.lobo.make_factory_for_ablation",
-        "estimator_class": f"{type(estimator).__module__}.{type(estimator).__qualname__}",
-        "estimator_classes": [int(value) for value in classes],
+        "estimator_class": expected["estimator_class"],
+        "estimator_classes": list(estimator_classes),
         "class_alignment": alignment,
-        "whole_work_probabilities": [float(value) for value in work_probabilities],
+        "whole_work_probabilities": list(probability_values),
         "whole_work_probability_digest": numeric_evidence(work_probabilities),
         "vote": {
             "true_label": true_label,
@@ -437,12 +454,9 @@ def evaluate_fold_v3_2(
             "correct": decision.top1 == true_label,
             "rank": decision.true_rank,
         },
-        "axis_evidence": training_axis_evidence(
-            model=model, requested_axes=row.requested_axes, texts=train_texts,
-            y=y_train, groups=train_groups, fit_trace=fit_trace,
-        ),
+        "axis_evidence": axis_evidence,
         "actual_fitted_state": fitted_state,
-    })
+    }, expected=expected)
     return receipt
 
 

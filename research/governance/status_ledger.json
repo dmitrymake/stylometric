@@ -49,14 +49,14 @@
           "sha256": "e8c35910541dd716dc7ab8eb71eb8845cae01fc0e6b0e7425a1f232de6c0559d"
         },
         {
-          "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
-          "symbol": "evaluate_fold_v3_2",
-          "sha256": "08f3a06a0aad3599c1becb741f25410f1b7cc4d12a8390d2d8ceca4c46d99b88"
+                    "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
+                    "symbol": "evaluate_fold_v3_2",
+                    "sha256": "f078e289fc734c961ab7691c0db115ace1227f75981930b1b768053f15b96f31"
         },
         {
-          "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
-          "symbol": "validate_receipt_v3_2",
-          "sha256": "8f20df0d19c75f266b6461b3208e98c007ae8674c48528838ec98ba8de4215d2"
+                    "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
+                    "symbol": "validate_receipt_v3_2",
+                    "sha256": "12c6d400b98ff6ccd614f08366ad2ba526f5cae3864d71bf3425754ff6505833"
         }
       ]
     },
