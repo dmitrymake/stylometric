@@ -326,7 +326,8 @@ def test_sholokhov_wording_separates_target_leakage_from_reference_labels():
         .split()
     )
     assert registered["anchor_solo_in_train"] == ["rodinka", "zherebenok", "batraki"]
-    assert {f"tihiy_don_{index}" for index in range(1, 5)} <= set(registered["heldout"])
+    heldout_td = {work for work in registered["heldout"] if work.startswith("tihiy_don_")}
+    assert heldout_td == {f"tihiy_don_{index}" for index in range(1, 5)}
     assert registered["td_attributed_to_sholokhov"] == "3/4"
     for overclaim in (
         "без замкнутого круга", "без этого круга", "только бесспорные рассказы",
