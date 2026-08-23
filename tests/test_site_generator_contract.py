@@ -316,6 +316,36 @@ def test_sholokhov_claim_is_bound_to_registered_lobo_source():
     assert registered["td_attributed_to_sholokhov"] not in readme
 
 
+def test_sholokhov_wording_separates_target_leakage_from_reference_labels():
+    registered = json.loads(
+        (ROOT / "docs" / "sholokhov_lobo.json").read_text(encoding="utf-8")
+    )
+    source = " ".join(
+        (ROOT / "site" / "src" / "sections" / "Sholokhov.jsx")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    assert registered["anchor_solo_in_train"] == ["rodinka", "zherebenok", "batraki"]
+    assert {f"tihiy_don_{index}" for index in range(1, 5)} <= set(registered["heldout"])
+    assert registered["td_attributed_to_sholokhov"] == "3/4"
+    for overclaim in (
+        "без замкнутого круга", "без этого круга", "только бесспорные рассказы",
+        "бесспорных «Донских рассказов»", "даже бесспорные рассказы",
+        "Бесспорный Шолохов", "собственные бесспорные «Донские рассказы»",
+        "бесспорные одиночные работы", "претензии закрыты",
+    ):
+        assert overclaim not in source
+    for required in (
+        "без утечки проверяемых произведений",
+        "с исключением проверяемых работ из обучения",
+        "зависимость от меток оставшихся опорных текстов сохраняется",
+        "не замкнутость эталона по меткам опорных текстов",
+        "корпусной меткой «Шолохов»",
+        "Замкнутый круг с эталоном (важно)",
+    ):
+        assert required in source
+
+
 def test_method_does_not_render_the_withdrawn_macro_f1_interval():
     source = (ROOT / "site" / "src" / "sections" / "Method.jsx").read_text(encoding="utf-8")
     assert "MF1_CI" not in source
