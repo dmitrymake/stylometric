@@ -1,102 +1,90 @@
 # Current Handoff
 
-- State: **v3.2 evaluator accepted/unregistered; frozen inputs reconciled**
-- Updated: 2026-08-18
-- Verified baseline commit: `d0114de3` (current HEAD; lineage includes reviewed frozen-input reconciliation candidate `a4908d08`)
-- Branch/worktree at capture: `main`; attached; thirty-seven commits ahead of `origin/main`
+- State: **v3.2 receipt semantics closed; evaluator remains unregistered**
+- Updated: 2026-08-23
+- Verified baseline commit: `5eeae5542c12aa6a6c788c772f5a3b55a11c304a`
+- Branch/worktree at capture: attached `main`; candidate commit is thirty-nine commits ahead of
+  `origin/main`; task/handoff closeout edits follow that baseline and do not predict their own commit.
 - Active task: none
-- Last completed task: `docs/tasks/2026-08-18-d3-d5-simplification-campaign.md`
+- Last completed task: `docs/tasks/2026-08-23-v3-2-receipt-semantic-closure.md`
 - Active standard: `docs/agentic/STANDARD.md` v1.3
 
-This file routes the next session. Scientific and authorization status remains owned by the task,
-governance ledger, protocol, and executable gates, not by this handoff.
+This file only routes the next session. Scientific status and authorization remain owned by the
+governance ledger, protocol, executable gates, and completed task evidence.
 
-## 1. Verified completed state
+## 1. Verified current state
 
 | Item | Verified status | Evidence owner |
 |---|---|---|
-| Cleanup A+B+C1+C2+D1+D2+D6 | Prior cleanup plus legacy Python pruning and tracked-log archive boundary; reviews PASS | cleanup tasks; `73f31e3a` |
-| Preparation | Owner-accepted for evaluator implementation | `status_ledger.json`; preparation review |
-| Independent security audit | **Not claimed**; review terminated by owner | `status_ledger.json` |
-| Evaluator candidate | Implemented at `f2f9eb95`; single review FAIL on AC-07 corrected at `4c74df5e`; no second review/PASS claimed | evaluator task Result |
-| Scientific acceptance | Corrected candidate accepted locally after affected/full regression; exactly 25/16/11 | evaluator task; v3.2 tests |
+| v3.2 preparation/frozen inputs | Owner-accepted evaluator input; exact candidate/context identities unchanged | preparation/reconciliation tasks |
+| Evaluator receipt | Mandatory independent expectations and semantic recomputation implemented at `5eeae554`; exact JSON scalar aliases corrected | receipt-closure task |
+| Receipt review | One review FAIL on AC-04 exact types; one allowed correction; frozen verification passed; no second-review PASS claimed | receipt-closure task |
 | Production evaluator | Registry empty; candidate unregistered | `CONFIRMATORY_EVALUATOR_REGISTRY` |
-| Freeze | Unapproved | governance ledger |
-| Preflight/authorization | Absent | governance ledger |
-| Execution | Hard-disabled; no real v3.2 fit/predict occurred | governance ledger; task evidence |
-| Headline/publication | Not authorized | governance ledger |
+| Freeze/preflight/authorization | `None` / absent / absent | runner + governance ledger |
+| Confirmatory execution | Hard-disabled; no real v3.2 fit/predict occurred in the task | runner + receipt-closure task |
+| Headline/publication | Not authorized; no site/public bytes changed | governance ledger |
 
-## 2. Material changes in the cleanup wave
+## 2. Material change after the prior handoff
 
-- Protocol/catalog no longer repeat stale `pending` milestone state; requirements distinguish
-  historical v3.1 m15 from current v3.2 25/16/11.
-- Twelve hard-disabled legacy script shims and their dead contract tests were deleted. Historical p0
-  hashes and Git evidence remain unchanged.
-- The unbounded codebase dumper was deleted and npm is now the sole site package-manager contract;
-  dependency versions, npm lock bytes and generated/public site bytes are unchanged.
-- The internally closed legacy statistic/helper island and hard-disabled macro-F1 correction writer
-  were deleted: 11 Python paths plus one private JSON resource, net -1,098 production Python LOC.
-  Active feature/NLP and erratum implementations, scientific artifacts and claims are unchanged.
-- All 22 tracked historical `log/` files remain in Git but are excluded from the Git-free source
-  archive; archive Python exposure is 327 -> 306. The then-reviewed inventory had 298 paths.
-- The ignored 26-file `_fetch_tmp` island was deleted; repeated R1 strict primitives now use one
-  internal helper; the v3.2 preparation uses a cooperative local single-writer physical contract.
-  Cumulative tracked production/test LOC changed by -597/-200 with full regression and archive
-  gates passing. The executable inventory is now 299 paths because of the one internal helper.
-- No corpus bytes, results, receipts, production runtime, publication surface, external system,
-  freeze, preflight, authorization, or execution changed.
+- Baseline `validate_receipt_v3_2` accepted five coherently rehashed false synthetic receipts. It now
+  requires expectations built before receipt assembly from verified context, manifest/fold inputs,
+  applicability, class orders, split identities, probabilities, axis evidence, and live fitted state.
+- The validator independently checks exact keys and JSON scalar/container types, route/axes,
+  class-order evidence and alignment bijection, literal probability digest and vote/author, split
+  identities, fitted-state model/classes, and external bindings.
+- The final negative oracle includes the original five mutations, fully coherent probability/state
+  substitutions, missing/extra fields, and bool/int/float aliases. All 16 applied synthetic routes
+  pass the same validator.
+- Governance now maps this requirement to exact executable nodeids. Only necessary byte hashes in
+  the status ledger and executable-source inventory changed; their semantics/membership did not.
+- Final verification: focused and 172-test relevant suites passed with one real-bundle skip; full
+  1,649-test collection exited zero with three executed environment/data skips, one separately
+  collection-skipped live-golden module, and two pre-existing invalid-escape warnings. Py-compile,
+  diff, release hygiene, and the 299-path executable inventory passed.
 
-## 3. Completed bounded task
+## 3. Next accuracy loop gate
 
-The accepted candidate now binds the immutable design-freeze protocol SHA `023418...`; later
-status-only protocol prose is not substituted. Read-only context construction validates the frozen
-corpus manifests by exact chunker identity `23361...` without representing it as the current runtime.
-The lock and local runtime remain spaCy 3.8.11. Exact bundle `ff620b05...` and context `2805aff9...`
-were reproduced twice without fit/predict. The single bounded reconciliation review passed at
-`a4908d08`; no correction pass was needed.
+Before production evaluator registration, scope a separate `research / M / R2` topic-validity task.
+A read-only audit reproduced that active `stylo` `function_words.mode="mfw"` admits arbitrary topical
+tokens: on a synthetic counterfactual differing only by repeated nouns, `mfw` separated the labels
+while the existing `fixed_list`/`topic_strict` route was invariant. Confidence is high for the
+mechanism and medium for its effect on the corrected corpus because no real-corpus comparison ran.
 
-No R1/v3.2 execution, publication or external action is authorized by this task.
+The next task should compare the frozen current model with an evaluation-only `topic_strict`
+challenger on identical folds and a deterministic counterfactual suite, report accuracy/per-author
+flips/topic-stress delta, and leave every current model/corpus/result identity unchanged. Do not
+register the current evaluator as factology-ready until that evidence exists. Raw/private text must
+remain unreported; persisted outputs must be aggregate and separately reviewed.
 
-## 4. Next separately authorized task
+Separately, reporting/publication has a bounded wording finding: the public Sholokhov section says
+“без замкнутого круга”/“лишь бесспорные работы”, while its active rigor artifact and later caveat
+retain reference-label circularity. Correct it under a separate claim task; do not deploy or publish
+without explicit publication authorization.
 
-Define the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary under a new task and
-separate authorization. The completed frozen-input reconciliation does not grant that authority.
-Do not begin checkpoints, inference, result auditing, publishing, freeze pinning, authorization, or
-the real 6112-fold execution from this handoff.
+The earlier RunPlan/evaluator-registration/freeze/preflight boundary remains necessary after the
+topic-validity decision. No current task grants that registration, freeze, execution, headline, or
+publication authority.
 
-Primary domain remains `evaluation/paired-audit`; corpus/data access is read-only verified context,
-and research-governance changes are metadata/status only. Legacy v3.1 control-plane modules and
-prepared v3.2 bundle/fold bytes remain frozen.
+## 4. Revalidation conditions
 
-D3-D5 simplification campaign is closed: all three selected candidates were accepted. Do not start
-another simplification wave without a new state snapshot and explicit owner selection.
+Revalidate before mutation if history does not contain `5eeae554`, the receipt task is not complete,
+the two bound v3.2 source hashes differ, registry/freeze/preflight/authorization status changes, the
+worktree contains unknown WIP, or a new R3/sensitive-data factor appears. Re-run the exact-type
+coherent-rehash oracle after any receipt/evaluator change.
 
-## 5. Revalidation conditions
+## 5. Available and unavailable evidence
 
-Revalidate before mutation if HEAD history does not contain reviewed candidate `a4908d08` plus this
-closeout,
-branch is not attached `main`, task/governance bindings differ, the production registry is nonempty,
-freeze/preflight/authorization/execution status changes, or a new R3/sensitive-data factor appears.
+- Available: tracked Git/code/config/tests/governance/protocol, synthetic counterexamples, aggregate
+  research artifacts, local Python 3.11.14 with spaCy 3.8.11, and executable release gates.
+- Unavailable/not inspected for the completed task: raw/private corpus text as reportable evidence,
+  a real v3.2 fit/predict/result, external services, GitHub Pages runtime, secrets, and production
+  publication state.
 
-## 6. Available and unavailable evidence
+## 6. References
 
-- Available: tracked task/governance/protocol/code/tests, local Git history, the exact historical
-  parent and RuAA selection, and frozen identities sufficient to reconstruct a temporary bundle for
-  bounded read-only context construction.
-- Unavailable/not inspected: external services, GitHub Pages runtime, secrets, production publication
-  state, and raw/private corpus content as reportable evidence.
-
-## 7. References
-
-- Task: `docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md`
+- Receipt task: `docs/tasks/2026-08-23-v3-2-receipt-semantic-closure.md`
+- Evaluator task: `docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md`
 - Frozen inputs: `docs/tasks/2026-08-11-v3-2-frozen-input-reconciliation.md`
-- Cleanup: `docs/tasks/2026-08-11-governance-and-retired-shim-cleanup.md`
-- Active surface: `docs/tasks/2026-08-11-active-surface-cleanup.md`
-- Legacy Python surface: `docs/tasks/2026-08-11-legacy-python-surface-pruning.md`
-- Log release boundary: `docs/tasks/2026-08-11-log-release-boundary.md`
-- Completed simplification: `docs/tasks/2026-08-11-context-and-physical-contract-simplification.md`
-- D3-D5 campaign: `docs/tasks/2026-08-18-d3-d5-simplification-campaign.md`
 - Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
-- Preparation/protocol: `research/work_balanced/paired_audit_v3_2_preparation_review.md`,
-  `research/work_balanced/paired_audit_protocol.md`
+- Protocol: `research/work_balanced/paired_audit_protocol.md`
 - Process: `docs/agentic/STANDARD.md`, `docs/handoff/README.md`
