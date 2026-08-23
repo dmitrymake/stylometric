@@ -1,6 +1,6 @@
 {
   "schema": "stylo.governance.status_ledger.v2",
-  "as_of": "2026-08-11",
+  "as_of": "2026-08-23",
   "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
   "paired_audit": {
     "protocol_v3_1": {
@@ -41,7 +41,7 @@
     },
     "evaluator_candidate": {
       "status": "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled",
-      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate was implemented under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. The single independent scientific review of commit f2f9eb95816febfe7a82d6050f5e5fc1bdb35331 found one AC-07 incomplete-class-universe blocker; the one allowed correction pass fixed it in commit 4c74df5e. Affected and full regression checks passed afterward. No second review of the original evaluator acceptance is claimed. Frozen-input reconciliation makes context construction consume the immutable protocol identity and exact stored manifest identity while the lock remains spaCy 3.8.11; this performs no chunking, fit, or prediction. Its separate bounded review of commit a4908d08 passed with no blocker and no correction pass. The corrected candidate is accepted only as an unregistered input to a separately authorized future freeze/control-plane task and has no production registration or execution authority.",
+      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate was implemented under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. The single independent scientific review of commit f2f9eb95816febfe7a82d6050f5e5fc1bdb35331 found one AC-07 incomplete-class-universe blocker; the one allowed correction pass fixed it in commit 4c74df5e. Affected and full regression checks passed afterward. No second review of the original evaluator acceptance is claimed. Frozen-input reconciliation makes context construction consume the immutable protocol identity and exact stored manifest identity while the lock remains spaCy 3.8.11; this performs no chunking, fit, or prediction. Its separate bounded review of commit a4908d08 passed with no blocker and no correction pass. Receipt semantic closure now requires independently derived expectations and exact JSON types; its one review blocker was corrected in the single allowed pass without a second-review PASS claim. A separate synthetic topic-validity gate confirms that active stylo MFW can encode label-correlated content nouns while the evaluation-only topic_strict control removes that exact controlled dependency. The corrected-corpus magnitude and model-semantics decision remain unmeasured, so the candidate is not factology-ready for registration. It is accepted only as an unregistered input to separately authorized future topic-validity and freeze/control-plane tasks and has no production registration or execution authority.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",

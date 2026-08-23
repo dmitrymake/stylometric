@@ -65,7 +65,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "bounded_exploratory_milestones", "historical_records"
     }
     assert ledger["schema"] == "stylo.governance.status_ledger.v2"
-    assert ledger["as_of"] == "2026-08-11"
+    assert ledger["as_of"] == "2026-08-23"
     expected_states = {
         "protocol_v3_1": "superseded_ineligible_corpus",
         "protocol_v3_2": "owner_accepted_for_evaluator_implementation",
@@ -246,6 +246,8 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
     assert "one AC-07 incomplete-class-universe blocker" in evaluator["claim"]
     assert "No second review of the original evaluator acceptance is claimed" in evaluator["claim"]
     assert "bounded review of commit a4908d08 passed" in evaluator["claim"]
+    assert "MFW can encode label-correlated content nouns" in evaluator["claim"]
+    assert "not factology-ready for registration" in evaluator["claim"]
     assert [binding["symbol"] for binding in evaluator["bindings"]] == [
         "REGISTRY_V3_2", "evaluate_fold_v3_2", "validate_receipt_v3_2",
     ]

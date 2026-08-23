@@ -127,6 +127,19 @@
       ]
     },
     {
+      "id": "STYLO-TOPIC-VALIDITY-GATE",
+      "description": "Active stylo MFW topic sensitivity and the evaluation-only topic_strict control are covered by deterministic content-token counterfactuals; synthetic mechanism evidence never becomes corrected-corpus accuracy or evaluator-registration authority.",
+      "code": [
+        {"path": "src/stylo/features/function_words.py", "symbol": "FunctionWordBlock"},
+        {"path": "src/stylo/features/registry.py", "symbol": "build_blocks"},
+        {"path": "src/stylo/eval/lobo.py", "symbol": "make_factory_for_ablation"}
+      ],
+      "tests": [
+        "tests/test_stylo_topic_validity.py::test_mfw_content_token_causal_oracle_and_fixed_list_control",
+        "tests/test_stylo_topic_validity.py::test_all_v32_stylo_routes_expose_mfw_and_topic_strict_is_invariant"
+      ]
+    },
+    {
       "id": "PA-CHECKPOINT-EXACT-RESUME",
       "description": "Only valid exact checkpoints resume; corruption, conflicts, and extras fail.",
       "code": [

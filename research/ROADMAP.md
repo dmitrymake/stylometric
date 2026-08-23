@@ -37,10 +37,14 @@ full `author_id/work_slug` identities, diagnostic-only expected basename collisi
 252/248/134 universe. The former `a70d82f2` candidate was unapproved and is superseded by the new
 storage contract. The next gates require separate authorization, in order:
 
-1. Scope the v3.2 RunPlan/evaluator-registration/freeze/preflight boundary as a new task; do not
-   infer authorization from the accepted evaluator candidate.
-2. Independently review and pin the exact new freeze, then obtain a separate execution authorization.
-3. Execute one full run, verify exact resume, and have a separate clean session independently audit
+1. Resolve the model topic-validity gate. Synthetic counterfactuals confirm that active `stylo` MFW
+   can encode label-correlated content nouns, while the evaluation-only `topic_strict` control removes
+   that exact controlled dependency. Its corrected-corpus effect remains unmeasured; authorize and
+   review a separately versioned aggregate-only challenger study before any registration decision.
+2. After the model-semantics decision, scope the v3.2 RunPlan/evaluator-registration/freeze/preflight
+   boundary as a new task; do not infer authority from an accepted evaluator candidate.
+3. Independently review and pin the exact new freeze, then obtain separate execution authorization.
+4. Execute one full run, verify exact resume, and have a separate clean session independently audit
    the durable result before any separately authorized headline decision.
 
 Until all of these gates are satisfied, the freeze is unapproved, the production evaluator is
