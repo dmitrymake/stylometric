@@ -72,7 +72,7 @@ def test_normative_status_ledger_is_symbol_and_byte_bound():
         "independent_security_audit": "not_claimed_review_terminated_by_owner",
         "evaluator_candidate": "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled",
         "topic_validity_challenger": "implemented_review_blocker_corrected_unexecuted",
-        "topic_validity_execution": "owner_authorized_runner_review_pending",
+        "topic_validity_execution": "owner_authorized_fixed8_review_pending",
         "manifest_freeze": "unapproved",
         "production_evaluator": "unregistered",
         "preflight": "absent",
@@ -259,7 +259,8 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
     assert "without exposing paths" in challenger["claim"]
     assert "no second-review PASS is claimed" in challenger["claim"]
     execution = ledger["paired_audit"]["topic_validity_execution"]
-    assert "992 fresh fits" in execution["claim"]
+    assert "98.4 hours for 992 fits" in execution["claim"]
+    assert "fixed eight-process fork" in execution["claim"]
     assert "not confirmatory, registration, freeze" in execution["claim"]
     for marker in (
         "(v3.2)",

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import multiprocessing
 import os
 import pathlib
 import tempfile
 import time
+from concurrent.futures import ProcessPoolExecutor
 
 from stylo.config import load_config
 from stylo.eval.paired_audit.evaluator_v3_2 import (CANDIDATE_IDENTITY, LOBO_FOLD_IDENTITY,
@@ -31,6 +33,8 @@ from stylo.jsonio import canonical_hash, dumps_strict, load_strict
 EXPECTED_OUTPUT = pathlib.Path("research/evidence/topic_validity_lobo_v1/aggregate.json")
 THREAD_ENV = {"PYTHONHASHSEED": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
               "OPENBLAS_NUM_THREADS": "1"}
+FIXED_WORKERS = 8
+_WORKER_STUDY = None
 
 
 class TopicRunV1Error(RuntimeError):
@@ -149,6 +153,43 @@ def _warm_representations(study) -> None:
           f"workers={workers} seconds={time.monotonic() - started:.1f}", flush=True)
 
 
+def _worker_fold(task):
+    cell, arm, fold_index = task
+    if _WORKER_STUDY is None:
+        raise TopicRunV1Error("fork worker has no inherited sealed study")
+    return cell, arm, evaluate_topic_fold_v1(
+        study=_WORKER_STUDY, cell=cell, arm=arm, fold_index=fold_index
+    )
+
+
+def _parallel_records(study, *, started: float):
+    if "fork" not in multiprocessing.get_all_start_methods():
+        raise TopicRunV1Error("fixed-8 execution requires the reviewed fork start method")
+    tasks = [
+        (cell, arm, fold_index)
+        for cell in TOPIC_CELLS_V1
+        for arm in TOPIC_ARMS_V1
+        for fold_index in range(len(study.folds))
+    ]
+    records = {cell: {arm: [] for arm in TOPIC_ARMS_V1} for cell in TOPIC_CELLS_V1}
+    global _WORKER_STUDY
+    _WORKER_STUDY = study
+    try:
+        with ProcessPoolExecutor(
+            max_workers=FIXED_WORKERS, mp_context=multiprocessing.get_context("fork")
+        ) as executor:
+            for completed, (cell, arm, record) in enumerate(
+                executor.map(_worker_fold, tasks, chunksize=1), start=1
+            ):
+                records[cell][arm].append(record)
+                if completed % 10 == 0 or completed == len(tasks):
+                    print(f"progress={completed}/{len(tasks)} cell={cell} arm={arm} "
+                          f"elapsed_seconds={time.monotonic() - started:.1f}", flush=True)
+    finally:
+        _WORKER_STUDY = None
+    return records
+
+
 def main(argv=None) -> int:
     args = _parser().parse_args(argv)
     repo_hint = pathlib.Path(__file__).resolve().parents[2]
@@ -175,26 +216,9 @@ def main(argv=None) -> int:
     if expected_output.exists() or expected_output.is_symlink():
         raise TopicRunV1Error("aggregate output already exists; execution is create-once")
 
-    records = {cell: {arm: [] for arm in TOPIC_ARMS_V1} for cell in TOPIC_CELLS_V1}
-    total = len(study.folds) * len(TOPIC_CELLS_V1) * len(TOPIC_ARMS_V1)
-    completed = 0
     started = time.monotonic()
     _warm_representations(study)
-    for cell in TOPIC_CELLS_V1:
-        for arm in TOPIC_ARMS_V1:
-            for fold_index in range(len(study.folds)):
-                records[cell][arm].append(evaluate_topic_fold_v1(
-                    study=study, cell=cell, arm=arm, fold_index=fold_index
-                ))
-                completed += 1
-                if completed % 10 == 0 or completed == total:
-                    print(
-                        f"progress={completed}/{total}",
-                        f"cell={cell}",
-                        f"arm={arm}",
-                        f"elapsed_seconds={time.monotonic() - started:.1f}",
-                        flush=True,
-                    )
+    records = _parallel_records(study, started=started)
     aggregate = build_topic_aggregate_v1(study=study, records=records, **identities)
     validate_topic_aggregate_v1(aggregate, study=study, records=records, **identities)
     _write_new_json(expected_output, aggregate)

@@ -5,6 +5,8 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import sys
+import time
 from types import SimpleNamespace
 
 import numpy as np
@@ -49,6 +51,7 @@ def _runner_module():
     spec = importlib.util.spec_from_file_location("topic_validity_runner_v1", RUNNER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -157,6 +160,28 @@ def _records(study):
                     "whole_work_probabilities": _one_hot(len(study.probability_order), prediction),
                 })
     return predictions
+
+
+def _fake_fold_evaluation(*, study, cell, arm, fold_index):
+    fold = study.folds[fold_index]
+    wrong = (fold.true_label + 1) % len(study.probability_order)
+    other_wrong = (fold.true_label + 2) % len(study.probability_order)
+    mode = fold_index % 5
+    if arm == "current":
+        prediction = fold.true_label if mode in (0, 1) else wrong
+    else:
+        prediction = fold.true_label if mode in (0, 2) else wrong if mode == 3 else other_wrong
+    return {
+        "fold_index": fold_index,
+        "fold_identity": fold.fold_identity,
+        "whole_work_probabilities": _one_hot(len(study.probability_order), prediction),
+    }
+
+
+def _failing_fold_evaluation(*, study, cell, arm, fold_index):
+    if fold_index == 1:
+        raise RuntimeError("synthetic worker failure")
+    return _fake_fold_evaluation(study=study, cell=cell, arm=arm, fold_index=fold_index)
 
 
 def _walk_keys(value):
@@ -407,6 +432,8 @@ def test_runner_cli_has_only_fixed_preflight_timing_execute_modes():
         "--execute", *common, "--output", runner.EXPECTED_OUTPUT.as_posix(),
     ])
     assert execute.execute is True
+    assert runner.FIXED_WORKERS == 8
+    assert "fork" in runner.multiprocessing.get_all_start_methods()
     source = RUNNER_PATH.read_text(encoding="utf-8")
     for forbidden_option in ("--cell", "--arm", "--model", "--dataset", "--workers"):
         assert forbidden_option not in source
@@ -451,3 +478,30 @@ def test_runner_warms_only_existing_regenerable_rep_cache(monkeypatch, capsys):
     runner._warm_representations(study)
     assert calls == [(["a", "b", "c"], {"n_process": 8, "batch_size": 32})]
     assert "representation_warm=ok rows=3 created=3 workers=8" in capsys.readouterr().out
+
+
+def test_fixed8_fork_records_and_aggregate_are_serial_identical(tmp_path, monkeypatch):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
+    parallel = runner._parallel_records(study, started=time.monotonic())
+    serial = _records(study)
+    assert parallel == serial
+    kwargs = dict(
+        study=study, implementation_source_identity="1" * 64,
+        environment_lock_identity="2" * 64, runtime_identity="3" * 64,
+        thread_identity="4" * 64,
+    )
+    assert dumps_strict(
+        build_topic_aggregate_v1(records=parallel, **kwargs), sort_keys=True
+    ) == dumps_strict(build_topic_aggregate_v1(records=serial, **kwargs), sort_keys=True)
+
+
+def test_fixed8_worker_failure_returns_no_records(tmp_path, monkeypatch):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _failing_fold_evaluation)
+    with pytest.raises(RuntimeError, match="synthetic worker failure"):
+        runner._parallel_records(study, started=time.monotonic())
