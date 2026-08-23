@@ -18,7 +18,8 @@ warm-up, prove byte-identical synthetic aggregate versus serial execution, then 
 - Exact task order remains A0/current, A0/topic_strict, A4/current, A4/topic_strict and fold 0..247.
 - Parent warms all representations before fork. Workers inherit the sealed study and in-memory cache;
   each task still constructs a fresh estimator and returns one transient fold record.
-- `executor.map` preserves submitted order; worker count is exact integer `8`, not a CLI selector.
+- Ordered `fork Pool.imap(chunksize=1)` preserves submitted order; worker count is exact integer `8`,
+  not a CLI selector. An absolute 16-hour deadline terminates/joins the pool before any output.
 - Output remains create-once aggregate-only. No worker writes artifact/cache/checkpoint/log detail.
 - No reduced folds, A1–A3, RuAA, other model, official receipt/result, publication or registration.
 

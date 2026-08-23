@@ -9,7 +9,6 @@ import os
 import pathlib
 import tempfile
 import time
-from concurrent.futures import ProcessPoolExecutor
 
 from stylo.config import load_config
 from stylo.eval.paired_audit.evaluator_v3_2 import (CANDIDATE_IDENTITY, LOBO_FOLD_IDENTITY,
@@ -34,6 +33,7 @@ EXPECTED_OUTPUT = pathlib.Path("research/evidence/topic_validity_lobo_v1/aggrega
 THREAD_ENV = {"PYTHONHASHSEED": "0", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
               "OPENBLAS_NUM_THREADS": "1"}
 FIXED_WORKERS = 8
+MAX_EXECUTION_SECONDS = 16 * 60 * 60
 _WORKER_STUDY = None
 
 
@@ -174,17 +174,29 @@ def _parallel_records(study, *, started: float):
     records = {cell: {arm: [] for arm in TOPIC_ARMS_V1} for cell in TOPIC_CELLS_V1}
     global _WORKER_STUDY
     _WORKER_STUDY = study
+    pool = multiprocessing.get_context("fork").Pool(processes=FIXED_WORKERS)
     try:
-        with ProcessPoolExecutor(
-            max_workers=FIXED_WORKERS, mp_context=multiprocessing.get_context("fork")
-        ) as executor:
-            for completed, (cell, arm, record) in enumerate(
-                executor.map(_worker_fold, tasks, chunksize=1), start=1
-            ):
-                records[cell][arm].append(record)
-                if completed % 10 == 0 or completed == len(tasks):
-                    print(f"progress={completed}/{len(tasks)} cell={cell} arm={arm} "
-                          f"elapsed_seconds={time.monotonic() - started:.1f}", flush=True)
+        iterator = pool.imap(_worker_fold, tasks, chunksize=1)
+        for completed in range(1, len(tasks) + 1):
+            remaining = started + MAX_EXECUTION_SECONDS - time.monotonic()
+            if remaining <= 0:
+                raise TopicRunV1Error("fixed-8 execution exceeded the 16-hour no-output deadline")
+            try:
+                cell, arm, record = iterator.next(timeout=remaining)
+            except multiprocessing.TimeoutError as exc:
+                raise TopicRunV1Error(
+                    "fixed-8 execution exceeded the 16-hour no-output deadline"
+                ) from exc
+            records[cell][arm].append(record)
+            if completed % 10 == 0 or completed == len(tasks):
+                print(f"progress={completed}/{len(tasks)} cell={cell} arm={arm} "
+                      f"elapsed_seconds={time.monotonic() - started:.1f}", flush=True)
+        pool.close()
+        pool.join()
+    except BaseException:
+        pool.terminate()
+        pool.join()
+        raise
     finally:
         _WORKER_STUDY = None
     return records

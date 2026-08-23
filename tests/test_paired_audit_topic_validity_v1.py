@@ -505,3 +505,13 @@ def test_fixed8_worker_failure_returns_no_records(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _failing_fold_evaluation)
     with pytest.raises(RuntimeError, match="synthetic worker failure"):
         runner._parallel_records(study, started=time.monotonic())
+
+
+def test_fixed8_deadline_terminates_before_records(tmp_path, monkeypatch):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
+    monkeypatch.setattr(runner, "MAX_EXECUTION_SECONDS", 0)
+    with pytest.raises(runner.TopicRunV1Error, match="16-hour no-output deadline"):
+        runner._parallel_records(study, started=time.monotonic())

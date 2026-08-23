@@ -72,8 +72,8 @@
       ]
     },
     "topic_validity_execution": {
-      "status": "owner_authorized_fixed8_review_pending",
-      "claim": "The repository owner explicitly authorized the bounded R3b corrected-LOBO topic-validity study in the 2026-08-23 operator turn. Sequential timing measured 357.051 seconds per warm A0/current fold (98.4 hours for 992 fits), so that task stopped without output. A fixed eight-process fork follow-up is implemented with required serial/parallel aggregate equivalence and remains review-pending. Scope stays exactly 248 LOBO folds, stylo A0/A4, current/topic_strict and one aggregate-only create-once artifact. This is not confirmatory, registration, freeze, model-selection, headline or publication authority.",
+      "status": "owner_authorized_fixed8_review_blocker_corrected_ready",
+      "claim": "The repository owner explicitly authorized the bounded R3b corrected-LOBO topic-validity study in the 2026-08-23 operator turn. Sequential timing measured 357.051 seconds per warm A0/current fold (98.4 hours for 992 fits), so that task stopped without output. Fixed eight-process fork execution has serial/parallel aggregate equivalence. Its single review found that the 16-hour stop was not executable; the one allowed correction now terminates and joins the pool at an absolute deadline before output. Frozen verification follows without a second-review PASS claim. Scope stays exactly 248 LOBO folds, stylo A0/A4, current/topic_strict and one aggregate-only create-once artifact. This is not confirmatory, registration, freeze, model-selection, headline or publication authority.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
@@ -83,7 +83,7 @@
         {
           "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
           "symbol": "main",
-          "sha256": "b4919052149ae2b7bf741ff0c2ec497a3e5cd9c4cf2bac4e59d661869ed13495"
+          "sha256": "61c1e125188aaa5c260c3bc30c7368bbf57a602456d4d9383759269c9276cf87"
         }
       ]
     },
