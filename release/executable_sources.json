@@ -5,8 +5,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 303,
-  "release_python_paths_sha256": "8abf853d3755074971882fe11bb7ce08aa2dbbb16475cc4b793f080cab7d9ec2",
+  "release_python_file_count": 287,
+  "release_python_paths_sha256": "e1f0f1464472e2e140afbf3fb9d17784767fb00b087a723c5afe2cfbef644cb6",
   "local_only_python_files": [
     "scripts/build_petersburg_chronicle_manifest.py",
     "scripts/build_petersburg_panel.py"
