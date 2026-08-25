@@ -39,12 +39,14 @@ governance ledger, protocol, executable gates, and completed task evidence.
 
 ## 3. Next gate
 
-Execute the authorized fixed-8 topic-validity study: rebuild the temporary v3.2 bundle from
+Execute the authorized topic-validity study: rebuild the temporary v3.2 bundle from
 `data/audit_corpus/15d265e0…` with `data/ruaa_bench_v1/manifest.json`, run the no-fit preflight, then
-one uninterrupted run of 992 fits writing only
-`research/evidence/topic_validity_lobo_v1/aggregate.json`. Budget: ~52 min representation warm plus
-~26 h of fits, hard stop without output at 30 h. Nothing else may mutate `src/stylo` while it runs —
-`execution_source_sha256` binds that tree and fork workers read it for the whole window.
+execute 992 fits writing `research/evidence/topic_validity_lobo_v1/aggregate.json`. The run is
+resumable: it checkpoints every ten fits to the ignored `research/local/` path, stops cleanly on
+Ctrl-C or SIGTERM, and continues from that point when the same command runs again. `--cells A0`
+answers the topic question on the first cell in roughly half the time. Nothing else may mutate
+`src/stylo` while it runs — `execution_source_sha256` binds that tree and fork workers read it for
+the whole window.
 
 After the aggregate exists, an independent clean-context audit precedes any model-semantics decision.
 Registration, freeze, preflight, headline and publication each still require separate authorization.

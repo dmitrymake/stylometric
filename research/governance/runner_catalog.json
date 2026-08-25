@@ -179,16 +179,16 @@
       "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
       "status": "owner_authorized_measured_fixed8_review_blocker_corrected_verified_ready",
       "claim_scope": "Exact corrected LOBO-248 topic-validity study only: stylo A0/A4 current versus topic_strict, after sequential, fixed-8 and fixed-16 measured load stops selected fixed-8 as the faster observed orchestration. The single review found only stale executable-source inventory hashes; that bounded correction is frozen-verified without a second-review PASS claim. This is aggregate decision support, not confirmatory execution, evaluator registration, model selection, headline or publication authority.",
-      "output_contract": "Create-once research/evidence/topic_validity_lobo_v1/aggregate.json only. The retained strict aggregate contains bound identities, rational accuracy/delta, prediction digests and per-author transition counts; transient probabilities/fold identities are memory-only and no work IDs, text, vocabulary, checkpoints, official receipts/results or row predictions persist.",
-      "identity_bindings": ["verified_v3_2_context", "topic_challenger_binding", "lobo_fold_order", "probability_class_order", "metric_label_order", "executable_sources", "environment_lock", "runtime", "thread_contract", "fixed_fork8_process_30h_contract"],
+      "output_contract": "Create-once research/evidence/topic_validity_lobo_v1/aggregate.json plus an ignored local resume checkpoint under research/local/. The retained strict aggregate contains bound identities, rational accuracy/delta, prediction digests and per-author transition counts; the checkpoint holds only fold indices, fold identities and aligned probability vectors so an interrupted run resumes, and no work IDs, text, vocabulary, official receipts/results or row predictions persist.",
+      "identity_bindings": ["verified_v3_2_context", "topic_challenger_binding", "lobo_fold_order", "probability_class_order", "metric_label_order", "executable_sources", "environment_lock", "runtime", "thread_contract"],
       "required_nodeids": [
         "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
-        "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_has_only_fixed_preflight_timing_execute_modes",
+        "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_exposes_three_modes_and_resumable_execution",
         "tests/test_paired_audit_topic_validity_v1.py::test_runner_rejects_wrong_output_before_context_load",
         "tests/test_paired_audit_topic_validity_v1.py::test_runner_atomic_output_is_create_once",
-        "tests/test_paired_audit_topic_validity_v1.py::test_fixed8_fork_records_and_aggregate_are_serial_identical",
-        "tests/test_paired_audit_topic_validity_v1.py::test_fixed8_worker_failure_returns_no_records",
-        "tests/test_paired_audit_topic_validity_v1.py::test_fixed8_deadline_terminates_before_records"
+        "tests/test_paired_audit_topic_validity_v1.py::test_fork_records_and_aggregate_are_serial_identical",
+        "tests/test_paired_audit_topic_validity_v1.py::test_worker_failure_propagates_instead_of_writing_a_partial_aggregate",
+        "tests/test_paired_audit_topic_validity_v1.py::test_time_limit_stops_and_keeps_completed_work"
       ]
     }
   ]

@@ -262,7 +262,7 @@ def test_paired_audit_v3_2_contract_is_mechanically_accounted_and_non_authorizin
     assert "Sequential timing projected 98.4 hours" in execution["claim"]
     assert "fixed-8 reached 10/992" in execution["claim"]
     assert "fixed-16 reached 10/992 at 1162.4 seconds" in execution["claim"]
-    assert "fixed eight-process fork with a 30-hour" in execution["claim"]
+    assert "resumes from an ignored local checkpoint" in execution["claim"]
     assert "one executable-source-inventory blocker affecting two stale hashes" in execution["claim"]
     assert "No second-review PASS is claimed" in execution["claim"]
     assert "not confirmatory, registration, freeze" in execution["claim"]

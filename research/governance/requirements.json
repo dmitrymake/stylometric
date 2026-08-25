@@ -156,14 +156,14 @@
     },
     {
       "id": "PA-TOPIC-VALIDITY-R3B-RUNNER-V1",
-      "description": "The owner-authorized runner is fixed to corrected LOBO-248 stylo A0/A4 current/topic_strict, binds source/environment/runtime/thread identities, keeps fold probabilities transient, and creates one aggregate-only artifact with no overwrite, checkpoint, official-result or publication path.",
+      "description": "The owner-authorized runner is fixed to corrected LOBO-248 stylo A0/A4 current/topic_strict, binds source/environment/runtime/thread identities, keeps fold probabilities out of the retained artifact, resumes from an ignored local checkpoint, and creates one aggregate-only artifact with no overwrite, official-result or publication path.",
       "code": [
         {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "evaluate_topic_fold_v1"},
         {"path": "scripts/evaluation/run_topic_validity_lobo_v1.py", "symbol": "main"}
       ],
       "tests": [
         "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
-        "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_has_only_fixed_preflight_timing_execute_modes",
+        "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_exposes_three_modes_and_resumable_execution",
         "tests/test_paired_audit_topic_validity_v1.py::test_runner_rejects_wrong_output_before_context_load",
         "tests/test_paired_audit_topic_validity_v1.py::test_runner_atomic_output_is_create_once"
       ]

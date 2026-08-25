@@ -415,7 +415,7 @@ def test_strict_json_and_official_gates_remain_closed(tmp_path):
     assert APPROVED_FREEZE_ROOT_SHA256 is None
 
 
-def test_runner_cli_has_only_fixed_preflight_timing_execute_modes():
+def test_runner_cli_exposes_three_modes_and_resumable_execution():
     runner = _runner_module()
     with pytest.raises(SystemExit):
         runner._parser().parse_args([])
@@ -432,13 +432,18 @@ def test_runner_cli_has_only_fixed_preflight_timing_execute_modes():
         "--execute", *common, "--output", runner.EXPECTED_OUTPUT.as_posix(),
     ])
     assert execute.execute is True
-    assert runner.FIXED_WORKERS == 8
-    assert runner.MAX_EXECUTION_SECONDS == 30 * 60 * 60
+    assert (execute.workers, execute.max_hours, execute.fresh) == (runner.DEFAULT_WORKERS, 0.0, False)
+    assert execute.cells == "A0,A4" and execute.arms == "current,topic_strict"
     assert "fork" in runner.multiprocessing.get_all_start_methods()
-    source = RUNNER_PATH.read_text(encoding="utf-8")
-    for forbidden_option in ("--cell", "--arm", "--model", "--dataset", "--workers"):
-        assert forbidden_option not in source
-    assert "checkpoint" not in source.lower()
+
+
+def test_runner_selectors_accept_subsets_and_reject_unknown_names():
+    runner = _runner_module()
+    assert runner._selectors("A0", TOPIC_CELLS_V1, "cells") == ("A0",)
+    assert runner._selectors("topic_strict,current", TOPIC_ARMS_V1, "arms") == TOPIC_ARMS_V1
+    for malformed in ("", "A0,A0", "A9", "A0,nope"):
+        with pytest.raises(runner.TopicRunV1Error, match="unique subset"):
+            runner._selectors(malformed, TOPIC_CELLS_V1, "cells")
 
 
 def test_runner_rejects_wrong_output_before_context_load(tmp_path, monkeypatch):
@@ -481,13 +486,24 @@ def test_runner_warms_only_existing_regenerable_rep_cache(monkeypatch, capsys):
     assert "representation_warm=ok rows=3 created=3 workers=8" in capsys.readouterr().out
 
 
-def test_fixed8_fork_records_and_aggregate_are_serial_identical(tmp_path, monkeypatch):
+def _collect_all(runner, study, *, workers=1, deadline=None, save=None):
+    records = runner._empty_records()
+    tasks = runner._pending(records, study, TOPIC_CELLS_V1, TOPIC_ARMS_V1)
+    reason = runner._collect_records(
+        study, records, tasks, workers=workers, started=time.monotonic(),
+        deadline=deadline, save=save or (lambda current: None),
+    )
+    return records, reason
+
+
+def test_fork_records_and_aggregate_are_serial_identical(tmp_path, monkeypatch):
     runner = _runner_module()
     cfg, context = _context(tmp_path)
     study = build_topic_study_context_v1(cfg=cfg, context=context)
     monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
-    parallel = runner._parallel_records(study, started=time.monotonic())
+    parallel, reason = _collect_all(runner, study, workers=4)
     serial = _records(study)
+    assert reason == "complete"
     assert parallel == serial
     kwargs = dict(
         study=study, implementation_source_identity="1" * 64,
@@ -499,20 +515,103 @@ def test_fixed8_fork_records_and_aggregate_are_serial_identical(tmp_path, monkey
     ) == dumps_strict(build_topic_aggregate_v1(records=serial, **kwargs), sort_keys=True)
 
 
-def test_fixed8_worker_failure_returns_no_records(tmp_path, monkeypatch):
+def test_worker_failure_propagates_instead_of_writing_a_partial_aggregate(tmp_path, monkeypatch):
     runner = _runner_module()
     cfg, context = _context(tmp_path)
     study = build_topic_study_context_v1(cfg=cfg, context=context)
     monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _failing_fold_evaluation)
     with pytest.raises(RuntimeError, match="synthetic worker failure"):
-        runner._parallel_records(study, started=time.monotonic())
+        _collect_all(runner, study)
 
 
-def test_fixed8_deadline_terminates_before_records(tmp_path, monkeypatch):
+def test_time_limit_stops_and_keeps_completed_work(tmp_path, monkeypatch):
     runner = _runner_module()
     cfg, context = _context(tmp_path)
     study = build_topic_study_context_v1(cfg=cfg, context=context)
     monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
-    monkeypatch.setattr(runner, "MAX_EXECUTION_SECONDS", 0)
-    with pytest.raises(runner.TopicRunV1Error, match="30-hour no-output deadline"):
-        runner._parallel_records(study, started=time.monotonic())
+    saved = []
+    records, reason = _collect_all(
+        runner, study, deadline=time.monotonic() - 1, save=lambda current: saved.append(
+            sum(len(current[cell][arm]) for cell in TOPIC_CELLS_V1 for arm in TOPIC_ARMS_V1)
+        ),
+    )
+    assert reason == "time_limit"
+    assert saved, "the run must checkpoint what it finished before the limit"
+    assert all(len(records[cell][arm]) < len(study.folds)
+               for cell in TOPIC_CELLS_V1 for arm in TOPIC_ARMS_V1)
+
+
+def test_stop_request_ends_the_run_and_checkpoints(tmp_path, monkeypatch):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
+    monkeypatch.setattr(runner, "SAVE_EVERY", 1)
+    saved = []
+
+    def _save(current):
+        saved.append(sum(len(current[cell][arm]) for cell in TOPIC_CELLS_V1 for arm in TOPIC_ARMS_V1))
+        runner._STOP_REQUESTED = True
+
+    records, reason = _collect_all(runner, study, save=_save)
+    assert reason == "stop_requested"
+    assert saved and saved[0] >= 1
+    done = sum(len(records[cell][arm]) for cell in TOPIC_CELLS_V1 for arm in TOPIC_ARMS_V1)
+    assert 0 < done < len(TOPIC_CELLS_V1) * len(TOPIC_ARMS_V1) * len(study.folds)
+
+
+def test_signal_handler_sets_the_stop_flag(monkeypatch):
+    runner = _runner_module()
+    monkeypatch.setattr(runner, "_STOP_REQUESTED", False)
+    runner._request_stop(15, None)
+    assert runner._STOP_REQUESTED is True
+
+
+def test_checkpoint_round_trips_and_refuses_a_foreign_run(tmp_path):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    path = tmp_path / "checkpoint.json"
+    records = _records(study)
+    runner._save_checkpoint(path, "a" * 64, records, commit="c" * 40, elapsed=12.5)
+    assert runner._load_checkpoint(path, "a" * 64) == records
+    with pytest.raises(runner.TopicRunV1Error, match="different study"):
+        runner._load_checkpoint(path, "b" * 64)
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["schema"] == runner.CHECKPOINT_SCHEMA
+    assert stored["completed"]["A0"]["current"] == len(study.folds)
+    assert runner._load_checkpoint(tmp_path / "absent.json", "a" * 64) == runner._empty_records()
+
+
+def test_resume_only_reruns_missing_folds(tmp_path, monkeypatch):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
+    complete = _records(study)
+    partial = copy.deepcopy(complete)
+    partial["A0"]["current"] = partial["A0"]["current"][:-3]
+    partial["A4"]["topic_strict"] = []
+    pending = runner._pending(partial, study, TOPIC_CELLS_V1, TOPIC_ARMS_V1)
+    assert len(pending) == 3 + len(study.folds)
+    assert {task[0] for task in pending} == {"A0", "A4"}
+    reason = runner._collect_records(
+        study, partial, pending, workers=1, started=time.monotonic(), deadline=None,
+        save=lambda current: None,
+    )
+    assert reason == "complete"
+    assert partial == complete
+
+
+def test_cell_subset_leaves_the_other_cell_untouched(tmp_path, monkeypatch):
+    runner = _runner_module()
+    cfg, context = _context(tmp_path)
+    study = build_topic_study_context_v1(cfg=cfg, context=context)
+    monkeypatch.setattr(runner, "evaluate_topic_fold_v1", _fake_fold_evaluation)
+    records = runner._empty_records()
+    tasks = runner._pending(records, study, ("A0",), TOPIC_ARMS_V1)
+    assert len(tasks) == 2 * len(study.folds)
+    runner._collect_records(study, records, tasks, workers=1, started=time.monotonic(),
+                            deadline=None, save=lambda current: None)
+    assert records["A0"] == _records(study)["A0"]
+    assert records["A4"] == {"current": [], "topic_strict": []}
