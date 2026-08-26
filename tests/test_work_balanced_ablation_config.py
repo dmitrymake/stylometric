@@ -16,7 +16,7 @@ from stylo import jsonio
 from stylo.config import load_config
 from stylo.eval.dispatch import fit_estimator
 from stylo.eval.lobo import make_factory, make_factory_for_ablation
-from stylo.eval.work_weighting import (AblationConfig, AblationNotImplementedError,
+from stylo.domain.work_weighting import (AblationConfig, AblationNotImplementedError,
                                        CHUNK_WEIGHTED_LEGACY, FULL_WB_ABLATION,
                                        LEGACY_ABLATION, WEIGHTS_ONLY_ABLATION, WORK_BALANCED)
 

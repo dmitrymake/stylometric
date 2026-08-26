@@ -13,7 +13,7 @@ from stylo import workdoc as wd
 from stylo.config import load_config, with_overrides
 from stylo.corpus import load_dataset
 from stylo.eval.provenance import RunContract, verify_dataset_against_disk
-from stylo.eval.work_weighting import WORK_BALANCED
+from stylo.domain.work_weighting import WORK_BALANCED
 from stylo.jsonio import dump_strict, load_strict
 from stylo.workdoc import chunker_config_hash, load_work_balanced_dataset
 from stylo.eval.paired_audit import corpus as ac

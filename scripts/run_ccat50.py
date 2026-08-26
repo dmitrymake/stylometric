@@ -131,9 +131,9 @@ def main():
     ens_names = [n for n in te_scores if n not in ENS_EXCLUDE]
     log("\nканалы в слиянии: " + ", ".join(ens_names) + "  (summary исключён как балласт)")
 
-    # --- Пер-канальная калибровка: выбор метода по held-out NLL внутри OOF (см. stylo.eval.calibration) ---
+    # --- Пер-канальная калибровка: выбор метода по held-out NLL внутри OOF (см. stylo.models.calibration) ---
     from sklearn.linear_model import LogisticRegression
-    from stylo.eval.calibration import choose_calibrator
+    from stylo.models.calibration import choose_calibrator
     calib = {}; oof_probs = {}; te_probs = {}
     for n in ens_names:
         cal, passport = choose_calibrator(oof_scores[n], ytr_i, seed=SEED)

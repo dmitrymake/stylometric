@@ -40,7 +40,7 @@ def _make_ds(prefix, n_authors, n_tested, n_works):
         pred = t if correct else (t + 1) % n_authors
         proba = [0.001] * n_authors
         proba[pred] = 1.0 - 0.001 * (n_authors - 1)
-        from stylo.eval.prediction_contract import stable_top1_and_worst_tie_rank
+        from stylo.domain.prediction_contract import stable_top1_and_worst_tie_rank
         decision = stable_top1_and_worst_tie_rank(proba, true_label=t)
         vec.append({"work_id": f"{author}/w{k:04d}", "true_label": t, "pred_label": pred,
                     "correct": correct, "rank": decision.true_rank, "proba": proba})

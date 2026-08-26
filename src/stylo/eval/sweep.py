@@ -27,7 +27,7 @@ from .lobo import (
     build_generic_lobo_fold_manifest,
     validate_generic_lobo_result,
 )
-from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
+from ..domain.work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
 from .metrics import (
     AuthorClusteredInferenceSpec,
     accuracy,

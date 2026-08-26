@@ -79,7 +79,7 @@ def _dummy_evaluator(dataset, ds_obj, model, cell, fold_index, work_id, ablation
     pred_label = true_label if correct else (true_label + 1) % width
     proba = [0.0] * width
     proba[pred_label] = 1.0
-    from stylo.eval.prediction_contract import stable_top1_and_worst_tie_rank
+    from stylo.domain.prediction_contract import stable_top1_and_worst_tie_rank
     decision = stable_top1_and_worst_tie_rank(proba, true_label=true_label)
     # supply the REAL fold-local evidence this applied cell requires (the runner never synthesizes it)
     evidence = {key: hashlib.sha256(f"{key}:{model}:{cell}:{work_id}".encode()).hexdigest()

@@ -52,7 +52,7 @@ from stylo import jsonio  # noqa: E402
 from stylo.config import load_config, with_overrides  # noqa: E402
 from stylo.eval.dispatch import fit_estimator  # noqa: E402
 from stylo.eval.lobo import make_factory_for_ablation  # noqa: E402
-from stylo.eval.work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION  # noqa: E402
+from stylo.domain.work_weighting import FULL_WB_ABLATION, LEGACY_ABLATION  # noqa: E402
 from stylo.features.reps import make_rep_cache  # noqa: E402
 from stylo.models.stacked_clf import (  # noqa: E402
     STACK_PASSPORT_SCHEMA_V1,

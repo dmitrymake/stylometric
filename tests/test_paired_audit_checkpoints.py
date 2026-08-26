@@ -203,7 +203,7 @@ class TestFailClosed:
         # owner repro: a checkpoint with pred=-9,true=99,rank=-5,proba=[-7,8] + empty evidence, RE-
         # self-hashed, was accepted by scan_cell. _validate_result now runs on LOAD, not only at save.
         from stylo.eval.paired_audit.checkpoints import _CHECKPOINT_SCHEMA, _self_hash
-        from stylo.eval.prediction_contract import PREDICTION_CONTRACT_VERSION
+        from stylo.domain.prediction_contract import PREDICTION_CONTRACT_VERSION
         store = _store(tmp_path)
         record = {"schema": _CHECKPOINT_SCHEMA,
                   "prediction_contract_version": PREDICTION_CONTRACT_VERSION,

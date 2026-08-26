@@ -17,13 +17,13 @@ from sklearn.model_selection import StratifiedGroupKFold
 from ..corpus import Dataset
 from .dispatch import fit_estimator
 from .lobo import _align_proba, _validate_proba, make_factory
-from .prediction_contract import stable_top1_and_worst_tie_rank
+from ..domain.prediction_contract import stable_top1_and_worst_tie_rank
 from .provenance import (
     prepare_scientific_evaluation,
     require_disk_verified_scientific_context,
     require_scientific_evaluation_context,
 )
-from .work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
+from ..domain.work_weighting import CHUNK_WEIGHTED_LEGACY, require_weighting
 
 log = logging.getLogger("stylo.eval.groupkfold")
 

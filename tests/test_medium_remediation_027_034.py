@@ -62,16 +62,12 @@ def test_aud027_identity_contract_is_inward_and_import_graph_is_acyclic():
     from stylo.domain import work_weighting as domain_weighting
     from stylo.domain.segmentation import LabeledSpan as DomainSpan
     from stylo.eval import provenance
-    from stylo.eval import work_weighting as compatibility_weighting
     from stylo.eval.segmentation import LabeledSpan as EvalSpan
-    import stylo.eval.calibration as compatibility_calibration
-    import stylo.models.calibration as model_calibration
 
     assert provenance.RowIdentity is corpus_identity.RowIdentity
     assert provenance.DatasetProvenance is corpus_identity.DatasetProvenance
     assert provenance.build_provenance is corpus_identity.build_provenance
-    assert compatibility_weighting is domain_weighting
-    assert compatibility_calibration is model_calibration
+    assert domain_weighting.WORK_BALANCED
     assert EvalSpan is DomainSpan
 
     paths = {

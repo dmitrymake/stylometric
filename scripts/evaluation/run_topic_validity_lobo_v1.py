@@ -27,7 +27,7 @@ from stylo.eval.paired_audit.topic_validity_v1 import (TOPIC_ARMS_V1, TOPIC_CELL
                                                        build_topic_study_context_v1,
                                                        evaluate_topic_fold_v1,
                                                        validate_topic_aggregate_v1)
-from stylo.eval.prediction_contract import stable_top1_and_worst_tie_rank
+from stylo.domain.prediction_contract import stable_top1_and_worst_tie_rank
 from stylo.features.reps import make_rep_cache
 from stylo.jsonio import canonical_hash, dumps_strict, load_strict
 

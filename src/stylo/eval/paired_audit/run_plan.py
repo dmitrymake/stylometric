@@ -28,7 +28,7 @@ from types import MappingProxyType
 from typing import Callable, Optional
 
 from ...jsonio import dumps_strict
-from ..prediction_contract import PREDICTION_CONTRACT_VERSION
+from ...domain.prediction_contract import PREDICTION_CONTRACT_VERSION
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 

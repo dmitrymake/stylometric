@@ -15,9 +15,9 @@ from scipy.special import softmax
 from sklearn.exceptions import ConvergenceWarning
 
 from stylo.config import load_config
-from stylo.eval.calibration import choose_calibrator
+from stylo.models.calibration import choose_calibrator
 from stylo.eval.lobo import make_factory, make_factory_for_ablation
-from stylo.eval.work_weighting import (
+from stylo.domain.work_weighting import (
     CHUNK_WEIGHTED_LEGACY,
     FEATURE_STATE_ONLY_ABLATION,
     RELATIVE_FW_ONLY_ABLATION,
@@ -275,7 +275,7 @@ def test_decision_alignment_rejects_nonfinite_scores():
 
 
 def _forbid_calibrator_fit(monkeypatch):
-    import stylo.eval.calibration as calibration
+    import stylo.models.calibration as calibration
 
     def forbidden(*args, **kwargs):
         del args, kwargs
@@ -334,7 +334,7 @@ def test_legacy_calibration_validates_inputs_before_method(
 
 @pytest.mark.parametrize("score_dtype", [np.int64, np.float32, np.float64])
 def test_valid_legacy_calibration_matches_historical_path(score_dtype):
-    import stylo.eval.calibration as calibration
+    import stylo.models.calibration as calibration
 
     labels = np.tile(np.arange(3), 20)
     scores = (np.eye(3)[labels] * 3).astype(score_dtype)
@@ -387,7 +387,7 @@ def _grouped_calibration_panel():
 
 
 def test_grouped_split_structure_is_checked_before_identity_fallback(monkeypatch):
-    import stylo.eval.calibration as calibration
+    import stylo.models.calibration as calibration
 
     class _MalformedSplitter:
         def __init__(self, *args, **kwargs):
@@ -416,7 +416,7 @@ def test_grouped_split_structure_is_checked_before_identity_fallback(monkeypatch
 def test_structurally_valid_grouped_class_absence_keeps_identity_fallback(
     monkeypatch,
 ):
-    import stylo.eval.calibration as calibration
+    import stylo.models.calibration as calibration
 
     class _ClassAbsentSplitter:
         def __init__(self, *args, **kwargs):

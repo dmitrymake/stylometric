@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from stylo.eval import work_weighting as ww
+from stylo.domain import work_weighting as ww
 
 
 def _author_mass(weights, y):

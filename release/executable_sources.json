@@ -8,8 +8,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 287,
-  "release_python_paths_sha256": "e1f0f1464472e2e140afbf3fb9d17784767fb00b087a723c5afe2cfbef644cb6",
+  "release_python_file_count": 284,
+  "release_python_paths_sha256": "1f09db38c814bf759d58f624889b24b61117e5ba5f0e11669696867afb2f7459",
   "required_release_files": [
     ".gitattributes",
     ".github/workflows/ci.yml",

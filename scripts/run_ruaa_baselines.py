@@ -135,7 +135,7 @@ def main() -> int:
     # disk-anchored full corpus, so run_final's internal disk verification accepts it — no
     # caller-supplied self-anchor.
     from stylo.config import with_overrides
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
     # RuAA evaluates exactly the bench authors, so its frozen contract is the FULL corpus with NO
     # benchmark exclusions — expressed as a trusted cfg-clone (not a caller-supplied contract). The
     # subset chains to that disk-anchored parent inside run_final's own verification.

@@ -29,7 +29,7 @@ from stylo.eval.provenance import (ProvenanceError, RunContract,
 
 def _legacy_contract(tmp_path):
     return RunContract.build(tmp_path, (), "unknown")
-from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
+from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
 from stylo.features.work_vectorizer import WorkLevelVectorizer
 from stylo.models.baselines import CharCosineBaseline
 from stylo.models.delta import BurrowsDelta
@@ -93,7 +93,7 @@ class TestAdapters:
             self._bow().fit(self.X, self.y, groups=self.g, **bad)
 
     def test_exact_weights_and_class_weight(self):
-        from stylo.eval.work_weighting import work_sample_weights
+        from stylo.domain.work_weighting import work_sample_weights
         p = self._bow()
         p.fit(self.X, self.y, groups=self.g)
         assert p.named_steps["lr"].class_weight is None
@@ -796,7 +796,7 @@ class TestRuntimeContractHardening:
             def get_path(s, k, d=None):
                 return "work_balanced" if k == "evaluation.training_weighting" else s._b.get_path(k, d)
         # emulate the CLI preflight branch logic
-        from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY, resolve_training_weighting
+        from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY, resolve_training_weighting
         w = resolve_training_weighting(_Cfg(CFG).get_path("evaluation.training_weighting"))
         assert w != CHUNK_WEIGHTED_LEGACY
         if "predict" in ["train", "predict"] and w != CHUNK_WEIGHTED_LEGACY:

@@ -42,7 +42,7 @@ def expected_data_contract(cfg, weighting, frags_root=None):
     engine's ``require_dataset_for_weighting`` guard.
     """
     from .provenance import CorpusPolicyProvenance, DataContract
-    from .work_weighting import WORK_BALANCED, resolve_training_weighting
+    from ..domain.work_weighting import WORK_BALANCED, resolve_training_weighting
 
     w = resolve_training_weighting(weighting)
     if frags_root is None:

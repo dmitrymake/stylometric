@@ -22,7 +22,7 @@ import re
 from typing import Iterable, Mapping
 
 from ...jsonio import dumps_strict, load_strict
-from ..prediction_contract import (
+from ...domain.prediction_contract import (
     PREDICTION_CONTRACT_VERSION,
     PredictionContractError,
     validate_prediction_record,

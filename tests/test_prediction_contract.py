@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from stylo.eval.prediction_contract import (
+from stylo.domain.prediction_contract import (
     PredictionContractError,
     stable_top1_and_worst_tie_rank,
     validate_prediction_record,

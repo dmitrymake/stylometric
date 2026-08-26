@@ -100,7 +100,7 @@ class TestWithCorpus:
     def _dataset(self):
         from stylo.eval.dispatch import frozen_run_contract
         from stylo.eval.provenance import verify_dataset_against_disk
-        from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+        from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
         from stylo.dataset import resolve_dataset
         ds = resolve_dataset(
             CFG, CHUNK_WEIGHTED_LEGACY, FRAGS,
@@ -120,7 +120,7 @@ class TestWithCorpus:
     def test_raw_panel_worker_rejects_bare_dataset_before_fit(self):
         from stylo.eval.groupkfold import bind_screening_panel, _gkf_run
         from stylo.eval.provenance import ProvenanceError
-        from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+        from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
         ds = self._dataset()
         sub, panel = bind_screening_panel(CFG, ds, CHUNK_WEIGHTED_LEGACY)
         assert panel is not None and sub.n_authors == 43
@@ -129,7 +129,7 @@ class TestWithCorpus:
 
     def test_missing_manifest_hard_fails_no_sgkf_fallback(self, monkeypatch, tmp_path):
         from stylo.eval.groupkfold import bind_screening_panel
-        from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+        from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
         ds = self._dataset()
         monkeypatch.setattr(sp, "manifest_docs_path", lambda cfg: tmp_path / "screening_panel_v1.json")
         with pytest.raises(sp.ScreeningPanelError):               # missing → hard fail, never dynamic SGKF
@@ -138,7 +138,7 @@ class TestWithCorpus:
     def test_truncated_self_signed_manifest_hard_fails(self, monkeypatch, tmp_path):
         from stylo.eval.groupkfold import bind_screening_panel
         from stylo.eval.provenance import derive_dataset
-        from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+        from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
         from stylo.jsonio import dumps_strict
         ds = self._dataset()
         # a VALID but truncated panel: rebuild the manifest on a corpus missing one author's works

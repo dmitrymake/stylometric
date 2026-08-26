@@ -516,7 +516,7 @@ def test_all_public_cv_entrypoints_reject_content_overlap_before_workers(
     monkeypatch,
 ):
     from stylo.eval import dispatch, final, groupkfold, lobo, provenance, sweep
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     duplicate = "один и тот же зарегистрированный фрагмент " * 20
     root = tmp_path / "frags"
@@ -645,7 +645,7 @@ def test_production_scientific_kernels_reject_synthetic_authority(tmp_path):
         ProvenanceError,
         prepare_synthetic_scientific_evaluation,
     )
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     dataset = Dataset(
         texts=np.array(["alpha unique", "beta unique"], dtype=object),
@@ -689,7 +689,7 @@ def test_scientific_context_remains_sealed_across_process_serialization():
         prepare_synthetic_scientific_evaluation,
         require_scientific_evaluation_context,
     )
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     dataset = Dataset(
         texts=np.array(["alpha unique", "beta unique"], dtype=object),
@@ -718,7 +718,7 @@ def test_scientific_context_cannot_be_cloned_or_changed_after_authorization():
         prepare_synthetic_scientific_evaluation,
         require_scientific_evaluation_context,
     )
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     dataset = Dataset(
         texts=np.array(["alpha unique", "beta unique"], dtype=object),
@@ -749,7 +749,7 @@ def test_disk_authority_cannot_be_minted_by_freeze_or_pickle(
     import pickle
 
     from stylo.eval import provenance
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     root = tmp_path / "frags"
     _legacy_corpus(root)
@@ -776,7 +776,7 @@ def test_disk_authority_cannot_be_minted_by_freeze_or_pickle(
 
 def test_context_registry_value_binds_every_provenance_field(tmp_path):
     from stylo.eval import provenance
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     root = tmp_path / "frags"
     _legacy_corpus(root)
@@ -796,7 +796,7 @@ def test_context_registry_value_binds_every_provenance_field(tmp_path):
 
 def test_context_restore_rechecks_content_instead_of_trusting_serialized_seal():
     from stylo.eval import provenance
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     duplicate = "одинаковый межкнижный фрагмент " * 20
     texts = np.array([duplicate, duplicate], dtype=object)
@@ -829,7 +829,7 @@ def test_context_restore_rechecks_content_instead_of_trusting_serialized_seal():
 def test_derived_scientific_context_requires_true_parent_subsequence(tmp_path):
     from stylo.domain.corpus_identity import RowIdentity
     from stylo.eval import provenance
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     root = tmp_path / "frags"
     _legacy_corpus(root)
@@ -892,7 +892,7 @@ def test_disk_verified_parent_authorizes_only_its_validated_subsequence(
     monkeypatch,
 ):
     from stylo.eval import dispatch, provenance
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     root = tmp_path / "frags"
     _legacy_corpus(root)
@@ -926,7 +926,7 @@ def test_serialized_production_context_must_reverify_against_disk(
     import pickle
 
     from stylo.eval import dispatch, provenance
-    from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY
+    from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY
 
     class _Cfg:
         def to_dict(self):

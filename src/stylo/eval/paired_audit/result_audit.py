@@ -16,7 +16,7 @@ import math
 import numpy as np
 
 from ...jsonio import dumps_strict
-from ..prediction_contract import (
+from ...domain.prediction_contract import (
     PredictionContractError,
     validate_prediction_record,
 )

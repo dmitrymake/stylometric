@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from stylo.config import load_config  # noqa: E402
 from stylo.eval.screening_panel import build_manifest, verify_manifest, MANIFEST_PATH  # noqa: E402
-from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY  # noqa: E402
+from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY  # noqa: E402
 from stylo.jsonio import dumps_strict  # noqa: E402
 from stylo.dataset import resolve_dataset, resolve_fragment_roots  # noqa: E402
 

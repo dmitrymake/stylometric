@@ -40,7 +40,7 @@ from .provenance import (
     prepare_scientific_evaluation,
 )
 from .significance import mcnemar, paired_bootstrap_diff_clustered
-from .work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+from ..domain.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
 
 log = logging.getLogger("stylo.eval.final")

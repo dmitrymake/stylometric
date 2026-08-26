@@ -36,7 +36,7 @@ from ..features.reps import make_rep_cache
 from ..models.lr import make_full_pipeline, make_logreg, make_scaler
 from ..vectorizer import StyloVectorizer
 from .dispatch import fit_estimator
-from .prediction_contract import (
+from ..domain.prediction_contract import (
     stable_top1_and_worst_tie_rank,
     validate_probability_matrix,
 )
@@ -45,7 +45,7 @@ from .provenance import (
     prepare_scientific_evaluation,
     require_disk_verified_scientific_context,
 )
-from .work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+from ..domain.work_weighting import (AblationNotImplementedError, CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
 
 # BLAS-потоки ограничиваем, чтобы не конфликтовать с joblib
@@ -400,7 +400,7 @@ def make_factory_for_ablation(spec: str, cfg, *, ablation,
     three axis fields are re-verified as plain bools, and every downstream decision is taken from a
     **freshly constructed** ``AblationConfig`` via **class** methods — so an instance whose axis
     properties or ``to_weighting`` were shadowed (``object.__setattr__``) cannot mis-route the axes."""
-    from .work_weighting import AblationConfig
+    from ..domain.work_weighting import AblationConfig
     if type(ablation) is not AblationConfig:
         raise TypeError(f"ablation must be exactly an AblationConfig, got {type(ablation).__name__}")
     for f in ("weights", "feature_fit", "relative_fw"):
@@ -436,7 +436,7 @@ def _make_audit_factory(spec: str, cfg, enabled_override: Optional[Dict[str, boo
     A1 is exact legacy A0; A2 routes work-level feature fitting (F); A3 applies the pooled relative-FW
     transform (R). Non-applicable cells raise ``AblationNotApplicableError`` (exact reason + requested)
     or, for char_cos A2 which duplicates A4, ``AblationEquivalentError('A4')``."""
-    from .work_weighting import (AblationEquivalentError, AblationNotApplicableError,
+    from ..domain.work_weighting import (AblationEquivalentError, AblationNotApplicableError,
                                  CHUNK_WEIGHTED_LEGACY)
     a1 = ablation.is_weights_only_corner
     a2 = ablation.is_feature_state_only_corner

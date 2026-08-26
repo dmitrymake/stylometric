@@ -21,7 +21,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 
 from stylo.config import load_config
 from stylo.eval.lobo import make_factory, make_factory_for_ablation
-from stylo.eval.work_weighting import (AblationConfig, FEATURE_STATE_ONLY_ABLATION,
+from stylo.domain.work_weighting import (AblationConfig, FEATURE_STATE_ONLY_ABLATION,
                                        RELATIVE_FW_ONLY_ABLATION, WEIGHTS_ONLY_ABLATION)
 from stylo.models.delta import BurrowsDelta
 
@@ -312,10 +312,10 @@ def test_delta_schema_migration_is_version_aware_and_fail_closed():
 
 class _FlipTW(str):
     def __new__(cls):
-        from stylo.eval.work_weighting import WORK_BALANCED
+        from stylo.domain.work_weighting import WORK_BALANCED
         x = super().__new__(cls, WORK_BALANCED); x.c = 0; return x
     def __hash__(self):
-        from stylo.eval.work_weighting import WORK_BALANCED
+        from stylo.domain.work_weighting import WORK_BALANCED
         return hash(WORK_BALANCED)
     def __eq__(self, o):
         self.c += 1; return self.c == 1

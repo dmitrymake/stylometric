@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 
 from stylo.config import load_config, with_overrides
-from stylo.eval.calibration import choose_calibrator
-from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
+from stylo.models.calibration import choose_calibrator
+from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
 from stylo.models import stacked_clf as sc
 from stylo.models.channels import ch_char, ch_word
 
@@ -86,7 +86,7 @@ class TestGroupAwareCalibration:
         # HIGH-1: the reported score is the POOLED equal-work NLL (sum of per-work loss / total works),
         # not a fold-averaged mean — reproduced independently with the same folds.
         from sklearn.model_selection import StratifiedGroupKFold
-        from stylo.eval.calibration import _fit_method, _work_loss_sum
+        from stylo.models.calibration import _fit_method, _work_loss_sum
         oof, y, g = _separable([5, 5])                      # 10 works, uneven fold sizes at k=3
         _, p = choose_calibrator(oof, y, groups=g, n_splits=3, seed=7)
         sgkf = StratifiedGroupKFold(3, shuffle=True, random_state=7)
@@ -100,7 +100,7 @@ class TestGroupAwareCalibration:
 
     def test_class_absent_from_validation_side_disables(self, monkeypatch):
         # HIGH-3: a class missing from a fold's VALIDATION side (not only train) must disable.
-        import stylo.eval.calibration as C
+        import stylo.models.calibration as C
         oof, y, g = _separable([2, 2])
 
         class _FakeSGKF:
@@ -206,7 +206,7 @@ class TestPooledDenominatorContract:
         return _Fake
 
     def test_row_not_held_out_exactly_once_rejected(self, monkeypatch):
-        import stylo.eval.calibration as C
+        import stylo.models.calibration as C
         oof, y, g = _separable([2, 2])                       # rows 0-3 class0, 4-7 class1
         # both folds class-complete on both sides, but rows 6,7 never validated and 4,5 twice
         monkeypatch.setattr(C, "StratifiedGroupKFold",
@@ -216,7 +216,7 @@ class TestPooledDenominatorContract:
             choose_calibrator(oof, y, groups=g, n_splits=2)
 
     def test_train_validation_overlap_rejected(self, monkeypatch):
-        import stylo.eval.calibration as C
+        import stylo.models.calibration as C
         oof, y, g = _separable([2, 2])
         # exact-once validation coverage, but fold 1 has row 0 in BOTH train and validation
         monkeypatch.setattr(C, "StratifiedGroupKFold",
@@ -227,7 +227,7 @@ class TestPooledDenominatorContract:
 
     def test_train_not_complement_of_validation_rejected(self, monkeypatch):
         # defense-in-depth: train must be EXACTLY complement(validation) — fold 1 drops row 2 entirely
-        import stylo.eval.calibration as C
+        import stylo.models.calibration as C
         oof, y, g = _separable([2, 2])
         monkeypatch.setattr(C, "StratifiedGroupKFold",
                             self._bad_splitter([([3, 6, 7], [0, 1, 4, 5]),
@@ -285,7 +285,7 @@ class TestWorkBalancedStackUnblocked:
         # HIGH-2: when calibration is disabled the stack must fall back to identity + equal ensemble;
         # no meta-CV/meta-LR selection may run and mode_ cannot become "stacked".
         import stylo.models.stacked_clf as S
-        from stylo.eval.calibration import _fit_method
+        from stylo.models.calibration import _fit_method
 
         def fake_choose(oof, y, seed=42, groups=None, **kw):
             cal, _ = _fit_method("identity", oof, y, seed)

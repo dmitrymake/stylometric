@@ -22,7 +22,7 @@ import re
 from typing import Iterable
 
 from ...models.registry import CONFIRMATORY_MODEL_SPECS
-from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
+from ...domain.work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
                               LEGACY_ABLATION, RELATIVE_FW_ONLY_ABLATION,
                               WEIGHTS_ONLY_ABLATION)
 

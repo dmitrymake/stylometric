@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from stylo.config import load_config
-from stylo.eval.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
+from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
 from stylo.models import stacked_clf as sc
 from stylo.models.channels import ch_char
 
@@ -131,5 +131,5 @@ class TestWorkBalancedStackWired:
         assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY)() is not None
 
     def test_calibration_is_group_aware(self):
-        from stylo.eval.calibration import choose_calibrator
+        from stylo.models.calibration import choose_calibrator
         assert "groups" in inspect.signature(choose_calibrator).parameters

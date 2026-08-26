@@ -22,12 +22,12 @@ import numpy as np
 
 from ...jsonio import dumps_strict, load_strict
 from ...eval.metrics import macro_f1
-from ..prediction_contract import (
+from ...domain.prediction_contract import (
     PredictionContractError,
     validate_prediction_record,
     validate_probability_vector,
 )
-from ..work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION, LEGACY_ABLATION,
+from ...domain.work_weighting import (FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION, LEGACY_ABLATION,
                               RELATIVE_FW_ONLY_ABLATION, WEIGHTS_ONLY_ABLATION)
 from . import applicability as ap
 from . import corpus as ac

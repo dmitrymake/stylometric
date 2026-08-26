@@ -27,7 +27,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from stylo.config import load_config, with_overrides
 from stylo.eval.dispatch import fit_estimator
 from stylo.eval.lobo import make_factory, make_factory_for_ablation
-from stylo.eval.work_weighting import (AblationConfig, FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
+from stylo.domain.work_weighting import (AblationConfig, FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
                                        LEGACY_ABLATION, RELATIVE_FW_ONLY_ABLATION, WORK_BALANCED,
                                        CHUNK_WEIGHTED_LEGACY)
 from stylo.features.function_words import _ANALYZER, FunctionWordBlock
@@ -189,7 +189,7 @@ def test_bow_A2_vocab_equals_A4_loss_is_A0():
 
 
 def test_bow_A2_rejects_reserved_and_A3_is_not_applicable():
-    from stylo.eval.work_weighting import AblationNotApplicableError
+    from stylo.domain.work_weighting import AblationNotApplicableError
     texts, y, g = _bow_panel()
     est = make_factory_for_ablation("bow_lr", CFG, ablation=FEATURE_STATE_ONLY_ABLATION)()
     for bad in ({"sample_weight": np.ones(len(y))}, {"lr__sample_weight": np.ones(len(y))},
@@ -203,7 +203,7 @@ def test_bow_A2_rejects_reserved_and_A3_is_not_applicable():
 
 def test_A2_A3_applicability_matrix_and_typed_signals():
     import pickle
-    from stylo.eval.work_weighting import AblationEquivalentError, AblationNotApplicableError
+    from stylo.domain.work_weighting import AblationEquivalentError, AblationNotApplicableError
     # char_cos A2 -> equivalent to A4 (typed, pickle-safe, carries requested); A3 -> not applicable
     with pytest.raises(AblationEquivalentError) as ei:
         make_factory_for_ablation("char_cos", CFG, ablation=FEATURE_STATE_ONLY_ABLATION)
@@ -233,7 +233,7 @@ def test_A2_A3_applicability_matrix_and_typed_signals():
                 make_factory_for_ablation(spec, CFG, ablation=ab)
             assert not isinstance(ve.value, AblationNotApplicableError)
     # A2/A3 have NO production weighting enum (to_weighting stays corner-only)
-    from stylo.eval.work_weighting import AblationNotImplementedError
+    from stylo.domain.work_weighting import AblationNotImplementedError
     for ab in (FEATURE_STATE_ONLY_ABLATION, RELATIVE_FW_ONLY_ABLATION):
         with pytest.raises(AblationNotImplementedError):
             ab.to_weighting()

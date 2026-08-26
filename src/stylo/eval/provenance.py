@@ -23,7 +23,7 @@ from typing import Optional, Sequence
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 from ..domain import corpus_identity as _corpus_identity
-from .work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
+from ..domain.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              resolve_training_weighting)
 
 DIGEST_VERSION = _corpus_identity.DIGEST_VERSION
