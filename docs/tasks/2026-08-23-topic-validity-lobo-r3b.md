@@ -42,47 +42,6 @@ Stop on wrong bundle/context identity, counts other than 47/43/248, dirty/unsupp
 nonfinite output, aggregate schema violation, protected detail in output, unreviewed route change,
 or load estimate that cannot be bounded in the current environment.
 
-## Frozen scientific contract
-
-- Dataset/model/cells/arms: LOBO / `stylo` / `[A0,A4]` / `[current,topic_strict]`.
-- Identical ordered folds, train/test rows, class orders, seeds, scaler/classifier/loss/F/R/W route.
-- Only challenger delta: canonical `topic_strict=True, relative_fw=None` vectorizer.
-- Whole-work probability = aligned mean of held-out chunk probabilities rounded to the existing
-  12-decimal contract; top-1 uses stable lowest-index tie rule.
-- Aggregate direction: `topic_strict_minus_current`; per-author five-way transitions and predicted-
-  label digests are reconstructed from transient probabilities.
-- Runtime binds executable source, requirements lock, installed numerical stack and thread contract.
-
-## Output minimization
-
-Allowed artifact fields are exactly those accepted by `stylo.topic_validity.aggregate.v1`: identities,
-design counts, rational accuracy/delta, prediction digests and per-author aggregate transitions.
-Transient probabilities/fold identities live only in process memory. Existing identity-scoped,
-ignored NLP/RepCache may be warmed as regenerable runtime acceleration; it is not evidence. No study
-checkpoint/result sidecar is written; the temporary bundle stays outside Git.
-
-## Implementation and load tripwires
-
-- Existing research module: at most +140 LOC; one script at most 220 LOC; tests at most +220 LOC.
-- No new dependency/framework/state/official schema/registry/public entry point.
-- One implementation review and at most one correction before access.
-- One-fold timing probe after reviewed no-fit preflight; extrapolate 992 fits and record abort threshold.
-- Sequential execution default; no worker expansion without deterministic equivalence evidence.
-
-## Acceptance
-
-- [ ] Exact bundle/context identities and 47/43/248 universe reproduce without fit.
-- [ ] Runner cannot select other cells/arms/dataset/model or output forbidden detail.
-- [ ] Implementation/runtime/thread identities bind the aggregate.
-- [ ] Synthetic evaluator/aggregate tests and implementation review pass within budget.
-- [ ] One-fold timing probe yields a bounded full-run estimate accepted by the recorded approval.
-- [ ] All 992 fits complete once; aggregate validates independently against transient reconstruction
-  during execution and contains no forbidden keys/values.
-- [ ] Independent clean-context aggregate audit verifies hashes/counts/math and reports current versus
-  strict accuracy, delta and author transitions without claiming canonical model selection.
-- [ ] Relevant/full tests, inventory/release hygiene and protected-data scan pass.
-- [ ] Registry remains empty, freeze `None`, confirmatory execution hard-disabled, publication absent.
-
 ## Verification and abort
 
 - No-fit preflight: prepare/verify bundle, build context/study binding, exact counts and environment.

@@ -1,19 +1,12 @@
 # Orphan runner pruning — wave A
 
 ## Metadata
-- Status: active
+- Status: done
 - Owner / Baseline commit: Dmitry Purtov / `ac617a5f`
 - Type: pruning
 - Size / Risk: M / R2
 - Primary subsystem/domain: scripts surface / Allowed cross-domain: release inventory
 - Standard version: 1.3
-
-## Frozen behavior
-- Observable behavior to preserve: every published site source keeps a live generator; every gate
-  passes; no tracked artifact under `docs/` is deleted.
-- Explicit non-goals: deleting any `docs/*.json`, touching `scripts/evaluation/`,
-  `scripts/experimental/`, `scripts/build_screening_panel.py`, `scripts/report.py`,
-  `local_only_python_files`.
 
 ## Scope
 
@@ -36,11 +29,6 @@ and are retained: `run_consistency.py` (`docs/consistency.json`), `run_proza_com
 (`docs/proza_compare.json`), `run_luar_proza.py` (`docs/luar_proza.json`, consumed by
 `scripts/gen-paper.mjs`).
 
-## Reduction target
-- Production LOC delta: −1 269; test/docs delta: 0
-- Inventory: `release_python_file_count` 303 → 295 with recomputed `release_python_paths_sha256`
-- Maximum mutation passes: 2
-
 ## Verification
 
 ```
@@ -59,6 +47,3 @@ PYTHONPATH=src .venv/bin/python -m pytest tests -q -p no:cacheprovider
   sources; they were withdrawn and remain in the tree.
 - Gates after the cascade: inventory OK, release hygiene OK, provenance 93/1 verified,
   `git diff --exit-code -- site/src/generated` clean, full pytest green.
-
-## DoD references
-- [ ] Applicable DOD-01..DOD-12, DOD-13

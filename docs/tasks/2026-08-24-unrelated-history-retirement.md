@@ -1,7 +1,7 @@
 # Unrelated-history retirement
 
 ## Metadata
-- Status: active
+- Status: done
 - Owner / Baseline commit: Dmitry Purtov / `fc335823`
 - Type: pruning
 - Size / Risk: L / R3a (flags: mutation, irreversible, security)

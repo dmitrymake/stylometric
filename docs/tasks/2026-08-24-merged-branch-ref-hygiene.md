@@ -1,6 +1,6 @@
 # Merged branch ref hygiene
 
-- Status: active
+- Status: done
 - Owner: Dmitry Purtov
 - Created: 2026-08-24
 - Baseline commit: `ac617a5f`
@@ -20,18 +20,6 @@ campaign ref can be pushed past the release gates by accident.
   `review-d4`, `review-d5`, `integrate/remediation-main-20260726`, `paired-audit-control-plane`.
 - Out: `release` (CI trigger branch), the three unrelated-history branches, stash, any object deletion.
 
-## Frozen acceptance and tripwires
-
-- Acceptance freezes before mutation: yes
-- New production files: forbidden; production/test/docs LOC delta: 0
-- Stop trigger: any listed branch reporting a non-zero unique-commit count
-
-## Acceptance
-
-- [x] Every listed branch reports `git rev-list --count <b> ^main ^origin/main` = 0 before deletion
-- [x] Eight refs removed; `release` retained
-- [x] `git count-objects -vH` size-pack unchanged (ref-only deletion)
-
 ## Verification
 
 - Command: pre-check counts, `git branch -D`, `git count-objects -vH`,
@@ -48,7 +36,3 @@ campaign ref can be pushed past the release gates by accident.
 - Remaining local branches: `main`, `release`, and the three unrelated-history branches handled by
   the separate T7 task.
 - Production/test/docs delta: 0. Residual risk: none.
-
-## DoD
-
-- [ ] Applicable `DOD-01..DOD-15` satisfied.

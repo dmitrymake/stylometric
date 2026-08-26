@@ -1,18 +1,12 @@
 # Historical docs orphan pruning
 
 ## Metadata
-- Status: active
+- Status: done
 - Owner / Baseline commit: Dmitry Purtov / `ac617a5f`
 - Type: pruning
 - Size / Risk: M / R2
 - Primary subsystem/domain: reporting artifacts / Allowed cross-domain: none
 - Standard version: 1.3
-
-## Frozen behavior
-- Observable behavior to preserve: the 93 site provenance sources, the 20 paper-number checks,
-  `validation.json` / `validation_pd.json`, and every governance test.
-- Explicit non-goals: editing `docs/p0_baseline_snapshot.json`, deleting any published source,
-  rewriting prose that cites a deleted number.
 
 ## Scope
 
@@ -33,10 +27,6 @@ Clusters: `tomsk_*` (6), `sholokhov_*` (8), `audit_*` (3), plus `alexander3_chec
 Withdrawn after falsification — cited in prose, therefore retained: `docs/feature_audit.json`,
 `docs/sholokhov_rigor.json`.
 
-## Reduction target
-- Tracked artifacts: −21 (50 993 bytes); production/test LOC delta: 0
-- `docs/` top level: 115 → 94 tracked files
-
 ## Verification
 
 ```
@@ -54,6 +44,3 @@ PYTHONPATH=src .venv/bin/python -m pytest tests -q -p no:cacheprovider
 - Site regeneration reproduced `site-data.json` and `manifest.json` byte-for-byte
   (`git diff --exit-code -- site/src/generated` clean); provenance verified 93 sources.
 - Full pytest green.
-
-## DoD references
-- [ ] Applicable DOD-01..DOD-12, DOD-13

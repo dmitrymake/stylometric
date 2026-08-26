@@ -1,21 +1,12 @@
 # Ignored local duplicate pruning
 
 ## Metadata
-- Status: active
+- Status: done
 - Owner / Baseline commit: Dmitry Purtov / `ac617a5f`
 - Type: pruning
 - Size / Risk: M / R2 (flags: irreversible)
 - Primary subsystem/domain: local research storage / Allowed cross-domain: none
 - Standard version: 1.3
-
-## Frozen behavior
-- Observable behavior to preserve: every tracked path, every sha-bound artifact, every gate result.
-- Explicit non-goals: touching `data/`, `input*`, `_staging_corpora/`, `.venv`, `site/node_modules`,
-  tracked `log/*.py`, `log/autographs/`, any `.tar.zst` archive, `research/local/wip-checkpoint-*`,
-  `research/local/*insurance*.tar`.
-- Rejected/excluded artifacts: `paired-audit-control-plane.bundle` (`d4d6eed4…`, sole carrier of
-  `repair_commit 07a8df82`), `research/local/ruaa-r1-v5-exploratory-result-bundle-v1.tar.zst`
-  (`e37dfeaf…`, ledger-bound).
 
 ## Scope
 - In-scope paths (all git-ignored, none tracked):
@@ -32,21 +23,6 @@
   - regenerable caches and corpus copies under `log/experiments/`: `_crossgenre_norm_cache/`,
     `broken_backup/`, `*.npy`, `*.pkl`, `*.txt`;
   - `__pycache__` trees outside `.venv`.
-
-## Reduction target
-- Production / test / docs LOC delta: 0 (no tracked file is touched)
-- Disk target: ≥ 1 000 MB
-- New files/framework/state/dependency/public entry point: forbidden
-- Maximum mutation passes: 2
-
-## Pass 1 — deletion
-- Recorded below in Result.
-
-## Adversarial review
-- Blockers limited to: a deleted path proving tracked, a keep-list hash changing, a gate regressing.
-
-## Independent deletion review
-- Confirms keep-list hashes and `git status --porcelain` equality before/after.
 
 ## Verification
 
@@ -72,6 +48,3 @@ sha256sum paired-audit-control-plane.bundle research/local/ruaa-r1-v5-explorator
 - Production/test/docs delta: 0. Residual risk: the two repository clones are not recoverable; both
   sat at commit `3c17766c`, which is an ancestor of `main`, and their verification outputs remain in
   `research/local/ruaa-r1-v5-verification-3c17766c-20260802/`.
-
-## DoD references
-- [ ] Applicable DOD-01..DOD-12, DOD-13

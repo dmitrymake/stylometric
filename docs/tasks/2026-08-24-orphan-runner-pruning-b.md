@@ -1,19 +1,12 @@
 # Orphan runner pruning — wave B
 
 ## Metadata
-- Status: active
+- Status: done
 - Owner / Baseline commit: Dmitry Purtov / `ac617a5f`
 - Type: pruning
 - Size / Risk: M / R2
 - Primary subsystem/domain: scripts surface / Allowed cross-domain: release inventory
 - Standard version: 1.3
-
-## Frozen behavior
-- Observable behavior to preserve: `docs/cases/chekhonte_15_micro.json` — the only published
-  Chekhonte source — keeps its generator `scripts/run_chekhonte_15_micro.py`;
-  `tests/test_alternative_case_centroids.py` keeps `scripts/run_chekhonte_dubia_oskolki.py`, which
-  it loads by file path.
-- Explicit non-goals: deleting case artifacts under `docs/cases/`, or the two retained scripts above.
 
 ## Scope
 
@@ -41,11 +34,6 @@ output:
 regeneration path. This matches the existing `topology.historical_evidence` contract: pre-retirement
 bytes stay recoverable from Git history.
 
-## Reduction target
-- Production LOC delta: −2 462; test/docs delta: 0
-- Inventory: `release_python_file_count` 295 → 287 with recomputed digest
-- Maximum mutation passes: 2
-
 ## Verification
 
 Same block as wave A.
@@ -57,6 +45,3 @@ Same block as wave A.
 - `tests/test_alternative_case_centroids.py` still loads the retained
   `scripts/run_chekhonte_dubia_oskolki.py`; `docs/cases/chekhonte_15_micro.json` still has its
   generator. Full pytest green after removal.
-
-## DoD references
-- [ ] Applicable DOD-01..DOD-12, DOD-13
