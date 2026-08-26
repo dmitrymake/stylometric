@@ -1,10 +1,9 @@
 # Current Handoff
 
-- State: **garbage/legacy campaign complete; topic-validity fixed-8 run authorized and unexecuted**
-- Updated: 2026-08-24
-- Verified baseline commit: `fc335823`
-- Branch/worktree at capture: attached `main`, clean; sixty-two commits ahead of `origin/main`;
-  local branches are exactly `main` and `release`.
+- State: **cleanup and refactor complete; topic-validity run authorized, resumable and unexecuted**
+- Updated: 2026-08-26
+- Verified baseline commit: `25156bf`
+- Branch/worktree at capture: attached `main`, clean; local branches are exactly `main` and `release`.
 - Active task: `docs/tasks/2026-08-23-topic-validity-measured-fixed8.md` (Result pending)
 
 This file only routes the next session. Scientific status and authorization remain owned by the
@@ -17,14 +16,26 @@ governance ledger, protocol, executable gates, and completed task evidence.
 | v3.2 preparation/frozen inputs | Owner-accepted evaluator input; identities unchanged | preparation/reconciliation tasks |
 | Evaluator receipt | Independent expectations and semantic recomputation implemented | receipt-closure task |
 | Topic validity | Synthetic mechanism confirmed; real corrected-LOBO effect still unmeasured | topic-validity tasks |
-| Topic-validity execution | Owner-authorized measured fixed-8, review-corrected, verified ready, **not executed** | ledger `topic_validity_execution` |
+| Topic-validity execution | Owner-authorized, resumable, **not executed**; one attempt reached 260/992 and was stopped | ledger `topic_validity_execution` |
 | Production evaluator | Registry empty; candidate unregistered | `CONFIRMATORY_EVALUATOR_REGISTRY` |
-| Freeze/preflight/authorization | `None` / absent / absent | runner + governance ledger |
-| Confirmatory execution | Hard-disabled | runner |
+| Freeze/preflight/authorization | unapproved / absent / absent | governance ledger |
+| Confirmatory execution | No execution path exists — the v3.1 control plane was deleted | governance ledger |
 | Headline/publication | Not authorized; no site/public bytes changed | governance ledger |
 | Repository hygiene | No private objects in the index, in `HEAD` history, or in any other ref/stash | `check_release_hygiene.py --audit-local-refs` |
 
 ## 2. Material change after the prior handoff
+
+- The runner is resumable: it checkpoints every ten fits, stops cleanly on a signal, continues from
+  the checkpoint on rerun, and accepts `--cells`, `--arms`, `--workers` and a soft `--max-hours`.
+- Three unused layers are gone: the `lobo_vnext` family, the v3.1 paired-audit control plane and the
+  sequence segmenter. `src/stylo` 60 456 → 44 070 lines, tests 32 867 → 24 964, inventory 303 → 245.
+- The process surface is gone or compressed: `STANDARD.md`, `TASK_TEMPLATE.md`,
+  `CHAT_INSTRUCTIONS.md` and the handoff README deleted; `AGENTS.md` 155 → 71; task files
+  3 106 → 1 359. Four governance registries are now two: `status_ledger.json` for scientific state,
+  `contracts.json` for executable contracts; the release inventory pins ten files instead of
+  thirty-two.
+- Removed from the test suite: assertions on phrases inside claim texts, on file lengths, on markers
+  inside sources, and the byte pins that made one source edit require six registry edits.
 
 - A bounded garbage/legacy campaign ran under `docs/tasks/2026-08-24-repo-garbage-and-legacy-campaign.md`:
   eight merged branch refs removed; ≈1.37 GB of ignored duplicates and regenerable caches deleted;
