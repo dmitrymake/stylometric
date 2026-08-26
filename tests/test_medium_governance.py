@@ -420,8 +420,6 @@ def test_requirement_bindings_and_nodeids_are_executable():
     ids = [item["id"] for item in requirements["requirements"]]
     assert len(ids) == len(set(ids))
     assert "PA-V3-2-APPLICABILITY-EXACTNESS" in ids
-    assert "PA-V3-1-HISTORICAL-HOLM-FAMILY-EXACTNESS" in ids
-    assert "PA-HOLM-FAMILY-EXACTNESS" not in ids
     for item in requirements["requirements"]:
         assert set(item) == {"id", "description", "code", "tests"}
         assert item["code"] and item["tests"]

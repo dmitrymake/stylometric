@@ -7,7 +7,10 @@
       "id": "PA-CORPUS-ANCHOR-PARITY",
       "description": "Legacy anchor, semantic parity, and row ordering fail closed.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/corpus.py", "symbol": "build_audit_corpus"}
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "build_audit_corpus"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_legacy_anchor_mismatch_aborts_build",
@@ -19,12 +22,14 @@
       "id": "PA-CORPUS-BYTE-AND-IDENTITY-CLOSURE",
       "description": "Changed, stray, or duplicate chunks and partial roots are rejected.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/corpus.py", "symbol": "verify_published_corpus"}
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "verify_published_corpus"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_wb_manifest_guard_catches_byte_mutation_directly",
         "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_wb_manifest_guard_catches_stray_chunk_directly",
-        "tests/test_paired_audit_fail_closed_sweep.py::test_duplicate_chunk_identity_aborts_build",
         "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_partial_root_never_valid"
       ]
     },
@@ -32,7 +37,10 @@
       "id": "PA-CORPUS-IMMUTABILITY-AND-SELF-HASH",
       "description": "Immutable-root conflicts, manifest self-hash drift, and forged subset bindings are rejected.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/corpus.py", "symbol": "verify_published_corpus"}
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "verify_published_corpus"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_conflicting_immutable_root_is_fatal",
@@ -45,7 +53,10 @@
       "id": "PA-SUBSET-WHOLE-WORK-EXACTNESS",
       "description": "The nested RuAA selection is exact, duplicate-free, and whole-work.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/work_subset.py", "symbol": "derive_work_subset"}
+        {
+          "path": "src/stylo/eval/paired_audit/work_subset.py",
+          "symbol": "derive_work_subset"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_corpus.py::TestWorkSubset::test_whole_work_includes_all_chunks",
@@ -56,8 +67,14 @@
       "id": "PA-MANIFEST-FROZEN-UNIVERSE",
       "description": "Fold manifests bind exact class orders and frozen universe counts.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/manifest.py", "symbol": "assert_lobo_universe"},
-        {"path": "src/stylo/eval/paired_audit/manifest.py", "symbol": "assert_ruaa_universe"}
+        {
+          "path": "src/stylo/eval/paired_audit/manifest.py",
+          "symbol": "assert_lobo_universe"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/manifest.py",
+          "symbol": "assert_ruaa_universe"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_bogus_class_order_contents_rejected",
@@ -69,8 +86,14 @@
       "id": "PA-V3-2-CORRECTED-CORPUS-IDENTITY-AND-ISOLATION",
       "description": "The preparation-only v3.2 bundle uses a cooperative local single-writer physical contract, rejects symlinks, special files, wrong modes and any non-literal corrected_corpus child binding, and never overwrites an existing destination. It binds the exact historical parent, immutable design-freeze protocol identity, literal exclusions, full NFC work identities, expected basename diagnostics, complete content isolation, 252/248/134 folds, exact stored chunker-manifest identity, and the unchanged 16-cell/11-comparison applicability matrix. It accepts folds only by exact trusted-input reconstruction; hostile writers and physical inode or mount provenance are not claimed as covered.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "prepare_corrected_v3_2"},
-        {"path": "src/stylo/eval/paired_audit/corrected_v3_2.py", "symbol": "verify_v3_2_candidate"}
+        {
+          "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
+          "symbol": "prepare_corrected_v3_2"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
+          "symbol": "verify_v3_2_candidate"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
@@ -92,34 +115,31 @@
       ]
     },
     {
-      "id": "PA-RUN-IDENTITY",
-      "description": "Canonical run plans are stable and every binding change changes run_id.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/run_plan.py", "symbol": "build_run_plan"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_control_plane.py::TestRunPlan::test_build_run_plan_and_stable_run_id",
-        "tests/test_paired_audit_control_plane.py::TestRunPlan::test_run_id_changes_on_any_binding_change",
-        "tests/test_paired_audit_control_plane.py::TestRunPlan::test_runtime_fingerprint_binds_stack_omits_kernel"
-      ]
-    },
-    {
       "id": "PA-V3-2-APPLICABILITY-EXACTNESS",
       "description": "The current v3.2 registry is exactly 25 statuses, 16 applied cells, and 11 Holm members and matches the corrected preparation identity.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/applicability_v3_2.py", "symbol": "REGISTRY_V3_2"}
+        {
+          "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",
+          "symbol": "REGISTRY_V3_2"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_evaluator_v3_2.py::test_registry_is_exact_25_16_11_and_matches_corrected_preparation",
-        "tests/test_paired_audit_evaluator_v3_2.py::test_candidate_has_no_legacy_runtime_reachability_and_registry_stays_empty"
+        "tests/test_paired_audit_evaluator_v3_2.py::test_confirmatory_evaluator_registry_stays_empty"
       ]
     },
     {
       "id": "PA-V3-2-RECEIPT-SEMANTIC-CLOSURE",
       "description": "Every v3.2 fold receipt is validated against independently constructed context, fold, route, order, split, probability, axis, and fitted-state expectations; a coherent outer rehash cannot authenticate a scientific falsehood.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/evidence_v3_2.py", "symbol": "validate_receipt_v3_2"},
-        {"path": "src/stylo/eval/paired_audit/evaluator_v3_2.py", "symbol": "evaluate_fold_v3_2"}
+        {
+          "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
+          "symbol": "validate_receipt_v3_2"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
+          "symbol": "evaluate_fold_v3_2"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_evaluator_v3_2.py::test_all_16_applied_factory_routes_fit_and_predict_toy_data",
@@ -130,9 +150,18 @@
       "id": "STYLO-TOPIC-VALIDITY-GATE",
       "description": "Active stylo MFW topic sensitivity and the evaluation-only topic_strict control are covered by deterministic content-token counterfactuals; synthetic mechanism evidence never becomes corrected-corpus accuracy or evaluator-registration authority.",
       "code": [
-        {"path": "src/stylo/features/function_words.py", "symbol": "FunctionWordBlock"},
-        {"path": "src/stylo/features/registry.py", "symbol": "build_blocks"},
-        {"path": "src/stylo/eval/lobo.py", "symbol": "make_factory_for_ablation"}
+        {
+          "path": "src/stylo/features/function_words.py",
+          "symbol": "FunctionWordBlock"
+        },
+        {
+          "path": "src/stylo/features/registry.py",
+          "symbol": "build_blocks"
+        },
+        {
+          "path": "src/stylo/eval/lobo.py",
+          "symbol": "make_factory_for_ablation"
+        }
       ],
       "tests": [
         "tests/test_stylo_topic_validity.py::test_mfw_content_token_causal_oracle_and_fixed_list_control",
@@ -143,9 +172,18 @@
       "id": "PA-TOPIC-VALIDITY-CHALLENGER-V1",
       "description": "The versioned research-only A0/A4 topic-strict adapter and aggregate schema bind verified context/source identities, preserve the authoritative non-vectorizer route, recompute aggregate metrics from transient probabilities, persist no row-level evidence, and grant no real execution or registration authority.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "build_topic_study_context_v1"},
-        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "make_topic_challenger_factory_v1"},
-        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "validate_topic_aggregate_v1"}
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "build_topic_study_context_v1"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "make_topic_challenger_factory_v1"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "validate_topic_aggregate_v1"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_topic_validity_v1.py::test_binding_and_fresh_factories_preserve_only_topic_strict_delta",
@@ -158,8 +196,14 @@
       "id": "PA-TOPIC-VALIDITY-R3B-RUNNER-V1",
       "description": "The owner-authorized runner is fixed to corrected LOBO-248 stylo A0/A4 current/topic_strict, binds source/environment/runtime/thread identities, keeps fold probabilities out of the retained artifact, resumes from an ignored local checkpoint, and creates one aggregate-only artifact with no overwrite, official-result or publication path.",
       "code": [
-        {"path": "src/stylo/eval/paired_audit/topic_validity_v1.py", "symbol": "evaluate_topic_fold_v1"},
-        {"path": "scripts/evaluation/run_topic_validity_lobo_v1.py", "symbol": "main"}
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "evaluate_topic_fold_v1"
+        },
+        {
+          "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
+          "symbol": "main"
+        }
       ],
       "tests": [
         "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
@@ -169,191 +213,17 @@
       ]
     },
     {
-      "id": "PA-CHECKPOINT-EXACT-RESUME",
-      "description": "Only valid exact checkpoints resume; corruption, conflicts, and extras fail.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/checkpoints.py", "symbol": "CheckpointStore"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_checkpoints.py::TestSaveResume::test_valid_resume_skips_present_and_pends_missing",
-        "tests/test_paired_audit_checkpoints.py::TestFailClosed::test_corrupt_self_hash_is_fatal",
-        "tests/test_paired_audit_checkpoints.py::TestFailClosed::test_conflicting_checkpoint_is_fatal",
-        "tests/test_paired_audit_checkpoints.py::TestFailClosed::test_extra_checkpoint_is_fatal_on_resume",
-        "tests/test_paired_audit_checkpoints.py::TestComplete::test_assert_complete_success_and_incomplete_fatal"
-      ]
-    },
-    {
-      "id": "PA-PUBLISHER-PATH-ATOMICITY",
-      "description": "Publisher paths cannot escape or overwrite headlines and immutable publication is recoverable.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/publisher.py", "symbol": "publish_audit"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_publisher.py::TestPathGuard::test_rejects_headline_basename",
-        "tests/test_paired_audit_publisher.py::TestPathGuard::test_rejects_escape_and_unallowed",
-        "tests/test_paired_audit_publisher.py::TestPublish::test_recovers_from_staging_orphan",
-        "tests/test_paired_audit_publisher.py::TestPublish::test_publish_and_load_round_trip",
-        "tests/test_paired_audit_publisher.py::TestPublishFailClosed::test_tampered_summary_self_hash_rejected"
-      ]
-    },
-    {
-      "id": "PA-INFERENCE-DEGENERACY",
-      "description": "Cluster p-value degeneracies and the constant non-zero case follow the registered ordering.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/inference.py", "symbol": "paired_cluster_pvalue"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_inference.py::TestClusterPValue::test_rule1_single_author_returns_one_even_with_effect",
-        "tests/test_paired_audit_inference.py::TestClusterPValue::test_rule2_all_zero_differences_returns_one",
-        "tests/test_paired_audit_inference.py::TestClusterPValue::test_rule3_constant_nonzero_effect_not_special_cased"
-      ]
-    },
-    {
-      "id": "PA-V3-1-HISTORICAL-HOLM-FAMILY-EXACTNESS",
-      "description": "The immutable historical v3.1 15-comparison family cannot shrink, gain members, or be mistaken for the current v3.2 family.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/inference.py", "symbol": "holm_over_registered_family"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_inference.py::TestHolmRegisteredFamily::test_full_family_runs_with_m15",
-        "tests/test_paired_audit_inference.py::TestHolmRegisteredFamily::test_missing_or_extra_member_invalidates_family"
-      ]
-    },
-    {
-      "id": "PA-HEADLINE-BOUNDARY",
-      "description": "Equality at the noninferiority boundary is inconclusive.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/headline.py", "symbol": "headline_gate"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_headline.py::TestHeadlineGate::test_boundary_equality_is_inconclusive"
-      ]
-    },
-    {
-      "id": "PA-EXECUTION-AUTHORIZATION",
-      "description": "Confirmatory execution is disabled until an independently reviewed freeze root is pinned.",
-      "code": [
-        {"path": "src/stylo/eval/paired_audit/runner.py", "symbol": "assert_confirmatory_freeze_approved"}
-      ],
-      "tests": [
-        "tests/test_paired_audit_runner.py::test_confirmatory_execution_is_disabled_until_reviewed_freeze_is_pinned"
-      ]
-    },
-    {
       "id": "PA-A0-A4-GOLDENS",
       "description": "A0/A4 external fixtures and production-default routing remain exact.",
       "code": [
-        {"path": "src/stylo/domain/work_weighting.py", "symbol": "AblationConfig"}
+        {
+          "path": "src/stylo/domain/work_weighting.py",
+          "symbol": "AblationConfig"
+        }
       ],
       "tests": [
         "tests/test_work_balanced_ablation_goldens.py::test_fixture_matches_pinned_full_sha",
         "tests/test_work_balanced_ablation_config.py::test_make_factory_weighting_contract_unchanged"
-      ]
-    },
-    {
-      "id": "LVN-R1-PACKET-PREFIT-CLOSURE",
-      "description": "The exact selected-134 R1 packet v5 separates upstream acquisition, exact corpus and full downstream packet identities; its canonicalizer policy v2 binds installer-independent verified model payload identity, its immutable packet_generation_id root binds every non-packet byte, and it is constructed without estimator reachability.",
-      "code": [
-        {"path": "src/stylo/eval/lobo_vnext_prepare.py", "symbol": "prepare_r1_packet"},
-        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1PacketManifest"},
-        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1AcquisitionBinding"},
-        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1CorpusGenerationMaterial"},
-        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "R1PacketGenerationMaterial"},
-        {"path": "src/stylo/domain/lobo_vnext_packet.py", "symbol": "CanonicalRepresentationReceipt"}
-      ],
-      "tests": [
-        "tests/test_lobo_vnext_prepare.py::test_prepare_module_has_no_estimator_factory_fit_or_runner_reachability",
-        "tests/test_lobo_vnext_prepare.py::test_acquisition_selected_134_is_exact_and_exclusions_are_upstream_only",
-        "tests/test_lobo_vnext_prepare.py::test_exact_catalog_digest_drift_stops_before_screen_and_nlp[raw-inventory]",
-        "tests/test_lobo_vnext_prepare.py::test_exact_catalog_digest_drift_stops_before_screen_and_nlp[work-identity]",
-        "tests/test_lobo_vnext_prepare.py::test_candidate_screen_blocks_before_nlp",
-        "tests/test_lobo_vnext_prepare.py::test_packet_trees_are_byte_identical_and_target_is_no_clobber",
-        "tests/test_lobo_vnext_prepare.py::test_installer_only_record_drift_keeps_all_packet_identities_and_bytes",
-        "tests/test_lobo_vnext_prepare.py::test_work_identity_derivation_changes_corpus_and_packet_namespaces",
-        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[content-policy]",
-        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[nlp]",
-        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[clean]",
-        "tests/test_lobo_vnext_prepare.py::test_policy_nlp_clean_and_chunk_identity_change_corpus_and_packet[chunk]",
-        "tests/test_lobo_vnext_prepare.py::test_model_or_inference_change_only_rotates_packet_namespace[model]",
-        "tests/test_lobo_vnext_prepare.py::test_model_or_inference_change_only_rotates_packet_namespace[inference]",
-        "tests/test_lobo_vnext_packet.py::test_packet_v5_has_three_unambiguous_identities_and_exact_material",
-        "tests/test_lobo_vnext_packet.py::test_packet_v2_v3_and_v4_schemas_are_rejected_schema_first[v2]",
-        "tests/test_lobo_vnext_packet.py::test_packet_v2_v3_and_v4_schemas_are_rejected_schema_first[v3]",
-        "tests/test_lobo_vnext_packet.py::test_packet_v2_v3_and_v4_schemas_are_rejected_schema_first[v4]",
-        "tests/test_lobo_vnext_packet.py::test_raw_byte_mutation_requires_a_new_corpus_and_receipt_namespace",
-        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[missing]",
-        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[extra]",
-        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[tamper]",
-        "tests/test_lobo_vnext_packet.py::test_row_directory_rejects_missing_extra_tampered_and_symlinked[symlink]"
-      ]
-    },
-    {
-      "id": "LVN-REAL-CONTROL-PLANE",
-      "description": "The real control plane recomputes the strict v5 packet material, requires basename=packet_generation_id, verifies every non-packet byte and exact acquisition/corpus pins, and independently derives every execution receipt before rows, cache, factory, or fit.",
-      "code": [
-        {"path": "src/stylo/eval/lobo_vnext_control.py", "symbol": "load_prepared_r1_packet"},
-        {"path": "src/stylo/eval/lobo_vnext_control.py", "symbol": "assemble_real_execution_spec"},
-        {"path": "src/stylo/eval/lobo_vnext_receipts.py", "symbol": "derive_executable_source_observation"}
-      ],
-      "tests": [
-        "tests/test_lobo_vnext_control.py::test_control_plane_has_no_cache_factory_fit_or_prediction_reachability",
-        "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[extra]",
-        "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[raw]",
-        "tests/test_lobo_vnext_control.py::test_loader_rejects_extra_or_tampered_packet_bytes[canonical]",
-        "tests/test_lobo_vnext_control.py::test_loader_rejects_packet_root_basename_tamper",
-        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v2]",
-        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v3]",
-        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v4]",
-        "tests/test_lobo_vnext_control.py::test_canonicalizer_policy_v1_is_rejected_without_compatibility_mode",
-        "tests/test_lobo_vnext_control.py::test_exact_corpus_pin_drift_stops_before_nlp_or_live_identity[R1_RAW_INVENTORY_DIGEST]",
-        "tests/test_lobo_vnext_control.py::test_exact_corpus_pin_drift_stops_before_nlp_or_live_identity[R1_WORK_IDENTITY_CATALOG_DIGEST]",
-        "tests/test_lobo_vnext_control.py::test_execution_assembly_binds_packet_selection_and_exact_15_receipts",
-        "tests/test_lobo_vnext_control.py::test_dirty_or_drifted_executable_source_stops_before_other_live_receipts"
-      ]
-    },
-    {
-      "id": "LVN-REAL-EXECUTION-AND-RESUME",
-      "description": "The explicit-interactive-authorization-bound two-model R1 evaluator preserves exact shared folds and paired draws, and rejects authorization, checkpoint, or final-artifact drift before unsafe work. The non-personal authorization makes no identity or authentication claim.",
-      "code": [
-        {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "preflight_lobo_vnext_real"},
-        {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "run_lobo_vnext_real"},
-        {"path": "src/stylo/eval/lobo_vnext_real.py", "symbol": "validate_real_final_artifact"}
-      ],
-      "tests": [
-        "tests/test_lobo_vnext_real.py::test_authorization_binding_blocks_before_rows_factory_fit_and_output",
-        "tests/test_lobo_vnext_real.py::test_serial_parallel_resume_are_byte_identical_and_paired",
-        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>0]",
-        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>1]",
-        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>2]",
-        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>3]",
-        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>4]",
-        "tests/test_lobo_vnext_real.py::test_extra_checkpoint_blocks_resume_before_row_loading",
-        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>0]",
-        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>1]",
-        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>2]",
-        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>3]"
-      ]
-    },
-    {
-      "id": "LVN-REAL-CLI-AUTHORIZATION",
-      "description": "The real CLI has no scientific defaults, emits an authorization-free immutable preflight spec, and requires an explicit non-personal interactive authorization bound to the exact live execution, plus the exact output root and LOBO strategy, before evaluator handoff. It makes no identity or authentication claim.",
-      "code": [
-        {"path": "src/stylo/domain/lobo_vnext_approval.py", "symbol": "AUTHORIZATION_BASIS"},
-        {"path": "scripts/evaluation/run_stylo_lobo_vnext.py", "symbol": "_run_real_preflight"},
-        {"path": "scripts/evaluation/run_stylo_lobo_vnext.py", "symbol": "_run_real_exploratory"}
-      ],
-      "tests": [
-        "tests/test_lobo_vnext_approval.py::test_build_round_trip_binds_every_digest_and_encodes_non_authentication",
-        "tests/test_lobo_vnext_approval.py::test_builder_signature_rejects_personal_fields",
-        "tests/test_lobo_vnext_approval.py::test_legacy_v1_is_rejected_for_new_execution",
-        "tests/test_lobo_vnext_real_cli.py::test_real_parsers_have_no_scientific_defaults_and_require_every_input",
-        "tests/test_lobo_vnext_real_cli.py::test_modes_are_mutually_exclusive_before_any_loader",
-        "tests/test_lobo_vnext_real_cli.py::test_real_preflight_writes_immutable_approval_free_spec_without_evaluator",
-        "tests/test_lobo_vnext_real_cli.py::test_personal_wire_keys_are_rejected_by_strict_v2_loader_before_eval",
-        "tests/test_lobo_vnext_real_cli.py::test_approval_authorization_and_safety_are_exact_before_assembly[approved_for_exploratory-False]",
-        "tests/test_lobo_vnext_real_cli.py::test_execution_drift_is_rejected_before_approval_binding_and_eval",
-        "tests/test_lobo_vnext_real_cli.py::test_real_output_namespace_must_equal_exact_ignored_root_before_load",
-        "tests/test_lobo_vnext_real_cli.py::test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts"
       ]
     }
   ]

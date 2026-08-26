@@ -496,12 +496,6 @@ def test_two_real_context_loads_are_identical_and_never_fit_predict(monkeypatch)
     assert first.ruaa_work_selection_identity != first.ruaa_dataset_identity["row_selection_identity"]
 
 
-def test_candidate_has_no_legacy_runtime_reachability_and_registry_stays_empty():
-    source = (ROOT / "src/stylo/eval/paired_audit/evaluator_v3_2.py").read_text()
-    for forbidden in (
-        "paired_audit.runner", "paired_audit.run_plan", "paired_audit.checkpoints",
-        "paired_audit.inference", "paired_audit.publisher", "paired_audit.references",
-    ):
-        assert forbidden not in source
+def test_confirmatory_evaluator_registry_stays_empty():
     from stylo.eval.paired_audit.run_plan import CONFIRMATORY_EVALUATOR_REGISTRY
     assert dict(CONFIRMATORY_EVALUATOR_REGISTRY) == {}

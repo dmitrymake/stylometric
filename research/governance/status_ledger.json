@@ -10,10 +10,6 @@
         {
           "path": "src/stylo/eval/paired_audit/corpus.py",
           "symbol": "build_audit_corpus"
-        },
-        {
-          "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "run_paired_audit"
         }
       ]
     },
@@ -79,13 +75,7 @@
     },
     "manifest_freeze": {
       "status": "unapproved",
-      "claim": "No reviewed v3.2 immutable corpus root or fold-manifest digest is pinned. The v3.1 candidates are ineligible and cannot be promoted or reused.",
-      "bindings": [
-        {
-          "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "APPROVED_FREEZE_ROOT_SHA256"
-        }
-      ]
+      "claim": "No reviewed v3.2 immutable corpus root or fold-manifest digest is pinned, and no code holds an approved freeze constant. The v3.1 candidates are ineligible and cannot be promoted or reused."
     },
     "production_evaluator": {
       "status": "unregistered",
@@ -107,13 +97,7 @@
     },
     "confirmatory_execution": {
       "status": "hard_disabled",
-      "claim": "Execution must fail until a separately implemented and reviewed v3.2 corpus/fold/evaluator/preflight chain is pinned and separately authorized.",
-      "bindings": [
-        {
-          "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "assert_confirmatory_freeze_approved"
-        }
-      ]
+      "claim": "No confirmatory execution path exists: the v3.1 control plane (runner, checkpoints, publisher, inference, headline gate, result audit) was deleted as superseded, and its historical results remain immutable evidence. A v3.2 run requires a separately implemented, reviewed and authorized corpus/fold/evaluator/preflight chain."
     },
     "headline": {
       "status": "not_authorized",

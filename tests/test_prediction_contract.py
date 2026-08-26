@@ -99,19 +99,3 @@ def test_probability_matrix_accepts_exact_contract():
     np.testing.assert_allclose(matrix, [[0.5, 0.5], [0.2, 0.8]])
 
 
-def test_independent_result_boundary_uses_the_same_tie_contract():
-    from stylo.eval.paired_audit import result_audit
-
-    coherent = {
-        "works": ["a/work"],
-        "probas": [[0.5, 0.5]],
-        "preds": [0],
-        "trues": [0],
-        "ranks": [2],
-        "correct": [True],
-    }
-    result_audit._validate_fold_coherence(coherent, ["a", "b"], "tie")
-
-    forged = {**coherent, "works": ["b/work"], "preds": [1], "trues": [1]}
-    with pytest.raises(result_audit.ResultAuditError, match="stable top-1"):
-        result_audit._validate_fold_coherence(forged, ["a", "b"], "tie")

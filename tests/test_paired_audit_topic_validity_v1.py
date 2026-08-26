@@ -23,7 +23,6 @@ from stylo.domain.corpus_identity import (
 from stylo.eval.lobo import make_factory_for_ablation
 from stylo.eval.paired_audit import evaluator_v3_2 as ev
 from stylo.eval.paired_audit.applicability_v3_2 import resolve_cell_v3_2
-from stylo.eval.paired_audit.runner import APPROVED_FREEZE_ROOT_SHA256
 from stylo.eval.paired_audit import run_plan
 from stylo.eval.paired_audit.topic_validity_v1 import (
     TOPIC_ARMS_V1,
@@ -412,7 +411,6 @@ def test_strict_json_and_official_gates_remain_closed(tmp_path):
         with pytest.raises(TopicValidityV1Error, match="strict JSON"):
             validate_topic_aggregate_json_v1(malformed, **kwargs)
     assert dict(run_plan.CONFIRMATORY_EVALUATOR_REGISTRY) == {}
-    assert APPROVED_FREEZE_ROOT_SHA256 is None
 
 
 def test_runner_cli_exposes_three_modes_and_resumable_execution():

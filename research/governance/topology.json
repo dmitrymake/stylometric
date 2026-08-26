@@ -22,9 +22,7 @@
       "scripts/evaluation/acquire_feb_corpus_vnext.py",
       "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
       "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
-      "scripts/evaluation/pin_wikisource_campaign.py",
-      "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "scripts/evaluation/run_stylo_lobo_vnext.py"
+      "scripts/evaluation/pin_wikisource_campaign.py"
     ],
     "legacy_script_basenames": [
       "report.py"
@@ -141,18 +139,6 @@
       "public_surface": "explicit source-spec verifier; no corpus publication, fit, public evidence, or confirmatory authority"
     },
     {
-      "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "status": "canonical_preparation_only",
-      "responsibility": "content_addressed_acquisition_selected_134_r1_lobo_vnext_packet_v5_preparation",
-      "public_surface": "explicit exploratory packet-v5 builder with canonicalizer-policy-v2 installer-independent verified model payload identity and distinct acquisition, corpus and packet identities; no cache, factory, fit, prediction, public evidence or confirmatory authority"
-    },
-    {
-      "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "status": "canonical_bounded_exploratory",
-      "responsibility": "real_r1_preflight_and_interactive_exact_digest_authorized_lobo_vnext_dry_run",
-      "public_surface": "explicit authorization-free real R1 preflight or non-personal interactive-authorization-bound real R1 bounded exploratory dry-run; the record makes no identity or authentication claim, and public and confirmatory execution remain unauthorized"
-    },
-    {
       "path": "scripts/report.py",
       "status": "compatibility_entrypoint",
       "responsibility": "canonical_report_forwarder",
@@ -227,11 +213,6 @@
       "contract": "frozen_historical_output_no_live_writer"
     },
     {
-      "namespace": "docs/exploratory/lobo_vnext/packets/<packet-generation-id>/**",
-      "owner": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "contract": "ignored immutable selected-134 packet-v5 preparation only; canonicalizer policy v2 binds installer-independent verified model payload identity; upstream acquisition_generation_id, exact corpus_generation_id and full-byte packet_generation_id are distinct, basename-bound identities; no cache, fit, public evidence or confirmatory authority"
-    },
-    {
       "namespace": "docs/exploratory/lobo_vnext/corpora/feb/<generation-id>/**",
       "owner": "scripts/evaluation/acquire_feb_corpus_vnext.py",
       "contract": "ignored_immutable_exact_source_materialization_only; no model or scientific-result authority"
@@ -245,11 +226,6 @@
       "namespace": "docs/exploratory/lobo_vnext/corpora/ruaa_r1_hybrid/<generation-id>/**",
       "owner": "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
       "contract": "ignored_immutable_content-audited hybrid source corpus only; no representation cache, model, public evidence, or confirmatory authority"
-    },
-    {
-      "namespace": "docs/exploratory/lobo_vnext/real_corpus/**",
-      "owner": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "contract": "ignored immutable packet_generation_id-bound real R1 preflight and bounded exploratory result; bounded exploratory execution requires an exact packet and an explicit non-personal interactive authorization bound to the complete execution digest; the record makes no identity or authentication claim and grants no public-evidence or confirmatory authority"
     },
     {
       "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",

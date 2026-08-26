@@ -85,11 +85,16 @@
       "status": "preparation_only_unapproved",
       "claim_scope": "Build and verify an immutable audit-corpus and freeze candidate; no estimator, headline, or publication.",
       "output_contract": "Content-addressed audit corpus plus an unapproved freeze-candidate directory with exact payload hashes.",
-      "identity_bindings": ["git_commit", "protocol_sha256", "builder_sha256", "source_dataset_digest", "fold_manifest_self_hashes"],
+      "identity_bindings": [
+        "git_commit",
+        "protocol_sha256",
+        "builder_sha256",
+        "source_dataset_digest",
+        "fold_manifest_self_hashes"
+      ],
       "required_nodeids": [
         "tests/test_paired_audit_preparation.py::test_candidate_reuse_revalidates_every_payload",
-        "tests/test_paired_audit_preparation.py::test_ruaa_drift_exception_is_exact_not_blanket",
-        "tests/test_paired_audit_runner.py::test_confirmatory_execution_is_disabled_until_reviewed_freeze_is_pinned"
+        "tests/test_paired_audit_preparation.py::test_ruaa_drift_exception_is_exact_not_blanket"
       ]
     },
     {
@@ -128,59 +133,21 @@
       ]
     },
     {
-      "path": "scripts/evaluation/prepare_stylo_lobo_vnext_packet.py",
-      "status": "canonical_preparation_only",
-      "claim_scope": "Prepare only the exact canonical RuAA R1 acquisition selected-134 packet v5, its pre-corpus acquisition binding, canonicalizer policy v2 with installer-independent verified model payload identity, post-selection content screen, isolated folds, two fixed model roles and inference contract. The command has no cache, factory, fit, prediction, authorization, public-evidence or confirmatory authority.",
-      "output_contract": "Create-if-absent packet below the ignored docs/exploratory/lobo_vnext/packets/<packet-generation-id> namespace. The upstream acquisition identity, exact selected corpus identity and full non-packet byte/model/inference packet identity are distinct, strict and path-independent; the immutable directory basename is the recomputed packet_generation_id.",
-      "identity_bindings": ["materialized_r1_acquisition", "acquisition_manifest", "acquisition_receipt", "selected_text_quality_audit", "acquisition_binding", "acquisition_generation_id", "raw_inventory", "work_identity_catalog", "upstream_exclusions", "content_policy", "corpus_generation_material", "corpus_generation_id", "post_selection_candidate_screen", "candidate_inventory", "canonical_model_rows", "content_component_manifest", "isolated_fold_manifest", "primary_model_spec", "baseline_model_spec", "primary_inner_cv_plan", "baseline_inner_cv_plan", "model_role_manifest", "inference_spec", "campaign_manifest", "representation_receipt", "packet_generation_material", "packet_file_inventory", "packet_generation_id", "packet_manifest"],
-      "required_nodeids": [
-        "tests/test_lobo_vnext_prepare.py::test_prepare_module_has_no_estimator_factory_fit_or_runner_reachability",
-        "tests/test_lobo_vnext_prepare.py::test_acquisition_selected_134_is_exact_and_exclusions_are_upstream_only",
-        "tests/test_lobo_vnext_prepare.py::test_production_catalog_digest_pins_remain_exact",
-        "tests/test_lobo_vnext_prepare.py::test_exact_catalog_digest_drift_stops_before_screen_and_nlp[raw-inventory]",
-        "tests/test_lobo_vnext_prepare.py::test_exact_catalog_digest_drift_stops_before_screen_and_nlp[work-identity]",
-        "tests/test_lobo_vnext_prepare.py::test_candidate_screen_blocks_before_nlp",
-        "tests/test_lobo_vnext_prepare.py::test_packet_trees_are_byte_identical_and_target_is_no_clobber",
-        "tests/test_lobo_vnext_prepare.py::test_installer_only_record_drift_keeps_all_packet_identities_and_bytes",
-        "tests/test_lobo_vnext_prepare.py::test_work_identity_derivation_changes_corpus_and_packet_namespaces",
-        "tests/test_lobo_vnext_prepare.py::test_model_or_inference_change_only_rotates_packet_namespace[model]",
-        "tests/test_lobo_vnext_prepare.py::test_model_or_inference_change_only_rotates_packet_namespace[inference]",
-        "tests/test_lobo_vnext_prepare.py::test_packet_output_must_be_explicit_exploratory_namespace"
-      ]
-    },
-    {
-      "path": "scripts/evaluation/run_stylo_lobo_vnext.py",
-      "status": "canonical_bounded_exploratory",
-      "claim_scope": "Authorization-free real R1 execution-spec preflight or the exact selected-134 RuAA R1 bounded exploratory campaign only. Exploratory execution requires an immutable content-addressed packet v5 plus explicit interactive user authorization bound to the complete execution digest. That authorization is non-personal and makes no identity or authentication claim; public evidence, headlines, scientific approvals and confirmatory execution remain unauthorized.",
-      "output_contract": "Immutable strict-schema preflight, checkpoints and results below the exact ignored docs/exploratory/lobo_vnext/real_corpus namespace. The execution output namespace is bound to packet_generation_id, run_id binds the packet manifest, R1 checkpoints/results are create-if-absent, telemetry is separated from the scientific hash, and every authorization flag for public, frozen-evidence or confirmatory output is false.",
-      "identity_bindings": ["r1_packet_manifest", "acquisition_generation_id", "corpus_generation_material", "corpus_generation_id", "packet_generation_material", "packet_file_inventory", "packet_generation_id", "acquisition_binding", "raw_inventory", "work_identity_catalog", "upstream_exclusions", "canonical_model_row_digest", "content_policy", "candidate_inventory", "content_component_manifest", "outer_fold_manifest", "primary_inner_cv_plan", "baseline_inner_cv_plan", "probability_class_order", "metric_label_order", "primary_model_spec", "baseline_model_spec", "model_role_manifest", "inference_spec", "campaign_manifest", "interactive_authorization", "execution_spec", "representation_receipt", "config", "primary_model_adapter", "baseline_model_adapter", "executable_sources", "dependencies", "runtime", "thread_contract"],
-      "required_nodeids": [
-        "tests/test_lobo_vnext_manifests.py::test_purged_inner_cv_fails_closed_or_uses_whole_components",
-        "tests/test_lobo_vnext_control.py::test_loader_rejects_packet_root_basename_tamper",
-        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v2]",
-        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v3]",
-        "tests/test_lobo_vnext_control.py::test_loader_explicitly_rejects_legacy_packet_schema[v4]",
-        "tests/test_lobo_vnext_control.py::test_canonicalizer_policy_v1_is_rejected_without_compatibility_mode",
-        "tests/test_lobo_vnext_control.py::test_execution_assembly_binds_packet_selection_and_exact_15_receipts",
-        "tests/test_lobo_vnext_real.py::test_authorization_binding_blocks_before_rows_factory_fit_and_output",
-        "tests/test_lobo_vnext_real.py::test_serial_parallel_resume_are_byte_identical_and_paired",
-        "tests/test_lobo_vnext_real.py::test_extra_checkpoint_blocks_resume_before_row_loading",
-        "tests/test_lobo_vnext_real.py::test_checkpoint_schema_rejects_rehashed_adversarial_payload[<lambda>0]",
-        "tests/test_lobo_vnext_real.py::test_final_validator_recomputes_nested_results[<lambda>0]",
-        "tests/test_lobo_vnext_approval.py::test_builder_signature_rejects_personal_fields",
-        "tests/test_lobo_vnext_approval.py::test_legacy_v1_is_rejected_for_new_execution",
-        "tests/test_lobo_vnext_real_cli.py::test_real_parsers_have_no_scientific_defaults_and_require_every_input",
-        "tests/test_lobo_vnext_real_cli.py::test_personal_wire_keys_are_rejected_by_strict_v2_loader_before_eval",
-        "tests/test_lobo_vnext_real_cli.py::test_execution_drift_is_rejected_before_approval_binding_and_eval",
-        "tests/test_lobo_vnext_real_cli.py::test_exact_real_handoff_reuses_reloaded_packet_execution_and_receipts"
-      ]
-    },
-    {
       "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
       "status": "owner_authorized_measured_fixed8_review_blocker_corrected_verified_ready",
       "claim_scope": "Exact corrected LOBO-248 topic-validity study only: stylo A0/A4 current versus topic_strict, after sequential, fixed-8 and fixed-16 measured load stops selected fixed-8 as the faster observed orchestration. The single review found only stale executable-source inventory hashes; that bounded correction is frozen-verified without a second-review PASS claim. This is aggregate decision support, not confirmatory execution, evaluator registration, model selection, headline or publication authority.",
       "output_contract": "Create-once research/evidence/topic_validity_lobo_v1/aggregate.json plus an ignored local resume checkpoint under research/local/. The retained strict aggregate contains bound identities, rational accuracy/delta, prediction digests and per-author transition counts; the checkpoint holds only fold indices, fold identities and aligned probability vectors so an interrupted run resumes, and no work IDs, text, vocabulary, official receipts/results or row predictions persist.",
-      "identity_bindings": ["verified_v3_2_context", "topic_challenger_binding", "lobo_fold_order", "probability_class_order", "metric_label_order", "executable_sources", "environment_lock", "runtime", "thread_contract"],
+      "identity_bindings": [
+        "verified_v3_2_context",
+        "topic_challenger_binding",
+        "lobo_fold_order",
+        "probability_class_order",
+        "metric_label_order",
+        "executable_sources",
+        "environment_lock",
+        "runtime",
+        "thread_contract"
+      ],
       "required_nodeids": [
         "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
         "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_exposes_three_modes_and_resumable_execution",
