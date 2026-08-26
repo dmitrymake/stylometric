@@ -12,7 +12,6 @@
 - Risk flags: mutation, scientific-contract
 - Primary domain: evaluation/paired-audit
 - Allowed cross-domain: research-governance (requirement binding only)
-- Standard: `docs/agentic/STANDARD.md` v1.3
 
 ## 1. Goal and decision
 

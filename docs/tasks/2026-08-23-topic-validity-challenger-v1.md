@@ -13,7 +13,6 @@
 - Primary domain: evaluation/paired-audit
 - Allowed cross-domain: feature-extraction (read-only canonical topic-strict semantics);
   research-governance (status/test mapping only)
-- Standard: `docs/agentic/STANDARD.md` v1.3
 
 ## 1. Goal and decision
 

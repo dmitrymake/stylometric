@@ -68,7 +68,7 @@
     "research/evidence/withdrawn_certificates_v1/manifest.json": "d1b7a2528783a515f73f4de8610ab46dcbbf7156998a95a52168984a461b72f0",
     "research/governance/requirements.json": "592ed44b3c6cca1c0c525684048e4d0a9b417066fbfa7768b6612067d3452cce",
     "research/governance/runner_catalog.json": "e0fc71233193347867d8979b569ec95b6a02098a0184a88bc5bf5986e81326b3",
-    "research/governance/status_ledger.json": "1f9fb646c3df100875f03f8e55a4ba95b39a62af43088edc53eb8262e81ed799",
+    "research/governance/status_ledger.json": "389e1a0f37fb048f05e36cc2ac9c287ebe8c0d57e1214af22e1310886c0bee9b",
     "research/governance/topology.json": "2152ee28f8aeefec746e31d94481077a8e488d8d2250b3a0cbff0ea077b39635",
     "research/reviews/stylometry_owner_decision_memo.md": "484ae9e6831596fa5472c38547f459c736171384a1e3480158a64bc9b54f02ba",
     "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",

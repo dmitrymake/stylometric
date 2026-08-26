@@ -12,7 +12,6 @@
 - Risk flags: mutation, scientific-claim
 - Primary domain: reporting/publication
 - Allowed cross-domain: site (one claim source); evaluation evidence (read-only aggregate contract)
-- Standard: `docs/agentic/STANDARD.md` v1.3
 
 ## 1. Goal and decision
 

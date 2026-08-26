@@ -13,7 +13,6 @@
 - Primary domain: evaluation/paired-audit
 - Allowed cross-domain: feature-extraction runtime identity; research-governance metadata; release
   dependency contract
-- Standard: `docs/agentic/STANDARD.md` v1.3
 
 ## 1. Goal and observed facts
 

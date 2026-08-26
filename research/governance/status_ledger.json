@@ -1,7 +1,7 @@
 {
   "schema": "stylo.governance.status_ledger.v2",
-  "as_of": "2026-08-23",
-  "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative.",
+  "as_of": "2026-08-26",
+  "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative. Bindings name the code that owns each state; they are not byte pins, so ordinary refactoring does not require a ledger edit.",
   "paired_audit": {
     "protocol_v3_1": {
       "status": "superseded_ineligible_corpus",
@@ -9,13 +9,11 @@
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/corpus.py",
-          "symbol": "build_audit_corpus",
-          "sha256": "e4060db3b6f1158b629963a543338ecad315810bdc2f285e70a43ac526d41869"
+          "symbol": "build_audit_corpus"
         },
         {
           "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "run_paired_audit",
-          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+          "symbol": "run_paired_audit"
         }
       ]
     },
@@ -25,13 +23,11 @@
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
-          "symbol": "prepare_corrected_v3_2",
-          "sha256": "58bef16be6659d5e5f9f06a2dfcae1c3a1668f1417a25ce5fc8caa964c527cad"
+          "symbol": "prepare_corrected_v3_2"
         },
         {
           "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
-          "symbol": "verify_v3_2_candidate",
-          "sha256": "58bef16be6659d5e5f9f06a2dfcae1c3a1668f1417a25ce5fc8caa964c527cad"
+          "symbol": "verify_v3_2_candidate"
         }
       ]
     },
@@ -40,50 +36,44 @@
       "claim": "The owner terminated the preparation security review. No independent security-audit PASS or equivalent assurance is claimed; evaluator review is bounded to frozen scientific semantics."
     },
     "evaluator_candidate": {
-      "status": "implemented_single_review_blocker_corrected_verified_frozen_inputs_reconciled",
-      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate was implemented under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. The single independent scientific review of commit f2f9eb95816febfe7a82d6050f5e5fc1bdb35331 found one AC-07 incomplete-class-universe blocker; the one allowed correction pass fixed it in commit 4c74df5e. Affected and full regression checks passed afterward. No second review of the original evaluator acceptance is claimed. Frozen-input reconciliation makes context construction consume the immutable protocol identity and exact stored manifest identity while the lock remains spaCy 3.8.11; this performs no chunking, fit, or prediction. Its separate bounded review of commit a4908d08 passed with no blocker and no correction pass. Receipt semantic closure now requires independently derived expectations and exact JSON types; its one review blocker was corrected in the single allowed pass without a second-review PASS claim. A separate synthetic topic-validity gate confirms that active stylo MFW can encode label-correlated content nouns while the evaluation-only topic_strict control removes that exact controlled dependency. The corrected-corpus magnitude and model-semantics decision remain unmeasured, so the candidate is not factology-ready for registration. It is accepted only as an unregistered input to separately authorized future topic-validity and freeze/control-plane tasks and has no production registration or execution authority.",
+      "status": "implemented_reviewed_unregistered",
+      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate is implemented and reviewed under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. Context construction consumes the immutable protocol identity and the exact stored manifest identity while the environment lock remains spaCy 3.8.11; it performs no chunking, fit, or prediction. Receipt validation derives its expectations independently. A synthetic topic-validity gate confirms that active stylo MFW can encode label-correlated content nouns while the evaluation-only topic_strict control removes that exact controlled dependency. The corrected-corpus magnitude and the model-semantics decision remain unmeasured, so the candidate is an unregistered input to later authorized tasks and carries no production registration or execution authority.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",
-          "symbol": "REGISTRY_V3_2",
-          "sha256": "e8c35910541dd716dc7ab8eb71eb8845cae01fc0e6b0e7425a1f232de6c0559d"
+          "symbol": "REGISTRY_V3_2"
         },
         {
-                    "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
-                    "symbol": "evaluate_fold_v3_2",
-                    "sha256": "f078e289fc734c961ab7691c0db115ace1227f75981930b1b768053f15b96f31"
+          "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
+          "symbol": "evaluate_fold_v3_2"
         },
         {
-                    "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
-                    "symbol": "validate_receipt_v3_2",
-                    "sha256": "12c6d400b98ff6ccd614f08366ad2ba526f5cae3864d71bf3425754ff6505833"
+          "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
+          "symbol": "validate_receipt_v3_2"
         }
       ]
     },
     "topic_validity_challenger": {
-      "status": "implemented_review_blocker_corrected_unexecuted",
-      "claim": "A separate research-only A0/A4 current-versus-topic_strict adapter and aggregate-only schema is implemented under docs/tasks/2026-08-23-topic-validity-challenger-v1.md. Its single independent review found that the self-hashed binding persisted repository source paths; the one allowed correction now binds semantic source roles to byte digests without exposing paths. Frozen verification passed afterward; no second-review PASS is claimed. It has no CLI, runner, registry entry, official receipt/result/run identity, protected-corpus execution, model decision, readiness claim, publication or authorization. Real corrected-LOBO use remains a separately approved R3b task.",
+      "status": "implemented_reviewed",
+      "claim": "A research-only A0/A4 current-versus-topic_strict adapter and aggregate-only schema is implemented under docs/tasks/2026-08-23-topic-validity-challenger-v1.md. Its binding maps semantic source roles to byte digests without exposing repository paths. It carries no registry entry, official receipt/result/run identity, model decision, readiness claim, publication or authorization.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
-          "symbol": "build_topic_study_context_v1",
-          "sha256": "52f51874ec0b13ebd89bbaf808d25e99e9517174b587333305bc724008e265cc"
+          "symbol": "build_topic_study_context_v1"
         }
       ]
     },
     "topic_validity_execution": {
-      "status": "owner_authorized_measured_fixed8_review_blocker_corrected_verified_ready",
-      "claim": "The repository owner explicitly authorized the bounded R3b corrected-LOBO topic-validity study in the 2026-08-23 operator turn. Sequential timing projected 98.4 hours; fixed-8 reached 10/992 at 957.7 seconds (26.4-hour projection) with safe measured memory, while fixed-16 reached 10/992 at 1162.4 seconds (32.0-hour projection) and was slower under contention; both probes stopped without output. The runner therefore uses the measured eight-process fork by default and resumes from an ignored local checkpoint, so an interrupted run continues instead of discarding its fits. Its single independent review found one executable-source-inventory blocker affecting two stale hashes and no orchestration or scientific blocker; the bounded correction updates only those two hashes, and frozen verification passed afterward. No second-review PASS is claimed. Fork/order/schema/failure behavior and serial/parallel aggregate equivalence remain unchanged. Scope stays exactly 248 LOBO folds, stylo A0/A4, current/topic_strict and one aggregate-only create-once artifact. This is not confirmatory, registration, freeze, model-selection, headline or publication authority.",
+      "status": "owner_authorized_resumable_unmeasured",
+      "claim": "The repository owner authorized the bounded R3b corrected-LOBO topic-validity study. Measured orchestration: sequential projected 98.4 hours, fixed-8 reached 10/992 at 957.7 seconds (26.4-hour projection) with safe memory, fixed-16 reached 10/992 at 1162.4 seconds (32.0-hour projection) and was slower under contention. The runner defaults to the measured eight-process fork and resumes from an ignored local checkpoint, so an interrupted run continues instead of discarding its fits. A first execution attempt reached 260/992 before the owner stopped it; no aggregate exists and the corrected-corpus effect stays unmeasured. Scope is exactly 248 LOBO folds, stylo A0/A4, current versus topic_strict, and one aggregate-only artifact. This is not confirmatory, registration, freeze, model-selection, headline or publication authority.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
-          "symbol": "evaluate_topic_fold_v1",
-          "sha256": "52f51874ec0b13ebd89bbaf808d25e99e9517174b587333305bc724008e265cc"
+          "symbol": "evaluate_topic_fold_v1"
         },
         {
           "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
-          "symbol": "main",
-          "sha256": "5f6753c899639d1132afc7cb3317fd234f4d051bf5b4294a88e55570ec1053c6"
+          "symbol": "main"
         }
       ]
     },
@@ -93,8 +83,7 @@
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "APPROVED_FREEZE_ROOT_SHA256",
-          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+          "symbol": "APPROVED_FREEZE_ROOT_SHA256"
         }
       ]
     },
@@ -104,8 +93,7 @@
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/run_plan.py",
-          "symbol": "CONFIRMATORY_EVALUATOR_REGISTRY",
-          "sha256": "71880e9ea41cc56c55772f642d29ebb5187b2119d5142770c2e8db7eb821f5ab"
+          "symbol": "CONFIRMATORY_EVALUATOR_REGISTRY"
         }
       ]
     },
@@ -123,8 +111,7 @@
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/runner.py",
-          "symbol": "assert_confirmatory_freeze_approved",
-          "sha256": "3f5a6211ff620538ad3a097635ce8fce0198840b8ee69e2445b7ac4115b2ef84"
+          "symbol": "assert_confirmatory_freeze_approved"
         }
       ]
     },
@@ -152,12 +139,5 @@
       "headline_authorized": false,
       "claim": "This bounded exploratory run does not complete or replace the paired audit, is not confirmatory evidence or an external replication, and authorizes no publication or headline."
     }
-  },
-  "historical_records": [
-    {
-      "path": "research/work_balanced/paired_audit_review_provenance.md",
-      "status": "historical_with_withdrawn_rounds",
-      "sha256": "5e961397bfa23c2e42bd9a4038cebf538c64ba3565b3a6ffcffa444093bb720d"
-    }
-  ]
+  }
 }

@@ -11,7 +11,6 @@
 - Risk flags: mutation
 - Primary domain: evaluation/paired-audit
 - Allowed cross-domain: corpus/data (read-only verified context); research-governance (metadata/status only)
-- Standard: `docs/agentic/STANDARD.md` v1.3
 
 ## 1. Goal and decision
 - Observable result: a versioned v3.2 applicability registry, verified evaluation context,

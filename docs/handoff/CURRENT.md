@@ -6,7 +6,6 @@
 - Branch/worktree at capture: attached `main`, clean; sixty-two commits ahead of `origin/main`;
   local branches are exactly `main` and `release`.
 - Active task: `docs/tasks/2026-08-23-topic-validity-measured-fixed8.md` (Result pending)
-- Active standard: `docs/agentic/STANDARD.md` v1.3
 
 This file only routes the next session. Scientific status and authorization remain owned by the
 governance ledger, protocol, executable gates, and completed task evidence.
@@ -63,4 +62,3 @@ WIP, or if a new R3 factor appears.
 - Run task: `docs/tasks/2026-08-23-topic-validity-measured-fixed8.md`
 - Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
 - Protocol: `research/work_balanced/paired_audit_protocol.md`
-- Process: `docs/agentic/STANDARD.md`, `docs/handoff/README.md`
