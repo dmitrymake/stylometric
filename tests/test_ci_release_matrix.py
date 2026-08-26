@@ -7,10 +7,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
 
 
-def test_ci_runs_full_and_focused_suites_under_lock_constraints():
+def test_ci_runs_the_full_suite_and_every_gate_under_lock_constraints():
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "python -m pytest tests -q -p no:cacheprovider" in text
-    assert "Focused scientific and release contracts" in text
     assert text.count("--constraint requirements.lock") >= 2
     assert text.count("--no-build-isolation --constraint requirements.lock") >= 2
     assert "pip install --quiet numpy scipy" not in text

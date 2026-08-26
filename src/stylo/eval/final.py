@@ -44,7 +44,6 @@ from ..domain.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                              require_weighting, resolve_training_weighting)
 
 log = logging.getLogger("stylo.eval.final")
-TOPOLOGY_ROLE = "exploratory_model_comparison_compatibility_module"
 
 DEFAULT_SPECS = list(DEFAULT_EXPLORATORY_SPECS)
 

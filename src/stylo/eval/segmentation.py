@@ -25,7 +25,6 @@ from scipy.optimize import linear_sum_assignment
 from ..domain.segmentation import LabeledSpan, Span
 
 EvaluationMode = Literal["named_attribution", "anonymous_partition"]
-TOPOLOGY_ROLE = "mixed_authorship_evaluation"
 
 
 @dataclass(frozen=True, slots=True)

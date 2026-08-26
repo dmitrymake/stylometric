@@ -47,31 +47,6 @@ jobs:
           git diff --exit-code -- site/src/generated
       - name: Ordinary full suite
         run: python -m pytest tests -q -p no:cacheprovider
-      - name: Focused scientific and release contracts
-        run: >-
-          python -m pytest
-          tests/test_release_integrity.py
-          tests/test_executable_source_inventory.py
-          tests/test_packaged_resources.py
-          tests/test_repair_smoke_source_reconstruction.py
-          tests/test_paired_audit_references.py
-          tests/test_paired_audit_runner.py
-          tests/test_stack_class_coverage.py
-          tests/test_stack_passport_compatibility.py
-          tests/test_lobo_vnext_approval.py
-          tests/test_lobo_vnext_control.py
-          tests/test_lobo_vnext_findings.py
-          tests/test_lobo_vnext_manifests.py
-          tests/test_lobo_vnext_models.py
-          tests/test_lobo_vnext_packet.py
-          tests/test_lobo_vnext_policy.py
-          tests/test_lobo_vnext_prepare.py
-          tests/test_lobo_vnext_real.py
-          tests/test_lobo_vnext_real_cli.py
-          tests/test_lobo_vnext_real_contracts.py
-          tests/test_lobo_vnext_receipts.py
-          -q -p no:cacheprovider
-
   package-wheel:
     name: Clean wheel install
     runs-on: ubuntu-latest
@@ -106,21 +81,9 @@ jobs:
           assert len(load_author_meta()) > 1
           for name in ("default.yaml", "authors.json", "classics.yaml"):
               assert importlib.resources.files("stylo.resources").joinpath(name).is_file()
-          for module in (
-              "stylo.domain.lobo_vnext",
-              "stylo.domain.lobo_vnext_approval",
-              "stylo.domain.lobo_vnext_packet",
-              "stylo.domain.lobo_vnext_policy",
-              "stylo.domain.lobo_vnext_real",
-              "stylo.eval.certificates",
-              "stylo.eval.lobo_vnext_control",
-              "stylo.eval.lobo_vnext_models",
-              "stylo.eval.lobo_vnext_prepare",
-              "stylo.eval.lobo_vnext_real",
-              "stylo.eval.lobo_vnext_receipts",
-              "stylo.models.equal_channel_ensemble",
-          ):
-              importlib.import_module(module)
+          import pkgutil, stylo
+          for found in pkgutil.walk_packages(stylo.__path__, "stylo."):
+              importlib.import_module(found.name)
           try:
               _require_source_workspace()
           except WorkspaceRequiredError:

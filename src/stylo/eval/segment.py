@@ -19,8 +19,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-TOPOLOGY_ROLE = "rolling_attribution_diagnostic"
-
 
 def chunk_probs(texts: Sequence[str], pipe, authors: List[str]) -> np.ndarray:
     """(n_chunks, n_authors) вероятности, выровненные на полный список authors."""

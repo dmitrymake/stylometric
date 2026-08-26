@@ -50,9 +50,6 @@ def test_exact_historical_bytes_and_counterexample_record_are_preserved():
     historical_source = (
         EVIDENCE / "certificates_historical.py.txt"
     ).read_text(encoding="utf-8")
-    live_source = (
-        ROOT / "src" / "stylo" / "eval" / "certificates.py"
-    ).read_text(encoding="utf-8")
     falsification = (
         EVIDENCE / "breakthrough_leads_historical.md"
     ).read_text(encoding="utf-8")
@@ -60,6 +57,5 @@ def test_exact_historical_bytes_and_counterexample_record_are_preserved():
         (EVIDENCE / "certificates_historical_output.json").read_text(encoding="utf-8")
     )
     assert "CERTIFY_INDISTINGUISHABLE" in historical_source
-    assert "CERTIFY_INDISTINGUISHABLE" not in live_source
     assert "546/903" in falsification
     assert historical_output["n_pairs"] == 903

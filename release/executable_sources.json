@@ -53,7 +53,7 @@
   "schema_version": "stylo.executable-source-inventory.v1",
   "sha256_bindings": {
     ".gitattributes": "8720a7c0cc2fb089a94245646884cd5871193514747775907f465d42fe9f445f",
-    ".github/workflows/ci.yml": "8c02cfd6c0513957d748a8a82df90378c16edea4098033f9bf836007408b4bed",
+    ".github/workflows/ci.yml": "66ce920780ae465923076ea6ea45ae4ba33417f5c55c0d3e81bc2a49a0309ae1",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "README.md": "99f30e75826db20fa00c8bec88e4bf70b6785181ed4e2fc8f491570249d810d9",
     "docs/ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
