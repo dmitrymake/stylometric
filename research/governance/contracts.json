@@ -1,0 +1,522 @@
+{
+  "schema": "stylo.governance.contracts.v1",
+  "authority": "One registry for executable contracts: which code owns which behaviour, which tests prove it, which runners exist and which artifact namespace each entry point owns. Scientific status lives in status_ledger.json; byte identity of the release surface lives in release/executable_sources.json.",
+  "collection_command": "python -m pytest --collect-only -q -o addopts= -p no:cacheprovider",
+  "contracts": [
+    {
+      "id": "PA-CORPUS-ANCHOR-PARITY",
+      "description": "Legacy anchor, semantic parity, and row ordering fail closed.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "build_audit_corpus"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_legacy_anchor_mismatch_aborts_build",
+        "tests/test_paired_audit_corpus.py::TestSemanticParity::test_parity_mismatch_between_different_corpora",
+        "tests/test_paired_audit_corpus.py::TestSemanticParity::test_row_order_parity_invariant_catches_reordering"
+      ]
+    },
+    {
+      "id": "PA-CORPUS-BYTE-AND-IDENTITY-CLOSURE",
+      "description": "Changed, stray, or duplicate chunks and partial roots are rejected.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "verify_published_corpus"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_wb_manifest_guard_catches_byte_mutation_directly",
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_wb_manifest_guard_catches_stray_chunk_directly",
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_partial_root_never_valid"
+      ]
+    },
+    {
+      "id": "PA-CORPUS-IMMUTABILITY-AND-SELF-HASH",
+      "description": "Immutable-root conflicts, manifest self-hash drift, and forged subset bindings are rejected.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/corpus.py",
+          "symbol": "verify_published_corpus"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_conflicting_immutable_root_is_fatal",
+        "tests/test_paired_audit_corpus.py::TestBuilderFailClosed::test_corpus_manifest_self_hash_tamper_rejected",
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_forged_selection_digest_rejected_at_disk_verify",
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_forged_parent_digest_rejected_at_disk_verify"
+      ]
+    },
+    {
+      "id": "PA-SUBSET-WHOLE-WORK-EXACTNESS",
+      "description": "The nested RuAA selection is exact, duplicate-free, and whole-work.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/work_subset.py",
+          "symbol": "derive_work_subset"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_whole_work_includes_all_chunks",
+        "tests/test_paired_audit_corpus.py::TestWorkSubset::test_missing_and_extra_and_duplicate_rejected"
+      ]
+    },
+    {
+      "id": "PA-MANIFEST-FROZEN-UNIVERSE",
+      "description": "Fold manifests bind exact class orders and frozen universe counts.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/manifest.py",
+          "symbol": "assert_lobo_universe"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/manifest.py",
+          "symbol": "assert_ruaa_universe"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_bogus_class_order_contents_rejected",
+        "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_lobo_universe_rejects_off_counts",
+        "tests/test_paired_audit_manifest.py::TestFrozenUniverse::test_ruaa_universe_rejects_off_counts"
+      ]
+    },
+    {
+      "id": "PA-V3-2-CORRECTED-CORPUS-IDENTITY-AND-ISOLATION",
+      "description": "The preparation-only v3.2 bundle uses a cooperative local single-writer physical contract, rejects symlinks, special files, wrong modes and any non-literal corrected_corpus child binding, and never overwrites an existing destination. It binds the exact historical parent, immutable design-freeze protocol identity, literal exclusions, full NFC work identities, expected basename diagnostics, complete content isolation, 252/248/134 folds, exact stored chunker-manifest identity, and the unchanged 16-cell/11-comparison applicability matrix. It accepts folds only by exact trusted-input reconstruction; hostile writers and physical inode or mount provenance are not claimed as covered.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
+          "symbol": "prepare_corrected_v3_2"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/corrected_v3_2.py",
+          "symbol": "verify_v3_2_candidate"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
+        "tests/test_paired_audit_corrected_v3_2.py::test_duplicate_full_id_and_author_prefix_mismatch_are_fatal",
+        "tests/test_paired_audit_corrected_v3_2.py::test_collision_inventory_rejects_missing_unexpected_or_third_member",
+        "tests/test_paired_audit_corrected_v3_2.py::test_content_overlap_inside_adjudicated_pair_remains_fatal",
+        "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_content_equivalent_hardlink_is_accepted",
+        "tests/test_paired_audit_corrected_v3_2.py::test_child_manifest_external_symlink_rejected_before_parse",
+        "tests/test_paired_audit_corrected_v3_2.py::test_mode_drift_is_rejected_without_verifier_mutation",
+        "tests/test_paired_audit_corrected_v3_2.py::test_exact_resume_rejects_rogue_member_without_repair[file]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_self_rehashed_coherent_fold_forgery_rejected_by_reconstruction[corrected_corpus_digest]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_fault_injection_never_publishes_partial_bundle[during_child_assembly]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_actual_final_rename_failure_and_success_resume_semantics",
+        "tests/test_paired_audit_corrected_v3_2.py::test_invalid_self_rehashed_child_binding_rejected_with_zero_child_use[absolute]",
+        "tests/test_paired_audit_corrected_v3_2.py::test_crash_after_successful_rename_is_exactly_reused",
+        "tests/test_paired_audit_corrected_v3_2.py::test_preparation_cli_uses_only_the_frozen_protocol_identity",
+        "tests/test_workdoc.py::TestCanonicalLoader::test_frozen_manifest_identity_is_explicit_and_fail_closed"
+      ]
+    },
+    {
+      "id": "PA-V3-2-APPLICABILITY-EXACTNESS",
+      "description": "The current v3.2 registry is exactly 25 statuses, 16 applied cells, and 11 Holm members and matches the corrected preparation identity.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",
+          "symbol": "REGISTRY_V3_2"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_evaluator_v3_2.py::test_registry_is_exact_25_16_11_and_matches_corrected_preparation",
+        "tests/test_paired_audit_evaluator_v3_2.py::test_confirmatory_evaluator_registry_stays_empty"
+      ]
+    },
+    {
+      "id": "PA-V3-2-RECEIPT-SEMANTIC-CLOSURE",
+      "description": "Every v3.2 fold receipt is validated against independently constructed context, fold, route, order, split, probability, axis, and fitted-state expectations; a coherent outer rehash cannot authenticate a scientific falsehood.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/evidence_v3_2.py",
+          "symbol": "validate_receipt_v3_2"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/evaluator_v3_2.py",
+          "symbol": "evaluate_fold_v3_2"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_evaluator_v3_2.py::test_all_16_applied_factory_routes_fit_and_predict_toy_data",
+        "tests/test_paired_audit_evaluator_v3_2.py::test_coherently_rehashed_semantic_falsehoods_are_rejected"
+      ]
+    },
+    {
+      "id": "STYLO-TOPIC-VALIDITY-GATE",
+      "description": "Active stylo MFW topic sensitivity and the evaluation-only topic_strict control are covered by deterministic content-token counterfactuals; synthetic mechanism evidence never becomes corrected-corpus accuracy or evaluator-registration authority.",
+      "code": [
+        {
+          "path": "src/stylo/features/function_words.py",
+          "symbol": "FunctionWordBlock"
+        },
+        {
+          "path": "src/stylo/features/registry.py",
+          "symbol": "build_blocks"
+        },
+        {
+          "path": "src/stylo/eval/lobo.py",
+          "symbol": "make_factory_for_ablation"
+        }
+      ],
+      "tests": [
+        "tests/test_stylo_topic_validity.py::test_mfw_content_token_causal_oracle_and_fixed_list_control",
+        "tests/test_stylo_topic_validity.py::test_all_v32_stylo_routes_expose_mfw_and_topic_strict_is_invariant"
+      ]
+    },
+    {
+      "id": "PA-TOPIC-VALIDITY-CHALLENGER-V1",
+      "description": "The versioned research-only A0/A4 topic-strict adapter and aggregate schema bind verified context/source identities, preserve the authoritative non-vectorizer route, recompute aggregate metrics from transient probabilities, persist no row-level evidence, and grant no real execution or registration authority.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "build_topic_study_context_v1"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "make_topic_challenger_factory_v1"
+        },
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "validate_topic_aggregate_v1"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_topic_validity_v1.py::test_binding_and_fresh_factories_preserve_only_topic_strict_delta",
+        "tests/test_paired_audit_topic_validity_v1.py::test_context_drift_rejects_before_factory",
+        "tests/test_paired_audit_topic_validity_v1.py::test_aggregate_is_recomputed_and_contains_only_whitelisted_detail",
+        "tests/test_paired_audit_topic_validity_v1.py::test_strict_json_and_official_gates_remain_closed"
+      ]
+    },
+    {
+      "id": "PA-TOPIC-VALIDITY-R3B-RUNNER-V1",
+      "description": "The owner-authorized runner is fixed to corrected LOBO-248 stylo A0/A4 current/topic_strict, binds source/environment/runtime/thread identities, keeps fold probabilities out of the retained artifact, resumes from an ignored local checkpoint, and creates one aggregate-only artifact with no overwrite, official-result or publication path.",
+      "code": [
+        {
+          "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
+          "symbol": "evaluate_topic_fold_v1"
+        },
+        {
+          "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
+          "symbol": "main"
+        }
+      ],
+      "tests": [
+        "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
+        "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_exposes_three_modes_and_resumable_execution",
+        "tests/test_paired_audit_topic_validity_v1.py::test_runner_rejects_wrong_output_before_context_load",
+        "tests/test_paired_audit_topic_validity_v1.py::test_runner_atomic_output_is_create_once"
+      ]
+    },
+    {
+      "id": "PA-A0-A4-GOLDENS",
+      "description": "A0/A4 external fixtures and production-default routing remain exact.",
+      "code": [
+        {
+          "path": "src/stylo/domain/work_weighting.py",
+          "symbol": "AblationConfig"
+        }
+      ],
+      "tests": [
+        "tests/test_work_balanced_ablation_goldens.py::test_fixture_matches_pinned_full_sha",
+        "tests/test_work_balanced_ablation_config.py::test_make_factory_weighting_contract_unchanged"
+      ]
+    }
+  ],
+  "runners": {
+    "directory": "scripts/evaluation",
+    "entries": [
+      {
+        "path": "scripts/evaluation/acquire_feb_corpus_vnext.py",
+        "status": "canonical_source_acquisition_only",
+        "claim_scope": "Materialize one exact pinned FEB work in an ignored exploratory source namespace; no cache, model, fit, metric, public evidence, or confirmatory authority.",
+        "output_contract": "Create-if-absent exact raw source bytes and receipt below docs/exploratory/lobo_vnext/corpora/feb.",
+        "required_nodeids": [
+          "tests/test_feb_vnext.py::test_exact_feb_extraction_keeps_eight_chapters_and_stops_before_notes",
+          "tests/test_feb_vnext.py::test_materialization_and_resume_are_immutable_and_network_free",
+          "tests/test_feb_vnext.py::test_cli_uses_only_pinned_spec_and_fixed_exploratory_namespace"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
+        "status": "canonical_offline_source_acquisition_only",
+        "claim_scope": "The `replay` subcommand is the only public execution path and the single canonical offline entrypoint for assembling and content-auditing one exact pinned hybrid R1 source corpus; it leaves the tracked tree unchanged and has no network transport, representation cache, model, fit, metric, public evidence, or confirmatory authority.",
+        "output_contract": "Create-if-absent provider receipts, literal raw inventory, strict content-quality audit, and hybrid acquisition receipt only inside the explicit --output-parent. The `replay` subcommand writes there the exact copy of the tracked reviewed campaign, the generated ready candidate and acquisition manifest, one materialization, the full and selected inventories, both text audits, and the receipt-derived execution contract in that order.",
+        "required_nodeids": [
+          "tests/test_ruaa_r1_acquisition.py::test_manifest_binds_exact_hybrid_inventory_and_exclusions",
+          "tests/test_ruaa_r1_acquisition.py::test_materialization_resume_and_all_tamper_modes_are_fail_closed",
+          "tests/test_ruaa_r1_acquisition.py::test_audit_blocker_prevents_publish_and_provider_resume_is_network_free",
+          "tests/test_ruaa_r1_disk_backed_audit.py::test_replay_builds_fresh_inventories_and_leaves_tracked_tree_alone",
+          "tests/test_ruaa_r1_disk_backed_audit.py::test_excluded_evidence_staging_never_clobbers_a_planted_target"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
+        "status": "canonical_source_acquisition_only",
+        "claim_scope": "Materialize one exact pinned Wikisource campaign in an ignored exploratory source namespace; no representation cache, model, fit, metric, public evidence, or confirmatory authority.",
+        "output_contract": "Create-if-absent literal work bytes and strict campaign/work receipts below docs/exploratory/lobo_vnext/corpora.",
+        "required_nodeids": [
+          "tests/test_wikisource_campaign.py::test_campaign_spec_is_strict_sorted_self_hashed_and_generation_derived",
+          "tests/test_wikisource_campaign.py::test_serial_materialization_is_deterministic_path_independent_and_resumable",
+          "tests/test_wikisource_campaign.py::test_cli_materializes_only_pinned_spec_in_fixed_exploratory_namespace"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/pin_wikisource_campaign.py",
+        "status": "canonical_source_pinning_only",
+        "claim_scope": "Verify a reviewed, fully resolved source candidate against exact Wikisource revisions and write one immutable campaign specification; no corpus publication, model, fit, metric, public evidence, or confirmatory authority.",
+        "output_contract": "Create-if-absent strict campaign specification plus an ignored or external immutable exact-response cache.",
+        "required_nodeids": [
+          "tests/test_wikisource_discovery.py::test_ready_candidate_pins_v2_campaign_and_exact_order",
+          "tests/test_wikisource_discovery.py::test_response_cache_replays_without_network_and_rejects_tampering",
+          "tests/test_wikisource_discovery.py::test_blocked_or_legacy_candidate_stops_before_cache_and_transport",
+          "tests/test_wikisource_discovery.py::test_included_work_issue_requires_exact_selected_disposition[blocked]"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/prepare_paired_audit_inputs.py",
+        "status": "preparation_only_unapproved",
+        "claim_scope": "Build and verify an immutable audit-corpus and freeze candidate; no estimator, headline, or publication.",
+        "output_contract": "Content-addressed audit corpus plus an unapproved freeze-candidate directory with exact payload hashes.",
+        "required_nodeids": [
+          "tests/test_paired_audit_preparation.py::test_candidate_reuse_revalidates_every_payload",
+          "tests/test_paired_audit_preparation.py::test_ruaa_drift_exception_is_exact_not_blanket"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py",
+        "status": "preparation_only_non_authorizing",
+        "claim_scope": "Under a trusted cooperative local-filesystem and single-writer assumption, verify only the registered historical v3.1 evidence root; reject symlinks, special members and a non-literal corrected_corpus binding; derive the v3.2 bundle-local corrected child and LOBO/RuAA manifests with the literal three exclusions; and record full work-identity and content-isolation audits. Hostile writers and inode, hardlink or mount provenance are not covered. It may supply verified context to the separately versioned evaluator candidate but has no fit, prediction, preflight, authorization, scientific publication, push, or deployment authority. Mutable acceptance and review status is owned only by the governance ledger.",
+        "output_contract": "Create or open the explicit output and bundle-parent directory chain for one cooperative writer, then create or pure-revalidate one storage-contract-versioned complete bundle. The child, folds, audits, exact recursive inventory, candidate and SHA256SUMS are staged and renamed together after verification; an existing destination is never overwritten, and no current pointer or standalone child is written.",
+        "required_nodeids": [
+          "tests/test_paired_audit_corrected_v3_2.py::test_adjudicated_basename_pairs_round_trip_by_full_id_only",
+          "tests/test_paired_audit_corrected_v3_2.py::test_content_overlap_inside_adjudicated_pair_remains_fatal",
+          "tests/test_paired_audit_corrected_v3_2.py::test_old_fold_schema_is_rejected_before_any_universe_interpretation",
+          "tests/test_paired_audit_corrected_v3_2.py::test_exact_resume_rejects_rogue_member_without_repair[file]",
+          "tests/test_paired_audit_corrected_v3_2.py::test_self_rehashed_coherent_fold_forgery_rejected_by_reconstruction[corrected_corpus_digest]",
+          "tests/test_paired_audit_corrected_v3_2.py::test_fault_injection_never_publishes_partial_bundle[during_child_assembly]",
+          "tests/test_paired_audit_corrected_v3_2.py::test_child_manifest_external_symlink_rejected_before_parse",
+          "tests/test_paired_audit_corrected_v3_2.py::test_content_equivalent_hardlink_is_accepted",
+          "tests/test_paired_audit_corrected_v3_2.py::test_invalid_self_rehashed_child_binding_rejected_with_zero_child_use[absolute]",
+          "tests/test_paired_audit_corrected_v3_2.py::test_crash_after_successful_rename_is_exactly_reused",
+          "tests/test_paired_audit_corrected_v3_2.py::test_preparation_cli_uses_only_the_frozen_protocol_identity",
+          "tests/test_workdoc.py::TestCanonicalLoader::test_frozen_manifest_identity_is_explicit_and_fail_closed"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
+        "status": "owner_authorized_measured_fixed8_review_blocker_corrected_verified_ready",
+        "claim_scope": "Exact corrected LOBO-248 topic-validity study only: stylo A0/A4 current versus topic_strict, after sequential, fixed-8 and fixed-16 measured load stops selected fixed-8 as the faster observed orchestration. The single review found only stale executable-source inventory hashes; that bounded correction is frozen-verified without a second-review PASS claim. This is aggregate decision support, not confirmatory execution, evaluator registration, model selection, headline or publication authority.",
+        "output_contract": "Create-once research/evidence/topic_validity_lobo_v1/aggregate.json plus an ignored local resume checkpoint under research/local/. The retained strict aggregate contains bound identities, rational accuracy/delta, prediction digests and per-author transition counts; the checkpoint holds only fold indices, fold identities and aligned probability vectors so an interrupted run resumes, and no work IDs, text, vocabulary, official receipts/results or row predictions persist.",
+        "required_nodeids": [
+          "tests/test_paired_audit_topic_validity_v1.py::test_transient_fold_evaluator_uses_sealed_whole_work_route",
+          "tests/test_paired_audit_topic_validity_v1.py::test_runner_cli_exposes_three_modes_and_resumable_execution",
+          "tests/test_paired_audit_topic_validity_v1.py::test_runner_rejects_wrong_output_before_context_load",
+          "tests/test_paired_audit_topic_validity_v1.py::test_runner_atomic_output_is_create_once",
+          "tests/test_paired_audit_topic_validity_v1.py::test_fork_records_and_aggregate_are_serial_identical",
+          "tests/test_paired_audit_topic_validity_v1.py::test_worker_failure_propagates_instead_of_writing_a_partial_aggregate",
+          "tests/test_paired_audit_topic_validity_v1.py::test_time_limit_stops_and_keeps_completed_work"
+        ]
+      }
+    ]
+  },
+  "entry_points": [
+    {
+      "path": "src/stylo/pipeline/clean.py",
+      "status": "canonical",
+      "responsibility": "complete_versioned_clean_snapshot"
+    },
+    {
+      "path": "src/stylo/pipeline/split.py",
+      "status": "canonical",
+      "responsibility": "single_generation_fragment_snapshot"
+    },
+    {
+      "path": "src/stylo/pipeline/train.py",
+      "status": "canonical",
+      "responsibility": "authenticated_bundle_training"
+    },
+    {
+      "path": "src/stylo/pipeline/predict.py",
+      "status": "canonical",
+      "responsibility": "authenticated_bundle_prediction"
+    },
+    {
+      "path": "src/stylo/cli.py",
+      "status": "canonical",
+      "responsibility": "command_routing_and_exploratory_output_publication"
+    },
+    {
+      "path": "src/stylo/corpus_tools/validate_corpus.py",
+      "status": "canonical",
+      "responsibility": "corpus_validation_evidence_publication"
+    },
+    {
+      "path": "src/stylo/report/build.py",
+      "status": "canonical",
+      "responsibility": "verified_evidence_report_publication"
+    },
+    {
+      "path": "src/stylo/report/evidence.py",
+      "status": "canonical",
+      "responsibility": "corpus_and_prediction_section_evidence_publication"
+    },
+    {
+      "path": "src/stylo/eval/final.py",
+      "status": "compatibility_module",
+      "responsibility": "exploratory_model_comparison"
+    },
+    {
+      "path": "src/stylo/eval/segment.py",
+      "status": "canonical_diagnostic",
+      "responsibility": "rolling_attribution_diagnostic"
+    },
+    {
+      "path": "src/stylo/eval/segmentation.py",
+      "status": "canonical",
+      "responsibility": "mixed_authorship_evaluation"
+    },
+    {
+      "path": "scripts/run_benchmark.py",
+      "status": "canonical_bounded_exploratory",
+      "responsibility": "content_isolated_channel_benchmark_candidate"
+    },
+    {
+      "path": "scripts/evaluation/acquire_feb_corpus_vnext.py",
+      "status": "canonical_source_acquisition_only",
+      "responsibility": "pinned_feb_source_materialization_without_model_reachability"
+    },
+    {
+      "path": "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
+      "status": "canonical_source_acquisition_only",
+      "responsibility": "pinned_hybrid_r1_source_assembly_and_content_quality_gate"
+    },
+    {
+      "path": "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
+      "status": "canonical_source_acquisition_only",
+      "responsibility": "pinned_wikisource_campaign_materialization_without_model_reachability"
+    },
+    {
+      "path": "scripts/evaluation/pin_wikisource_campaign.py",
+      "status": "canonical_source_pinning_only",
+      "responsibility": "exact_revision_and_body_boundary_source_spec_pinning"
+    },
+    {
+      "path": "scripts/report.py",
+      "status": "compatibility_entrypoint",
+      "responsibility": "canonical_report_forwarder"
+    }
+  ],
+  "output_owners": [
+    {
+      "namespace": "<paths.input_clean>",
+      "owner": "src/stylo/pipeline/clean.py",
+      "contract": "atomic_complete_clean_snapshot"
+    },
+    {
+      "namespace": "<paths.data>/fragment_snapshots/versions/<generation-token>",
+      "owner": "src/stylo/pipeline/split.py",
+      "contract": "immutable_train_unknown_map_generation"
+    },
+    {
+      "namespace": "<paths.data>/deployment/chunk_weighted_legacy/versions/<bundle-token>",
+      "owner": "src/stylo/pipeline/train.py",
+      "contract": "immutable_authenticated_bundle"
+    },
+    {
+      "namespace": "<paths.data>/exploratory/work_balanced/versions/<bundle-token>",
+      "owner": "src/stylo/pipeline/train.py",
+      "contract": "immutable_exploratory_authenticated_bundle"
+    },
+    {
+      "namespace": "<paths.docs>/{prediction.txt,prediction.evidence.json}",
+      "owner": "src/stylo/report/evidence.py",
+      "contract": "bundle_and_unknown_snapshot_bound_evidence"
+    },
+    {
+      "namespace": "<paths.docs>/{corpus_validation.txt,corpus_validation.json,corpus_validation.evidence.json}",
+      "owner": "src/stylo/report/evidence.py",
+      "contract": "clean_snapshot_bound_evidence"
+    },
+    {
+      "namespace": "<paths.docs>/index.html",
+      "owner": "src/stylo/report/build.py",
+      "contract": "verified_evidence_only_report"
+    },
+    {
+      "namespace": "docs/final_comparison.csv",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "docs/{validation.json,validation_pd.json}",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "<paths.docs>/exploratory/channel_benchmark/{full,pd_only}/{all_channels,fast}/**",
+      "owner": "scripts/run_benchmark.py",
+      "contract": "atomic_content_addressed_exploratory_candidate"
+    },
+    {
+      "namespace": "<paths.docs>/exploratory/{legacy_recompute,work_balanced}/**/final_comparison.{txt,csv}",
+      "owner": "src/stylo/cli.py",
+      "contract": "exploratory_only_model_comparison"
+    },
+    {
+      "namespace": "docs/exploratory/work_balanced/stylo_lobo_work_weighting_a0_a1_a4_v2.json",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer",
+      "scientific_eligibility": "ineligible_for_new_scientific_runs"
+    },
+    {
+      "namespace": "docs/exploratory/work_balanced/stylo_equal_channels_repair_smoke_v1.json",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "docs/exploratory/lobo_vnext/corpora/feb/<generation-id>/**",
+      "owner": "scripts/evaluation/acquire_feb_corpus_vnext.py",
+      "contract": "ignored_immutable_exact_source_materialization_only; no model or scientific-result authority"
+    },
+    {
+      "namespace": "docs/exploratory/lobo_vnext/corpora/<wikisource-generation-id>/**",
+      "owner": "scripts/evaluation/acquire_wikisource_corpus_vnext.py",
+      "contract": "ignored_immutable_exact_wikisource_campaign_only; no model or scientific-result authority"
+    },
+    {
+      "namespace": "docs/exploratory/lobo_vnext/corpora/ruaa_r1_hybrid/<generation-id>/**",
+      "owner": "scripts/evaluation/acquire_ruaa_r1_corpus_vnext.py",
+      "contract": "ignored_immutable_content-audited hybrid source corpus only; no representation cache, model, public evidence, or confirmatory authority"
+    },
+    {
+      "namespace": "docs/exploratory/work_balanced/work_balanced_ablation_screen.json",
+      "owner": null,
+      "contract": "frozen_historical_output_no_live_writer"
+    },
+    {
+      "namespace": "docs/experiments_summary.txt",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    },
+    {
+      "namespace": "docs/experiments_detailed.csv",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    },
+    {
+      "namespace": "docs/ablation_report.txt",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    },
+    {
+      "namespace": "docs/{clusters,umap,book_validation,anomaly_stats,artifact_consistency}.*",
+      "owner": null,
+      "contract": "retired_output_disabled"
+    }
+  ]
+}

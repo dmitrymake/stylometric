@@ -1,15 +1,14 @@
 # Governance registries
 
-These machine-readable files replace status prose, comment-only test maps, and ambiguous legacy
-ownership:
+Два машиночитаемых файла вместо статусной прозы:
 
-- `status_ledger.json` is the normative current paired-audit state and binds claims to symbols and
-  exact source bytes.
-- `requirements.json` maps scientific/control requirements to code symbols and exact pytest
-  nodeids. The governance regression suite proves every nodeid still collects.
-- `runner_catalog.json` covers every Python entrypoint in `scripts/evaluation` with its claim,
-  output, identity, and regression contract.
-- `topology.json` records canonical, compatibility, diagnostic, and retired paths plus unique output
-  ownership.
+- `status_ledger.json` — текущее научное состояние paired-audit и защёлки, которые гейтят
+  публикацию: freeze, регистрация эвалюатора, preflight, авторизация исполнения, headline.
+  Bindings называют код, владеющий каждым состоянием; это не байтовые пины.
+- `contracts.json` — исполняемые контракты: какой код чем владеет и какие pytest-nodeid это
+  доказывают, какие раннеры существуют в `scripts/evaluation`, какие точки входа канонические и
+  какой namespace вывода кому принадлежит. Регрессия проверяет, что каждый nodeid собирается,
+  каждый символ существует и множество раннеров совпадает с каталогом.
 
-Historical narrative remains useful evidence, but it cannot override these current registries.
+Байтовая идентичность релизной поверхности живёт отдельно, в `release/executable_sources.json`.
+Историческая проза остаётся доказательством, но не отменяет эти два реестра.

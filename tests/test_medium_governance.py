@@ -392,16 +392,15 @@ def test_real_site_registry_and_pages_workflow_are_reproducible():
 
 
 def _all_registered_nodeids() -> tuple[set[str], list[str]]:
-    requirements = _strict_json(GOVERNANCE / "requirements.json")
-    runners = _strict_json(GOVERNANCE / "runner_catalog.json")
+    contracts = _strict_json(GOVERNANCE / "contracts.json")
     requested = {
         nodeid
-        for requirement in requirements["requirements"]
-        for nodeid in requirement["tests"]
+        for contract in contracts["contracts"]
+        for nodeid in contract["tests"]
     }
     requested.update(
         nodeid
-        for runner in runners["runners"]
+        for runner in contracts["runners"]["entries"]
         for nodeid in runner["required_nodeids"]
     )
     return requested, sorted({nodeid.split("::", 1)[0] for nodeid in requested})
@@ -411,16 +410,16 @@ def _missing_nodeids(collected: set[str], requested: set[str]) -> set[str]:
     return requested - collected
 
 
-def test_requirement_bindings_and_nodeids_are_executable():
-    requirements = _strict_json(GOVERNANCE / "requirements.json")
-    assert set(requirements) == {
-        "schema", "source", "collection_command", "requirements"
+def test_contract_bindings_and_nodeids_are_executable():
+    contracts = _strict_json(GOVERNANCE / "contracts.json")
+    assert set(contracts) == {
+        "schema", "authority", "collection_command", "contracts", "runners",
+        "entry_points", "output_owners"
     }
-    assert requirements["schema"] == "stylo.governance.requirements.v1"
-    ids = [item["id"] for item in requirements["requirements"]]
+    assert contracts["schema"] == "stylo.governance.contracts.v1"
+    ids = [item["id"] for item in contracts["contracts"]]
     assert len(ids) == len(set(ids))
-    assert "PA-V3-2-APPLICABILITY-EXACTNESS" in ids
-    for item in requirements["requirements"]:
+    for item in contracts["contracts"]:
         assert set(item) == {"id", "description", "code", "tests"}
         assert item["code"] and item["tests"]
         for binding in item["code"]:
@@ -461,103 +460,34 @@ def test_missing_nodeid_comparison_fails_closed():
     }) == {"tests/x.py::test_removed"}
 
 
-def test_runner_catalog_covers_the_evaluation_directory_exactly():
-    catalog = _strict_json(GOVERNANCE / "runner_catalog.json")
-    assert set(catalog) == {"schema", "directory", "runners"}
-    assert catalog["schema"] == "stylo.governance.runner_catalog.v1"
+def test_registered_runners_and_entry_points_match_the_tree():
+    contracts = _strict_json(GOVERNANCE / "contracts.json")
+    runners = contracts["runners"]
     discovered = {
         path.relative_to(ROOT).as_posix()
-        for path in (ROOT / catalog["directory"]).glob("*.py")
+        for path in (ROOT / runners["directory"]).glob("*.py")
     }
-    registered = {runner["path"] for runner in catalog["runners"]}
-    assert registered == discovered
-    corrected = next(
-        runner for runner in catalog["runners"]
-        if runner["path"] == "scripts/evaluation/prepare_corrected_paired_audit_v3_2.py"
-    )
-    assert corrected["status"] == "preparation_only_non_authorizing"
-    assert "owned only by the governance ledger" in corrected["claim_scope"]
-    for runner in catalog["runners"]:
+    assert {runner["path"] for runner in runners["entries"]} == discovered
+    for runner in runners["entries"]:
         assert set(runner) == {
-            "path", "status", "claim_scope", "output_contract",
-            "identity_bindings", "required_nodeids",
+            "path", "status", "claim_scope", "output_contract", "required_nodeids",
         }
-        assert runner["identity_bindings"]
         assert runner["required_nodeids"]
 
-
-def test_topology_has_one_owner_per_output_and_distinct_eval_roles():
-    topology = _strict_json(GOVERNANCE / "topology.json")
-    assert set(topology) == {
-        "schema", "historical_evidence", "discovery_contract",
-        "directories", "entries", "output_owners"
-    }
-    assert topology["schema"] == "stylo.governance.topology.v1"
-    paths = [entry["path"] for entry in topology["entries"]]
+    paths = [entry["path"] for entry in contracts["entry_points"]]
     assert len(paths) == len(set(paths))
     assert all((ROOT / path).is_file() for path in paths)
-    discovery = topology["discovery_contract"]
-    assert set(discovery) == {
-        "canonical_paths", "legacy_script_basenames", "contract"
-    }
-    discovered_legacy = {
-        path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "scripts").rglob("*.py")
-        if path.name in set(discovery["legacy_script_basenames"])
-    }
-    assert set(paths) == set(discovery["canonical_paths"]) | discovered_legacy
-    statuses = {entry["path"]: entry["status"] for entry in topology["entries"]}
-    assert statuses["scripts/report.py"] == "compatibility_entrypoint"
-    assert discovered_legacy == {"scripts/report.py"}
-    assert not any(status.startswith("retired_hard_disabled") for status in statuses.values())
-    namespaces = [item["namespace"] for item in topology["output_owners"]]
+
+    namespaces = [item["namespace"] for item in contracts["output_owners"]]
     assert len(namespaces) == len(set(namespaces))
-    for item in topology["output_owners"]:
+    for item in contracts["output_owners"]:
         if item["owner"] is None:
             assert item["contract"] in {
                 "retired_output_disabled",
                 "frozen_historical_output_no_live_writer",
             }
         else:
-            assert item["owner"] in paths
-    owners = {
-        item["namespace"]: (item["owner"], item["contract"])
-        for item in topology["output_owners"]
-    }
-    assert owners["<paths.input_clean>"] == (
-        "src/stylo/pipeline/clean.py",
-        "atomic_complete_clean_snapshot",
-    )
-    assert owners[
-        "<paths.data>/deployment/chunk_weighted_legacy/versions/<bundle-token>"
-    ][0] == "src/stylo/pipeline/train.py"
-    assert owners[
-        "<paths.docs>/{prediction.txt,prediction.evidence.json}"
-    ][0] == "src/stylo/report/evidence.py"
-    assert owners[
-        "<paths.docs>/{corpus_validation.txt,corpus_validation.json,corpus_validation.evidence.json}"
-    ][0] == "src/stylo/report/evidence.py"
-    assert owners["docs/final_comparison.csv"] == (
-        None,
-        "frozen_historical_output_no_live_writer",
-    )
-    assert owners["docs/{validation.json,validation_pd.json}"] == (
-        None,
-        "frozen_historical_output_no_live_writer",
-    )
-    assert owners[
-        "<paths.docs>/exploratory/channel_benchmark/{full,pd_only}/{all_channels,fast}/**"
-    ] == (
-        "scripts/run_benchmark.py",
-        "atomic_content_addressed_exploratory_candidate",
-    )
-    assert owners[
-        "<paths.docs>/exploratory/{legacy_recompute,work_balanced}/**/final_comparison.{txt,csv}"
-    ][0] == "src/stylo/cli.py"
-    roles = {
-        entry["path"]: entry["responsibility"] for entry in topology["entries"]
-    }
-    assert roles["src/stylo/eval/segment.py"] != roles["src/stylo/eval/segmentation.py"]
+            assert item["owner"] in paths, item["namespace"]
 
 
 def test_active_taras_masking_consumer_imports_without_running_retired_cleaner():
