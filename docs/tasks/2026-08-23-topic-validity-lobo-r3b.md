@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Status: blocked
+- Status: superseded (superseded — execution continues under the measured-fixed8 task)
 - Owner: Dmitry Purtov
 - Created: 2026-08-23
 - Baseline: `42d7e8a482a1cd1f26490a897831fcc15f7cb050`

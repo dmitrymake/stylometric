@@ -39,19 +39,24 @@ storage contract. The next gates require separate authorization, in order:
 
 1. Resolve the model topic-validity gate. Synthetic counterfactuals confirm that active `stylo` MFW
    can encode label-correlated content nouns, while the evaluation-only `topic_strict` control removes
-   that exact controlled dependency. A versioned research-only A0/A4 adapter and aggregate schema are
-   implemented but unexecuted; its one review blocker was corrected and frozen verification passed
-   without a second-review PASS claim. Its corrected-corpus effect remains unmeasured. Authorize the
-   separate R3b aggregate-only run before any registration decision.
+   that exact controlled dependency. The A0/A4 adapter, aggregate schema and a resumable runner are
+   implemented; the corrected-corpus effect remains unmeasured. One attempt reached 260 of 992 fits
+   and was stopped. `--cells A0` answers the question on the first cell for half the cost.
 2. After the model-semantics decision, scope the v3.2 RunPlan/evaluator-registration/freeze/preflight
    boundary as a new task; do not infer authority from an accepted evaluator candidate.
 3. Independently review and pin the exact new freeze, then obtain separate execution authorization.
 4. Execute one full run, verify exact resume, and have a separate clean session independently audit
    the durable result before any separately authorized headline decision.
 
+Gate 4 now costs more than it did: the v3.1 confirmatory control plane — runner, checkpoint store,
+publisher, cluster-level inference, headline gate and result audit — was deleted on 2026-08-26 as
+superseded legacy. A confirmatory run needs that machinery written again against the v3.2 contracts.
+The deletion removed no scientific result: the historical evidence and the `0.8805` headline are
+untouched, and the resumable topic-validity runner shows the shape the new one should have.
+
 Until all of these gates are satisfied, the freeze is unapproved, the production evaluator is
-unregistered, execution is hard-disabled, and headline/publication are not authorized. R1 v5,
-sealed evidence, scientific artifacts, historical bytes, and the `0.8805` headline remain unchanged.
+unregistered, no confirmatory execution path exists, and headline/publication are not authorized.
+R1 v5, sealed evidence, scientific artifacts and historical bytes remain unchanged.
 
 ## External evidence after the paired audit
 

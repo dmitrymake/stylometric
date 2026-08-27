@@ -2,7 +2,7 @@
 
 ## Metadata and immutable baseline
 
-- Status: active
+- Status: done
 - Owner: Dmitry Purtov
 - Created: 2026-08-24
 - Baseline commit: `ac617a5f`; worktree clean at capture
@@ -60,11 +60,14 @@ baseline, and carries its own acceptance.
 1. remove the file(s);
 2. recompute `release_python_file_count` and `release_python_paths_sha256` from
    `scripts/check_executable_source_inventory.py --show-paths`;
-3. refresh `sha256_bindings` for every touched governance JSON;
-4. `runner_catalog.json` when the path is under `scripts/evaluation/`;
-5. `topology.json` when the path is a canonical path;
-6. regenerate site data and require `git diff --exit-code -- site/src/generated`;
-7. verification block V.
+3. update `research/governance/contracts.json` — its contracts, runner set, entry points or output
+   owners — and `status_ledger.json` if a binding named the deleted code;
+4. refresh `sha256_bindings` for whichever of those two files changed;
+5. regenerate site data and require `git diff --exit-code -- site/src/generated`;
+6. verification block V.
+
+Steps 3–4 named four registries when this campaign ran; they were merged into `contracts.json` and
+`status_ledger.json` afterwards.
 
 ## Verification block V
 
@@ -84,4 +87,11 @@ the T7 approval gate.
 
 ## Result
 
-- Pending.
+- Status: done. T1–T7 executed; T8 replaced by a wider refactor on the owner's decision.
+- Working tree 6.3 GB → 4.5 GB, `.git` 431 MB → 4.1 MB, release inventory 303 → 245 Python paths.
+- Follow-on refactor (commits `43f1fdc`…`f7e6acc`): resumable runner; `lobo_vnext`, the v3.1 control
+  plane and the sequence segmenter deleted; three import shims removed; the process surface cut from
+  1 316 to 106 lines; four governance registries collapsed into two; inventory pins 32 → 10.
+- All 71 commits pushed to `origin/main` at `f7e6acc`; CI and the Pages deploy are green.
+- Not done: the `segmentation` layer stays — the `idio_shift` pilot has 18 span-annotated documents
+  and three live scripts, so removing the code alone would strand real data.

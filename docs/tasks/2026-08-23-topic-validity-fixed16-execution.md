@@ -1,6 +1,6 @@
 # Fixed-16 topic-validity execution
 
-- Status: blocked
+- Status: superseded (superseded — orchestration replaced by the resumable runner (43f1fdc))
 - Owner: Dmitry Purtov
 - Baseline: `b67372e0a26e0a96eb46c91be32372440973684f`
 - Type / Risk: implementation + research / R3b
