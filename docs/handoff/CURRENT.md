@@ -1,11 +1,12 @@
 # Current Handoff
 
-- Updated: **2026-10-02**.
-- State: review remediation implemented and validated; full topic-validity execution prepared.
+- Updated: **2026-10-03**.
+- State: local long run interrupted by SIGTERM; owner authorized a temporary GCP runner.
 - Review baseline: `f312efb8f5fa291a961c337e6efa3b67cc247be4`.
 - Implementation: the local commit containing this handoff and the remediation task; verify HEAD
   and worktree before acting. No push or publication is authorized.
-- Active task: `docs/tasks/2026-10-02-review-remediation.md`.
+- Active task: `docs/tasks/2026-10-03-gcp-validation.md`.
+- Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
 ## Verified implementation
@@ -21,6 +22,13 @@ enabled live-golden module had 15 passed and two environment-fingerprint failure
 versions differ from requirements.lock. No full capture-environment parity PASS is claimed.
 
 ## Topic-validity execution
+
+Local execution reached the fit phase but was interrupted before its first new checkpoint.
+The user requested VM execution in GCP project `anime-date-sim` and subsequent shutdown.
+Cloud configuration, launchers and transfer receipts are in `research/local/cloud_20261003/`;
+read the active task before actions. A scoped runner fix resets worker signals and strengthens
+runtime/thread checkpoint identity. Use a fresh cloud checkpoint. Do not label interrupted runs
+complete or reuse the old 70 fits. No auxiliary service account or bucket is authorized/created.
 
 The owner authorized execution after the review. The exact 248-fold A0/A4 current/topic_strict
 study remains exploratory. New chunker v2 does not require re-chunking the frozen bundle: its

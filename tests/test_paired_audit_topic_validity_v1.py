@@ -5,6 +5,8 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import multiprocessing
+import subprocess
 import sys
 import time
 from types import SimpleNamespace
@@ -565,6 +567,99 @@ def test_signal_handler_sets_the_stop_flag(monkeypatch):
     assert runner._STOP_REQUESTED is True
 
 
+_FORK_STOP_PROBE = r'''
+import ast
+import json
+import multiprocessing
+import os
+import pathlib
+import signal
+import sys
+import tempfile
+import time
+
+# Execute the production orchestration functions without importing NLP/model
+# dependencies. This child uses real fork workers but performs no model fits.
+source = ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+names = {
+    "_initialise_worker_signals", "_request_stop", "_worker_fold",
+    "_sorted_in_place", "_serial_records", "_collect_records",
+    "_replace_json", "_save_checkpoint",
+}
+module = ast.Module(body=[node for node in source.body
+                         if isinstance(node, ast.FunctionDef) and node.name in names],
+                    type_ignores=[])
+assert {node.name for node in module.body} == names
+exec(compile(module, sys.argv[1], "exec"))
+TOPIC_CELLS_V1 = ("A0", "A4")
+TOPIC_ARMS_V1 = ("current", "topic_strict")
+CHECKPOINT_SCHEMA = "stylo.topic_validity.checkpoint.v1"
+SAVE_EVERY = 1
+POLL_SECONDS = 0.1
+_WORKER_STUDY = None
+_STOP_REQUESTED = False
+dumps_strict = json.dumps
+mode = sys.argv[2]
+checkpoint = pathlib.Path(sys.argv[3])
+busy = multiprocessing.get_context("fork").Event()
+
+def evaluate_topic_fold_v1(*, study, cell, arm, fold_index):
+    assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL
+    assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+    if fold_index == 1:
+        busy.set()
+        time.sleep(30)
+    assert busy.wait(5), "the second worker must be busy before stopping"
+    if mode == "failure":
+        raise RuntimeError("synthetic worker failure")
+    return {"fold_index": fold_index}
+
+records = {cell: {arm: [] for arm in TOPIC_ARMS_V1} for cell in TOPIC_CELLS_V1}
+tasks = [("A0", "current", 0), ("A0", "current", 1)]
+started = time.monotonic()
+previous = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
+
+def save(current):
+    _save_checkpoint(checkpoint, "a" * 64, current,
+                     commit="c" * 40, elapsed=time.monotonic() - started)
+    if mode == "signal" and not _STOP_REQUESTED:
+        os.kill(os.getpid(), signal.SIGTERM)
+
+try:
+    reason = _collect_records(
+        object(), records, tasks, workers=2, started=started,
+        deadline=started + 0.5 if mode == "deadline" else None, save=save,
+    )
+except RuntimeError as error:
+    assert mode == "failure" and str(error) == "synthetic worker failure"
+    reason = "failure"
+assert time.monotonic() - started < 10, "termination must not await the slow task"
+assert not multiprocessing.active_children(), "all fork workers must be joined"
+assert {number: signal.getsignal(number) for number in previous} == previous
+stored = json.loads(checkpoint.read_text(encoding="utf-8"))
+assert stored["schema"] == CHECKPOINT_SCHEMA
+expected_reason = {"signal": "stop_requested", "deadline": "time_limit", "failure": "failure"}[mode]
+assert reason == expected_reason
+assert stored["completed"]["A0"]["current"] == (0 if mode == "failure" else 1)
+assert stored["records"] == records
+print("fork_stop_probe=ok mode=" + mode)
+'''
+
+
+@pytest.mark.skipif("fork" not in multiprocessing.get_all_start_methods(), reason="requires fork")
+@pytest.mark.parametrize("mode", ["signal", "deadline", "failure"])
+def test_fork_stop_joins_busy_workers_and_saves_final_checkpoint(tmp_path, mode):
+    completed = subprocess.run(
+        [sys.executable, "-c", _FORK_STOP_PROBE, str(RUNNER_PATH), mode,
+         str(tmp_path / "checkpoint.json")],
+        capture_output=True, text=True, timeout=15,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert f"fork_stop_probe=ok mode={mode}" in completed.stdout
+    # The parent's stop handler may log once; terminated children never inherit it.
+    assert completed.stdout.count("stop_requested signal=15") <= 1
+
+
 def test_checkpoint_round_trips_and_refuses_a_foreign_run(tmp_path):
     runner = _runner_module()
     cfg, context = _context(tmp_path)
@@ -579,6 +674,35 @@ def test_checkpoint_round_trips_and_refuses_a_foreign_run(tmp_path):
     assert stored["schema"] == runner.CHECKPOINT_SCHEMA
     assert stored["completed"]["A0"]["current"] == len(study.folds)
     assert runner._load_checkpoint(tmp_path / "absent.json", "a" * 64) == runner._empty_records()
+
+
+@pytest.mark.parametrize("changed_identity", ["runtime_identity", "thread_identity"])
+def test_checkpoint_rejects_runtime_or_thread_drift_without_modifying_records(tmp_path, changed_identity):
+    runner = _runner_module()
+    study = SimpleNamespace(binding={
+        "self_hash": "a" * 64,
+        "identities": {"context_identity": "b" * 64},
+    })
+    identities = {
+        "implementation_source_identity": "1" * 64,
+        "environment_lock_identity": "2" * 64,
+        "runtime_identity": "3" * 64,
+        "thread_identity": "4" * 64,
+    }
+    run_identity = runner._run_identity(study, identities, "c" * 40)
+    path = tmp_path / "checkpoint.json"
+    records = runner._empty_records()
+    records["A0"]["current"] = [{"fold_index": 0}]
+    runner._save_checkpoint(path, run_identity, records, commit="c" * 40, elapsed=1.0)
+    before = path.read_bytes()
+    assert runner._load_checkpoint(path, run_identity) == records
+
+    changed = {**identities, changed_identity: "f" * 64}
+    changed_run_identity = runner._run_identity(study, changed, "c" * 40)
+    assert changed_run_identity != run_identity
+    with pytest.raises(runner.TopicRunV1Error, match="different study"):
+        runner._load_checkpoint(path, changed_run_identity)
+    assert path.read_bytes() == before
 
 
 def test_resume_only_reruns_missing_folds(tmp_path, monkeypatch):

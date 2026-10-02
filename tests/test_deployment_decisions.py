@@ -12,6 +12,23 @@ from stylo.pipeline.bundle import BundleError
 from stylo.report import evidence
 
 
+@pytest.fixture(autouse=True)
+def synthetic_training_attestation(monkeypatch, tmp_path):
+    """Exercise deployment semantics in checkouts and Git-free source archives.
+
+    Workspace discovery has separate package tests. Synthetic model tests bind
+    their real configuration and fixture code identity without an enclosing Git
+    repository.
+    """
+    monkeypatch.setattr(train, "_require_source_workspace", lambda: tmp_path)
+    monkeypatch.setattr(train, "_attestation", lambda cfg: {
+        "git_commit": "synthetic-deployment-test",
+        "git_dirty": False,
+        "code_tree_sha256": train._code_tree_sha256(),
+        "config_id": artifact_config_id(cfg),
+    })
+
+
 class ToyClassifier:
     def fit(self, texts, labels):
         self.classes_ = np.unique(labels)

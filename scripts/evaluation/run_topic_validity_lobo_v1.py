@@ -180,12 +180,18 @@ def _replace_json(path: pathlib.Path, value: dict) -> None:
 
 
 def _run_identity(study, identities: dict[str, str], commit: str) -> str:
+    # Installed runtime and BLAS/thread settings must match across resumed fits,
+    # even when the same source and dependency lock are copied to another host.
+    # Earlier checkpoints did not bind these inputs and require a new checkpoint
+    # path; never rewrite or migrate their records into the strengthened identity.
     return canonical_hash([
         CHECKPOINT_SCHEMA,
         study.binding["self_hash"],
         study.binding["identities"]["context_identity"],
         identities["implementation_source_identity"],
         identities["environment_lock_identity"],
+        identities["runtime_identity"],
+        identities["thread_identity"],
         commit,
     ])
 
@@ -290,8 +296,20 @@ def _worker_fold(task):
 def _request_stop(signum, _frame) -> None:
     global _STOP_REQUESTED
     _STOP_REQUESTED = True
-    print(f"stop_requested signal={signum}; finishing in-flight fits and saving progress",
+    print(f"stop_requested signal={signum}; saving completed progress",
           flush=True)
+
+
+def _initialise_worker_signals() -> None:
+    """Keep stop handling in the parent and make Pool.terminate effective.
+
+    Fork inherits the parent's SIGTERM handler. Without resetting it, workers
+    catch termination, keep running and can prevent pool.join and the final
+    checkpoint save. Ignore SIGINT in workers; the parent handles interrupts
+    and then terminates the pool with SIGTERM.
+    """
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 def _sorted_in_place(records: dict) -> None:
@@ -347,7 +365,9 @@ def _collect_records(study, records: dict, tasks: list[tuple], *, workers: int, 
             for number, handler in previous.items():
                 signal.signal(number, handler)
     _WORKER_STUDY = study
-    pool = multiprocessing.get_context("fork").Pool(processes=workers)
+    pool = multiprocessing.get_context("fork").Pool(
+        processes=workers, initializer=_initialise_worker_signals,
+    )
     reason, done = "complete", 0
     try:
         iterator = pool.imap(_worker_fold, tasks, chunksize=1)
