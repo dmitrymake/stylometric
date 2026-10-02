@@ -245,7 +245,7 @@ def _pending(records: dict, study, cells: tuple[str, ...], arms: tuple[str, ...]
 
 
 def _summarise(study, records: dict) -> None:
-    """Report top-1 accuracy for every complete arm and the delta once a cell has both."""
+    """Report available arm accuracy; emit a cell delta only after both arms finish."""
     width = len(study.probability_order)
     scores = {}
     for cell in TOPIC_CELLS_V1:
@@ -263,7 +263,7 @@ def _summarise(study, records: dict) -> None:
                     row["whole_work_probabilities"], true_label=expected.true_label,
                     expected_width=width,
                 )
-                correct += int(decision["top1_correct"])
+                correct += int(decision.top1 == expected.true_label)
             scores[(cell, arm)] = (correct, len(rows))
             print(f"partial cell={cell} arm={arm} top1={correct}/{len(rows)}"
                   f" ({correct / len(rows):.4f})", flush=True)

@@ -16,6 +16,7 @@ import pytest
 
 from stylo.config import ConfigNode, load_config
 from stylo.corpus import Dataset
+from stylo.domain.prediction_contract import PredictionDecision
 from stylo.domain.corpus_identity import (
     WORK_BALANCED_MANIFEST,
     CorpusPolicyProvenance,
@@ -484,6 +485,69 @@ def test_runner_warms_only_existing_regenerable_rep_cache(monkeypatch, capsys):
     runner._warm_representations(study)
     assert calls == [(["a", "b", "c"], {"n_process": 8, "batch_size": 32})]
     assert "representation_warm=ok rows=3 created=3 workers=8" in capsys.readouterr().out
+
+
+def test_runner_summarises_partial_arms_with_real_prediction_decisions(capsys):
+    runner = _runner_module()
+    study = SimpleNamespace(
+        probability_order=("a", "b"),
+        folds=tuple(SimpleNamespace(fold_index=i, true_label=label)
+                    for i, label in enumerate((0, 1, 1))),
+    )
+    # A tie for truth class 1 has worst rank 2 and stable top-1 class 0.
+    decision = runner.stable_top1_and_worst_tie_rank(
+        [0.5, 0.5], true_label=1, expected_width=2,
+    )
+    assert isinstance(decision, PredictionDecision)
+    assert decision.top1 == 0 and decision.true_rank == 2
+    records = runner._empty_records()
+    records["A0"]["current"] = [
+        {"fold_index": 2, "whole_work_probabilities": [0.5, 0.5]},
+        {"fold_index": 0, "whole_work_probabilities": [0.8, 0.2]},
+    ]
+    records["A0"]["topic_strict"] = [
+        {"fold_index": 1, "whole_work_probabilities": [0.2, 0.8]},
+    ]
+
+    runner._summarise(study, records)
+
+    assert capsys.readouterr().out.splitlines() == [
+        "partial cell=A0 arm=current top1=1/2 (0.5000)",
+        "partial cell=A0 arm=topic_strict top1=1/1 (1.0000)",
+    ]
+
+
+def test_runner_summarises_all_992_completed_records_before_aggregate(capsys):
+    runner = _runner_module()
+    study = SimpleNamespace(
+        probability_order=tuple(f"a{i}" for i in range(47)),
+        folds=tuple(SimpleNamespace(fold_index=i, true_label=i % 47) for i in range(248)),
+    )
+    records = runner._empty_records()
+    for cell in runner.TOPIC_CELLS_V1:
+        for arm in runner.TOPIC_ARMS_V1:
+            for fold in study.folds:
+                correct = cell == "A4" or (
+                    fold.fold_index % 2 == 0 if arm == "current" else fold.fold_index % 4 != 0
+                )
+                winner = fold.true_label if correct else (fold.true_label + 1) % 47
+                probabilities = [0.0] * 47
+                probabilities[winner] = 1.0
+                records[cell][arm].append({
+                    "fold_index": fold.fold_index, "whole_work_probabilities": probabilities,
+                })
+
+    assert sum(len(rows) for arms in records.values() for rows in arms.values()) == 992
+    runner._summarise(study, records)
+
+    assert capsys.readouterr().out.splitlines() == [
+        "partial cell=A0 arm=current top1=124/248 (0.5000)",
+        "partial cell=A0 arm=topic_strict top1=186/248 (0.7500)",
+        "partial cell=A4 arm=current top1=248/248 (1.0000)",
+        "partial cell=A4 arm=topic_strict top1=248/248 (1.0000)",
+        "partial cell=A0 delta_topic_strict_minus_current=+0.2500",
+        "partial cell=A4 delta_topic_strict_minus_current=+0.0000",
+    ]
 
 
 def _collect_all(runner, study, *, workers=1, deadline=None, save=None):
