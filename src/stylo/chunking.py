@@ -19,6 +19,7 @@ def make_sent_chunks(doc, size: int, min_size: int, overlap: float = 0.0) -> Lis
     """Нарезать doc на чанки ~size токенов, не разрывая предложения.
 
     Гигантское предложение (> size) берётся целиком (иначе потеря текста/зацикливание).
+    Окна короче min_size, включая хвост из одного предложения, пропускаются.
     overlap (0..0.9) — доля перекрытия окна.
     """
     sentences = list(doc.sents)
@@ -45,7 +46,7 @@ def make_sent_chunks(doc, size: int, min_size: int, overlap: float = 0.0) -> Lis
             cur_len += slen
             idx += 1
 
-        if cur_len >= min_size or (len(cur) == 1 and cur_len > 0):
+        if cur_len >= min_size or (len(cur) == 1 and cur_len > size):
             chunks.append(" ".join(cur))
 
         # Сдвиг окна. consumed — сколько предложений реально вошло в чанк.
@@ -59,7 +60,12 @@ def make_sent_chunks(doc, size: int, min_size: int, overlap: float = 0.0) -> Lis
 
 
 def split_text_safe(text: str, limit: int = 1_000_000) -> List[str]:
-    """Разбить огромный текст на куски <= limit символов по границам слов (для spaCy)."""
+    """Разбить текст на куски <= limit; их конкатенация сохраняет все символы.
+
+    Предпочитаем границы слов. Слово длиннее limit приходится разрезать.
+    """
+    if type(limit) is not int or limit <= 0:
+        raise ValueError("limit must be a positive integer")
     parts: List[str] = []
     start, n = 0, len(text)
     while start < n:
@@ -67,11 +73,10 @@ def split_text_safe(text: str, limit: int = 1_000_000) -> List[str]:
         if end < n:
             sp = text.rfind(" ", start, end)
             if sp != -1:
-                end = sp
+                end = sp + 1
         piece = text[start:end]
-        if piece.strip():
-            parts.append(piece)
-        start = end + 1
+        parts.append(piece)
+        start = end
     return parts
 
 

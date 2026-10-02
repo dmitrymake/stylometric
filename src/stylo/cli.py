@@ -5,10 +5,10 @@
   stylo split [--leave-out]  — нарезка на чанки по предложениям
   stylo verify-evaluation-corpus — provenance + cross-work content gate
   stylo warm                 — прогрев DocBin-кеша spaCy
-  stylo train                — обучение продакшен-модели
+  stylo train                — обучение модели для явно заданной панели кандидатов
   stylo lobo [--model spec]  — честный LOBO одной модели
   stylo sweep [--lobo]       — ablation-sweep «что работает»
-  stylo predict              — атрибуция unknown
+  stylo predict              — диагностический рейтинг unknown внутри панели
   stylo fetch-classics       — докачка public-domain классиков
   stylo report               — собрать отчёт
   stylo case run|rank|report|dossier — паспорта исторических кейсов
@@ -22,7 +22,7 @@ import logging
 import sys
 from typing import List, Optional
 
-from .config import load_config, parse_set_overrides
+from .config import load_config, parse_set_overrides, with_overrides
 from .jsonio import dump_strict, dumps_strict
 from .models.registry import public_model_help
 
@@ -57,6 +57,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         sp = sub.add_parser(name)
         _add_global(sp)
         simple_commands[name] = sp
+    for name in ("train", "predict"):
+        simple_commands[name].add_argument(
+            "--candidate-author", action="append", default=None,
+            help="Author ID in the explicit deployment panel; repeat for each candidate",
+        )
     simple_commands["predict"].add_argument(
         "--model-bundle-token",
         required=False,
@@ -155,6 +160,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
     cfg = _cfg(args)
+    if getattr(args, "candidate_author", None) is not None:
+        cfg = with_overrides(cfg, {"deployment.candidate_authors": args.candidate_author})
 
     if args.cmd == "validate-corpus":
         from .corpus_tools import validate_corpus

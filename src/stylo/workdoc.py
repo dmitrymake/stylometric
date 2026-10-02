@@ -43,8 +43,8 @@ from .domain.corpus_identity import (
 )
 from .jsonio import dumps_strict, load_strict
 
-CHUNKER_ALGORITHM = "stylo.sent_chunks/v1"
-NORMALIZATION_CONTRACT = "stylo.clean/v1"  # dash-normalize + NER PER->@ + garbage strip (pipeline/clean.py)
+CHUNKER_ALGORITHM = "stylo.sent_chunks/v2"  # short windows dropped, giant sentences retained
+NORMALIZATION_CONTRACT = "stylo.clean/v2"  # lossless NER text splitting + normalization (pipeline/clean.py)
 MANIFEST_NAME = "manifest.json"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 

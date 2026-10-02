@@ -823,6 +823,15 @@ def _aggregate_prepared(
     n_single_author_control_documents = 0
     single_author_false_positive_documents = 0
     control_work_failures: dict[str, list[bool]] = defaultdict(list)
+    work_truth_labels: dict[str, set[str]] = defaultdict(set)
+    for document in documents:
+        if document.work_id is not None:
+            work_truth_labels[document.work_id].update(
+                span.label for span in document.truth
+            )
+    single_author_work_ids = {
+        work_id for work_id, labels in work_truth_labels.items() if len(labels) == 1
+    }
 
     for document in documents:
         report = _document_report_prepared(
@@ -851,7 +860,7 @@ def _aggregate_prepared(
                     or aligned_predicted[0].label != expected
                 )
             single_author_false_positive_documents += int(false_positive)
-            if document.work_id is not None:
+            if document.work_id in single_author_work_ids:
                 control_work_failures[document.work_id].append(false_positive)
         for pair, value in _token_overlap_counts(document.truth, aligned_predicted).items():
             token_counts[pair] += value
@@ -1113,6 +1122,9 @@ def evaluate_corpus(
     Anonymous label permutation is global across the corpus rather than
     independently optimised for every document.  It is explicitly separated
     from named-author attribution in both the API and returned report.
+    Work-level negative controls require exactly one truth author across every
+    supplied document in the work; document-level controls use each document's
+    own truth.  Work bootstrap resamples all documents of a work together.
     """
 
     evaluation_mode, anonymous = _resolve_evaluation_mode(

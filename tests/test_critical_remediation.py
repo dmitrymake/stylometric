@@ -175,8 +175,24 @@ def _clean_cfg(tmp_path):
     )
 
 
+@pytest.fixture
+def synthetic_clean_ner(monkeypatch):
+    import spacy
+    from stylo import nlp as nlp_module
+
+    nlp = spacy.blank("ru")
+    identity = nlp_module._build_nlp_identity(
+        requested="unused", resolved="unused", nlp=nlp, max_length=nlp.max_length,
+        package_identity=nlp_module.VerifiedInstalledPackage(
+            "synthetic-version", "a" * 64, "b" * 64, "b" * 64,
+        ), disabled_pipes=(),
+    )
+    monkeypatch.setattr(clean, "load_ner", lambda *_args: nlp)
+    monkeypatch.setattr(clean, "resolved_nlp_identity", lambda _nlp: identity)
+
+
 def test_aud003_clean_snapshot_removes_stale_and_preserves_old_on_failure(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, synthetic_clean_ner
 ):
     raw = tmp_path / "raw" / "author"
     raw.mkdir(parents=True)
@@ -203,7 +219,7 @@ def test_aud003_clean_snapshot_removes_stale_and_preserves_old_on_failure(
     assert (current / "author" / "two.txt").read_bytes() == before
 
 
-def test_aud003_invalid_utf8_never_replaces_current_snapshot(monkeypatch, tmp_path):
+def test_aud003_invalid_utf8_never_replaces_current_snapshot(monkeypatch, tmp_path, synthetic_clean_ner):
     raw = tmp_path / "raw" / "author"
     raw.mkdir(parents=True)
     source = raw / "one.txt"
@@ -243,7 +259,7 @@ def test_aud003_nested_or_unexpected_raw_payload_fails_closed(
 
 
 def test_aud003_partial_clean_cannot_mix_preprocessing_generations(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, synthetic_clean_ner
 ):
     raw = tmp_path / "raw"
     for author in ("alpha", "beta"):

@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.resources
 import pathlib
 from typing import Any, Dict, Mapping, Optional
@@ -91,6 +92,46 @@ def with_overrides(cfg: "ConfigNode", dotted_overrides: Dict[str, Any]) -> "Conf
             node = node.setdefault(p, {})
         node[parts[-1]] = v
     return ConfigNode(raw)
+
+
+def artifact_config_id(cfg: "ConfigNode") -> str:
+    """Bind every resolved setting except the external deployment commitment.
+
+    A bundle token is derived from the training configuration and supplied after
+    training. Including it in that configuration's digest creates a circular
+    identity. All other deployment, model, corpus and output settings stay bound.
+    Configurations without deployment settings retain their existing digest.
+    """
+    from .jsonio import dumps_strict
+
+    raw = cfg.to_dict()
+    deployment = raw.get("deployment")
+    if isinstance(deployment, dict):
+        deployment.pop("expected_bundle_token", None)
+        if not deployment:
+            raw.pop("deployment")
+    return hashlib.sha256(dumps_strict(raw, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def deployment_candidates(cfg: "ConfigNode") -> tuple[str, ...]:
+    """Require an explicit deployment panel, independent of benchmark exclusions."""
+    authors = cfg.get_path("deployment.candidate_authors")
+    unknown = cfg.get_path("corpus_policy.unknown_dir_name", "unknown")
+    if (
+        type(authors) is not list
+        or len(authors) < 2
+        or any(
+            type(author) is not str or not author or author != author.strip()
+            or author in {".", "..", unknown} or "/" in author or "\\" in author
+            for author in authors
+        )
+        or len(set(authors)) != len(authors)
+    ):
+        raise ValueError(
+            "deployment.candidate_authors must explicitly list at least two unique "
+            "author IDs (excluding unknown); use a YAML list or repeated --candidate-author"
+        )
+    return tuple(sorted(authors))
 
 
 def _set_dotted(d: Dict[str, Any], dotted: str, value: Any) -> None:

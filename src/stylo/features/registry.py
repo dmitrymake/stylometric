@@ -90,6 +90,8 @@ def _build_one(name: str, fb, cfg, topic_strict: bool = False,
             batch_size=fb.get("batch_size", 16),
             max_length=fb.get("max_length", 256),
             cache_dir=cfg.get_path("paths.data", "data") + "/emb_cache",
+            revision=fb.get("revision", None),
+            tokenizer_revision=fb.get("tokenizer_revision", None),
         )
     raise KeyError(f"Неизвестный блок: {name}")
 

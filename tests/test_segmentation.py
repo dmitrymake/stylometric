@@ -293,6 +293,76 @@ def test_single_author_document_and_work_fpr_are_distinct():
     ].point == 1.0
 
 
+@pytest.mark.parametrize("evaluation_mode", ["named_attribution", "anonymous_partition"])
+@pytest.mark.parametrize("second_truth", [
+    _spans((0, 10, "b")),
+    _spans((0, 5, "a"), (5, 10, "b")),
+])
+def test_mixed_work_is_not_a_single_author_control(second_truth, evaluation_mode):
+    first_truth = _spans((0, 10, "a"))
+    documents = [
+        SegmentationDocument("chapter_a", first_truth, first_truth, "mixed_work"),
+        SegmentationDocument("chapter_b", second_truth, second_truth, "mixed_work"),
+    ]
+
+    report = evaluate_corpus(
+        documents, evaluation_mode=evaluation_mode,
+        bootstrap_unit="work", bootstrap_iters=20,
+    )
+
+    assert report.aggregate.n_single_author_control_works == 0
+    assert report.aggregate.single_author_false_positive_works == 0
+    assert report.aggregate.single_author_work_false_positive_rate is None
+    assert "single_author_work_false_positive_rate" not in report.confidence_intervals
+    # The existing document-grain metric still counts single-author chapters.
+    assert report.aggregate.n_single_author_control_documents == (
+        2 if len(second_truth) == 1 else 1
+    )
+    assert report.aggregate.single_author_document_false_positive_rate == 0.0
+
+
+def test_mixed_chapters_do_not_dilute_work_false_positive_rate_or_ci():
+    a = _spans((0, 10, "a"))
+    b = _spans((0, 10, "b"))
+    documents = [
+        SegmentationDocument("control", a, b, "control_work"),
+        SegmentationDocument("chapter_a", a, a, "mixed_work"),
+        SegmentationDocument("chapter_b", b, b, "mixed_work"),
+    ]
+
+    report = evaluate_corpus(documents, bootstrap_unit="work", bootstrap_iters=100)
+
+    assert report.aggregate.n_single_author_control_works == 1
+    assert report.aggregate.single_author_false_positive_works == 1
+    assert report.aggregate.single_author_work_false_positive_rate == 1.0
+    interval = report.confidence_intervals["single_author_work_false_positive_rate"]
+    assert interval.point == interval.lo == interval.hi == 1.0
+
+
+def test_work_bootstrap_retains_repeated_controls_and_excludes_mixed_draws():
+    a = _spans((0, 10, "a"))
+    b = _spans((0, 10, "b"))
+    mixture = _spans((0, 5, "a"), (5, 10, "b"))
+    documents = [
+        SegmentationDocument("bad", a, b, "bad_control"),
+        SegmentationDocument("good", a, a, "good_control"),
+        SegmentationDocument("mixed_document", mixture, mixture, "mixed_1"),
+        SegmentationDocument("chapter_a", a, a, "mixed_2"),
+        SegmentationDocument("chapter_b", b, b, "mixed_2"),
+    ]
+
+    # Seed 11 draws work indices [0, 0, 3, 1]: the bad control twice, both
+    # chapters of mixed_2, and the good control.  Only three control draws count.
+    report = evaluate_corpus(
+        documents, bootstrap_unit="work", bootstrap_iters=1, seed=11,
+    )
+
+    assert report.aggregate.n_single_author_control_works == 2
+    interval = report.confidence_intervals["single_author_work_false_positive_rate"]
+    assert interval.point == 0.5
+    assert interval.lo == interval.hi == pytest.approx(2 / 3)
+
+
 def test_anonymous_single_author_fpr_scores_splits_not_cluster_names():
     documents = [
         SegmentationDocument(

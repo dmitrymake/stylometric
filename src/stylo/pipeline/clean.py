@@ -15,9 +15,10 @@ from typing import List
 
 from joblib import Parallel, delayed
 
+from ..chunking import split_text_safe
 from ..config import load_config
-from ..jsonio import dump_strict
-from ..nlp import load_ner
+from ..jsonio import dump_strict, dumps_strict, loads_strict
+from ..nlp import load_ner, resolved_nlp_identity
 from ._snapshot import publish_directory_snapshot
 
 log = logging.getLogger("stylo.pipeline.clean")
@@ -77,19 +78,7 @@ def _mask_chunk(text: str, nlp) -> str:
 def mask_names(text: str, nlp) -> str:
     if len(text) < NER_CHUNK_SIZE:
         return _mask_chunk(text, nlp)
-    parts: List[str] = []
-    start, n = 0, len(text)
-    while start < n:
-        end = min(start + NER_CHUNK_SIZE, n)
-        if end < n:
-            sp = text.rfind(" ", start, end)
-            if sp != -1:
-                end = sp
-        piece = text[start:end]
-        if piece.strip():
-            parts.append(_mask_chunk(piece, nlp))
-        start = end + 1
-    return " ".join(parts)
+    return "".join(_mask_chunk(piece, nlp) for piece in split_text_safe(text, NER_CHUNK_SIZE))
 
 
 def mask_names_with_config(text: str, cfg=None) -> str:
@@ -122,11 +111,38 @@ def normalize(text: str, model: str, fallback: str | None) -> str:
 
 
 CLEAN_MANIFEST = "clean_manifest.json"
-CLEAN_SCHEMA = "stylo.cleaned-corpus.v1"
+CLEAN_SCHEMA = "stylo.cleaned-corpus.v2"
+CLEANER_CONTRACT = "stylo.clean/v2"
 
 
 def _sha256_bytes(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _ner_identity(model: str, fallback: str | None) -> dict:
+    # Round-trip tuple fields to their strict-JSON representation so worker,
+    # in-memory and persisted identities compare without type coercion.
+    return loads_strict(dumps_strict(resolved_nlp_identity(load_ner(model, fallback)).to_dict()))
+
+
+def preprocessing_identity(cfg) -> dict:
+    """Resolved cleaner/NER provenance, independent of the chunking settings."""
+    settings = {
+        "model": cfg.get_path("language.spacy_model", "ru_core_news_lg"),
+        "model_version": cfg.get_path("language.spacy_model_version", None),
+        "fallback": cfg.get_path("language.spacy_fallback", None),
+    }
+    return {
+        "contract": CLEANER_CONTRACT,
+        "cleaner_source_sha256": _sha256_bytes(pathlib.Path(__file__).read_bytes()),
+        "text_splitter_source_sha256": _sha256_bytes(
+            pathlib.Path(__file__).parents[1].joinpath("chunking.py").read_bytes()
+        ),
+        "ner_chunk_size": NER_CHUNK_SIZE,
+        "person_marker": PER_MARK,
+        "config": settings,
+        "ner": _ner_identity(settings["model"], settings["fallback"]),
+    }
 
 
 def _read_raw_strict(fp: pathlib.Path) -> tuple[bytes, str]:
@@ -148,8 +164,11 @@ def _process_file(
     dst: pathlib.Path,
     model: str,
     fallback: str | None,
+    preprocessing: dict,
 ) -> dict[str, str]:
     payload, raw = _read_raw_strict(fp)
+    if _ner_identity(model, fallback) != preprocessing["ner"]:
+        raise RuntimeError(f"resolved NER identity changed during cleaning: {fp}")
     clean = normalize(raw, model, fallback)
     if not clean:
         raise RuntimeError(f"normalisation produced empty text: {fp}")
@@ -248,6 +267,7 @@ def run(cfg=None, only: list[str] | None = None) -> None:
     fallback = cfg.get_path("language.spacy_fallback", None)
     dst.parent.mkdir(parents=True, exist_ok=True)
     files = _raw_files(src)
+    preprocessing = preprocessing_identity(cfg)
 
     staging = pathlib.Path(
         tempfile.mkdtemp(prefix=f".{dst.name}.staging-", dir=dst.parent)
@@ -257,7 +277,7 @@ def run(cfg=None, only: list[str] | None = None) -> None:
         log.info("Очистка %d файлов в staging snapshot…", len(files))
         n_jobs = cfg.get_path("evaluation.n_jobs", -1)
         built = Parallel(n_jobs=n_jobs, verbose=3)(
-            delayed(_process_file)(fp, src, staging, model, fallback)
+            delayed(_process_file)(fp, src, staging, model, fallback, preprocessing)
             for fp in files
         )
         entries.extend(built)
@@ -267,6 +287,7 @@ def run(cfg=None, only: list[str] | None = None) -> None:
             {
                 "schema_version": CLEAN_SCHEMA,
                 "source_root": str(src.resolve()),
+                "preprocessing": preprocessing,
                 "files": entries,
             },
             staging / CLEAN_MANIFEST,
@@ -274,6 +295,8 @@ def run(cfg=None, only: list[str] | None = None) -> None:
         )
         # Re-validate raw bytes immediately before the atomic exchange.
         _validate_staged_snapshot(src, staging, entries)
+        if preprocessing_identity(cfg) != preprocessing:
+            raise RuntimeError("cleaner/NER identity changed during snapshot construction")
         publish_directory_snapshot(staging, dst)
         staging = None
     finally:

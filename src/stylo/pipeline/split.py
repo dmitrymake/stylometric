@@ -25,6 +25,7 @@ from ..workdoc import (
     sha256_text,
 )
 from ._snapshot import _fsync_dir, _fsync_tree
+from .clean import CLEAN_MANIFEST, CLEAN_SCHEMA, preprocessing_identity
 
 log = logging.getLogger("stylo.pipeline.split")
 
@@ -394,6 +395,66 @@ def _source_receipt(
     ]
 
 
+def _verified_clean_receipt(
+    src: pathlib.Path,
+    cfg,
+    books: list[tuple[pathlib.Path, bytes, str]],
+) -> dict:
+    """Require v2 cleaner provenance before publishing new fragment generations.
+
+    Legacy clean roots cannot attest the model that produced their bytes: run
+    clean again. Existing fragment generations remain readable via the resolver.
+    """
+    try:
+        payload = _read_regular_nofollow(src / CLEAN_MANIFEST, label="clean manifest")
+        manifest = loads_strict(payload.decode("utf-8"))
+    except (FragmentSnapshotError, UnicodeDecodeError, ValueError) as exc:
+        raise RuntimeError("verified clean manifest required; rebuild with clean") from exc
+    if (
+        type(manifest) is not dict
+        or set(manifest) != {"schema_version", "source_root", "preprocessing", "files"}
+        or manifest["schema_version"] != CLEAN_SCHEMA
+        or type(manifest["source_root"]) is not str
+        or type(manifest["preprocessing"]) is not dict
+        or type(manifest["files"]) is not list
+    ):
+        raise RuntimeError("unsupported/malformed clean manifest; rebuild with clean")
+    recorded = manifest["preprocessing"]
+    configured = {
+        "model": cfg.get_path("language.spacy_model", "ru_core_news_lg"),
+        "model_version": cfg.get_path("language.spacy_model_version", None),
+        "fallback": cfg.get_path("language.spacy_fallback", None),
+    }
+    if recorded.get("config") != configured:
+        raise RuntimeError("clean preprocessing config mismatch; rebuild with clean")
+    if recorded != preprocessing_identity(cfg):
+        raise RuntimeError("clean cleaner/NER identity mismatch; rebuild with clean")
+    outputs: dict[str, str] = {}
+    for entry in manifest["files"]:
+        if (
+            type(entry) is not dict
+            or set(entry) != {"source", "source_sha256", "output_sha256"}
+            or type(entry["source"]) is not str
+            or any(
+                type(entry[key]) is not str or _TOKEN_RE.fullmatch(entry[key]) is None
+                for key in ("source_sha256", "output_sha256")
+            )
+            or entry["source"] in outputs
+        ):
+            raise RuntimeError("malformed clean file receipt; rebuild with clean")
+        outputs[entry["source"]] = entry["output_sha256"]
+    observed = {
+        path.relative_to(src).as_posix(): hashlib.sha256(raw).hexdigest()
+        for path, raw, _text in books
+    }
+    if observed != outputs:
+        raise RuntimeError("clean manifest output inventory/hash mismatch; rebuild with clean")
+    return {
+        "manifest_sha256": hashlib.sha256(payload).hexdigest(),
+        "preprocessing": recorded,
+    }
+
+
 def _assert_sources_unchanged(
     src: pathlib.Path,
     receipt: list[dict[str, str]],
@@ -428,6 +489,7 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
         raise ValueError("leave_out must contain nonempty strings")
 
     books = _source_books(src)
+    clean_receipt = _verified_clean_receipt(src, cfg, books)
     receipt = _source_receipt(src, books)
     known_work_ids = {
         f"{path.parent.name}/{path.stem}" for path, _payload, _text in books
@@ -521,12 +583,15 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
             "schema_version": SPLIT_SCHEMA,
             "chunker_config_hash": cfg_hash,
             "source_files": receipt,
+            "clean_receipt": clean_receipt,
             "works": sorted(produced_works),
             "n_chunks": len(mapping),
         }
         dump_strict(generation, train_stage / SPLIT_MANIFEST, sort_keys=True)
         dump_strict(generation, unknown_stage / SPLIT_MANIFEST, sort_keys=True)
         _assert_sources_unchanged(src, receipt)
+        if _verified_clean_receipt(src, cfg, _source_books(src)) != clean_receipt:
+            raise RuntimeError("clean manifest changed during chunk snapshot construction")
 
         dump_strict(
             mapping,

@@ -8,6 +8,8 @@ import stat
 import tempfile
 from collections.abc import Mapping
 
+from ..config import artifact_config_id
+
 from ..jsonio import (
     artifact_self_hash,
     canonical_hash,
@@ -58,7 +60,7 @@ def _code_tree_sha256() -> str:
 
 
 def _config_id(cfg) -> str:
-    return _sha256(dumps_strict(cfg.to_dict(), sort_keys=True).encode("utf-8"))
+    return artifact_config_id(cfg)
 
 
 def _current_fragment_identity(cfg) -> dict[str, str]:
@@ -311,6 +313,9 @@ def verify_prediction(cfg) -> str:
     }
     if set(identity) != expected_fields:
         raise SectionEvidenceError("prediction evidence identity field mismatch")
+    trusted_token = cfg.get_path("deployment.expected_bundle_token", None)
+    if trusted_token is not None and trusted_token != identity["bundle_token"]:
+        raise SectionEvidenceError("prediction evidence differs from the trusted bundle token")
     if (
         identity["config_id"] != _config_id(cfg)
         or identity["code_tree_sha256"] != _code_tree_sha256()

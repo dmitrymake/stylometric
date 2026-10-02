@@ -1,11 +1,7 @@
-"""Обучение продакшен-модели (config-driven, без тяжёлых артефактов).
+"""Train an immutable model bundle for an explicitly declared candidate panel.
 
-Сохраняет:
-  data/model.pkl    — Pipeline(StyloVectorizer -> Scaler -> LR)
-  data/delta.pkl    — BurrowsDelta (настоящая, на MFW) для ансамбля
-  data/authors.json — список авторов (индекс == метка)
-
-НЕ сохраняет train_vectors.pkl: диагностики берут векторы из модели.
+Benchmark exclusions do not define a deployment panel. Targets must already be
+held outside the training snapshot; a panel alone does not establish applicability.
 """
 from __future__ import annotations
 
@@ -14,7 +10,8 @@ import pathlib
 
 import joblib
 
-from ..config import load_config
+from ..config import artifact_config_id, deployment_candidates, load_config
+from ..corpus import list_authors
 from ..dataset import resolve_dataset, resolve_fragment_roots
 from ..eval.dispatch import fit_estimator
 from ..eval.lobo import make_factory
@@ -22,9 +19,9 @@ from ..eval.provenance import verify_dataset_against_disk
 from ..domain.work_weighting import (CHUNK_WEIGHTED_LEGACY, WORK_BALANCED,
                                    require_weighting)
 from ..features.reps import make_rep_cache
-from ..jsonio import dump_strict
+from ..jsonio import dump_strict, load_strict
 from ..models.delta import BurrowsDelta
-from ..workdoc import chunker_config_hash
+from ..workdoc import MANIFEST_NAME, WorkManifest, chunker_config_hash
 from .bundle import publish_bundle
 
 log = logging.getLogger("stylo.pipeline.train")
@@ -93,14 +90,11 @@ def _attestation(cfg) -> dict:
     """Bind the artifact to the executed code + resolved config.
 
     ``git_commit``/``git_dirty`` record the commit + dirtiness; ``code_tree_sha256`` hashes the
-    actual on-disk code content (incl. untracked files); ``config_id`` hashes the fully-resolved
-    config (incl. --set overrides). All four are required non-null by the bundle schema, so an
+    actual on-disk code content (incl. untracked files); ``config_id`` hashes the resolved
+    config except its external bundle-token commitment. All four are required non-null by the bundle schema, so an
     environment that cannot attest fails publish closed.
     """
-    import hashlib
     import subprocess
-
-    from ..jsonio import dumps_strict
     root = _require_source_workspace()
 
     def _git(*args):
@@ -110,24 +104,57 @@ def _attestation(cfg) -> dict:
         dirty = bool(_git("status", "--porcelain").strip())
     except Exception:
         commit, dirty = None, True
-    config_id = hashlib.sha256(dumps_strict(cfg.to_dict(), sort_keys=True).encode("utf-8")).hexdigest()
+    config_id = artifact_config_id(cfg)
     return {"git_commit": commit, "git_dirty": dirty,
             "code_tree_sha256": _code_tree_sha256(), "config_id": config_id}
+
+
+def _verified_training_chunker_hash(cfg, frags: pathlib.Path, groups) -> str:
+    """Deployment may claim current preprocessing only from matching stored records.
+
+    The legacy loader verifies chunk bytes but intentionally carries no chunker
+    identity. Keep historical read/evaluation paths intact and gate this claim
+    specifically at training, before any warm-up or fit.
+    """
+    expected = chunker_config_hash(cfg)
+    recorded = None
+    for work_id in sorted(set(groups)):
+        author, book = work_id.split("/", 1)
+        path = frags / author / book / MANIFEST_NAME
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"{work_id}: verified training manifest required; rerun clean/split")
+        manifest = WorkManifest.from_dict(load_strict(path))
+        if manifest.work_id != work_id or manifest.author_id != author:
+            raise ValueError(f"{work_id}: training manifest work/author identity mismatch")
+        if manifest.chunker_config_hash != expected:
+            raise ValueError(f"{work_id}: training chunker identity mismatch; rerun clean/split")
+        recorded = manifest.chunker_config_hash
+    if recorded is None:
+        raise ValueError("training requires at least one verified work manifest")
+    return recorded
 
 
 def run(cfg=None, warm: bool = True, *, weighting: str) -> dict:
     cfg = cfg or load_config()
     _require_source_workspace()
     weighting = require_weighting(weighting)   # strict; resolved once upstream, not re-read from cfg
+    candidates = deployment_candidates(cfg)
     data = pathlib.Path(cfg.get_path("paths.data", "data"))
-    data.mkdir(parents=True, exist_ok=True)
 
-    exclude = set(cfg.get_path("corpus_policy.exclude_from_benchmark", []) or [])
     unknown = cfg.get_path("corpus_policy.unknown_dir_name", "unknown")
     frags = resolve_fragment_roots(cfg).train_root
+    available = set(list_authors(frags, exclude_unknown=unknown))
+    missing = set(candidates) - available
+    if missing:
+        raise ValueError(f"deployment candidates absent from training corpus: {sorted(missing)}")
+    exclude = available - set(candidates)
     ds = resolve_dataset(cfg, weighting, frags, exclude_authors=exclude, unknown_name=unknown)
-    from ..eval.dispatch import frozen_run_contract
-    verify_dataset_against_disk(cfg, ds, weighting, frozen_run_contract(cfg, frags))   # disk-anchored gate
+    from ..eval.provenance import RunContract
+    contract = RunContract.build(frags, exclude, unknown)
+    verify_dataset_against_disk(cfg, ds, weighting, contract)
+    if tuple(ds.authors) != candidates:
+        raise ValueError("loaded authors do not match the declared deployment panel")
+    training_chunker_hash = _verified_training_chunker_hash(cfg, frags, ds.groups)
     log.info("Train[%s]: %d чанков, %d авторов", weighting, len(ds), ds.n_authors)
 
     # snapshot the code/config attestation BEFORE the (multi-hour) fit; re-verify before publish so
@@ -164,7 +191,7 @@ def run(cfg=None, warm: bool = True, *, weighting: str) -> dict:
         "training_weighting": weighting,
         "dataset_contract": ds.provenance.loader_kind,
         "rows_digest": ds.provenance.rows_digest,
-        "chunker_config_hash": chunker_config_hash(cfg),
+        "chunker_config_hash": training_chunker_hash,
         **attest,
     }
     published = publish_bundle(bundle_dir, {

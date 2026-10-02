@@ -356,6 +356,50 @@ def test_corpus_validation_errors_are_fatal_unless_report_only(tmp_path):
     assert any(item.code == "exact_dup" for item in report.errors)
 
 
+def _install_synthetic_clean_ner(monkeypatch):
+    from stylo import nlp as nlp_module
+    from stylo.pipeline import clean
+
+    state = {"resolved_model": None, "version": "test-version", "payload_sha256": None}
+    pipelines = {}
+    requested = {}
+
+    def load(model, fallback):
+        key = (model, fallback)
+        if key not in pipelines:
+            pipelines[key] = spacy.blank("ru")
+            requested[id(pipelines[key])] = model
+        return pipelines[key]
+
+    def identity(nlp):
+        model = requested[id(nlp)]
+        resolved = state["resolved_model"] or model
+        return nlp_module._build_nlp_identity(
+            requested=model, resolved=resolved, nlp=nlp, max_length=nlp.max_length,
+            package_identity=_verified_package(
+                nlp_module, resolved, version=state["version"],
+                payload_sha256=state["payload_sha256"],
+            ), disabled_pipes=(),
+        )
+
+    monkeypatch.setattr(clean, "load_ner", load)
+    monkeypatch.setattr(clean, "resolved_nlp_identity", identity)
+    return state
+
+
+def _write_synthetic_clean_receipt(root, cfg):
+    from stylo.pipeline import clean
+
+    entries = []
+    for path in sorted(root.glob("*/*.txt")):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        entries.append({"source": path.relative_to(root).as_posix(),
+                        "source_sha256": digest, "output_sha256": digest})
+    receipt = {"schema_version": clean.CLEAN_SCHEMA, "source_root": str(root),
+               "preprocessing": clean.preprocessing_identity(cfg), "files": entries}
+    (root / clean.CLEAN_MANIFEST).write_text(dumps_strict(receipt), encoding="utf-8")
+
+
 def test_split_failure_preserves_both_current_roots(tmp_path, monkeypatch):
     from stylo.pipeline import split
 
@@ -381,6 +425,8 @@ def test_split_failure_preserves_both_current_roots(tmp_path, monkeypatch):
             "chunking.min_words": 2,
         },
     )
+    _install_synthetic_clean_ner(monkeypatch)
+    _write_synthetic_clean_receipt(clean, cfg)
     monkeypatch.setattr(
         split,
         "make_sent_chunks",
@@ -409,6 +455,8 @@ def _versioned_split_fixture(tmp_path, monkeypatch):
             "chunking.min_words": 1,
         },
     )
+    _install_synthetic_clean_ner(monkeypatch)
+    _write_synthetic_clean_receipt(clean, cfg)
     monkeypatch.setattr(
         split,
         "sentences_for_text",
@@ -452,6 +500,7 @@ def test_split_pointer_failure_preserves_the_entire_prior_generation(
     (clean / "alpha" / "same.txt").write_text(
         "alpha changed second generation", encoding="utf-8"
     )
+    _write_synthetic_clean_receipt(clean, cfg)
     monkeypatch.setattr(
         split,
         "_publish_current_pointer",
@@ -2874,3 +2923,216 @@ def test_submission_null_is_explicit_abstention_and_missing_field_rejects(
             bootstrap_iters=5,
             synthetic_integration_only=True,
         )
+
+
+@pytest.mark.parametrize("shared_intro", [False, True])
+def test_validator_does_not_project_away_unique_shingles(tmp_path, shared_intro):
+    from stylo.corpus_tools.validate_corpus import validate
+
+    for author, prefix in [("alpha", "яблоко"), ("beta", "дерево")]:
+        path = tmp_path / author / "work.txt"
+        path.parent.mkdir()
+        intro = "Первое второе третье четвертое пятое. " if shared_intro else ""
+        path.write_text(intro + " ".join(f"{prefix}{i}" for i in range(600)), encoding="utf-8")
+    report = validate(tmp_path)
+    assert report.duplicates == []
+    assert not any(f.code == "near_dup" for f in report.findings)
+
+
+@pytest.mark.parametrize("relation", ["exact", "near", "contained"])
+def test_validator_retains_duplicates_and_longer_document_containment(tmp_path, relation):
+    from stylo.corpus_tools.validate_corpus import validate
+
+    base = " ".join(f"слово{i}" for i in range(600))
+    other = base
+    if relation == "near":
+        other = base.upper() + "."
+    elif relation == "contained":
+        other = " ".join(f"другое{i}" for i in range(2000)) + " " + base
+    for author, text in [("alpha", base), ("beta", other)]:
+        path = tmp_path / author / "work.txt"
+        path.parent.mkdir()
+        path.write_text(text, encoding="utf-8")
+    report = validate(tmp_path)
+    assert any(f.code == "near_dup" for f in report.errors)
+    assert all(0 <= score <= 1 for _, _, score in report.duplicates)
+    assert any(score == 1.0 for _, _, score in report.duplicates)
+    assert any(f.code == "exact_dup" for f in report.errors) == (relation == "exact")
+
+
+def test_validator_handles_documents_shorter_than_one_shingle(tmp_path):
+    from stylo.corpus_tools.validate_corpus import validate
+
+    for author, text in [("alpha", "Раз два три"), ("beta", "Четыре пять шесть")]:
+        path = tmp_path / author / "work.txt"
+        path.parent.mkdir()
+        path.write_text(text, encoding="utf-8")
+    assert validate(tmp_path).duplicates == []
+
+
+def _actual_synthetic_clean_fixture(tmp_path, monkeypatch):
+    from stylo.pipeline import clean
+
+    state = _install_synthetic_clean_ner(monkeypatch)
+    raw = tmp_path / "raw" / "alpha" / "work.txt"
+    raw.parent.mkdir(parents=True)
+    raw.write_text("Синтетический текст проверяет порядок операций. " * 100, encoding="utf-8")
+    cfg = with_overrides(load_config(), {
+        "paths.input_raw": str(tmp_path / "raw"),
+        "paths.input_clean": str(tmp_path / "clean"),
+        "paths.data": str(tmp_path / "data"),
+        "language.spacy_model": "synthetic_A",
+        "language.spacy_model_version": "test-version",
+        "language.spacy_fallback": "synthetic_fallback",
+        "chunking.chunk_size": 50, "chunking.min_words": 20,
+        "evaluation.n_jobs": 1,
+    })
+    clean.run(cfg)
+    return cfg, state
+
+
+def test_split_binds_actual_clean_identity_and_manifest(tmp_path, monkeypatch):
+    from stylo.pipeline import clean, split
+
+    cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
+    manifest_path = tmp_path / "clean" / clean.CLEAN_MANIFEST
+    manifest = load_strict(manifest_path)
+    ner = manifest["preprocessing"]["ner"]
+    assert ner["requested_model"] == ner["resolved_model"] == "synthetic_A"
+    assert ner["package_version"] == "test-version"
+    assert manifest["preprocessing"]["config"]["model"] == "synthetic_A"
+    assert split.run(cfg) > 0
+    snapshot = split.resolve_fragment_snapshot(tmp_path / "data")
+    generation = load_strict(snapshot.root / split.GENERATION_MANIFEST)["generation"]
+    assert generation["clean_receipt"]["preprocessing"] == manifest["preprocessing"]
+    assert generation["clean_receipt"]["manifest_sha256"] == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize("field,value", [
+    ("language.spacy_model", "synthetic_B"),
+    ("language.spacy_model_version", "version_B"),
+    ("language.spacy_fallback", "fallback_B"),
+])
+def test_split_rejects_cleaning_config_drift(tmp_path, monkeypatch, field, value):
+    from stylo.pipeline import split
+
+    cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
+    split.run(cfg)
+    before = split.resolve_fragment_snapshot(tmp_path / "data").generation_id
+    with pytest.raises(RuntimeError, match="preprocessing config mismatch"):
+        split.run(with_overrides(cfg, {field: value}))
+    assert split.resolve_fragment_snapshot(tmp_path / "data").generation_id == before
+
+
+@pytest.mark.parametrize("field,value", [
+    ("resolved_model", "synthetic_fallback"),
+    ("version", "different-installed-version"),
+    ("payload_sha256", "f" * 64),
+])
+def test_split_rejects_actual_ner_drift_under_identical_config(tmp_path, monkeypatch, field, value):
+    from stylo.pipeline import split
+
+    cfg, state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
+    state[field] = value
+    with pytest.raises(RuntimeError, match="cleaner/NER identity mismatch"):
+        split.run(cfg)
+
+
+def test_clean_records_actual_fallback_identity(tmp_path, monkeypatch):
+    from stylo.pipeline import clean, split
+
+    cfg, state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
+    state["resolved_model"] = "synthetic_fallback"
+    clean.run(cfg)
+    manifest = load_strict(tmp_path / "clean" / clean.CLEAN_MANIFEST)
+    ner = manifest["preprocessing"]["ner"]
+    assert ner["requested_model"] == "synthetic_A"
+    assert ner["resolved_model"] == "synthetic_fallback"
+    assert ner["fallback_used"] is True
+    assert split.run(cfg) > 0
+
+
+@pytest.mark.parametrize("fault", ["bytes", "extra", "missing", "old_manifest", "missing_manifest", "cleaner"])
+def test_split_requires_exact_supported_clean_receipt(tmp_path, monkeypatch, fault):
+    from stylo.pipeline import clean, split
+
+    cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
+    root = tmp_path / "clean"
+    manifest_path = root / clean.CLEAN_MANIFEST
+    if fault == "bytes":
+        with (root / "alpha" / "work.txt").open("a", encoding="utf-8") as out:
+            out.write("\n")  # canonical text unchanged, exact processed bytes differ
+    elif fault == "extra":
+        (root / "alpha" / "extra.txt").write_text("Лишний текст.", encoding="utf-8")
+    elif fault == "missing":
+        (root / "alpha" / "spare.txt").write_text("Синтетический текст.", encoding="utf-8")
+        _write_synthetic_clean_receipt(root, cfg)
+        (root / "alpha" / "spare.txt").unlink()
+    elif fault == "missing_manifest":
+        manifest_path.unlink()
+    else:
+        manifest = load_strict(manifest_path)
+        if fault == "old_manifest":
+            manifest["schema_version"] = "stylo.cleaned-corpus.v1"
+            del manifest["preprocessing"]
+        else:
+            manifest["preprocessing"]["cleaner_source_sha256"] = "0" * 64
+        manifest_path.write_text(dumps_strict(manifest), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="rebuild with clean"):
+        split.run(cfg)
+    assert not (tmp_path / "data" / split.SNAPSHOT_DIRECTORY / split.CURRENT_POINTER).exists()
+
+
+def test_split_rechecks_clean_manifest_before_publication(tmp_path, monkeypatch):
+    from stylo.pipeline import clean, split
+
+    cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
+    original = split.make_sent_chunks
+
+    def change_receipt(*args, **kwargs):
+        path = tmp_path / "clean" / clean.CLEAN_MANIFEST
+        manifest = load_strict(path)
+        manifest["source_root"] += "-changed"
+        path.write_text(dumps_strict(manifest), encoding="utf-8")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(split, "make_sent_chunks", change_receipt)
+    with pytest.raises(RuntimeError, match="clean manifest changed"):
+        split.run(cfg)
+
+
+def test_clean_safe_ner_chunks_do_not_lose_characters(monkeypatch):
+    from stylo.pipeline import clean
+
+    monkeypatch.setattr(clean, "NER_CHUNK_SIZE", 5)
+    assert clean.mask_names("синтетическоеслово", spacy.blank("ru")) == "синтетическоеслово"
+
+
+def test_new_chunker_hash_distinguishes_old_policy_and_stored_manifest_still_loads(tmp_path, monkeypatch):
+    from stylo import workdoc
+
+    cfg = load_config()
+    new_hash = workdoc.chunker_config_hash(cfg)
+    with monkeypatch.context() as old:
+        old.setattr(workdoc, "CHUNKER_ALGORITHM", "stylo.sent_chunks/v1")
+        old.setattr(workdoc, "NORMALIZATION_CONTRACT", "stylo.clean/v1")
+        old_hash = workdoc.chunker_config_hash(cfg)
+    assert new_hash != old_hash
+    text = "Синтетический исторический фрагмент."
+    source = tmp_path / "clean" / "alpha" / "work.txt"
+    source.parent.mkdir(parents=True)
+    source.write_text(text, encoding="utf-8")
+    work = tmp_path / "frags" / "alpha" / "work"
+    work.mkdir(parents=True)
+    (work / "part.txt").write_text(text, encoding="utf-8")
+    manifest = workdoc.build_work_manifest(
+        "alpha/work", "alpha", [text], ["part.txt"],
+        provenance_sha256=workdoc.sha256_text(text),
+        chunker_config_hash=old_hash, overlap=0.0,
+    )
+    (work / workdoc.MANIFEST_NAME).write_text(dumps_strict(manifest.to_dict()), encoding="utf-8")
+    observed, texts = workdoc.load_work_manifest(
+        work, input_clean_root=tmp_path / "clean", expected_chunker_config_hash=old_hash,
+    )
+    assert observed.chunker_config_hash == old_hash
+    assert texts == [text]

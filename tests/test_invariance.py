@@ -84,6 +84,56 @@ def test_evaluator_reports_slices_worst_group_coverage_and_cluster_ci():
     assert source.unconfounded_split_coverage == 1.0
 
 
+@pytest.mark.parametrize("bootstrap_iters", [0, 1000])
+def test_perfect_many_author_predictions_have_point_only_macro_f1(bootstrap_iters):
+    # Resampling forty works can omit authors despite perfect predictions.
+    # Fixed-label bootstrap F1 formerly returned [0.75, 1] overall and an
+    # interval wholly below one in each twenty-work source slice.
+    authors = [f"a{i}" for i in range(20) for _ in range(2)]
+    metadata = {
+        "author": authors,
+        "work": [f"w{i}" for i in range(40)],
+        "source": ["s1", "s2"] * 20,
+    }
+    report = evaluate_predictions(
+        authors, authors, metadata, factors=("source",),
+        bootstrap_iters=bootstrap_iters, seed=42,
+    )
+
+    estimates = [report.overall, report.factors["source"].overall]
+    estimates.extend(row.metrics for row in report.factors["source"].slices)
+    for metrics in estimates:
+        assert metrics.n_labels == 20
+        assert metrics.macro_f1.point == 1.0
+        assert metrics.macro_f1.lo is None
+        assert metrics.macro_f1.hi is None
+        assert metrics.macro_f1.ci_unavailable_reason == (
+            "macro_f1_resampling_estimand_not_defined"
+        )
+        if bootstrap_iters:
+            assert metrics.accuracy.lo == metrics.accuracy.hi == 1.0
+    serialized = report.to_dict()["overall"]["macro_f1"]
+    assert serialized == {
+        "point": 1.0, "lo": None, "hi": None,
+        "ci_unavailable_reason": "macro_f1_resampling_estimand_not_defined",
+    }
+
+
+def test_unavailable_predictions_keep_macro_f1_uncertainty_contract():
+    metadata = _crossed_metadata()
+    report = evaluate_predictions(
+        metadata["author"], [None] * 8, metadata,
+        factors=("source",), bootstrap_iters=20,
+    )
+
+    assert report.overall.macro_f1.point is None
+    assert report.overall.macro_f1.lo is None
+    assert report.overall.macro_f1.hi is None
+    assert report.overall.macro_f1.ci_unavailable_reason == (
+        "macro_f1_resampling_estimand_not_defined"
+    )
+
+
 def test_author_source_confounding_is_detected_as_impossible_closed_set_split():
     # Author a exists only in source s1 and b only in s2.  A source holdout is
     # therefore an author holdout; source invariance cannot be identified.
@@ -194,7 +244,8 @@ def test_purged_factor_work_splits_share_neither_factor_nor_work_with_train():
     assert np.array_equal(align_purged_predictions(plan, predictions), y)
 
 
-def test_metric_label_universe_is_complete_unique_and_frozen():
+@pytest.mark.parametrize("bootstrap_iters", [0, 100])
+def test_metric_label_universe_is_complete_unique_and_frozen(bootstrap_iters):
     meta = _crossed_metadata()
     y = np.asarray(meta["author"], dtype=object)
     pred = y.copy()
@@ -219,11 +270,13 @@ def test_metric_label_universe_is_complete_unique_and_frozen():
         meta,
         factors=("source",),
         labels=["a", "b", "registered_absent"],
-        bootstrap_iters=0,
+        bootstrap_iters=bootstrap_iters,
     )
     assert report.overall.n_labels == 3
     assert report.overall.macro_f1.point == pytest.approx(2 / 3)
     assert all(row.metrics.n_labels == 3 for row in report.factors["source"].slices)
+    assert report.overall.macro_f1.lo is None
+    assert report.overall.macro_f1.hi is None
 
 
 def test_supplied_plan_must_match_current_metadata_and_truth():

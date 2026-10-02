@@ -1,75 +1,53 @@
 # Current Handoff
 
-- State: **cleanup and refactor complete; topic-validity run authorized, resumable and unexecuted**
-- Updated: 2026-08-26
-- Verified baseline commit: `25156bf`
-- Branch/worktree at capture: attached `main`, clean; local branches are exactly `main` and `release`.
-- Active task: `docs/tasks/2026-08-23-topic-validity-measured-fixed8.md` (Result pending)
+- Updated: **2026-10-02**.
+- State: review remediation implemented and validated; full topic-validity execution prepared.
+- Review baseline: `f312efb8f5fa291a961c337e6efa3b67cc247be4`.
+- Implementation: the local commit containing this handoff and the remediation task; verify HEAD
+  and worktree before acting. No push or publication is authorized.
+- Active task: `docs/tasks/2026-10-02-review-remediation.md`.
+- Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
-This file only routes the next session. Scientific status and authorization remain owned by the
-governance ledger, protocol, executable gates, and completed task evidence.
+## Verified implementation
 
-## 1. Verified current state
+R1–R8 are fixed: explicit deployment panels and abstention, full-text shingle coverage, point-only
+macro-F1 uncertainty, whole-work controls, clean/split identity, embedding cache, bundle-token
+configuration and chunk tails. A diagnostic LZMA baseline is implemented but is not registered in
+the frozen evaluator and has no measured case accuracy. No calibrated open-set gate exists yet.
 
-| Item | Verified status | Evidence owner |
-|---|---|---|
-| v3.2 preparation/frozen inputs | Owner-accepted evaluator input; identities unchanged | preparation/reconciliation tasks |
-| Evaluator receipt | Independent expectations and semantic recomputation implemented | receipt-closure task |
-| Topic validity | Synthetic mechanism confirmed; real corrected-LOBO effect still unmeasured | topic-validity tasks |
-| Topic-validity execution | Owner-authorized, resumable, **not executed**; one attempt reached 260/992 and was stopped | ledger `topic_validity_execution` |
-| Production evaluator | Registry empty; candidate unregistered | `CONFIRMATORY_EVALUATOR_REGISTRY` |
-| Freeze/preflight/authorization | unapproved / absent / absent | governance ledger |
-| Confirmatory execution | No execution path exists — the v3.1 control plane was deleted | governance ledger |
-| Headline/publication | Not authorized; no site/public bytes changed | governance ledger |
-| Repository hygiene | No private objects in the index, in `HEAD` history, or in any other ref/stash | `check_release_hygiene.py --audit-local-refs` |
+Full regression: 1333 passed, 4 skipped, 2 warnings. The opt-in real v3.2 context test then passed
+separately. Package build, executable inventory and release/site provenance passed. The separately
+enabled live-golden module had 15 passed and two environment-fingerprint failures: its capture
+versions differ from requirements.lock. No full capture-environment parity PASS is claimed.
 
-## 2. Material change after the prior handoff
+## Topic-validity execution
 
-- The runner is resumable: it checkpoints every ten fits, stops cleanly on a signal, continues from
-  the checkpoint on rerun, and accepts `--cells`, `--arms`, `--workers` and a soft `--max-hours`.
-- Three unused layers are gone: the `lobo_vnext` family, the v3.1 paired-audit control plane and the
-  sequence segmenter. `src/stylo` 60 456 → 44 070 lines, tests 32 867 → 24 964, inventory 303 → 245.
-- The process surface is gone or compressed: `STANDARD.md`, `TASK_TEMPLATE.md`,
-  `CHAT_INSTRUCTIONS.md` and the handoff README deleted; `AGENTS.md` 155 → 71; task files
-  3 106 → 1 359. Four governance registries are now two: `status_ledger.json` for scientific state,
-  `contracts.json` for executable contracts; the release inventory pins ten files instead of
-  thirty-two.
-- Removed from the test suite: assertions on phrases inside claim texts, on file lengths, on markers
-  inside sources, and the byte pins that made one source edit require six registry edits.
+The owner authorized execution after the review. The exact 248-fold A0/A4 current/topic_strict
+study remains exploratory. New chunker v2 does not require re-chunking the frozen bundle: its
+recorded old identity is explicitly validated by the evaluator.
 
-- A bounded garbage/legacy campaign ran under `docs/tasks/2026-08-24-repo-garbage-and-legacy-campaign.md`:
-  eight merged branch refs removed; ≈1.37 GB of ignored duplicates and regenerable caches deleted;
-  sixteen orphan campaign runners (3 731 LOC) removed with the inventory recomputed to 287 paths and
-  digest `e1f0f146…`; twenty-one p0-anchored dossier artifacts retired from `docs/`.
-- Three unrelated-history branches plus both stashes were retired after an external, restore-verified
-  backup bundle (`~/backup/stylo-history-20260824/`, sha256 `6859b2de…`). `.git` fell from 431 MB to
-  4.1 MB and the local copyright exposure is gone.
-- Gates after the campaign: inventory OK, release hygiene OK including the local-ref audit, site
-  provenance 93/1 verified with a byte-identical regeneration, full pytest green.
+The old checkpoint contains **70 A0/current fits**, unlike the historical ledger narrative of
+260 fits. It is preserved and cannot resume against changed source. The new run uses:
 
-## 3. Next gate
+- `research/local/topic_validity_lobo_v1.20261002.repaired.process.json` for launch PID/commit/source;
+- `research/local/topic_validity_lobo_v1.20261002.repaired.log` for progress;
+- `research/local/topic_validity_lobo_v1.20261002.repaired.checkpoint.json` for resumable fits;
+- `research/evidence/topic_validity_lobo_v1/aggregate.json` only after all 992 fits finish.
 
-Execute the authorized topic-validity study: rebuild the temporary v3.2 bundle from
-`data/audit_corpus/15d265e0…` with `data/ruaa_bench_v1/manifest.json`, run the no-fit preflight, then
-execute 992 fits writing `research/evidence/topic_validity_lobo_v1/aggregate.json`. The run is
-resumable: it checkpoints every ten fits to the ignored `research/local/` path, stops cleanly on
-Ctrl-C or SIGTERM, and continues from that point when the same command runs again. `--cells A0`
-answers the topic question on the first cell in roughly half the time. Nothing else may mutate
-`src/stylo` while it runs — `execution_source_sha256` binds that tree and fork workers read it for
-the whole window.
+Check these ignored-local records and process state to determine whether launch occurred and
+whether execution is still running. Do not infer completion from this handoff. The full command
+and environment are in the active task. Preserve the old checkpoint; never use `--fresh` on it.
+While fits run, do not mutate `src/stylo`, the runner, runtime or HEAD. Stop/resume through the
+runner's signal/checkpoint mechanism when needed; do not mix records from different identities.
 
-After the aggregate exists, an independent clean-context audit precedes any model-semantics decision.
-Registration, freeze, preflight, headline and publication each still require separate authorization.
+After completion, independently audit the aggregate before any model-semantics decision.
+Production registration, confirmatory execution and publication remain separate uncompleted work.
+The normative scientific ledger is still `research/governance/status_ledger.json`; historical
+evidence and public claims were not rewritten by the implementation task.
 
-## 4. Revalidation conditions
+## Case research
 
-Revalidate before mutation if history does not contain `fc335823`, if bound governance/source hashes
-differ, if registry/freeze/preflight/authorization status changes, if the worktree contains unknown
-WIP, or if a new R3 factor appears.
-
-## 5. References
-
-- Campaign: `docs/tasks/2026-08-24-repo-garbage-and-legacy-campaign.md`
-- Run task: `docs/tasks/2026-08-23-topic-validity-measured-fixed8.md`
-- Scientific status: `research/governance/status_ledger.json`, `research/ROADMAP.md`
-- Protocol: `research/work_balanced/paired_audit_protocol.md`
+Targets: Bulgakov / «Двенадцать стульев», Sholokhov / «Тихий Дон». The corrected benchmark
+bundle contains neither the Ilf–Petrov nor Sholokhov label and is not a ready case panel. The census
+lists exact available work identities and source/edition gaps; new independent reference panels
+and a calibrated verification benchmark still need preparation. R9 public wording was not changed.

@@ -12,6 +12,11 @@ Metadata may be a mapping of columns, a pandas-like frame, or a sequence of
 row mappings.  Typical columns are ``author``, ``work``, ``topic``, ``genre``,
 ``period``, ``source`` and ``edition``; any scalar metadata column can be used
 as the held-out factor.
+
+Macro-F1 is the mean of ``2 * TP / (2 * TP + FP + FN)`` over the fixed label
+universe, assigning zero when a label's denominator is zero.  This point-score
+contract also applies to factor slices.  Macro-F1 uncertainty is not
+implemented; only accuracy receives a cluster-bootstrap interval.
 """
 from __future__ import annotations
 
@@ -118,11 +123,18 @@ class PurgedFactorPlan:
 
 @dataclasses.dataclass(frozen=True)
 class MetricEstimate:
-    """Point estimate and percentile cluster-bootstrap interval."""
+    """Point estimate with an optional percentile cluster-bootstrap interval.
+
+    ``ci_unavailable_reason`` explains absent bounds in serialized reports.
+    Macro-F1 is point-only: resampling works can omit authors, and neither
+    assigning absent classes zero nor dropping them defines a justified
+    uncertainty estimand for the fixed label universe used by the point score.
+    """
 
     point: Optional[float]
     lo: Optional[float]
     hi: Optional[float]
+    ci_unavailable_reason: Optional[str] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -727,8 +739,11 @@ def _prediction_metrics(
     n_eval = len(evaluated)
     coverage = n_eval / n_total if n_total else 0.0
     if n_eval == 0:
-        empty = MetricEstimate(None, None, None)
-        return PredictionMetrics(n_total, 0, coverage, len(labels), 0, empty, empty)
+        empty = MetricEstimate(None, None, None, "no_evaluated_predictions")
+        f1_empty = MetricEstimate(
+            None, None, None, "macro_f1_resampling_estimand_not_defined"
+        )
+        return PredictionMetrics(n_total, 0, coverage, len(labels), 0, empty, f1_empty)
 
     yt = y_true[evaluated]
     yp = y_pred[evaluated]
@@ -736,10 +751,12 @@ def _prediction_metrics(
     f1_point = _macro_f1(yt, yp, labels)
     unique_clusters = _stable_unique(cluster_keys[evaluated])
     n_clusters = len(unique_clusters)
+    f1_est = MetricEstimate(
+        f1_point, None, None, "macro_f1_resampling_estimand_not_defined"
+    )
 
     if bootstrap_iters == 0:
-        acc_est = MetricEstimate(acc_point, None, None)
-        f1_est = MetricEstimate(f1_point, None, None)
+        acc_est = MetricEstimate(acc_point, None, None, "bootstrap_disabled")
     else:
         local_clusters = cluster_keys[evaluated]
         by_cluster = {
@@ -750,18 +767,14 @@ def _prediction_metrics(
         }
         rng = np.random.default_rng(seed)
         acc_boot = np.empty(bootstrap_iters, dtype=float)
-        f1_boot = np.empty(bootstrap_iters, dtype=float)
         for b in range(bootstrap_iters):
             picked = rng.choice(n_clusters, size=n_clusters, replace=True)
             local_idx = np.concatenate([by_cluster[unique_clusters[j]] for j in picked])
             acc_boot[b] = _accuracy(yt[local_idx], yp[local_idx])
-            f1_boot[b] = _macro_f1(yt[local_idx], yp[local_idx], labels)
         alpha = (1.0 - ci_level) / 2.0
         q = [100.0 * alpha, 100.0 * (1.0 - alpha)]
         acc_lo, acc_hi = np.percentile(acc_boot, q)
-        f1_lo, f1_hi = np.percentile(f1_boot, q)
         acc_est = MetricEstimate(acc_point, float(acc_lo), float(acc_hi))
-        f1_est = MetricEstimate(f1_point, float(f1_lo), float(f1_hi))
 
     return PredictionMetrics(
         n_total=n_total,

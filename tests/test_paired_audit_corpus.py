@@ -162,28 +162,45 @@ class TestBuilder:
         assert pointer["version"] == root.name
         assert ac.resolve_current_root(tmp_path / "audit") == root
 
-    def test_build_mints_manifests_only_inside_staging_for_legacy_source(self, tmp_path):
+    def test_build_mints_manifests_only_inside_staging_for_legacy_source(self, tmp_path, monkeypatch):
         """The real frozen source is legacy-recursive and intentionally has no per-work manifests.
 
         Preparation must make the work-balanced view atomically in the immutable copy; it must never
         mutate ``data/frags_train`` (or the synthetic source standing in for it here).
         """
         from stylo.pipeline.split import resolve_fragment_snapshot, run as split_corpus
+        from stylo.pipeline import clean
+        from stylo import nlp as nlp_module
+        import spacy
 
         ic = tmp_path / "legacy_clean"
+        raw = tmp_path / "synthetic_raw"
         data = tmp_path / "legacy_data"
         replay_cfg = with_overrides(CFG, {
-            "paths.input_clean": str(ic), "paths.data": str(data),
+            "paths.input_raw": str(raw), "paths.input_clean": str(ic), "paths.data": str(data),
             "chunking.chunk_size": 20, "chunking.min_words": 5,
+            "language.spacy_model": "synthetic_ner", "language.spacy_model_version": "test-version",
+            "evaluation.n_jobs": 1,
         })
+        synthetic_ner = spacy.blank("ru")
+        identity = nlp_module._build_nlp_identity(
+            requested="synthetic_ner", resolved="synthetic_ner", nlp=synthetic_ner,
+            max_length=synthetic_ner.max_length, disabled_pipes=(),
+            package_identity=nlp_module.VerifiedInstalledPackage(
+                "test-version", "a" * 64, "b" * 64, "b" * 64,
+            ),
+        )
+        monkeypatch.setattr(clean, "load_ner", lambda *_args: synthetic_ner)
+        monkeypatch.setattr(clean, "resolved_nlp_identity", lambda _nlp: identity)
         for author in ("alpha", "beta", "gamma"):
             for book in ("one", "two"):
-                path = ic / author / f"{book}.txt"
+                path = raw / author / f"{book}.txt"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(" ".join(
                     f"Предложение {i} книги {book} автора {author} содержит достаточно обычных слов."
                     for i in range(18)
                 ), encoding="utf-8")
+        clean.run(replay_cfg)
         split_corpus(replay_cfg)
         frags = resolve_fragment_snapshot(
             data, require_versioned=True

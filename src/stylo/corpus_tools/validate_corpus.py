@@ -4,7 +4,7 @@
   - пустые/крошечные/битые файлы, долю не-кириллицы (mojibake/OCR);
   - достаточность для LOBO: книг на автора (>=2) и слов на книгу;
   - дисбаланс (max/min слов на автора);
-  - точные дубликаты книг (sha1) и near-duplicate (char-5gram cosine) — ловит один
+  - точные дубликаты книг (sha1) и near-duplicate (word 4–5-gram coverage) — ловит один
     текст под двумя авторами и потенциальную утечку train/test;
   - издательский/OCR-шум (Глава N, номера страниц, ISBN, копирайт-футеры);
   - жанровые/служебные аномалии (дневники, соавторство — по конфигу).
@@ -21,10 +21,6 @@ import pathlib
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
-
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 log = logging.getLogger("stylo.corpus_tools.validate")
 
@@ -77,6 +73,15 @@ def _word_count(text: str) -> int:
 
 def _noise_flags(text: str) -> Dict[str, int]:
     return {name: len(rx.findall(text)) for name, rx in _NOISE_PATTERNS.items()}
+
+
+def _word_shingles(text: str) -> collections.Counter:
+    tokens = re.findall(r"(?u)\b\w+\b", text.lower())
+    return collections.Counter(
+        tuple(tokens[start:start + width])
+        for width in (4, 5)
+        for start in range(len(tokens) - width + 1)
+    )
 
 
 def validate(corpus_dir: pathlib.Path | str, near_dup_threshold: float = 0.4,
@@ -145,24 +150,30 @@ def validate(corpus_dir: pathlib.Path | str, near_dup_threshold: float = 0.4,
             rep.add("error", "exact_dup", f"идентичные тексты: {keys}")
             rep.duplicates.append((keys[0], keys[1], 1.0))
 
-    # char-n-граммы на уровне книг недискриминативны (вся русская проза ~0.85+),
-    # а 4-5-словные последовательности у разных книг почти не пересекаются —
-    # высокий косинус здесь означает реальное текстовое совпадение/плагиат.
+    # Count overlap against ALL word shingles, including unique ones. A shared
+    # epigraph must not become the complete comparison space. The denominator
+    # is the smaller document's full shingle count, retaining sensitivity to a
+    # work copied inside a longer work. Multiplicities prevent a few repeated
+    # phrases from representing the full length of either document.
     keys = list(book_texts.keys())
     if len(keys) >= 2:
-        vec = TfidfVectorizer(analyzer="word", ngram_range=(4, 5), max_features=50000,
-                              min_df=2, sublinear_tf=True, token_pattern=r"(?u)\b\w+\b")
-        X = vec.fit_transform([book_texts[k] for k in keys])
-        sim = cosine_similarity(X)
+        shingles = [_word_shingles(book_texts[key]) for key in keys]
+        counts = [sum(row.values()) for row in shingles]
         for i in range(len(keys)):
             for j in range(i + 1, len(keys)):
-                s = float(sim[i, j])
+                denominator = min(counts[i], counts[j])
+                if denominator == 0:
+                    continue  # fewer than four tokens; exact hashes still work
+                overlap = sum((shingles[i] & shingles[j]).values())
+                s = overlap / denominator
+                if overlap == 0:
+                    continue
                 if s >= near_dup_threshold:
                     a_i = keys[i].split("/")[0]
                     a_j = keys[j].split("/")[0]
                     sev = "error" if a_i != a_j else "warn"
                     rep.add(sev, "near_dup",
-                            f"near-duplicate {keys[i]} ~ {keys[j]} (cos={s:.2f})"
+                            f"near-duplicate {keys[i]} ~ {keys[j]} (shingle coverage={s:.2f})"
                             + (" — РАЗНЫЕ авторы!" if a_i != a_j else ""))
                     rep.duplicates.append((keys[i], keys[j], s))
 

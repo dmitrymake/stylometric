@@ -1,7 +1,7 @@
-"""Атрибуция спорного текста (каталог unknown) ансамблем LR + настоящая Delta.
+"""Rank an unknown text within an explicit panel; abstain from authorship decisions.
 
-Выдаёт топ-K кандидатов с калиброванными/усреднёнными оценками, уверенность и margin.
-Честно сообщает неопределённость: при близких оценках margin мал → вывод осторожный.
+The LR/legacy-Delta ensemble is a relative score, not a calibrated probability of
+historical authorship. A calibrated open-set applicability gate is not available.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import joblib
 import numpy as np
 from scipy.stats import trim_mean
 
-from ..config import load_config
+from ..config import deployment_candidates, load_config
 from ..corpus import load_unknown
 from ..dataset import resolve_fragment_roots
 from ..domain.prediction_contract import (
@@ -62,9 +62,14 @@ def run(
         raise BundleError(f"docs root must not be a symlink: {docs_dir}")
     docs_dir.mkdir(parents=True, exist_ok=True)
 
-    trusted_token = expected_bundle_token or cfg.get_path(
-        "deployment.expected_bundle_token", None
-    )
+    pinned_token = cfg.get_path("deployment.expected_bundle_token", None)
+    if pinned_token is not None and (
+        not isinstance(pinned_token, str) or not pinned_token
+    ):
+        raise BundleError("deployment.expected_bundle_token must be a nonempty string")
+    if expected_bundle_token is not None and pinned_token is not None and expected_bundle_token != pinned_token:
+        raise BundleError("CLI and configured trusted bundle tokens conflict")
+    trusted_token = expected_bundle_token if expected_bundle_token is not None else pinned_token
     if not isinstance(trusted_token, str) or not trusted_token:
         raise BundleError(
             "predict requires a trusted deployment bundle token "
@@ -89,6 +94,9 @@ def run(
         validate_class_indices(delta.classes_, len(authors), name="delta.classes_")
     except (AttributeError, PredictionContractError) as exc:
         raise BundleError(f"bundle class-universe contract failed: {exc}") from exc
+    candidates = deployment_candidates(cfg)
+    if tuple(authors) != candidates:
+        raise BundleError("bundle authors do not match deployment.candidate_authors")
 
     unk_root = (
         pathlib.Path(unknown_dir)
@@ -97,10 +105,7 @@ def run(
     )
     # ``load_unknown`` is strict: unreadable, non-UTF-8, empty and symlinked
     # fragments abort attribution instead of silently changing the evidence.
-    if unknown_dir:
-        texts = load_unknown(unk_root.parent, unknown_name=unk_root.name)
-    else:
-        texts = load_unknown(unk_root.parent, unknown_name=unk_root.name)
+    texts = load_unknown(unk_root.parent, unknown_name=unk_root.name)
     if not texts:
         raise RuntimeError(f"Нет фрагментов unknown в {unk_root}")
     log.info("Unknown фрагментов: %d", len(texts))
@@ -134,24 +139,27 @@ def run(
         raise BundleError("delta softmax produced an invalid probability vector")
 
     ens = 0.6 * lr_full + 0.4 * delta_full
-    order = np.argsort(ens)[::-1]
+    order = np.argsort(-ens, kind="stable")
     top_k = cfg.get_path("evaluation.top_k_candidates", 5)
+    if type(top_k) is not int or top_k < 1:
+        raise ValueError("evaluation.top_k_candidates must be a positive integer")
     margin = float(ens[order[0]] - ens[order[1]]) if len(order) > 1 else 0.0
 
     lines: List[str] = []
-    lines.append("=== Авторская атрибуция (ансамбль LR + Burrows Delta) ===")
+    lines.append("=== Диагностический рейтинг кандидатов (LR + legacy Delta) ===")
     lines.append(f"Дата: {datetime.datetime.now():%d.%m.%Y %H:%M}")
     lines.append(f"Фрагментов: {len(texts)}")
+    lines.append("Панель: " + ", ".join(display_name(author) for author in authors))
+    lines.append("Оценки сравнивают кандидатов внутри панели; это не вероятности авторства.")
     lines.append("")
     lines.append(f"Топ-{top_k} кандидатов (оценка ансамбля):")
     for i in order[:top_k]:
         lines.append(f"  {display_name(authors[int(i)]):24} ens={ens[int(i)]:.4f} "
                      f"(LR={lr_full[int(i)]:.4f}, Delta={delta_full[int(i)]:.4f})")
     lines.append("")
-    lines.append(f"Победитель: {display_name(authors[int(order[0])])}")
+    lines.append(f"Ближайший кандидат внутри панели: {display_name(authors[int(order[0])])}")
     lines.append(f"Margin над 2-м местом: {margin:.4f}")
-    if margin < 0.05:
-        lines.append("⚠ Низкий margin — вывод НЕнадёжен (кандидаты близки).")
+    lines.append("Авторство не установлено: проверка применимости к неизвестному автору не откалибрована.")
     lines.append("")
     lines.append("Отдельные методы:")
     lines.append(f"  LR    → {display_name(authors[int(np.argmax(lr_full))])}")
@@ -168,5 +176,8 @@ def run(
         bundle_meta=bundle_meta,
     )
     print(report)
-    return {"winner": authors[int(order[0])], "margin": margin,
+    return {"winner": None, "diagnostic_closed_set_top": authors[int(order[0])],
+            "candidate_authors": authors, "abstained": True,
+            "abstention_reason": "open_set_applicability_unavailable",
+            "score_scope": "closed_set_ensemble", "margin": margin,
             "ensemble": {authors[i]: float(ens[i]) for i in range(len(authors))}}
