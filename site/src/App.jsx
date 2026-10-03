@@ -7,6 +7,7 @@ import Results from "./sections/Results.jsx";
 import Repro from "./sections/Repro.jsx";
 import Limits from "./sections/Limits.jsx";
 import Conclusion from "./sections/Conclusion.jsx";
+import ChapterState from "./components/ChapterState.jsx";
 
 const CHAPTERS = [
   ["framework", "Как это работает"],
@@ -119,7 +120,7 @@ export default function App({ initialChapter, chapterComponent } = {}) {
           <Conclusion />
           <Repro />
           <details className="article-appendix wrap"><summary>Границы метода и дополнительные проверки</summary><Limits /></details>
-        </> : Chapter ? <Chapter /> : <p className="wrap loading-status" role="status">{loadError ? "Не удалось загрузить главу. Перезагрузите страницу." : "Загрузка главы…"}</p>}
+        </> : Chapter ? <Chapter /> : <ChapterState title={CHAPTERS[chapterIndex][1]} failed={loadError} />}
         <nav className="chapter-next wrap" aria-label="Продолжить чтение"><span>Следующая глава</span><a href={`#${nextChapter[0]}`}>{nextChapter[1]} <span aria-hidden>→</span></a></nav>
       </EditorialArticle>
     </main>

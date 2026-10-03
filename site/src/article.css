@@ -131,7 +131,12 @@ img,svg,canvas { max-width:100%; }
 .protocol-list li::before { content:counter(protocol,decimal-leading-zero); position:absolute; left:0; top:1.2rem; font:.875rem/1.5 var(--font-mono); color:var(--editorial-accent); }
 .protocol-list strong { display:block; margin-bottom:.35rem; font:600 1.125rem/1.5 var(--font-text); }
 .protocol-list p { margin:0; font-size:1.125rem; }
-.loading-status { padding-block:4rem; }
+.chapter-state { padding-block:2rem 3rem; min-height:18rem; }
+.chapter-state .prose { max-width:var(--measure); }
+.timeline-selection { display:grid; grid-template-columns:auto minmax(5rem,1fr); gap:.4rem 1rem; margin-top:1rem; font:1rem/1.6 var(--font-text); }
+.timeline-selection input { width:100%; min-width:0; min-height:44px; margin:0; accent-color:var(--icon-blue); }
+.timeline-selection output { grid-column:1 / -1; color:var(--text-muted); overflow-wrap:anywhere; }
+@media(max-width:480px) { .timeline-selection { grid-template-columns:1fr; } }
 .skip-link { position:fixed; z-index:100; left:1rem; top:-10rem; padding:1rem; background:var(--paper); border:1px solid var(--text); }
 .skip-link:focus { top:1rem; }
 a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex]:focus-visible { outline:2px solid var(--focus); outline-offset:4px; }

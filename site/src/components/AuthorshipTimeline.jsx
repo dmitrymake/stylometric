@@ -1,34 +1,36 @@
-// Timeline авторства: «прокраска» книги по позиции. Каждая полоса — окно текста,
-// цвет = доминирующий автор, прозрачность = уверенность. Чужие сегменты подсвечены.
-// На токенах @rk/ui.
+import { useId, useMemo, useState } from "react";
+
+// A profile for each text window; selection works with keyboard and touch.
 
 export default function AuthorshipTimeline({ timeline, host, colorMap, segments = [], caption, height = 76 }) {
   const n = timeline.length;
-  const w = 100 / n; // % на полосу
+  const w = n ? 100 / n : 0;
+  const [selected, setSelected] = useState(0);
+  const inputId = useId();
+  const index = Math.min(selected, Math.max(0, n - 1));
+  const current = timeline[index];
   const colorOf = (name) => colorMap[name] || "var(--text-muted)";
+  // Sliding the cursor does not regenerate hundreds of window elements.
+  const windows = useMemo(() => timeline.map(([name, score], i) => <span key={i}
+    title={`${Math.round((i / timeline.length) * 100)}% · ${name} (${score.toFixed(2)})`}
+    style={{ width: `${100 / timeline.length}%`, height: "100%", background: colorMap[name] || "var(--text-muted)",
+      opacity: 0.35 + 0.65 * Math.min(1, Math.max(0, score)) }} />), [timeline, colorMap]);
 
   return (
     <figure style={{ margin: "20px 0 8px" }}>
       <div
         role="img"
-        aria-label={`Карта авторства: ${host} и кандидаты по ходу текста`}
+        aria-label={`Карта ближайших профилей: ${host} и кандидаты по ходу текста`}
         style={{
           position: "relative", height, borderRadius: 0,
           overflow: "hidden", border: "1px solid var(--border)",
           background: "var(--surface-sunken)", display: "flex",
         }}
       >
-        {timeline.map(([name, conf], i) => (
-          <span
-            key={i}
-            title={`${Math.round((i / n) * 100)}% · ${name} (${conf.toFixed(2)})`}
-            style={{
-              width: `${w}%`, height: "100%",
-              background: colorOf(name),
-              opacity: 0.35 + 0.65 * Math.min(1, Math.max(0, conf)),
-            }}
-          />
-        ))}
+        {windows}
+        {n > 0 && <span aria-hidden="true" style={{ position: "absolute", insetBlock: 0,
+          left: `${index * w}%`, width: `${w}%`, minWidth: 3,
+          boxShadow: "inset 0 0 0 2px var(--text)", pointerEvents: "none" }} />}
         {/* подсветка «чужих» сегментов снизу */}
         {segments.map(([start, end, name], k) => (
           <span
@@ -42,6 +44,13 @@ export default function AuthorshipTimeline({ timeline, host, colorMap, segments 
           />
         ))}
       </div>
+      {current && <div className="timeline-selection">
+        <label htmlFor={inputId}>Окно {index + 1} из {n}</label>
+        <input id={inputId} type="range" min={0} max={n - 1} value={index}
+          aria-valuetext={`Окно ${index + 1}: ${current[0]}, оценка ${current[1].toFixed(2)}`}
+          onChange={(event) => setSelected(Number(event.target.value))} />
+        <output htmlFor={inputId}>Ближайший профиль — {current[0]}; оценка модели {current[1].toFixed(2)}.</output>
+      </div>}
       {/* ось */}
       <div className="mono" style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 16, marginTop: 6 }}>
         <span>начало книги</span><span>середина</span><span>конец</span>

@@ -9,7 +9,38 @@
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
-## Latest UI review and reader fixes
+## Latest UI remediation complete locally
+
+Owner authorised all fixes from the rk/article review and added the unstyled chapter
+loading/error state. Task: `docs/tasks/2026-10-03-rk-remediation.md`, baseline
+`36887a0b089cc27760bb908e9e399061a9d078c1`. The local commit containing this update
+is the implementation; verify HEAD/tree. No push or publication occurred.
+
+All original RK-01–RK-07, EX-01–EX-02 and the extra summary-focus CR-01 are closed
+in the independently examined slice. Focus/Combobox/Button/defaults/themes/Panel,
+responsive demo navigation and GraphControls are fixed. DataTable now bounds its
+first virtual render and keeps a visible keyboard target after scroll; mobile
+overshoot retains a nonempty final window. Article timeline has keyboard/touch
+window selection; loading/error uses the article grid and a real route-preserving
+retry through the kit Button. Scientific source/data are unchanged.
+
+Final kit regression **698 passed / 93 files**, typecheck/lint/build/size/pack PASS.
+Original kit and demo builds PASS. Site build/no-undef23/SSR5, fresh offline npm ci,
+14 generator tests, provenance97/8, deterministic generation and repository gates
+PASS. Axe preload timeout and esbuild side-effect import warnings remain recorded
+separately. Cold report: `research/local/reviews/rk-remediation-cold-20261003.md`.
+API/cleanliness and reader clarity scored 9, laconicity 8.5; no uniform 9/10 claim.
+Performance has limited large-table/cursor traces, not an all-kit benchmark.
+
+38 reviewed file changes were applied to rk/rk-example after old/new hash checks;
+457 baseline files, logos and brand colors were checked. User WIP is preserved and
+not committed. Receipt: `/tmp/stylo-rk-fixes-l29b81q_/integration-receipt.json`.
+Final tarball is installed in Stylo with matching lock integrity; platform metadata
+preserved. Local article http://127.0.0.1:4174/ (session4980); original demo
+http://127.0.0.1:5180/. Production browser checked five chapters at1440/390 and
+download/recovery/demo scenarios. These are local previews, not published sites.
+
+## Previous UI review and reader fixes
 
 Owner requested fixes from five screenshots and a comprehensive independent rk/article review.
 Task: `docs/tasks/2026-10-03-ui-review-followup.md` (baseline47c9027).
@@ -19,11 +50,9 @@ heading hierarchy and removal of unsupported likelihood badges. Build/SSR5,14tar
 provenance97/8 pass. No model/data fit was rerun. Local article remains http://127.0.0.1:4174/.
 
 Independent reports: `research/local/reviews/rk-comprehensive-20261003.md` and
-`research/local/reviews/article-comprehensive-20261003.md`. Article P2 findings are closed;
-timeline per-window keyboard/touch detail is an open P3. rk has open1P1/5P2/1P3 findings plus
-2P2 consumer-demo issues. The kit and demo were read-only in this task; user WIP remains intact.
-Prioritise Modal focus, Button.style and loading Combobox if the owner requests kit fixes.
-Root independently reproduced those three. Do not describe the kit as fully remediated.
+`research/local/reviews/article-comprehensive-20261003.md`. Their then-open kit/demo
+findings and timeline P3 are superseded by the completed remediation above. The kit
+and demo were read-only during that earlier review; later edits are recorded separately.
 
 ## Editorial/design task complete locally
 
