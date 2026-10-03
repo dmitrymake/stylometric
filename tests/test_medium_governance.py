@@ -100,7 +100,13 @@ def test_status_ledger_separates_completed_comparison_from_confirmatory_status()
 def test_bounded_exploratory_milestone_is_exact_and_non_authorizing():
     ledger = _strict_json(GOVERNANCE / "status_ledger.json")
     milestones = ledger["bounded_exploratory_milestones"]
-    assert set(milestones) == {"ruaa_r1_v5"}
+    assert set(milestones) == {"ruaa_r1_v5", "publication_prose_v1"}
+    publication = milestones["publication_prose_v1"]
+    assert publication["status"] == "completed_reconstructed_digital_witness_pilot"
+    for path_key, hash_key in (("catalog", "catalog_sha256"), ("comparison", "comparison_sha256"),
+                               ("sensitivity", "sensitivity_sha256")):
+        import hashlib
+        assert hashlib.sha256((ROOT / publication[path_key]).read_bytes()).hexdigest() == publication[hash_key]
     milestone = milestones["ruaa_r1_v5"]
     assert set(milestone) == {
         "status",

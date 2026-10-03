@@ -233,7 +233,7 @@ def evaluate_panel(texts, y, groups, roles, authors, cfg, settings, arms=ARMS):
             records["locked_test"][arm].append({
                 "work_id": work, "author": authors[true], "correct": decision.top1 == true,
             })
-        print(json.dumps({"completed_arm": arm}), flush=True)
+        print(json.dumps({"completed_arm": arm}, allow_nan=False), flush=True)
     return {split: summarize(rows, authors) for split, rows in records.items()}, fit_details
 
 
@@ -297,7 +297,7 @@ def main():
     with args.output.open("x", encoding="utf-8") as handle:
         handle.write(dumps_strict(output, indent=2, sort_keys=True) + "\n")
     print(json.dumps({"output": str(args.output), "works": len(counts),
-                      "chunks": len(texts), "warnings": len(caught)}))
+                      "chunks": len(texts), "warnings": len(caught)}, allow_nan=False))
 
 
 if __name__ == "__main__":

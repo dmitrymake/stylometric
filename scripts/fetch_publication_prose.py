@@ -287,7 +287,7 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     receipt_path = args.output / "reconstruction_receipt.json"
     receipt_path.write_text(json.dumps({"manifest_sha256": digest(args.manifest.read_bytes()),
-                                        "works": receipts}, ensure_ascii=False, indent=2) + "\n",
+                                        "works": receipts}, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
                             encoding="utf-8")
     print(f"Verified {len(works)} digital witnesses")
     rendering_changes = sum(not page["rendering_matches_acquired"] for row in receipts for page in row["pages"])
@@ -295,7 +295,7 @@ def main() -> None:
     if args.audit_historical_manifest:
         audit = audit_content(manifest, args.output / "texts", args.audit_historical_manifest)
         (args.output / "content_overlap_audit.json").write_text(
-            json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            json.dumps(audit, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
         print(f"Content audit: {audit['within_panel']['n_pairs']} panel pairs, "
               f"{audit['locked_vs_historical']['n_pairs']} historical pairs; "
               f"{len(audit['within_panel']['flags']) + len(audit['locked_vs_historical']['flags'])} flags")

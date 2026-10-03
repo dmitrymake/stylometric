@@ -332,6 +332,24 @@
           "tests/test_topic_summary.py::test_pairs_keep_losses_and_wrong_prediction_changes",
           "tests/test_topic_summary.py::test_modified_manifest_fails_self_hash_before_reduction"
         ]
+      },
+      {
+        "path": "scripts/evaluation/run_publication_comparison.py",
+        "status": "bounded_exploratory",
+        "claim_scope": "Fixed-parameter reconstructed digital-witness pilot; whole-work development and locked known-author test.",
+        "output_contract": "Aggregate metrics only; local output selected explicitly.",
+        "required_nodeids": [
+          "tests/test_publication_comparison.py::test_every_development_and_locked_fit_excludes_all_locked_works"
+        ]
+      },
+      {
+        "path": "scripts/evaluation/run_publication_length_check.py",
+        "status": "bounded_exploratory",
+        "claim_scope": "Post-hoc development-only initial-fragment sensitivity; no locked scoring.",
+        "output_contract": "Aggregate metrics only; local output selected explicitly.",
+        "required_nodeids": [
+          "tests/test_publication_comparison.py::test_length_check_reads_only_development_and_keeps_two_prefix_chunks"
+        ]
       }
     ]
   },

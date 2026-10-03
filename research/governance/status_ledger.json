@@ -138,7 +138,8 @@
       "comparison_sha256": "92bd5d2d6dea14ca7c8a17970fcc0735b2ed97f836d670cef3abda318862f81d",
       "sensitivity": "research/evidence/publication_comparison_v1/length_check.json",
       "sensitivity_sha256": "70abf7684f5d76e824f6f93cc32693e39a2d45d1885f6a48dbd9b599efddcee0",
-      "claim": "33 reconstructed digital witnesses, 22 development works and 11 locked new works of four contemporary author labels. Eight fixed arms and a separate post-hoc development-only initial-chunk check are reproducible. A4 has no observed advantage; source/edition, theme, unknown-author and historical-attribution transfer are not established."
+      "claim": "33 reconstructed digital witnesses, 22 development works and 11 locked new works of four contemporary author labels. Eight fixed arms and a separate post-hoc development-only initial-chunk check are reproducible. A4 has no observed advantage; source/edition, theme, unknown-author and historical-attribution transfer are not established.",
+      "source_commit": "45fd70d5d333e4c0e401898fcb2bd9100b885d79"
     }
   }
 }
