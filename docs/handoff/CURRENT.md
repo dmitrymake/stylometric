@@ -9,19 +9,31 @@
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
-## Active editorial/design task
+## Editorial/design task complete locally
 
-Owner authorisation on 2026-10-03: remove development history from reader-facing prose;
-Astra may substantially redesign rk, rk-example and the article, preserving logos. First show
-rk-example, then update Stylo, with 2–3 visual iterations. Journal-quality research is the
-scientific target; no particular journal has been selected. Task:
-`docs/tasks/2026-10-03-editorial-rk.md`.
+Owner requested an Astra redesign through rk-example, declarative reader prose, unchanged logos,
+and journal-quality research preparation. User feedback after example iteration1 was: make it more
+compact and enlarge text. Iteration2 implements body22/20px; the same kit drives the five Stylo chapters.
+Task: `docs/tasks/2026-10-03-editorial-rk.md`. No journal has been selected; external publication,
+push and actual manuscript submission were not performed.
 
-rk and rk-example have existing user WIP. Design copies and original-file hashes are in
-`/tmp/stylo-editorial-rk-jy6jx_7d/`; integrate only the task delta, checking originals before writes.
-Astra owns design; a Sol editor owns section prose until explicit freeze; the scientific agent
-owns `docs/research/publication-methods.md` and ignored exploratory analysis. Existing site preview
-runs locally at 127.0.0.1:4173. Publication and push remain outside the task.
+Source candidate `9ce9676`, reviewed text corrections `38ce624`/`87df3e9`, runner registry `c2d384a`.
+Full regression **1396 passed,8 skipped**; final site build/no-undef22/SSR5 and gates pass.
+A separate cold Astra reproduced paired_summary and verified layouts; its two findings are closed.
+Review: `research/local/reviews/astra-editorial-science-20261003.md`.
+
+Scientific additions: `research/evidence/topic_validity_lobo_v1/paired_summary.json`, reusable reducer,
+`docs/runbooks/publication-methods.md`, `docs/runbooks/manuscript.md`. Original benchmark source
+remains bb3760f and its aggregate unchanged. New numbers reduce saved predictions; no new fit.
+They do not establish topic independence or novel authorship. Journal submission still needs verified
+bibliographic corpus links, external controls, author details and journal-specific preparation.
+Working publication figure: `research/local/journal-figures-20261003/` (SVG/PDF and generator).
+
+rk and rk-example had user WIP. Eight reviewed files were applied after checking original hashes;
+other baseline source files and logos are unchanged. Originals build successfully. Baseline/receipt:
+`/tmp/stylo-editorial-rk-jy6jx_7d/{baseline,integration-receipt}.json`. Their uncommitted user work is preserved.
+Local live article: http://127.0.0.1:4174/ (session52478). Original rk-example:
+http://127.0.0.1:5180/ (session44269). These supersede the earlier static preview for design review.
 
 ## Product hardening complete locally
 
