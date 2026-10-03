@@ -1,0 +1,253 @@
+{
+  "schema": "stylo.reader-data.v1",
+  "chapter": "nikolai",
+  "title": "Дневник Николая II: данные сравнений",
+  "scope": "Aggregate values used by the chapter and its shared controls. The files do not contain corpus texts or establish authorship probabilities.",
+  "datasets": {
+    "nikolaiCrossreg": {
+      "controls": [
+        [
+          "Лев Толстой",
+          0.0599
+        ],
+        [
+          "Бунин",
+          0.142
+        ],
+        [
+          "Чехов",
+          0.082
+        ],
+        [
+          "Пушкин",
+          0.1132
+        ]
+      ],
+      "nikolas": 0.2502,
+      "z": 4.2,
+      "zAll": 2.78,
+      "alexander3": 0.1881,
+      "controlsMedian": 0.0976,
+      "nTokens": 2115
+    },
+    "nikolaiCase": {
+      "zWithRoyal": 2.64,
+      "insHetZ": -5.17,
+      "officialVal": 0.027,
+      "insBimodality": 0,
+      "insRemovalFrom": 0.267,
+      "insRemovalTo": 0.231,
+      "insRemovalFracPct": 70,
+      "insNormTo": 0.07,
+      "kamOverlap": 0.005,
+      "kamControl": 0,
+      "controlsN": 11,
+      "crAucAll": 0.644,
+      "crAucInvariant": 0.794,
+      "crossGenre": {
+        "docTop1": 0.885,
+        "chunkTop1": 0.58,
+        "diaryDocs": 10,
+        "diaryCorrect": 10,
+        "letterDocs": 16,
+        "letterCorrect": 13,
+        "candidates": 47,
+        "calibrationAcc": 0.74,
+        "calibrationAuthors": 5
+      }
+    },
+    "nikolaiCats": {
+      "share": 12.8,
+      "p": 0.41
+    },
+    "dynastyPanel": {
+      "permP": 0.0278,
+      "silhouette": 0.54,
+      "registerGap": 0.0854,
+      "reigning": [
+        "Николай II",
+        "Александр III"
+      ],
+      "grandDukes": [
+        "вел. кн. Андрей Владимирович",
+        "вел. кн. Константин Константинович (К. Р.)"
+      ],
+      "dukesWriterside": 2,
+      "dukesTotal": 2,
+      "rows": [
+        {
+          "name": "Николай II",
+          "group": "престольная линия",
+          "period": "император, 1904-1917",
+          "isRoyal": true,
+          "isThrone": true,
+          "dRoyal": 0.0695,
+          "dWriter": 0.138,
+          "closer": "монарх",
+          "axis": 0.335
+        },
+        {
+          "name": "Александр III",
+          "group": "престольная линия",
+          "period": "наследник, 1880",
+          "isRoyal": true,
+          "isThrone": true,
+          "dRoyal": 0.0695,
+          "dWriter": 0.1231,
+          "closer": "монарх",
+          "axis": 0.361
+        },
+        {
+          "name": "вел. кн. Андрей Владимирович",
+          "group": "великий князь",
+          "period": "вел. князь, 1914-1917",
+          "isRoyal": true,
+          "isThrone": false,
+          "dRoyal": 0.101,
+          "dWriter": 0.0165,
+          "closer": "писатель",
+          "axis": 0.86
+        },
+        {
+          "name": "вел. кн. Константин Константинович (К. Р.)",
+          "group": "великий князь",
+          "period": "вел. князь, 1877-1915",
+          "isRoyal": true,
+          "isThrone": false,
+          "dRoyal": 0.0796,
+          "dWriter": 0.0195,
+          "closer": "писатель",
+          "axis": 0.803
+        },
+        {
+          "name": "Л. Толстой",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.221,
+          "dWriter": 0.0746,
+          "closer": "писатель",
+          "axis": 0.748
+        },
+        {
+          "name": "Бунин",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.111,
+          "dWriter": 0.0606,
+          "closer": "писатель",
+          "axis": 0.647
+        },
+        {
+          "name": "Чехов",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.123,
+          "dWriter": 0.0193,
+          "closer": "писатель",
+          "axis": 0.864
+        },
+        {
+          "name": "Пушкин",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.1458,
+          "dWriter": 0.0277,
+          "closer": "писатель",
+          "axis": 0.84
+        },
+        {
+          "name": "Суворин",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.1743,
+          "dWriter": 0.0203,
+          "closer": "писатель",
+          "axis": 0.896
+        },
+        {
+          "name": "Валуев",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.1064,
+          "dWriter": 0.0267,
+          "closer": "писатель",
+          "axis": 0.799
+        },
+        {
+          "name": "Куропаткин",
+          "group": "писатель",
+          "period": "",
+          "isRoyal": false,
+          "isThrone": false,
+          "dRoyal": 0.093,
+          "dWriter": 0.0517,
+          "closer": "писатель",
+          "axis": 0.643
+        }
+      ]
+    },
+    "scribe": {
+      "selfMin": 0.0029,
+      "selfMax": 0.0246,
+      "selfMedian": 0.0123,
+      "dMonarchs": 0.0695,
+      "betweenWritersMedian": 0.0683,
+      "ratioToSelf": 5.7,
+      "oneHandRejected": true
+    },
+    "accession": {
+      "dPrePost": 0.0411,
+      "baseline": 0.0176,
+      "diffAuthorRef": 0.0683,
+      "ratioBaseline": 2.34,
+      "ratioDiffAuthor": 0.6,
+      "dPostLate": 0.0183,
+      "dPreLate": 0.0378,
+      "classification": "сдвиг регистра при той же руке",
+      "tokensPre": 9479,
+      "tokensPost": 9955
+    }
+  },
+  "sources": [
+    {
+      "path": "docs/crossgenre_recall.json",
+      "sha256": "1549029fcded6859d33392febfec9330463850902dbb8e971d0e0dabbd40a0da"
+    },
+    {
+      "path": "docs/nikolai_accession.json",
+      "sha256": "7f14cccae18179bcb4055a735748e9133ab00f78eca731ee6f3996868d160001"
+    },
+    {
+      "path": "docs/nikolai_cats.json",
+      "sha256": "07571f7ec6dbd2be2fe709e598e6ace2c7fd203ced3be791182469cedf080ca5"
+    },
+    {
+      "path": "docs/nikolai_crossreg.json",
+      "sha256": "5c8c390fb2348d10da71a2477db63051fae9e8bd41e1405c9fa5e688780dec4b"
+    },
+    {
+      "path": "docs/nikolai_scribe.json",
+      "sha256": "6daf2dec4e329499fb907c28341e598a6d938b4259cb9f73a77a0c8327c396dd"
+    },
+    {
+      "path": "docs/nikolas2_authorship.json",
+      "sha256": "de49aafc811260ec8a39c772850efaa114908c3c6b93a8d7b2b28ece793f6c85"
+    },
+    {
+      "path": "docs/royal_register.json",
+      "sha256": "38e275c454c896ef4c8e4267139ca7ea4049052852ea62a3e4e80a47e198b885"
+    }
+  ]
+}

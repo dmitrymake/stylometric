@@ -1251,6 +1251,22 @@ const repro = {
 track("repro", ["docs/repro_gates.json"], "перепрогон gate-кейсов бит-в-бит + самый долгий gate");
 
 const data = { corpus, headline, models, channels, authorRecall, confusions, segment, loboStrict, ccat50, disputed, tomsk, benchPd, sholokhovThematic, ilfHeterogeneity, dynastyPanel, scribe, accession, sholokhovManuscript, nikolaiCrossreg, consistency, prozaBench, multihands, ilfPetrov, cases, rigor, nikolaiCase, nikolaiCats, limits, tarasCase, repro, measurement };
+// Reader downloads contain only the aggregates already selected for the site.
+// Raw report files and corpus texts are never copied into public/.
+const caseDefinitions = {
+  sholokhov: { title: "«Тихий Дон»: данные графиков и контрольных сравнений", keys: ["sholokhovThematic", "sholokhovManuscript", "consistency", "multihands", "cases", "rigor"] },
+  ilfpetrov: { title: "«12 стульев»: данные графиков и контрольных сравнений", keys: ["ilfPetrov", "ilfHeterogeneity", "cases", "rigor"] },
+  nikolai: { title: "Дневник Николая II: данные сравнений", keys: ["nikolaiCrossreg", "nikolaiCase", "nikolaiCats", "dynastyPanel", "scribe", "accession"] },
+  hohol: { title: "«Тарас Бульба»: данные сравнений и контрольные суммы", keys: ["tarasCase"] },
+  controls: { title: "Контрольные панели: показатели и условия сравнения", keys: ["limits"] },
+};
+data.caseDownloads = Object.fromEntries(Object.entries(caseDefinitions).map(([id, { title, keys }]) => [id, {
+  title, publicArtifact: `evidence/${id}.json`, keys,
+}]));
+const caseSourcePaths = (keys) => [...new Set(manifest.filter((entry) => keys.includes(entry.key.split(".")[0]))
+  .flatMap((entry) => entry.sources))].sort();
+track("caseDownloads", caseSourcePaths([...new Set(Object.values(caseDefinitions).flatMap(({ keys }) => keys))]),
+  "downloadable chapter aggregates and shared controls; no corpus texts");
 const holes = [];
 (function scan(o, path) {
   if (o === null || o === undefined) { holes.push(path); return; } // undefined ловим ДО JSON.stringify (он молча выкидывает ключ)
@@ -1315,6 +1331,19 @@ const measurementBytes = readFileSync(join(ROOT, measurement.source));
 writeFileSync(measurementPublicPath, measurementBytes);
 const pairedBytes = readFileSync(join(ROOT, pairedSource));
 writeFileSync(join(ROOT, "site", "public", measurement.pairedAnalysis.publicArtifact), pairedBytes);
+const caseOutputs = Object.entries(data.caseDownloads).map(([chapter, descriptor]) => {
+  const payload = {
+    schema: "stylo.reader-data.v1", chapter, title: descriptor.title,
+    scope: "Aggregate values used by the chapter and its shared controls. The files do not contain corpus texts or establish authorship probabilities.",
+    datasets: Object.fromEntries(descriptor.keys.map((key) => [key, data[key]])),
+    sources: caseSourcePaths(descriptor.keys).map((path) => ({ path, sha256: sha256(readFileSync(join(ROOT, path))) })),
+  };
+  const bytes = Buffer.from(JSON.stringify(payload, null, 2) + "\n", "utf-8");
+  const path = `site/public/${descriptor.publicArtifact}`;
+  mkdirSync(dirname(join(ROOT, path)), { recursive: true });
+  writeFileSync(join(ROOT, path), bytes);
+  return { path, sha256: sha256(bytes) };
+});
 const generatorPath = "scripts/gen-site-data.mjs";
 const provenance = {
   schema: PROVENANCE_SCHEMA,
@@ -1335,7 +1364,7 @@ const provenance = {
   }, {
     path: `site/public/${measurement.pairedAnalysis.publicArtifact}`,
     sha256: sha256(pairedBytes),
-  }],
+  }, ...caseOutputs],
   entries: manifest,
 };
 writeFileSync(join(OUT, "manifest.json"), JSON.stringify(provenance, null, 2) + "\n", "utf-8");

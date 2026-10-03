@@ -117,7 +117,7 @@ function ResultCard({ row, title, accent = "var(--icon-blue)" }) {
     <EditorialPanel>
       <div style={{ display: "grid", gap: 13 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-          <h4 style={{ margin: 0, color: "var(--text)" }}>{title}</h4>
+          <h3 style={{ margin: 0, color: "var(--text)" }}>{title}</h3>
           <Badge tone={STATUS_TONE[row.status] || "warning"}>{statusText(row.status)}</Badge>
         </div>
         <div className="grid cols-3" style={{ gap: 10 }}>
@@ -192,7 +192,7 @@ export default function Taras() {
 
 
           <div className="module reveal">
-            <h3 id="hohol-section-1">Что именно сравниваем</h3>
+            <h2 id="hohol-section-1">Что именно сравниваем</h2>
             <p className="prose muted" style={{ maxWidth: "76ch" }}>
               Обе редакции взяты из академического издания. Алгоритм выделяет
               предложения, появившиеся в 1842 году и почти отсутствующие в версии
@@ -204,7 +204,7 @@ export default function Taras() {
           </div>
 
           <div className="module reveal">
-            <h3 id="hohol-section-2">Проверка профилей с равным весом произведений</h3>
+            <h2 id="hohol-section-2">Проверка профилей с равным весом произведений</h2>
             <p className="prose muted" style={{ maxWidth: "76ch" }}>
               Для каждого произведения строится отдельный профиль; профиль автора
               усредняет произведения с равным весом. При сравнении ближайших профилей
@@ -218,10 +218,10 @@ export default function Taras() {
           </div>
 
           <div className="module reveal">
-            <h3 id="hohol-section-3">Парные сравнения: Гоголь, Анненков и Сомов</h3>
+            <h2 id="hohol-section-3">Парные сравнения: Гоголь, Анненков и Сомов</h2>
             <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
               <EditorialPanel>
-                <h4 style={{ color: "var(--text)" }}>Гоголь против Анненкова</h4>
+                <h3 style={{ color: "var(--text)" }}>Гоголь против Анненкова</h3>
                 <p className="prose muted">
                   Контрольные тексты различаются надёжно ({fmtScore(PA.annenkovBinary.work_macro_recall, 3)}).
                   Добавления ближе к {nmDat(PA.annenkovBinary.top)}: туда уходят{" "}
@@ -229,7 +229,7 @@ export default function Taras() {
                 </p>
               </EditorialPanel>
               <EditorialPanel>
-                <h4 style={{ color: "var(--text)" }}>Гоголь против Сомова</h4>
+                <h3 style={{ color: "var(--text)" }}>Гоголь против Сомова</h3>
                 <p className="prose muted">
                   Эта пара тоже хорошо различается ({fmtScore(PA.somovBinary.work_macro_recall, 3)}),
                   но добавления ближе к {nmDat(PA.somovBinary.top)}:{" "}
@@ -245,7 +245,7 @@ export default function Taras() {
           </div>
 
           <div className="module reveal">
-            <h3 id="hohol-section-4">Состав кандидатов и набор признаков</h3>
+            <h2 id="hohol-section-4">Состав кандидатов и набор признаков</h2>
             <p className="verdict">
               Данные возражают против простой версии «всё написал Анненков», но не
               дают устойчивого выбора между Гоголем, Сомовым и другими авторами эпохи.
@@ -258,13 +258,12 @@ export default function Taras() {
           </div>
 
           <Sources
+            artifact="hohol"
             items={[
-              { cite: "Сравнение с равным весом книг: 16 проверок по 2000 перестановок", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/README.md" },
-              { cite: "Проверка методом Delta с равным весом книг", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json" },
               { cite: "«Тарас Бульба», редакция 1835 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm" },
               { cite: "«Тарас Бульба», редакция 1842 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm" },
             ]}
-            note="Каждая книга получает одинаковый вес. Эти панели используют собственный корпус прозы XIX века и не входят в проверку на 248 произведениях."
+            note="В данных главы — сравнения с равным весом книг, 16 проверок по 2000 перестановок, показатели Delta и контрольные суммы. Эти панели используют собственный корпус прозы XIX века."
           />
         </div>
       </section>
@@ -308,7 +307,7 @@ export default function Taras() {
 
           {/* 1. Сам текст добавлений */}
         <div className="module reveal">
-          <h3 id="hohol-section-5">Что именно дописали</h3>
+          <h2 id="hohol-section-5">Что именно дописали</h2>
           <p className="prose muted" style={{ maxWidth: "72ch" }}>
             Обе редакции взяты целиком из академического издания (ФЭБ, изд. АН СССР):
             редакция 1842 года — {fmtInt(E.edition1842Words)} {ruWords(E.edition1842Words)}, редакция 1835-го —{" "}
@@ -326,7 +325,7 @@ export default function Taras() {
 
         {/* 2. Главный подозреваемый */}
         <div className="module reveal">
-          <h3 id="hohol-section-6">Проверка №1 · Сравнение с Анненковым</h3>
+          <h2 id="hohol-section-6">Проверка №1 · Сравнение с Анненковым</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Анненков переписывал гоголевские рукописи римского периода. Подозрение простое: в добавления
             «Тараса Бульбы» он вписал уже своё. Его
@@ -348,7 +347,7 @@ export default function Taras() {
 
         {/* 3. Контроль честности */}
         <div className="module reveal">
-          <h3 id="hohol-section-7">Проверка №2 · Ответы на контрольных произведениях</h3>
+          <h2 id="hohol-section-7">Проверка №2 · Ответы на контрольных произведениях</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Честное возражение: инструмент выбирает Гоголя для любого текста?
             Проверяем на четырёх задачах с заранее известными ответами: прячем от эталона по одной
@@ -365,7 +364,7 @@ export default function Taras() {
 
         {/* 4. Панель эпохи */}
         <div className="module reveal">
-          <h3 id="hohol-section-8">Проверка №3 · Так писала вся эпоха?</h3>
+          <h2 id="hohol-section-8">Проверка №3 · Так писала вся эпоха?</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Расширяем круг: Пушкин, Соллогуб, Анненков, Гребёнка — проза тех же 1830–40-х. Если
             добавления написаны «просто языком эпохи», на широкой панели они расползутся между
@@ -383,7 +382,7 @@ export default function Taras() {
 
         {/* 5. Панель, которая показала не туда */}
         <div className="module reveal">
-          <h3 id="hohol-section-9">Почему всплыл Сомов</h3>
+          <h2 id="hohol-section-9">Почему всплыл Сомов</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             На панели из казачьей и украинской прозы
             (Орест Сомов, Нарежный, Гребёнка) добавления потянулись к Сомову — с очень маленьким
@@ -407,7 +406,7 @@ export default function Taras() {
 
         {/* 6. Второй подозреваемый */}
         <div className="module reveal">
-          <h3 id="hohol-section-10">Прокопович: ограничение эталонных текстов</h3>
+          <h2 id="hohol-section-10">Прокопович: ограничение эталонных текстов</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Редактора издания 1842 года напрямую проверить не выйдет: своей прозы Прокопович почти
             не оставил (стихи и пара писем). Это честное ограничение. Его письма 1843 года сравниваются с Гоголем и Анненковым. Фрагмент один и короткий — поэтому
@@ -427,7 +426,7 @@ export default function Taras() {
 
         {/* 7. Речь о товариществе */}
         <div className="module reveal">
-          <h3 id="hohol-section-11">Речь о товариществе</h3>
+          <h2 id="hohol-section-11">Речь о товариществе</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Самый цитируемый фрагмент добавлений — речь Тараса о товариществе — выносим отдельной
             целью: именно его чаще всего называют «идеологической вставкой». Но фрагмент короткий
@@ -446,7 +445,7 @@ export default function Taras() {
 
         {/* 8. Панель-неудача */}
         <div className="module reveal">
-          <h3 id="hohol-section-12">Панель поздних классиков</h3>
+          <h2 id="hohol-section-12">Панель поздних классиков</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Стресс-панель с Толстым, Лесковым и Салтыковым-Щедриным (авторы более поздней эпохи) не
             берёт порог надёжности, поэтому её результаты не читаем — показываем как есть. Панель,
@@ -460,7 +459,7 @@ export default function Taras() {
 
         {/* 9. Итог */}
         <div className="module reveal">
-          <h3 id="hohol-section-13">Итог</h3>
+          <h2 id="hohol-section-13">Итог</h2>
           <p className="verdict">
             {TARAS.claim} Речь о <strong style={{ color: "var(--text)" }}>больших
             добавленных пассажах</strong> — точечную редакторскую правку, замену отдельных слов и
@@ -470,6 +469,7 @@ export default function Taras() {
         </div>
 
         <Sources
+          artifact="hohol"
           items={[
             { cite: "«Тарас Бульба», редакция 1835 года — ФЭБ, издание АН СССР", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm" },
             { cite: "«Тарас Бульба», редакция 1842 года — ФЭБ, издание АН СССР", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm" },
@@ -477,8 +477,6 @@ export default function Taras() {
             { cite: "Проза Сомова — az.lib.ru", url: "http://az.lib.ru/s/somow_o_m/" },
             { cite: "Проза Нарежного — az.lib.ru", url: "http://az.lib.ru/n/narezhnyj_w/" },
             { cite: "Проза Гребёнки — az.lib.ru", url: "http://az.lib.ru/g/grebenka_e_p/" },
-            { cite: `Контрольные суммы наборов: строгий ${sha(TARAS.manifest.strictSha)}, широкий ${sha(TARAS.manifest.looseSha)}` },
-            { cite: "Описание кейса, протокол и машинные артефакты", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/taras_hardened/README.md" },
           ]}
           note="Сами тексты в репозиторий не входят — публикуются контрольные суммы и результаты проверок."
         />

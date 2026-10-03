@@ -2,7 +2,7 @@
   "schema": "stylo.site_generation_provenance.v2",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "113ebc163bb43e5e2bbbb69203c3f1025903f0fdb3c7b6761fb68e983dbac15f"
+    "sha256": "d626d61cde24cca72b3d10fa78a95896bea154d5cc60e910f6623232ac4f7f20"
   },
   "sources": [
     {
@@ -397,7 +397,7 @@
   "outputs": [
     {
       "path": "site/src/generated/site-data.json",
-      "sha256": "bded3778b77c388071a91c779b1e500496ada36a069bf859e6ed22c412b861f9"
+      "sha256": "218c4d69c12b27cc4d8dd233254c910c70e24c547b6221d2eaf283ef039aeb3e"
     },
     {
       "path": "site/public/measurement/topic-validity-aggregate.json",
@@ -406,6 +406,26 @@
     {
       "path": "site/public/measurement/topic-validity-paired-summary.json",
       "sha256": "8857e364375d021d7613815c77bbdd1a9e82df2462ecc839bced8503c6c7755b"
+    },
+    {
+      "path": "site/public/evidence/sholokhov.json",
+      "sha256": "3cfdb27b0d82c8e01c46e9a455d435087652ae022b42dcd4b9d130fba99fd124"
+    },
+    {
+      "path": "site/public/evidence/ilfpetrov.json",
+      "sha256": "12a6d816546c4499ce98d858eab0aa429b1abad6d6cbd9b7747345243dd0f0e3"
+    },
+    {
+      "path": "site/public/evidence/nikolai.json",
+      "sha256": "628e98c6881af1855f6cf538c35c1c7b1651c8d8ce1f9ba08983fee40f9d6813"
+    },
+    {
+      "path": "site/public/evidence/hohol.json",
+      "sha256": "36a445a0573e9133abcae8594e5d61070d56b0af97d7dfe8d1ce9d37ed8861ea"
+    },
+    {
+      "path": "site/public/evidence/controls.json",
+      "sha256": "6ce148117ce6a70ea09b1723d5aa7f6a84b1646d89581f6282a5a93d40c7af09"
     }
   ],
   "entries": [
@@ -721,6 +741,89 @@
         "docs/repro_gates.json"
       ],
       "note": "перепрогон gate-кейсов бит-в-бит + самый долгий gate"
+    },
+    {
+      "key": "caseDownloads",
+      "sources": [
+        "docs/attrib_downsample.json",
+        "docs/audit_genre_crossauthor.json",
+        "docs/cases/calibration_reference.json",
+        "docs/cases/chekhonte_15_micro.json",
+        "docs/cases/dostoevsky_petersburg_chronicle.json",
+        "docs/cases/kolokol_herzen_ogaryov.json",
+        "docs/cases/nekrasov_panaeva.json",
+        "docs/cases/nekrasov_panaeva_chapters.json",
+        "docs/cases/sovremennik.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_extended_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_sameperiod_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_suspects_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_annenkov_binary_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_extended_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_sameperiod_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_somov_binary_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_suspects_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_topic_cossack_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_topic_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_shinel_holdout_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json",
+        "docs/cases/taras_hardened/reports/delta_replication.json",
+        "docs/cases/taras_hardened/reports/extraction_audit.json",
+        "docs/cases/taras_hardened/target_manifest.json",
+        "docs/cases/work_balanced_audit/custom/kolokol_herzen_ogaryov.work_balanced.json",
+        "docs/cases/work_balanced_audit/custom/nekrasov_panaeva.work_balanced.json",
+        "docs/cases/work_balanced_audit/custom/sovremennik.work_balanced.json",
+        "docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json",
+        "docs/cases/work_balanced_audit/summary.json",
+        "docs/cases_attribution.json",
+        "docs/clean_attribution.json",
+        "docs/consistency.json",
+        "docs/crossgenre_recall.json",
+        "docs/disputed_ilfpetrov.json",
+        "docs/dsp_attribution.json",
+        "docs/embedding_robustness.json",
+        "docs/feature_audit2.json",
+        "docs/genre_matched_lr.json",
+        "docs/grin_control.json",
+        "docs/hidden_positive.json",
+        "docs/hyp_tests.json",
+        "docs/hyp_tests2.json",
+        "docs/ilf_vs_petrov.json",
+        "docs/ilfpetrov_heterogeneity.json",
+        "docs/ilfpetrov_timeline.json",
+        "docs/more_cases.json",
+        "docs/multiple_hands.json",
+        "docs/nikolai_accession.json",
+        "docs/nikolai_cats.json",
+        "docs/nikolai_crossreg.json",
+        "docs/nikolai_scribe.json",
+        "docs/nikolas2_authorship.json",
+        "docs/royal_register.json",
+        "docs/sholokhov_homogeneity.json",
+        "docs/sholokhov_lobo.json",
+        "docs/sholokhov_manuscript.json",
+        "docs/sholokhov_multihand.json",
+        "docs/sholokhov_openset.json",
+        "docs/sholokhov_rigor10.json",
+        "docs/sholokhov_rigor11.json",
+        "docs/sholokhov_rigor12.json",
+        "docs/sholokhov_rigor3.json",
+        "docs/sholokhov_rigor5.json",
+        "docs/sholokhov_rigor6.json",
+        "docs/sholokhov_rigor7.json",
+        "docs/sholokhov_rigor8.json",
+        "docs/sholokhov_rigor9.json",
+        "docs/sholokhov_thematic.json",
+        "docs/sholokhov_verify.json",
+        "docs/td_candidates.json"
+      ],
+      "note": "downloadable chapter aggregates and shared controls; no corpus texts"
     }
   ]
 }

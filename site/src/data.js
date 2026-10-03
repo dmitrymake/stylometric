@@ -9,6 +9,7 @@ import { CORPUS } from "./corpus.js";
 
 // Completed whole-work measurement; historical HEADLINE remains unchanged below.
 export const MEASUREMENT = D.measurement;
+export const CASE_DOWNLOADS = D.caseDownloads;
 
 const REQUIRED_HISTORICAL_CLAIM_STATUS = "exploratory_internal";
 if (D.headline.claimStatus !== REQUIRED_HISTORICAL_CLAIM_STATUS) {
@@ -193,7 +194,7 @@ export const TOMSK = {
   data: {
     repo: "github.com/afedotowaa/authorship_attribution",
     repoUrl: "https://github.com/afedotowaa/authorship_attribution",
-    note: "Открыты ноутбуки (SVM+GA, BERT, fastText) и демо-корпус (300 авторов, лит.); классика бралась с lib.ru — моего же источника. Полный корпус статьи — по запросу у авторов.",
+    note: "Открыты ноутбуки (SVM+GA, BERT, fastText) и демонстрационный корпус (300 авторов художественных текстов); классическая проза взята с lib.ru. Полный корпус статьи доступен по запросу у её авторов.",
   },
   // Честный book-grouped пересчёт на ИХ открытых данных и признаках — docs/tomsk_full.json.
   headToHead: {

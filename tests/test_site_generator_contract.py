@@ -215,3 +215,34 @@ def test_paired_provenance_rejects_forged_macro_recall_with_updated_output_hash(
                              '--root', str(tmp_path), '--skip-tracked'], text=True, capture_output=True)
     assert result.returncode != 0
     assert 'paired analysis differs from source metrics/transitions' in result.stderr
+
+
+def test_reader_downloads_contain_the_displayed_aggregates_and_bind_sources():
+    data = json.loads((ROOT / 'site/src/generated/site-data.json').read_text())
+    registry = json.loads((ROOT / 'site/src/generated/manifest.json').read_text())
+    bound_sources = {row['path']: row['sha256'] for row in registry['sources']}
+    assert set(data['caseDownloads']) == {'sholokhov', 'ilfpetrov', 'nikolai', 'hohol', 'controls'}
+    for chapter, descriptor in data['caseDownloads'].items():
+        payload = json.loads((ROOT / 'site/public' / descriptor['publicArtifact']).read_text())
+        assert payload['schema'] == 'stylo.reader-data.v1'
+        assert payload['chapter'] == chapter
+        assert payload['datasets'] == {key: data[key] for key in descriptor['keys']}
+        assert payload['sources']
+        assert all(bound_sources[row['path']] == row['sha256'] for row in payload['sources'])
+
+
+def test_provenance_rejects_forged_reader_download_with_updated_file_digest(tmp_path):
+    import hashlib
+
+    registry = _copy_site_provenance_tree(tmp_path)
+    relative = 'site/public/evidence/controls.json'
+    path = tmp_path / relative
+    payload = json.loads(path.read_text())
+    payload['datasets']['limits']['threshold'] = 0.99
+    path.write_text(json.dumps(payload))
+    next(row for row in registry['outputs'] if row['path'] == relative)['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (tmp_path / 'site/src/generated/manifest.json').write_text(json.dumps(registry))
+    result = subprocess.run(['node', str(tmp_path / 'scripts/check-provenance.mjs'),
+                             '--root', str(tmp_path), '--skip-tracked'], text=True, capture_output=True)
+    assert result.returncode != 0
+    assert 'reader download differs from displayed chapter data' in result.stderr

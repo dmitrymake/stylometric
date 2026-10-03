@@ -213,7 +213,7 @@ export const NIKOLAI = {
   refs: [
     { cite: "Автограф дневника, запись 19.02.1896 о смерти П. А. Черевина — Wikimedia Commons, PD", url: "https://commons.wikimedia.org/wiki/File:%D0%94%D0%BD%D0%B5%D0%B2%D0%BD%D0%B8%D0%BA_%D0%B8%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D0%BE%D1%80%D0%B0_%D0%9D%D0%B8%D0%BA%D0%BE%D0%BB%D0%B0%D1%8F_II_%D0%B7%D0%B0_1895-1896_%D0%B3%D0%B3..jpg" },
     { cite: "Сканы дневника Николая II — Wikimedia Commons (категория, PD)", url: "https://commons.wikimedia.org/wiki/Category:Diary_of_Nicholas_II" },
-    { cite: "Дневники императора Николая II (1894–1918) / отв. ред. С. В. Мироненко. РОССПЭН, 2011–2013 — ГАРФ", url: "https://statearchive.ru/1632" },
+    { cite: "Дневники императора Николая II. Том II, часть 2: 1914–1918 — карточка издания в ГАРФ", url: "https://statearchive.ru/1632" },
     { cite: "Дневники Николая II (выборка, Берлин: «Слово», 1923) — militera.lib.ru", url: "http://militera.lib.ru/db/nikolay-2_02/index.html" },
     { cite: "Дневник Николая II — проект «Прожито» (точка входа, PD)", url: "https://corpus.prozhito.org/person/165" },
     { cite: "Военный дневник вел. кн. Андрея Владимировича (1914–1917), ГАРФ — militera.lib.ru (для панели жанрового регистра)", url: "http://militera.lib.ru/db/romanov_av/index.html" },

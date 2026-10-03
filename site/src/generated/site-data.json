@@ -9305,5 +9305,55 @@
         }
       ]
     }
+  },
+  "caseDownloads": {
+    "sholokhov": {
+      "title": "«Тихий Дон»: данные графиков и контрольных сравнений",
+      "publicArtifact": "evidence/sholokhov.json",
+      "keys": [
+        "sholokhovThematic",
+        "sholokhovManuscript",
+        "consistency",
+        "multihands",
+        "cases",
+        "rigor"
+      ]
+    },
+    "ilfpetrov": {
+      "title": "«12 стульев»: данные графиков и контрольных сравнений",
+      "publicArtifact": "evidence/ilfpetrov.json",
+      "keys": [
+        "ilfPetrov",
+        "ilfHeterogeneity",
+        "cases",
+        "rigor"
+      ]
+    },
+    "nikolai": {
+      "title": "Дневник Николая II: данные сравнений",
+      "publicArtifact": "evidence/nikolai.json",
+      "keys": [
+        "nikolaiCrossreg",
+        "nikolaiCase",
+        "nikolaiCats",
+        "dynastyPanel",
+        "scribe",
+        "accession"
+      ]
+    },
+    "hohol": {
+      "title": "«Тарас Бульба»: данные сравнений и контрольные суммы",
+      "publicArtifact": "evidence/hohol.json",
+      "keys": [
+        "tarasCase"
+      ]
+    },
+    "controls": {
+      "title": "Контрольные панели: показатели и условия сравнения",
+      "publicArtifact": "evidence/controls.json",
+      "keys": [
+        "limits"
+      ]
+    }
   }
 }

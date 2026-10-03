@@ -1,0 +1,1450 @@
+{
+  "schema": "stylo.reader-data.v1",
+  "chapter": "hohol",
+  "title": "«Тарас Бульба»: данные сравнений и контрольные суммы",
+  "scope": "Aggregate values used by the chapter and its shared controls. The files do not contain corpus texts or establish authorship probabilities.",
+  "datasets": {
+    "tarasCase": {
+      "hypothesis": "Large 1842 additions to Taras Bulba were written by a non-Gogol editorial hand.",
+      "claim": "После work-balanced аудита уникальная рука крупных добавлений не установлена: multi-candidate панели не проходят gate, а валидные бинарные панели и Delta-режимы меняют направление вместе с составом кандидатов и признаков.",
+      "headline": [
+        {
+          "id": "taras_bulba_additions_strict_suspects_v2_fw_2000",
+          "title": "Taras Bulba 1842 strict additions vs suspects v2 (без Пушкина): fw_fixed random_2000",
+          "target": "strict additions vs suspects v2",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 90.19,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.875, margin=0.031875).",
+          "claim": "Панель с фактическим подозреваемым (Анненков), очищенная от регистровой коллизии Пушкина.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8625,
+          "chunkRecall": 0.7146,
+          "p": 0.0005,
+          "works": 37,
+          "chunks": 16,
+          "targetChunks": 16,
+          "top": "gogol",
+          "second": "annenkov_1840s",
+          "margin": 0.031875,
+          "ci": [
+            0.021665,
+            0.034852
+          ],
+          "winnerShare": {
+            "gogol": 0.875,
+            "annenkov_1840s": 0.125
+          },
+          "perChunk": {
+            "gogol": 14,
+            "annenkov_1840s": 2
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "dostoevsky": 10,
+            "gogol": 10,
+            "turgenev": 12
+          }
+        },
+        {
+          "id": "taras_bulba_additions_loose_suspects_v2_fw_2000",
+          "title": "Taras Bulba 1842 loose additions vs suspects v2 (без Пушкина): fw_fixed random_2000",
+          "target": "loose additions vs suspects v2",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 89.87,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.824, margin=0.030295).",
+          "claim": "Панель с фактическим подозреваемым (Анненков), очищенная от регистровой коллизии Пушкина.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8625,
+          "chunkRecall": 0.7146,
+          "p": 0.0005,
+          "works": 37,
+          "chunks": 17,
+          "targetChunks": 17,
+          "top": "gogol",
+          "second": "annenkov_1840s",
+          "margin": 0.030295,
+          "ci": [
+            0.016838,
+            0.034781
+          ],
+          "winnerShare": {
+            "gogol": 0.824,
+            "annenkov_1840s": 0.176
+          },
+          "perChunk": {
+            "gogol": 14,
+            "annenkov_1840s": 3
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "dostoevsky": 10,
+            "gogol": 10,
+            "turgenev": 12
+          }
+        }
+      ],
+      "basePanel": [
+        {
+          "id": "taras_bulba_additions_strict_fw_2000",
+          "title": "Taras Bulba 1842 strict additions: fw_fixed hardened random_2000",
+          "target": "strict additions",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 88.39,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.875, margin=0.022902).",
+          "claim": "In this protocol, the large strict 1842 additions are stylistically closest to Gogol; the non-Gogol large-additions hypothesis is not supported.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8625,
+          "chunkRecall": 0.6319,
+          "p": 0.0005,
+          "works": 38,
+          "chunks": 16,
+          "targetChunks": 16,
+          "top": "gogol",
+          "second": "pushkin",
+          "margin": 0.022902,
+          "ci": [
+            0.014007,
+            0.029963
+          ],
+          "winnerShare": {
+            "gogol": 0.875,
+            "pushkin": 0.125
+          },
+          "perChunk": {
+            "gogol": 14,
+            "pushkin": 2
+          },
+          "worksPerAuthor": {
+            "dostoevsky": 10,
+            "gogol": 10,
+            "pushkin": 6,
+            "turgenev": 12
+          }
+        },
+        {
+          "id": "taras_bulba_additions_loose_fw_2000",
+          "title": "Taras Bulba 1842 loose additions: fw_fixed hardened random_2000",
+          "target": "loose additions",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 88.31,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.882, margin=0.022471).",
+          "claim": "In this protocol, the large loose 1842 additions are stylistically closest to Gogol; the non-Gogol large-additions hypothesis is not supported.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8625,
+          "chunkRecall": 0.6319,
+          "p": 0.0005,
+          "works": 38,
+          "chunks": 17,
+          "targetChunks": 17,
+          "top": "gogol",
+          "second": "pushkin",
+          "margin": 0.022471,
+          "ci": [
+            0.012841,
+            0.030624
+          ],
+          "winnerShare": {
+            "gogol": 0.882,
+            "pushkin": 0.118
+          },
+          "perChunk": {
+            "gogol": 15,
+            "pushkin": 2
+          },
+          "worksPerAuthor": {
+            "dostoevsky": 10,
+            "gogol": 10,
+            "pushkin": 6,
+            "turgenev": 12
+          }
+        }
+      ],
+      "annenkovBinary": {
+        "id": "taras_bulba_additions_strict_annenkov_binary_fw_2000",
+        "title": "Taras Bulba 1842 strict additions, Gogol vs Annenkov binary: fw_fixed random_2000",
+        "target": "strict additions, binary Gogol vs Annenkov",
+        "status": "moderate",
+        "confidence": "medium",
+        "score": 96.37,
+        "gatePass": true,
+        "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.875, margin=0.031875).",
+        "claim": "Direct binary comparison against the main documented suspect.",
+        "limitations": [
+          "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+          "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+        ],
+        "failureModes": [],
+        "gate": 1,
+        "chunkRecall": 0.9406,
+        "p": 0.0005,
+        "works": 15,
+        "chunks": 16,
+        "targetChunks": 16,
+        "top": "gogol",
+        "second": "annenkov_1840s",
+        "margin": 0.031875,
+        "ci": [
+          0.021665,
+          0.042208
+        ],
+        "winnerShare": {
+          "gogol": 0.875,
+          "annenkov_1840s": 0.125
+        },
+        "perChunk": {
+          "gogol": 14,
+          "annenkov_1840s": 2
+        },
+        "worksPerAuthor": {
+          "annenkov_1840s": 5,
+          "gogol": 10
+        }
+      },
+      "samePeriod": [
+        {
+          "id": "taras_bulba_additions_strict_sameperiod_fw_2000",
+          "title": "Taras Bulba 1842 strict additions vs same-period panel: fw_fixed random_2000",
+          "target": "strict additions vs same-period panel",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 84.84,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.688, margin=0.016618).",
+          "claim": "In this protocol the wide panel is built from 1830-40s authors (Pushkin, Sollogub, Annenkov, Grebenka) instead of later-century controls that fail the gate.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8114,
+          "chunkRecall": 0.6685,
+          "p": 0.0005,
+          "works": 38,
+          "chunks": 16,
+          "targetChunks": 16,
+          "top": "gogol",
+          "second": "grebenka",
+          "margin": 0.016618,
+          "ci": [
+            0.010636,
+            0.02068
+          ],
+          "winnerShare": {
+            "gogol": 0.688,
+            "pushkin": 0.125,
+            "grebenka": 0.125,
+            "annenkov_1840s": 0.062
+          },
+          "perChunk": {
+            "gogol": 11,
+            "pushkin": 2,
+            "grebenka": 2,
+            "annenkov_1840s": 1
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "gogol": 10,
+            "grebenka": 10,
+            "pushkin": 6,
+            "sollogub": 7
+          }
+        },
+        {
+          "id": "taras_bulba_additions_loose_sameperiod_fw_2000",
+          "title": "Taras Bulba 1842 loose additions vs same-period panel: fw_fixed random_2000",
+          "target": "loose additions vs same-period panel",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 84.6,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.765, margin=0.015427).",
+          "claim": "In this protocol the wide panel is built from 1830-40s authors (Pushkin, Sollogub, Annenkov, Grebenka) instead of later-century controls that fail the gate.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8114,
+          "chunkRecall": 0.6685,
+          "p": 0.0005,
+          "works": 38,
+          "chunks": 17,
+          "targetChunks": 17,
+          "top": "gogol",
+          "second": "grebenka",
+          "margin": 0.015427,
+          "ci": [
+            0.008168,
+            0.02134
+          ],
+          "winnerShare": {
+            "gogol": 0.765,
+            "annenkov_1840s": 0.118,
+            "grebenka": 0.059,
+            "pushkin": 0.059
+          },
+          "perChunk": {
+            "gogol": 13,
+            "annenkov_1840s": 2,
+            "grebenka": 1,
+            "pushkin": 1
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "gogol": 10,
+            "grebenka": 10,
+            "pushkin": 6,
+            "sollogub": 7
+          }
+        }
+      ],
+      "controls": [
+        {
+          "id": "taras_control_annenkov_holdout_v2_fw_2000",
+          "title": "Control v2: held-out Annenkov work (suspects v2)",
+          "target": "Путевые записки (Annenkov, held out)",
+          "status": "strong",
+          "confidence": "high",
+          "score": 93.81,
+          "gatePass": true,
+          "verdict": "Gate пройден; target устойчиво ближе к annenkov_1840s (winner_share=0.941, margin=0.071647).",
+          "claim": "Контроль против атаки «метод всегда говорит Гоголь».",
+          "limitations": [
+            "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+          ],
+          "failureModes": [],
+          "gate": 0.8625,
+          "chunkRecall": 0.7132,
+          "p": 0.0005,
+          "works": 36,
+          "chunks": 17,
+          "targetChunks": 17,
+          "top": "annenkov_1840s",
+          "second": "gogol",
+          "margin": 0.071647,
+          "ci": [
+            0.048329,
+            0.097073
+          ],
+          "winnerShare": {
+            "annenkov_1840s": 0.941,
+            "gogol": 0.059
+          },
+          "perChunk": {
+            "annenkov_1840s": 16,
+            "gogol": 1
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 4,
+            "dostoevsky": 10,
+            "gogol": 10,
+            "turgenev": 12
+          }
+        },
+        {
+          "id": "taras_control_shinel_holdout_v2_fw_2000",
+          "title": "Control v2: held-out Шинель (suspects v2)",
+          "target": "Шинель (Gogol, held out)",
+          "status": "strong",
+          "confidence": "high",
+          "score": 91.56,
+          "gatePass": true,
+          "verdict": "Gate пройден; target устойчиво ближе к gogol (winner_share=0.929, margin=0.039989).",
+          "claim": "Контроль: изъятая «Шинель» должна вернуться к Гоголю.",
+          "limitations": [
+            "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+          ],
+          "failureModes": [],
+          "gate": 0.8569,
+          "chunkRecall": 0.7044,
+          "p": 0.0005,
+          "works": 36,
+          "chunks": 14,
+          "targetChunks": 14,
+          "top": "gogol",
+          "second": "dostoevsky",
+          "margin": 0.039989,
+          "ci": [
+            0.032893,
+            0.042289
+          ],
+          "winnerShare": {
+            "gogol": 0.929,
+            "annenkov_1840s": 0.071
+          },
+          "perChunk": {
+            "gogol": 13,
+            "annenkov_1840s": 1
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "dostoevsky": 10,
+            "gogol": 9,
+            "turgenev": 12
+          }
+        },
+        {
+          "id": "taras_control_gogol1835_base_v2_fw_2000",
+          "title": "Control v2: Taras Bulba 1835 base text (suspects v2)",
+          "target": "Тарас Бульба, редакция 1835 (base text)",
+          "status": "strong",
+          "confidence": "high",
+          "score": 89.76,
+          "gatePass": true,
+          "verdict": "Gate пройден; target устойчиво ближе к gogol (winner_share=0.929, margin=0.029743).",
+          "claim": "Позитив-контроль: базовый текст 1835 года должен вернуться к Гоголю.",
+          "limitations": [
+            "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+          ],
+          "failureModes": [],
+          "gate": 0.8625,
+          "chunkRecall": 0.7146,
+          "p": 0.0005,
+          "works": 37,
+          "chunks": 14,
+          "targetChunks": 14,
+          "top": "gogol",
+          "second": "turgenev",
+          "margin": 0.029743,
+          "ci": [
+            0.023925,
+            0.035239
+          ],
+          "winnerShare": {
+            "gogol": 0.929,
+            "annenkov_1840s": 0.071
+          },
+          "perChunk": {
+            "gogol": 13,
+            "annenkov_1840s": 1
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "dostoevsky": 10,
+            "gogol": 10,
+            "turgenev": 12
+          }
+        },
+        {
+          "id": "taras_control_turgenev_holdout_v2_fw_2000",
+          "title": "Control v2: held-out Отцы и дети (suspects v2)",
+          "target": "Отцы и дети (Turgenev, held out)",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 86.34,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к turgenev, но запас/бутстрап недостаточны для strong verdict (winner_share=0.657, margin=0.013941).",
+          "claim": "Контроль: изъятые «Отцы и дети» должны вернуться к Тургеневу.",
+          "limitations": [
+            "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+          ],
+          "failureModes": [],
+          "gate": 0.8568,
+          "chunkRecall": 0.7048,
+          "p": 0.0005,
+          "works": 36,
+          "chunks": 35,
+          "targetChunks": 35,
+          "top": "turgenev",
+          "second": "dostoevsky",
+          "margin": 0.013941,
+          "ci": [
+            0.008231,
+            0.018747
+          ],
+          "winnerShare": {
+            "turgenev": 0.657,
+            "dostoevsky": 0.2,
+            "gogol": 0.086,
+            "annenkov_1840s": 0.057
+          },
+          "perChunk": {
+            "turgenev": 23,
+            "dostoevsky": 7,
+            "gogol": 3,
+            "annenkov_1840s": 2
+          },
+          "worksPerAuthor": {
+            "annenkov_1840s": 5,
+            "dostoevsky": 10,
+            "gogol": 10,
+            "turgenev": 11
+          }
+        }
+      ],
+      "topic": {
+        "additions": {
+          "id": "taras_bulba_additions_strict_topic_cossack_fw_2000",
+          "title": "Taras Bulba 1842 strict additions vs cossack-theme controls: fw_fixed random_2000",
+          "target": "strict additions vs cossack topic panel",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 82.9,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к somov, но запас/бутстрап недостаточны для strong verdict (winner_share=0.75, margin=0.009507).",
+          "claim": "In this protocol the additions are read against non-Gogol cossack/Ukrainian prose (Somov, Narezhny, Grebenka): a topic-driven signal would spread across the topic panel.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.8,
+          "chunkRecall": 0.6937,
+          "p": 0.0005,
+          "works": 44,
+          "chunks": 16,
+          "targetChunks": 16,
+          "top": "somov",
+          "second": "gogol",
+          "margin": 0.009507,
+          "ci": [
+            0.003628,
+            0.015046
+          ],
+          "winnerShare": {
+            "somov": 0.75,
+            "gogol": 0.25
+          },
+          "perChunk": {
+            "somov": 12,
+            "gogol": 4
+          },
+          "worksPerAuthor": {
+            "gogol": 10,
+            "grebenka": 10,
+            "narezhny": 4,
+            "somov": 20
+          }
+        },
+        "base1835": {
+          "id": "taras_control_gogol1835_base_topic_fw_2000",
+          "title": "Diagnostic: Taras Bulba 1835 base text on the cossack topic panel",
+          "target": "Тарас Бульба, редакция 1835 (base text) на казачьей панели",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 83.78,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к gogol, но запас/бутстрап недостаточны для strong verdict (winner_share=0.857, margin=0.013879).",
+          "claim": "Ключевая диагностика топик-панели: если бесспорный текст 1835 ведёт себя как добавления, панель меряет тему, а не руку.",
+          "limitations": [
+            "Control run: expected answer is known; failure invalidates the panel, success does not itself prove the main claim."
+          ],
+          "failureModes": [],
+          "gate": 0.8,
+          "chunkRecall": 0.6937,
+          "p": 0.0005,
+          "works": 44,
+          "chunks": 14,
+          "targetChunks": 14,
+          "top": "gogol",
+          "second": "somov",
+          "margin": 0.013879,
+          "ci": [
+            0.007394,
+            0.020041
+          ],
+          "winnerShare": {
+            "gogol": 0.857,
+            "grebenka": 0.071,
+            "somov": 0.071
+          },
+          "perChunk": {
+            "gogol": 12,
+            "grebenka": 1,
+            "somov": 1
+          },
+          "worksPerAuthor": {
+            "gogol": 10,
+            "grebenka": 10,
+            "narezhny": 4,
+            "somov": 20
+          }
+        },
+        "somovBinary": {
+          "id": "taras_bulba_additions_strict_somov_binary_fw_2000",
+          "title": "Taras Bulba 1842 strict additions, Gogol vs Somov binary: fw_fixed random_2000",
+          "target": "strict additions, binary Gogol vs Somov",
+          "status": "moderate",
+          "confidence": "medium",
+          "score": 88.53,
+          "gatePass": true,
+          "verdict": "Gate пройден; target чаще ближе к somov, но запас/бутстрап недостаточны для strong verdict (winner_share=0.75, margin=0.009507).",
+          "claim": "Бинарная постановка Гоголь-Сомов: изолирует somov-притяжение от эффекта многоклассовой панели.",
+          "limitations": [
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions.",
+            "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+          ],
+          "failureModes": [],
+          "gate": 0.925,
+          "chunkRecall": 0.8673,
+          "p": 0.0005,
+          "works": 30,
+          "chunks": 16,
+          "targetChunks": 16,
+          "top": "somov",
+          "second": "gogol",
+          "margin": 0.009507,
+          "ci": [
+            0.003628,
+            0.015046
+          ],
+          "winnerShare": {
+            "somov": 0.75,
+            "gogol": 0.25
+          },
+          "perChunk": {
+            "somov": 12,
+            "gogol": 4
+          },
+          "worksPerAuthor": {
+            "gogol": 10,
+            "somov": 20
+          }
+        },
+        "note": "Служебные слова несут и регистр повествования: на казачьей панели добавления читаются как сомовская сказовая манера (малый запас), при этом бесспорный текст 1835 на той же панели идёт к Гоголю."
+      },
+      "period": {
+        "id": "taras_bulba_additions_strict_period_fw_2000",
+        "title": "Taras Bulba 1842 strict additions, Gogol early vs late period: fw_fixed random_2000",
+        "target": "strict additions vs Gogol period pseudo-candidates",
+        "status": "fail",
+        "confidence": "low",
+        "score": 59.39,
+        "gatePass": false,
+        "verdict": "Feasibility gate не пройден: work_macro_recall=0.5833, permutation_p=0.041. Атрибуцию давать нельзя.",
+        "claim": "Period diagnostic: both outcomes are informative — alignment with the late period supports the Rome-rewrite dating; a failed gate means periods are inseparable in this feature space and the period confound cannot explain the main signal.",
+        "limitations": [
+          "Diagnostic: pseudo-candidates are period slices of one author; невский_проспект and записки_сумасшедшего (1835, «Арабески») excluded from both slices.",
+          "Raw target texts are local research inputs under ignored input_cases/; tracked artifacts publish hashes, specs, passports, and reports."
+        ],
+        "failureModes": [
+          "work_macro_recall_below_0_80"
+        ],
+        "gate": 0.5833,
+        "chunkRecall": 0.5368,
+        "p": 0.041,
+        "works": 14,
+        "chunks": 16,
+        "targetChunks": 16,
+        "top": "gogol_early",
+        "second": "gogol_late",
+        "margin": 0.007893,
+        "ci": [
+          0.004883,
+          0.011341
+        ],
+        "winnerShare": {
+          "gogol_early": 0.812,
+          "pushkin": 0.125,
+          "gogol_late": 0.062
+        },
+        "perChunk": {
+          "gogol_early": 13,
+          "pushkin": 2,
+          "gogol_late": 1
+        },
+        "worksPerAuthor": {
+          "gogol_early": 4,
+          "gogol_late": 4,
+          "pushkin": 6
+        }
+      },
+      "prokopovich": {
+        "id": "taras_bulba_diag_prokopovich_letters_fw_2000",
+        "title": "Prokopovich 1843 letters diagnostic: fw_fixed random_2000",
+        "target": "Prokopovich letters to Shevyryov, 1843",
+        "status": "moderate",
+        "confidence": "medium",
+        "score": 91.1,
+        "gatePass": true,
+        "verdict": "Gate пройден; target из одного chunk диагностически ближе к gogol, но single-chunk target не может получить strong verdict (winner_share=1.0, margin=0.030512).",
+        "claim": "Prokopovich cannot be a candidate (no usable prose corpus); his 1843 letters are placed diagnostically on the Gogol/Annenkov axis.",
+        "limitations": [
+          "Diagnostic only: epistolary register differs from narrative prose; no attribution claim is made.",
+          "Single short text; single-chunk targets cannot receive a strong verdict."
+        ],
+        "failureModes": [
+          "target_single_chunk_no_strong_verdict"
+        ],
+        "gate": 1,
+        "chunkRecall": 0.9406,
+        "p": 0.0005,
+        "works": 15,
+        "chunks": 1,
+        "targetChunks": 1,
+        "top": "gogol",
+        "second": "annenkov_1840s",
+        "margin": 0.030512,
+        "ci": [],
+        "winnerShare": {
+          "gogol": 1
+        },
+        "perChunk": {
+          "gogol": 1
+        },
+        "worksPerAuthor": {
+          "annenkov_1840s": 5,
+          "gogol": 10
+        }
+      },
+      "speech": {
+        "id": "taras_bulba_tovarishchestvo_fw_2000",
+        "title": "Taras Bulba 1842 speech on товарищество: focused fw_fixed diagnostic",
+        "target": "speech on товарищество · focused diagnostic",
+        "status": "moderate",
+        "confidence": "medium",
+        "score": 84.29,
+        "gatePass": true,
+        "verdict": "Gate пройден; target из одного chunk диагностически ближе к gogol, но single-chunk target не может получить strong verdict (winner_share=1.0, margin=0.027398).",
+        "claim": "Focused diagnostic for the famous speech; because the passage is one short target chunk, it cannot carry the headline claim.",
+        "limitations": [
+          "Single short passage: diagnostic only, never a strong verdict in this protocol.",
+          "Applies only to this extracted passage, not to all 1842 additions."
+        ],
+        "failureModes": [
+          "target_single_chunk_no_strong_verdict"
+        ],
+        "gate": 0.8625,
+        "chunkRecall": 0.6319,
+        "p": 0.0005,
+        "works": 38,
+        "chunks": 1,
+        "targetChunks": 1,
+        "top": "gogol",
+        "second": "dostoevsky",
+        "margin": 0.027398,
+        "ci": [],
+        "winnerShare": {
+          "gogol": 1
+        },
+        "perChunk": {
+          "gogol": 1
+        },
+        "worksPerAuthor": {
+          "dostoevsky": 10,
+          "gogol": 10,
+          "pushkin": 6,
+          "turgenev": 12
+        }
+      },
+      "extended": [
+        {
+          "id": "taras_bulba_additions_strict_extended_fw_2000",
+          "title": "Taras Bulba 1842 strict additions: extended controls fw_fixed random_2000",
+          "target": "strict additions · extended controls",
+          "status": "fail",
+          "confidence": "low",
+          "score": 79.25,
+          "gatePass": false,
+          "verdict": "Feasibility gate не пройден: work_macro_recall=0.7515, permutation_p=0.0005. Атрибуцию давать нельзя.",
+          "claim": "Extended-control stress test for the strict 1842 additions; the headline claim remains the four-author hardened panel.",
+          "limitations": [
+            "Stress test only: the larger panel adds less balanced same-century controls and is not the headline protocol.",
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions."
+          ],
+          "failureModes": [
+            "work_macro_recall_below_0_80"
+          ],
+          "gate": 0.7515,
+          "chunkRecall": 0.5035,
+          "p": 0.0005,
+          "works": 51,
+          "chunks": 16,
+          "targetChunks": 16,
+          "top": "gogol",
+          "second": "saltykov",
+          "margin": 0.002154,
+          "ci": [
+            0.000077,
+            0.006439
+          ],
+          "winnerShare": {
+            "gogol": 0.5,
+            "saltykov": 0.25,
+            "pushkin": 0.125,
+            "tolstoy": 0.062,
+            "leskov": 0.062
+          },
+          "perChunk": {
+            "gogol": 8,
+            "saltykov": 4,
+            "pushkin": 2,
+            "tolstoy": 1,
+            "leskov": 1
+          },
+          "worksPerAuthor": {
+            "dostoevsky": 10,
+            "gogol": 10,
+            "leskov": 3,
+            "pushkin": 6,
+            "saltykov": 2,
+            "tolstoy": 9,
+            "turgenev": 11
+          }
+        },
+        {
+          "id": "taras_bulba_additions_loose_extended_fw_2000",
+          "title": "Taras Bulba 1842 loose additions: extended controls fw_fixed random_2000",
+          "target": "loose additions · extended controls",
+          "status": "fail",
+          "confidence": "low",
+          "score": 79.08,
+          "gatePass": false,
+          "verdict": "Feasibility gate не пройден: work_macro_recall=0.7515, permutation_p=0.0005. Атрибуцию давать нельзя.",
+          "claim": "Extended-control stress test for the loose 1842 additions; the headline claim remains the four-author hardened panel.",
+          "limitations": [
+            "Stress test only: the larger panel adds less balanced same-century controls and is not the headline protocol.",
+            "Applies only to large added passages, not to local editorial correction, lexical normalization, typography, or small insertions."
+          ],
+          "failureModes": [
+            "work_macro_recall_below_0_80"
+          ],
+          "gate": 0.7515,
+          "chunkRecall": 0.5035,
+          "p": 0.0005,
+          "works": 51,
+          "chunks": 17,
+          "targetChunks": 17,
+          "top": "gogol",
+          "second": "saltykov",
+          "margin": 0.001308,
+          "ci": [
+            0.000094,
+            0.006212
+          ],
+          "winnerShare": {
+            "gogol": 0.412,
+            "saltykov": 0.353,
+            "leskov": 0.176,
+            "pushkin": 0.059
+          },
+          "perChunk": {
+            "gogol": 7,
+            "saltykov": 6,
+            "leskov": 3,
+            "pushkin": 1
+          },
+          "worksPerAuthor": {
+            "dostoevsky": 10,
+            "gogol": 10,
+            "leskov": 3,
+            "pushkin": 6,
+            "saltykov": 2,
+            "tolstoy": 9,
+            "turgenev": 11
+          }
+        }
+      ],
+      "replication": {
+        "deltaFwGate": 0.8967,
+        "deltaFwP": 0.0005,
+        "deltaFwStrictTop": "gogol",
+        "deltaFwStrictShare": 1,
+        "deltaFwLooseTop": "gogol",
+        "deltaFwLooseShare": 0.941,
+        "deltaFwBaseTop": "gogol",
+        "deltaFwBaseShare": 0.929
+      },
+      "postAudit": {
+        "date": "2026-07-11",
+        "status": "exploratory_adversarial_rerun",
+        "centroidWeighting": "L2(mean over L2(mean chunks within each work))",
+        "suspectsStrict": {
+          "status": "fail",
+          "gate_pass": false,
+          "work_macro_recall": 0.7958,
+          "permutation_p": 0.0005,
+          "top": "gogol",
+          "winner_share": {
+            "gogol": 0.875,
+            "annenkov_1840s": 0.125
+          },
+          "margin": 0.027542,
+          "n_chunks": 16
+        },
+        "samePeriodStrict": {
+          "status": "fail",
+          "gate_pass": false,
+          "work_macro_recall": 0.7876,
+          "permutation_p": 0.0005,
+          "top": "gogol",
+          "winner_share": {
+            "gogol": 0.688,
+            "pushkin": 0.188,
+            "annenkov_1840s": 0.062,
+            "grebenka": 0.062
+          },
+          "margin": 0.011517,
+          "n_chunks": 16
+        },
+        "topicStrict": {
+          "status": "fail",
+          "gate_pass": false,
+          "work_macro_recall": 0.7875,
+          "permutation_p": 0.0005,
+          "top": "somov",
+          "winner_share": {
+            "somov": 0.812,
+            "gogol": 0.188
+          },
+          "margin": 0.018929,
+          "n_chunks": 16
+        },
+        "annenkovBinary": {
+          "status": "moderate",
+          "gate_pass": true,
+          "work_macro_recall": 1,
+          "permutation_p": 0.0005,
+          "top": "gogol",
+          "winner_share": {
+            "gogol": 0.875,
+            "annenkov_1840s": 0.125
+          },
+          "margin": 0.027542,
+          "n_chunks": 16
+        },
+        "somovBinary": {
+          "status": "moderate",
+          "gate_pass": true,
+          "work_macro_recall": 0.925,
+          "permutation_p": 0.0005,
+          "top": "somov",
+          "winner_share": {
+            "somov": 0.812,
+            "gogol": 0.188
+          },
+          "margin": 0.018929,
+          "n_chunks": 16
+        },
+        "delta": {
+          "suspectsFw": {
+            "gate": {
+              "work_macro_recall": 0.95,
+              "gate_pass": true,
+              "work_recall": {
+                "annenkov_1840s": "5/5",
+                "dostoevsky": "10/10",
+                "gogol": "10/10",
+                "pushkin": "6/6",
+                "turgenev": "9/12"
+              },
+              "permutation_p": 0.0005
+            },
+            "targets": {
+              "strict_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 16
+                },
+                "n_chunks": 16,
+                "winner_share": 1,
+                "mean_distances": {
+                  "gogol": 1.303988,
+                  "turgenev": 1.384008,
+                  "pushkin": 1.38459,
+                  "dostoevsky": 1.45769,
+                  "annenkov_1840s": 1.478881
+                },
+                "margin": 0.08002,
+                "interpreted": true
+              },
+              "loose_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 17
+                },
+                "n_chunks": 17,
+                "winner_share": 1,
+                "mean_distances": {
+                  "gogol": 1.330272,
+                  "pushkin": 1.404396,
+                  "turgenev": 1.405206,
+                  "dostoevsky": 1.477693,
+                  "annenkov_1840s": 1.502607
+                },
+                "margin": 0.074124,
+                "interpreted": true
+              },
+              "gogol1835_base_control": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 13,
+                  "pushkin": 1
+                },
+                "n_chunks": 14,
+                "winner_share": 0.929,
+                "mean_distances": {
+                  "gogol": 1.187855,
+                  "pushkin": 1.285112,
+                  "turgenev": 1.294785,
+                  "annenkov_1840s": 1.359627,
+                  "dostoevsky": 1.359801
+                },
+                "margin": 0.097257,
+                "interpreted": true
+              }
+            }
+          },
+          "suspectsMfw": {
+            "gate": {
+              "work_macro_recall": 0.9467,
+              "gate_pass": true,
+              "work_recall": {
+                "annenkov_1840s": "5/5",
+                "dostoevsky": "10/10",
+                "gogol": "9/10",
+                "pushkin": "5/6",
+                "turgenev": "12/12"
+              },
+              "permutation_p": 0.0005
+            },
+            "targets": {
+              "strict_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 10,
+                  "pushkin": 6
+                },
+                "n_chunks": 16,
+                "winner_share": 0.625,
+                "mean_distances": {
+                  "gogol": 1.480457,
+                  "pushkin": 1.51038,
+                  "turgenev": 1.564107,
+                  "annenkov_1840s": 1.601295,
+                  "dostoevsky": 1.66537
+                },
+                "margin": 0.029923,
+                "interpreted": true
+              },
+              "loose_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 12,
+                  "pushkin": 5
+                },
+                "n_chunks": 17,
+                "winner_share": 0.706,
+                "mean_distances": {
+                  "gogol": 1.501224,
+                  "pushkin": 1.523961,
+                  "turgenev": 1.579168,
+                  "annenkov_1840s": 1.618632,
+                  "dostoevsky": 1.678989
+                },
+                "margin": 0.022737,
+                "interpreted": true
+              },
+              "gogol1835_base_control": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 11,
+                  "pushkin": 3
+                },
+                "n_chunks": 14,
+                "winner_share": 0.786,
+                "mean_distances": {
+                  "gogol": 1.409283,
+                  "pushkin": 1.479085,
+                  "turgenev": 1.535359,
+                  "annenkov_1840s": 1.539651,
+                  "dostoevsky": 1.625955
+                },
+                "margin": 0.069802,
+                "interpreted": true
+              }
+            }
+          },
+          "somovBinaryFw": {
+            "gate": {
+              "work_macro_recall": 0.95,
+              "gate_pass": true,
+              "work_recall": {
+                "gogol": "9/10",
+                "somov": "16/16"
+              },
+              "permutation_p": 0.0005
+            },
+            "targets": {
+              "strict_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 13,
+                  "somov": 3
+                },
+                "n_chunks": 16,
+                "winner_share": 0.812,
+                "mean_distances": {
+                  "gogol": 277.41207,
+                  "somov": 277.443553
+                },
+                "margin": 0.031483,
+                "interpreted": true
+              },
+              "loose_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 14,
+                  "somov": 3
+                },
+                "n_chunks": 17,
+                "winner_share": 0.824,
+                "mean_distances": {
+                  "gogol": 237.058291,
+                  "somov": 237.087992
+                },
+                "margin": 0.029701,
+                "interpreted": true
+              },
+              "gogol1835_base_control": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 14
+                },
+                "n_chunks": 14,
+                "winner_share": 1,
+                "mean_distances": {
+                  "gogol": 1.07026,
+                  "somov": 1.133211
+                },
+                "margin": 0.062952,
+                "interpreted": true
+              }
+            }
+          },
+          "somovBinaryMfw": {
+            "gate": {
+              "work_macro_recall": 0.9,
+              "gate_pass": true,
+              "work_recall": {
+                "gogol": "8/10",
+                "somov": "16/16"
+              },
+              "permutation_p": 0.0005
+            },
+            "targets": {
+              "strict_additions": {
+                "top": "somov",
+                "per_chunk_winners": {
+                  "gogol": 7,
+                  "somov": 9
+                },
+                "n_chunks": 16,
+                "winner_share": 0.562,
+                "mean_distances": {
+                  "somov": 1.422812,
+                  "gogol": 1.435275
+                },
+                "margin": 0.012463,
+                "interpreted": true
+              },
+              "loose_additions": {
+                "top": "somov",
+                "per_chunk_winners": {
+                  "somov": 9,
+                  "gogol": 8
+                },
+                "n_chunks": 17,
+                "winner_share": 0.529,
+                "mean_distances": {
+                  "somov": 1.44615,
+                  "gogol": 1.456334
+                },
+                "margin": 0.010183,
+                "interpreted": true
+              },
+              "gogol1835_base_control": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 12,
+                  "somov": 2
+                },
+                "n_chunks": 14,
+                "winner_share": 0.857,
+                "mean_distances": {
+                  "gogol": 1.368041,
+                  "somov": 1.409804
+                },
+                "margin": 0.041764,
+                "interpreted": true
+              }
+            }
+          },
+          "topicFw": {
+            "gate": {
+              "work_macro_recall": 0.7312,
+              "gate_pass": false,
+              "work_recall": {
+                "gogol": "9/10",
+                "grebenka": "9/10",
+                "narezhny": "1/4",
+                "somov": "14/16"
+              },
+              "permutation_p": 0.0005
+            },
+            "targets": {
+              "strict_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 13,
+                  "somov": 3
+                },
+                "n_chunks": 16,
+                "winner_share": 0.812,
+                "mean_distances": {
+                  "gogol": 277.383968,
+                  "somov": 277.418141,
+                  "grebenka": 277.433747,
+                  "narezhny": 277.570024
+                },
+                "margin": 0.034173,
+                "interpreted": false
+              },
+              "loose_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 15,
+                  "somov": 2
+                },
+                "n_chunks": 17,
+                "winner_share": 0.882,
+                "mean_distances": {
+                  "gogol": 237.02539,
+                  "somov": 237.057553,
+                  "grebenka": 237.071655,
+                  "narezhny": 237.2107
+                },
+                "margin": 0.032164,
+                "interpreted": false
+              },
+              "gogol1835_base_control": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 14
+                },
+                "n_chunks": 14,
+                "winner_share": 1,
+                "mean_distances": {
+                  "gogol": 1.043611,
+                  "somov": 1.110162,
+                  "grebenka": 1.133192,
+                  "narezhny": 1.244712
+                },
+                "margin": 0.066551,
+                "interpreted": false
+              }
+            }
+          },
+          "topicMfw": {
+            "gate": {
+              "work_macro_recall": 0.9344,
+              "gate_pass": true,
+              "work_recall": {
+                "gogol": "9/10",
+                "grebenka": "9/10",
+                "narezhny": "4/4",
+                "somov": "15/16"
+              },
+              "permutation_p": 0.0005
+            },
+            "targets": {
+              "strict_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 11,
+                  "somov": 4,
+                  "grebenka": 1
+                },
+                "n_chunks": 16,
+                "winner_share": 0.688,
+                "mean_distances": {
+                  "gogol": 1.357331,
+                  "somov": 1.371479,
+                  "grebenka": 1.417268,
+                  "narezhny": 1.515773
+                },
+                "margin": 0.014148,
+                "interpreted": true
+              },
+              "loose_additions": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 11,
+                  "somov": 6
+                },
+                "n_chunks": 17,
+                "winner_share": 0.647,
+                "mean_distances": {
+                  "gogol": 1.375888,
+                  "somov": 1.390633,
+                  "grebenka": 1.433525,
+                  "narezhny": 1.532707
+                },
+                "margin": 0.014745,
+                "interpreted": true
+              },
+              "gogol1835_base_control": {
+                "top": "gogol",
+                "per_chunk_winners": {
+                  "gogol": 12,
+                  "somov": 2
+                },
+                "n_chunks": 14,
+                "winner_share": 0.857,
+                "mean_distances": {
+                  "gogol": 1.305054,
+                  "somov": 1.370846,
+                  "grebenka": 1.442496,
+                  "narezhny": 1.47049
+                },
+                "margin": 0.065792,
+                "interpreted": true
+              }
+            }
+          }
+        },
+        "conclusion": "Многоавторные панели не проходят порог 0.80; две валидные бинарные панели дают разные ближайшие руки. Уникальная атрибуция крупных добавлений не установлена."
+      },
+      "extraction": {
+        "strictIn1842": 1,
+        "strictIn1835": 0.000045,
+        "looseIn1842": 1,
+        "looseIn1835": 0.000092,
+        "allChecksPass": true,
+        "edition1842Words": 36577,
+        "edition1835Words": 20541
+      },
+      "manifest": {
+        "strictWords": 23640,
+        "looseWords": 24303,
+        "speechWords": 373,
+        "strictSha": "256cfd7e519b03b52b871e0d1a2e633090ec987a8a0679b3fc1a3c2c83039489",
+        "looseSha": "a4a1e171068a4a5dd66dec9051677cfeb38b6c31a3342bad21758bb5b00bb7b8",
+        "speechSha": "c3a231572e0fa618e22c3c2e6cfc987cb1ee40031e12e9030726348a9edd6390",
+        "rawPolicy": "Raw texts live under ignored input_cases/ and are not committed."
+      }
+    }
+  },
+  "sources": [
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_extended_fw_2000.passport.json",
+      "sha256": "7d54e927de1bc87e041e8eb44ee5a4ac1570b802a3b9d16cc3eecd5512167f36"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_fw_2000.passport.json",
+      "sha256": "101c02fef4c7dc6a0183d471e110e3f2207cf04c2e66060c845f802d968a89b5"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_sameperiod_fw_2000.passport.json",
+      "sha256": "821e44a1e3504901cceb744cd272218a69e3da9d4c2f0277ccaf4ca7386c7ce0"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_loose_suspects_v2_fw_2000.passport.json",
+      "sha256": "b86ea93e6452ebdd32a2a5927c353fc8310676fe61f31af214b1e4788b2657a3"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_annenkov_binary_fw_2000.passport.json",
+      "sha256": "402d83615e078da2e08752661db62dea1ddbd8f67a42b734ef47344278f21024"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_extended_fw_2000.passport.json",
+      "sha256": "21aa38bd12f46817034453d5de24121735da615f205f94937f8c3a23a8b8b4ce"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_fw_2000.passport.json",
+      "sha256": "c8a41d8b43136cbddc644c7b1c8b56bf676e9235f094f78c97169394dbed62de"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_period_fw_2000.passport.json",
+      "sha256": "69d7147897ff14ce932a3d2fa4ba5b6c72bf9c67d0571257f3294e3e3b4ad6ec"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_sameperiod_fw_2000.passport.json",
+      "sha256": "8cb1e678a68a638ba697901d9083b714138621a3e1b39c8bde5fe2793ce46a7d"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_somov_binary_fw_2000.passport.json",
+      "sha256": "2744b1e66b0d244791769254d9b423ae009c33e9133b2a476f65cffff77d09f4"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_suspects_v2_fw_2000.passport.json",
+      "sha256": "bd55e65447425aefcfde70a9821feccf9577f0c3ce03cf15e62e026c70e64d8c"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_additions_strict_topic_cossack_fw_2000.passport.json",
+      "sha256": "4fb32b85c2e3dddf12eedb633b00bb1c7d93276e6ed28d6d589eb18eee1303a7"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_diag_prokopovich_letters_fw_2000.passport.json",
+      "sha256": "075ecc3af5445788a00b0a6870fc7f33fe884c0f25e2dceac4cdd66c40376c80"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_bulba_tovarishchestvo_fw_2000.passport.json",
+      "sha256": "896fda4eb86bf02ae87bf0ee7ac7060ba62b997d3c76ad2399a24195faf51f32"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_annenkov_holdout_v2_fw_2000.passport.json",
+      "sha256": "5f080cff5ec8bd74c4d3710dbc2919d081145e640abd1da3a88a2ee0b4325038"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_topic_fw_2000.passport.json",
+      "sha256": "6f94f7eca0c1470cf491cb9e207562254f65b6bf3a15ffa8bb3221fcdf009c09"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_gogol1835_base_v2_fw_2000.passport.json",
+      "sha256": "eee3f90d864379a5cf2a79df3b65bbedf0399847bd7ae55b28e1db6f30061155"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_shinel_holdout_v2_fw_2000.passport.json",
+      "sha256": "910130abe074073ede559969349b50892477859674e8a6ffdab7cdaa483b6705"
+    },
+    {
+      "path": "docs/cases/taras_hardened/passports/taras_control_turgenev_holdout_v2_fw_2000.passport.json",
+      "sha256": "f071d5e5fd0a8174025c894faf4c52abaf98710398a9a3416bd9c7effffe89c0"
+    },
+    {
+      "path": "docs/cases/taras_hardened/reports/delta_replication.json",
+      "sha256": "be1d88fdba483acde079d8b7af035d0f35d58c1067c4ddfe3e9abb26058a7d71"
+    },
+    {
+      "path": "docs/cases/taras_hardened/reports/extraction_audit.json",
+      "sha256": "6b9d0041e6548b227cad508127002c0fd7c8fc18987df26b500ea7c08d7a37aa"
+    },
+    {
+      "path": "docs/cases/taras_hardened/target_manifest.json",
+      "sha256": "9d8bee20c6add053d434f56abe51443cb62bdb0da673a8a312b647d3193272da"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json",
+      "sha256": "10327e3cb9d0e9657a691b8b9a40ba5ca43bef4162da5b205931bc9b1c3534b1"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/summary.json",
+      "sha256": "c6eda554fbfca035ef1ecc2523eb0867b333438450b99d684eea39130f47c048"
+    }
+  ]
+}

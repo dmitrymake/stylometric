@@ -75,8 +75,13 @@ export default function App({ initialChapter, chapterComponent } = {}) {
     };
     const frame = window.requestAnimationFrame(() => {
       centerActiveChapter();
-      if (anchor) document.getElementById(anchor)?.scrollIntoView({ block: "start", behavior: "instant" });
-      else window.scrollTo({ top: 0, behavior: "instant" });
+      if (anchor) {
+        const target = document.getElementById(anchor);
+        for (let parent = target?.parentElement; parent; parent = parent.parentElement) {
+          if (parent.tagName === "DETAILS") parent.open = true;
+        }
+        target?.scrollIntoView({ block: "start", behavior: "instant" });
+      } else window.scrollTo({ top: 0, behavior: "instant" });
     });
     window.addEventListener("resize", centerActiveChapter);
     return () => {
@@ -86,7 +91,12 @@ export default function App({ initialChapter, chapterComponent } = {}) {
   }, [chapter, anchor, Chapter]);
 
   return <div className="shell">
-    <a className="skip-link" href="#main">К содержанию</a>
+    <a className="skip-link" href={`#${chapter}/main`} onClick={(event) => {
+      event.preventDefault();
+      const main = document.getElementById("main");
+      main?.focus({ preventScroll: true });
+      main?.scrollIntoView({ block: "start", behavior: "instant" });
+    }}>К содержанию</a>
     <header className="masthead">
       <div className="masthead-brand wrap">
         <a className="rk-brand" href="#framework">

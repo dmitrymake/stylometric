@@ -9,6 +9,22 @@
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
+## Latest UI review and reader fixes
+
+Owner requested fixes from five screenshots and a comprehensive independent rk/article review.
+Task: `docs/tasks/2026-10-03-ui-review-followup.md` (baseline47c9027).
+The article fixes include clean disclosures, rewritten control-panel layout, generated chapter
+JSON downloads, responsive meter tracks, nested disclosure deep links, route-preserving skip link,
+heading hierarchy and removal of unsupported likelihood badges. Build/SSR5,14targeted tests and
+provenance97/8 pass. No model/data fit was rerun. Local article remains http://127.0.0.1:4174/.
+
+Independent reports: `research/local/reviews/rk-comprehensive-20261003.md` and
+`research/local/reviews/article-comprehensive-20261003.md`. Article P2 findings are closed;
+timeline per-window keyboard/touch detail is an open P3. rk has open1P1/5P2/1P3 findings plus
+2P2 consumer-demo issues. The kit and demo were read-only in this task; user WIP remains intact.
+Prioritise Modal focus, Button.style and loading Combobox if the owner requests kit fixes.
+Root independently reproduced those three. Do not describe the kit as fully remediated.
+
 ## Editorial/design task complete locally
 
 Owner requested an Astra redesign through rk-example, declarative reader prose, unchanged logos,

@@ -1,0 +1,1188 @@
+{
+  "schema": "stylo.reader-data.v1",
+  "chapter": "sholokhov",
+  "title": "«Тихий Дон»: данные графиков и контрольных сравнений",
+  "scope": "Aggregate values used by the chapter and its shared controls. The files do not contain corpus texts or establish authorship probabilities.",
+  "datasets": {
+    "sholokhovThematic": {
+      "tihiyDon": [
+        [
+          "Михаил Шолохов",
+          0.887
+        ],
+        [
+          "Фёдор Крюков",
+          0.826
+        ],
+        [
+          "Михаил Булгаков",
+          0.802
+        ],
+        [
+          "kuprin",
+          0.789
+        ],
+        [
+          "Борис Акунин",
+          0.786
+        ],
+        [
+          "Исаак Бабель",
+          0.781
+        ]
+      ],
+      "podnyataya": [
+        [
+          "Михаил Шолохов",
+          0.892
+        ],
+        [
+          "Михаил Булгаков",
+          0.778
+        ],
+        [
+          "Фёдор Крюков",
+          0.775
+        ],
+        [
+          "Борис Акунин",
+          0.764
+        ],
+        [
+          "kuprin",
+          0.752
+        ],
+        [
+          "Антон Чехов",
+          0.74
+        ]
+      ],
+      "donskie": [
+        [
+          "Михаил Шолохов",
+          0.82
+        ],
+        [
+          "Фёдор Крюков",
+          0.689
+        ],
+        [
+          "Михаил Булгаков",
+          0.681
+        ],
+        [
+          "Исаак Бабель",
+          0.674
+        ],
+        [
+          "Борис Акунин",
+          0.667
+        ],
+        [
+          "Максим Горький",
+          0.663
+        ]
+      ]
+    },
+    "sholokhovManuscript": {
+      "rows": [
+        {
+          "name": "Шолохов · «Тихий Дон»",
+          "isTarget": true,
+          "n": 18,
+          "mean": 2.89,
+          "max": 4,
+          "structFrac": 0,
+          "schemes": 0.21,
+          "copyErr": 0
+        },
+        {
+          "name": "Толстой",
+          "isTarget": false,
+          "n": 20,
+          "mean": 3.4,
+          "max": 5,
+          "structFrac": 0.25,
+          "schemes": 0.55,
+          "copyErr": 0
+        },
+        {
+          "name": "Достоевский",
+          "isTarget": false,
+          "n": 20,
+          "mean": 3.25,
+          "max": 5,
+          "structFrac": 0.35,
+          "schemes": 0.91,
+          "copyErr": 0
+        },
+        {
+          "name": "Пушкин",
+          "isTarget": false,
+          "n": 15,
+          "mean": 3.47,
+          "max": 5,
+          "structFrac": 0.4,
+          "schemes": 0.42,
+          "copyErr": 0
+        }
+      ],
+      "test": {
+        "shMean": 2.89,
+        "shN": 18,
+        "ctrlMean": 3.36,
+        "ctrlN": 55,
+        "diff": 0.47,
+        "cohenD": 0.41,
+        "p": 0.094,
+        "significant": false
+      }
+    },
+    "consistency": {
+      "sholokhovSil": 0.0805,
+      "sholokhovRank": 16,
+      "nPanel": 18,
+      "sholokhovSelf": "10/15",
+      "singleRange": [
+        0.035,
+        0.1
+      ],
+      "singleMedian": 0.057,
+      "prutkov": 0.371,
+      "prutkovRatio": 4.6,
+      "scale": [
+        {
+          "a": "Чехов",
+          "v": 0.0349,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "Бунин",
+          "v": 0.0484,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "Достоевский",
+          "v": 0.0564,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "Толстой",
+          "v": 0.0569,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "Тургенев",
+          "v": 0.0708,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "А.Н. Толстой",
+          "v": 0.0717,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "Салтыков",
+          "v": 0.0771,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "ШОЛОХОВ",
+          "v": 0.0805,
+          "hi": true,
+          "coll": false
+        },
+        {
+          "a": "Лесков",
+          "v": 0.0998,
+          "hi": false,
+          "coll": false
+        },
+        {
+          "a": "Прутков (коллектив)",
+          "v": 0.3715,
+          "hi": false,
+          "coll": true
+        }
+      ]
+    },
+    "multihands": {
+      "groupsToSelf": "4/4",
+      "groups": [
+        {
+          "g": "ранние рассказы",
+          "to": "Шолохов",
+          "frac": 0.78
+        },
+        {
+          "g": "Тихий Дон",
+          "to": "Шолохов",
+          "frac": 0.58
+        },
+        {
+          "g": "Поднятая целина",
+          "to": "Шолохов",
+          "frac": 0.73
+        },
+        {
+          "g": "война",
+          "to": "Шолохов",
+          "frac": 0.49
+        }
+      ],
+      "fakeDifferentCaught": "0/3",
+      "sep": [
+        {
+          "a": "Достоевский (1 автор)",
+          "v": 0.795
+        },
+        {
+          "a": "Тургенев",
+          "v": 0.826
+        },
+        {
+          "a": "Толстой",
+          "v": 0.827
+        },
+        {
+          "a": "FAKE: похожие донские (Крюков+Сераф.+Севский)",
+          "v": 0.872,
+          "similar": true
+        },
+        {
+          "a": "Бунин (1 автор)",
+          "v": 0.881
+        },
+        {
+          "a": "ШОЛОХОВ",
+          "v": 0.889,
+          "hi": true
+        },
+        {
+          "a": "FAKE: разные (Набоков+Лесков+Салтыков)",
+          "v": 0.938,
+          "fake": true
+        }
+      ],
+      "sholokhovSep": 0.889,
+      "fakeSimilar": 0.872,
+      "fakeDifferent": 0.938,
+      "hiddenPositive": {
+        "spikeKrukov": [
+          {
+            "r": 0,
+            "fs": 0.76
+          },
+          {
+            "r": 25,
+            "fs": 0.6
+          },
+          {
+            "r": 50,
+            "fs": 0.46
+          },
+          {
+            "r": 75,
+            "fs": 0.31
+          },
+          {
+            "r": 100,
+            "fs": 0.11
+          }
+        ],
+        "flagThreshold": 50,
+        "calib": [
+          {
+            "g": "ранние",
+            "pct": 0
+          },
+          {
+            "g": "Поднятая целина",
+            "pct": 5
+          },
+          {
+            "g": "Тихий Дон",
+            "pct": 29
+          },
+          {
+            "g": "война",
+            "pct": 45
+          }
+        ],
+        "discriminator": [
+          {
+            "g": "война",
+            "top": [
+              [
+                "Крюков",
+                0.1
+              ],
+              [
+                "Бунин",
+                0.07
+              ],
+              [
+                "Достоевский",
+                0.07
+              ]
+            ],
+            "donShare": 0.27
+          },
+          {
+            "g": "Тихий Дон",
+            "top": [
+              [
+                "Горький",
+                0.19
+              ],
+              [
+                "Серафимович",
+                0.11
+              ],
+              [
+                "Крюков",
+                0.07
+              ]
+            ],
+            "donShare": 0.34
+          }
+        ],
+        "runNoise": 0.04
+      },
+      "avMultiHand": {
+        "zPseudo": -5.26,
+        "zSingles": -0.1,
+        "score": 0.387,
+        "auc": 0.964,
+        "aucCi": [
+          0.902,
+          1
+        ],
+        "permP": 0.0001,
+        "nPos": 60,
+        "nNeg": 15,
+        "negMean": 0.399,
+        "posMean": 0.698
+      }
+    },
+    "cases": {
+      "bulgakov": {
+        "dep": {
+          "ipRef": 0.752,
+          "buRef": 0.21,
+          "mid": 0.481,
+          "dilogy": 0.675,
+          "b12": 0.666,
+          "gold": 0.684
+        },
+        "ens": {
+          "ipRef": 0.749,
+          "buRef": 0.128,
+          "mid": 0.439,
+          "dilogy": 0.705,
+          "b12": 0.623,
+          "gold": 0.787
+        }
+      },
+      "tolstoyAn": {
+        "sil": [
+          {
+            "a": "А. Н. Толстой",
+            "v": 0.0615,
+            "hi": true
+          },
+          {
+            "a": "Тургенев",
+            "v": 0.0619
+          },
+          {
+            "a": "Лев Толстой",
+            "v": 0.0589
+          },
+          {
+            "a": "Бунин",
+            "v": 0.0518
+          },
+          {
+            "a": "Достоевский",
+            "v": 0.0512
+          }
+        ],
+        "nSelf": 6,
+        "nBooks": 6,
+        "confusedLev": false
+      },
+      "chapaev": {
+        "nearest": "Фурманов",
+        "pFurmanov": 0.936,
+        "internalSil": 0.0148,
+        "otherSil": [
+          {
+            "b": "Мятеж",
+            "v": 0.005
+          },
+          {
+            "b": "В восемнадцатом году",
+            "v": 0.061
+          },
+          {
+            "b": "Красный десант",
+            "v": 0.069
+          }
+        ]
+      },
+      "prutkov": {
+        "sil": 0.371,
+        "nTexts": 4
+      },
+      "controls": [
+        {
+          "a": "Пильняк",
+          "v": 0.0529,
+          "self": "2/2"
+        },
+        {
+          "a": "Бабель",
+          "v": 0.0555,
+          "self": "2/2"
+        },
+        {
+          "a": "Фурманов",
+          "v": 0.0597,
+          "self": "4/4"
+        },
+        {
+          "a": "Грин",
+          "v": 0.0634,
+          "self": "6/6"
+        }
+      ],
+      "serafimovich": {
+        "pVsGorky": 0.891,
+        "nearest": "Серафимович",
+        "internalSil": 0.05,
+        "dGorky": 2.89,
+        "dSelf": 1.6
+      },
+      "platonov": {
+        "chevengurSil": -0.002,
+        "kotlovanSil": 0.041,
+        "pChevengur": 0.817,
+        "pKotlovan": 0.902
+      },
+      "donSchool": {
+        "sevskyKrukovAuc": 0.748
+      }
+    },
+    "rigor": {
+      "homFloor": 0.653,
+      "homSholohov": 0.972,
+      "homCeil": 0.988,
+      "homCtrlMed": 0.932,
+      "homCtrls": [
+        {
+          "a": "Бунин",
+          "auc": 0.993
+        },
+        {
+          "a": "Горький",
+          "auc": 0.945
+        },
+        {
+          "a": "Тургенев",
+          "auc": 0.938
+        },
+        {
+          "a": "Достоевский",
+          "auc": 0.915
+        }
+      ],
+      "homTdInternal": 0.881,
+      "homNStay": 9,
+      "homNWorks": 11,
+      "bcTdDiffMed": 0.708,
+      "bcTdCiLo": -0.277,
+      "bcTdCiHi": 1.424,
+      "bcTdFracPos": 0.918,
+      "bcTdExcl0": false,
+      "bcTdNbooks": 4,
+      "bcPcFracPos": 0.57,
+      "dispRank": 5,
+      "dispPanelN": 17,
+      "dispPct": 25,
+      "cxEarly0": 86,
+      "cxTd0": 79,
+      "cxPc1": 66,
+      "cxWar1": 88,
+      "cxSilObs": 0.079,
+      "cxSilNull": 0.077,
+      "cxAriNovel": 0.053,
+      "cxAriTd": 0.141,
+      "cxAriDonskoy": 0.346,
+      "circLate": 0.868,
+      "circKr": 0.002,
+      "circMid": 0.435,
+      "circEarly": 0.464,
+      "circTd": 0.522,
+      "circPc1": 0.606,
+      "silCtrl": [
+        {
+          "a": "Шолохов",
+          "v": 0.074,
+          "hi": true
+        },
+        {
+          "a": "Тургенев",
+          "v": 0.065
+        },
+        {
+          "a": "Достоевский",
+          "v": 0.049
+        },
+        {
+          "a": "Бунин",
+          "v": 0.051
+        },
+        {
+          "a": "Горький",
+          "v": 0.045
+        }
+      ],
+      "tdLoboAttributed": "3/4",
+      "tdLoboP": 0.0001,
+      "tdLoboBlockP": 0.0006,
+      "tdLoboSurvives": true,
+      "tdExploratoryN": 5,
+      "gmlrTdShFull": 0.471,
+      "gmlrTdKrFull": 0.443,
+      "gmlrTdShTopic": 0.841,
+      "gmlrPcKrFull": 0.701,
+      "floorRandom": 0.849,
+      "crossGenreAuc": 0.835,
+      "earlyPoolN": 76,
+      "krFicN": 244,
+      "tdDonSh": 1.807,
+      "tdDonShCi": [
+        1.616,
+        2
+      ],
+      "tdDonKr": 2.557,
+      "tdDonKrCi": [
+        2.446,
+        2.666
+      ],
+      "tdFracSh": 1,
+      "pcDonSh": 2.164,
+      "pcDonKr": 2.237,
+      "pcFracSh": 0.706,
+      "dsNmin": 244,
+      "dsTdFullMed": 0.912,
+      "dsTdFullLo": 0.795,
+      "dsTdFullHi": 0.944,
+      "dsTdTopic": 0.963,
+      "noiseFloor": 1.065,
+      "tdNearestPost1930": 0,
+      "tdNotKrukov": 4,
+      "nTd": 4,
+      "antiCirc": [
+        {
+          "book": "ТД-1",
+          "post": 3.645,
+          "early": 1.939,
+          "kr": 3.156
+        },
+        {
+          "book": "ТД-2",
+          "post": 3.124,
+          "early": 1.946,
+          "kr": 2.684
+        },
+        {
+          "book": "ТД-3",
+          "post": 2.717,
+          "early": 1.722,
+          "kr": 2.412
+        },
+        {
+          "book": "ТД-4",
+          "post": 2.14,
+          "early": 1.952,
+          "kr": 2.481
+        }
+      ],
+      "embRobustConfigs": 18,
+      "embRobustN": 18,
+      "embZmin": -1.59,
+      "embZmax": 0.66,
+      "symBoot": [
+        {
+          "book": "Тихий Дон кн.1",
+          "frac": 0.996
+        },
+        {
+          "book": "кн.2",
+          "frac": 0.976
+        },
+        {
+          "book": "кн.3",
+          "frac": 0.992
+        },
+        {
+          "book": "кн.4",
+          "frac": 0.87
+        },
+        {
+          "book": "Поднятая целина",
+          "frac": 0.904
+        }
+      ],
+      "genreMatched": [
+        {
+          "book": "Тихий Дон кн.1",
+          "dSh": 2.262,
+          "dKr": 3.889
+        },
+        {
+          "book": "кн.2",
+          "dSh": 2.129,
+          "dKr": 3.424
+        },
+        {
+          "book": "кн.3",
+          "dSh": 1.748,
+          "dKr": 3.21
+        },
+        {
+          "book": "кн.4",
+          "dSh": 2.131,
+          "dKr": 3.323
+        }
+      ],
+      "candKrukovOverlap": [
+        {
+          "book": "tihiy_don_1",
+          "frac": 0.017
+        },
+        {
+          "book": "tihiy_don_2",
+          "frac": 0
+        },
+        {
+          "book": "tihiy_don_3",
+          "frac": 0
+        },
+        {
+          "book": "tihiy_don_4",
+          "frac": 0
+        },
+        {
+          "book": "podnyataya_celina_1",
+          "frac": 0
+        }
+      ],
+      "sepFloor": 0.791,
+      "sepCeiling": 1,
+      "dispSholohov": 4.561,
+      "dispControl": 4.722,
+      "dispControlStd": 0.27,
+      "b2Stay": 10,
+      "b2N": 12,
+      "perBook": [
+        {
+          "book": "Алёшкино сердце",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Батраки",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Чужая кровь",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Наука ненависти",
+          "nearest": "Булгаков",
+          "stays": false
+        },
+        {
+          "book": "Они сражались за Родину",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Поднятая целина кн.2",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Судьба человека",
+          "nearest": "Крюков",
+          "stays": false
+        },
+        {
+          "book": "Тихий Дон кн.1",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Тихий Дон кн.2",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Тихий Дон кн.3",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Тихий Дон кн.4",
+          "nearest": "Шолохов",
+          "stays": true
+        },
+        {
+          "book": "Поднятая целина кн.1",
+          "nearest": "Шолохов",
+          "stays": true
+        }
+      ],
+      "power": [
+        {
+          "k": 0,
+          "frac": 0.44
+        },
+        {
+          "k": 10,
+          "frac": 0.475
+        },
+        {
+          "k": 20,
+          "frac": 0.53
+        },
+        {
+          "k": 30,
+          "frac": 0.595
+        },
+        {
+          "k": 40,
+          "frac": 0.625
+        },
+        {
+          "k": 50,
+          "frac": 0.685
+        }
+      ],
+      "powerDetectK": 30,
+      "serafEdShDon": 1.59,
+      "serafEdSeraf": 2.42,
+      "serafEdKrukov": 2.54,
+      "serafEdP": 0.689,
+      "tdCandDist": [
+        {
+          "a": "Шолохов-Дон (ранний)",
+          "d": 1.53,
+          "self": true
+        },
+        {
+          "a": "Серафимович",
+          "d": 2.467
+        },
+        {
+          "a": "Крюков",
+          "d": 2.506
+        },
+        {
+          "a": "Севский",
+          "d": 2.931
+        },
+        {
+          "a": "Гумилёв",
+          "d": 3.087
+        },
+        {
+          "a": "Кумов",
+          "d": 3.177
+        }
+      ],
+      "tdCandGm": [
+        {
+          "a": "Крюков",
+          "p": 0.667
+        },
+        {
+          "a": "Серафимович",
+          "p": 0.693
+        },
+        {
+          "a": "Гумилёв",
+          "p": 0.791
+        },
+        {
+          "a": "Севский",
+          "p": 0.797
+        },
+        {
+          "a": "Кумов",
+          "p": 0.851
+        }
+      ],
+      "dspAuthorAuc": 0.788,
+      "dspGenreAucWithin": 0.357,
+      "dspGmShRef": 0.695,
+      "dspGmKrRef": 0.32,
+      "dspGmMid": 0.508,
+      "dspGmPc": 0.554,
+      "dspGmTd": 0.554,
+      "faWarAuthors": 6,
+      "faRuralAuthors": 7,
+      "fa2": [
+        {
+          "feat": "синтакс. связи (dependency)",
+          "author": 0.957,
+          "genreXA": 0.397,
+          "idi": 0.56
+        },
+        {
+          "feat": "POS-n-граммы",
+          "author": 0.957,
+          "genreXA": 0.505,
+          "idi": 0.452
+        },
+        {
+          "feat": "синтаксис (17 призн.)",
+          "author": 0.894,
+          "genreXA": 0.455,
+          "idi": 0.439
+        },
+        {
+          "feat": "символьные n-граммы",
+          "author": 0.987,
+          "genreXA": 0.622,
+          "idi": 0.365
+        },
+        {
+          "feat": "служебные слова",
+          "author": 0.973,
+          "genreXA": 0.66,
+          "idi": 0.313
+        },
+        {
+          "feat": "морфология",
+          "author": 0.863,
+          "genreXA": 0.584,
+          "idi": 0.28
+        },
+        {
+          "feat": "пунктуация",
+          "author": 0.759,
+          "genreXA": 0.481,
+          "idi": 0.278
+        },
+        {
+          "feat": "распред. длин",
+          "author": 0.752,
+          "genreXA": 0.556,
+          "idi": 0.196
+        },
+        {
+          "feat": "DSP (суффиксы)",
+          "author": 0.754,
+          "genreXA": 0.651,
+          "idi": 0.103
+        }
+      ],
+      "caDepShRef": 0.892,
+      "caDepKrRef": 0.182,
+      "caDepMid": 0.537,
+      "caDepTd": 0.6,
+      "caDepPc": 0.459,
+      "caDepTdBooks": [
+        {
+          "book": "кн.1",
+          "p": 0.748
+        },
+        {
+          "book": "кн.2",
+          "p": 0.572
+        },
+        {
+          "book": "кн.3",
+          "p": 0.597
+        },
+        {
+          "book": "кн.4",
+          "p": 0.482
+        }
+      ],
+      "caDepCentTdMed": 0.464,
+      "caDepCentTdFracPos": 0.85,
+      "caEnsShRef": 0.935,
+      "caEnsKrRef": 0.102,
+      "caEnsMid": 0.519,
+      "caEnsTd": 0.643,
+      "caEnsPc": 0.526,
+      "caEnsTdBooks": [
+        {
+          "book": "кн.1",
+          "p": 0.806
+        },
+        {
+          "book": "кн.2",
+          "p": 0.613
+        },
+        {
+          "book": "кн.3",
+          "p": 0.664
+        },
+        {
+          "book": "кн.4",
+          "p": 0.49
+        }
+      ],
+      "caEnsCentTdMed": 0.744,
+      "caEnsCentTdCiLo": -0.259,
+      "caEnsCentTdCiHi": 1.377,
+      "caEnsCentTdFracPos": 0.92,
+      "caEnsPcCentMed": 0.227,
+      "loboTd": {
+        "gradient": [
+          {
+            "book": "ТД кн.1",
+            "ff": 0.595,
+            "ci": [
+              0.537,
+              0.654
+            ],
+            "segs": 4
+          },
+          {
+            "book": "ТД кн.2",
+            "ff": 0.484,
+            "ci": [
+              0.422,
+              0.547
+            ],
+            "segs": 5
+          },
+          {
+            "book": "ТД кн.3",
+            "ff": 0.21,
+            "ci": [
+              0.162,
+              0.259
+            ],
+            "segs": 4
+          },
+          {
+            "book": "ТД кн.4",
+            "ff": 0.035,
+            "ci": [
+              0.017,
+              0.055
+            ],
+            "segs": 2
+          }
+        ],
+        "td1PermP": 0.0001,
+        "donFpr": 0,
+        "tdAttrib": "3/4",
+        "valid": true,
+        "minAdmix": 25
+      },
+      "openSetTd": {
+        "td4Share": 0.948,
+        "td1Share": 0.054,
+        "td1TopName": "А.Н. Толстой",
+        "td1TopShare": 0.767
+      },
+      "platonovInject": {
+        "name": "Платонов",
+        "selfShare": 1,
+        "toSholokhovShare": 0
+      },
+      "verifTd": {
+        "tdAttributed": "0/4",
+        "unmaskAttributed": "0/4",
+        "biased": true
+      },
+      "attribTable": [
+        {
+          "book": "Тихий Дон кн.1",
+          "full": 0.716,
+          "topic": 0.875,
+          "agree": 0.101
+        },
+        {
+          "book": "кн.2",
+          "full": 0.899,
+          "topic": 0.981,
+          "agree": 0.081
+        },
+        {
+          "book": "кн.3",
+          "full": 0.979,
+          "topic": 0.99,
+          "agree": 0.245
+        },
+        {
+          "book": "кн.4",
+          "full": 0.997,
+          "topic": 0.994,
+          "agree": 0.77
+        },
+        {
+          "book": "Поднятая целина",
+          "full": 0.924,
+          "topic": 0.972,
+          "agree": 0.741
+        },
+        {
+          "book": "Тихий Дон (всё)",
+          "full": 0.913,
+          "topic": 0.968,
+          "agree": 0.332
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "path": "docs/attrib_downsample.json",
+      "sha256": "e70a2fdf3d333773d1d41722e17a9d23815c5f0bf25dbdc3beb65948c4fa66cf"
+    },
+    {
+      "path": "docs/audit_genre_crossauthor.json",
+      "sha256": "a62925f5814c3427698cd005c63db9ca7cd80d178d3593e1d8ce8a6e5957f86a"
+    },
+    {
+      "path": "docs/cases_attribution.json",
+      "sha256": "001ae54957082f03bfaef3a26fab5593868824d7adb6d17423f030216253fdf4"
+    },
+    {
+      "path": "docs/clean_attribution.json",
+      "sha256": "5fb8cbe9c4931a3b0d1e0cf0a3f153ecd400cb09875a67fe0ccff609980805de"
+    },
+    {
+      "path": "docs/consistency.json",
+      "sha256": "0a3c0945ba0ca496494138ddddb37af0aba36b0396e912a9cf3d55cfb601452e"
+    },
+    {
+      "path": "docs/dsp_attribution.json",
+      "sha256": "865fe0311db49663444dcc77914956c6e200b8d901c1c91fd30ae393bf2745c7"
+    },
+    {
+      "path": "docs/embedding_robustness.json",
+      "sha256": "1d3af4045cf7b4bda5ee52f1e48b8274ae27d83c241a6abcf902e74ea6254cae"
+    },
+    {
+      "path": "docs/feature_audit2.json",
+      "sha256": "a779584a326da4783189b373b2f3781653069f97c18f765a57a190297af5f384"
+    },
+    {
+      "path": "docs/genre_matched_lr.json",
+      "sha256": "87965d4ff75c7ff1bde97f78b00c288ce0253a6c39e736aef5033378a2d7a39e"
+    },
+    {
+      "path": "docs/grin_control.json",
+      "sha256": "6a19ef0cc1c0f09bba4bf477dfea7d8cfb65abf848a00632a419bb6b02917653"
+    },
+    {
+      "path": "docs/hidden_positive.json",
+      "sha256": "048d7a9fb4b69bd9ab4b33d484d3d9e04bad7231416141f58906fcd2b2104deb"
+    },
+    {
+      "path": "docs/hyp_tests.json",
+      "sha256": "33ca3223d2064afd1291745ac513d22c71d040f6da54822ce9db3fdcfc16ec12"
+    },
+    {
+      "path": "docs/hyp_tests2.json",
+      "sha256": "d6d44fed70867b24009decea7d5f7ea152895557e9bca41e8a0d9f6bd8351eb0"
+    },
+    {
+      "path": "docs/more_cases.json",
+      "sha256": "f0f940495f3fb2c7d20095391943349a1fae6f528070e554abfdcb20717eb94e"
+    },
+    {
+      "path": "docs/multiple_hands.json",
+      "sha256": "dcd40f308ef0c8484214bb490f4b80a85f60c7ebd44eb3193243ced5c42dd3ac"
+    },
+    {
+      "path": "docs/sholokhov_homogeneity.json",
+      "sha256": "616cd38c6cdbf1143e7afd138581c7a5f7c631f1fc6c233eabf2e8d8f205ea53"
+    },
+    {
+      "path": "docs/sholokhov_lobo.json",
+      "sha256": "18f9fa776126f36e6053b1b3a106e94e74362a81c45de1738e11cbf187ca4c04"
+    },
+    {
+      "path": "docs/sholokhov_manuscript.json",
+      "sha256": "443ccd2ade83ea43f3112bb13ad9b44bd5aa3ba272c5ab44576b00a5a12ff839"
+    },
+    {
+      "path": "docs/sholokhov_multihand.json",
+      "sha256": "23598202ba407121e0c7cad523fb33f6873e572f541ca144fce3c936bcea42cf"
+    },
+    {
+      "path": "docs/sholokhov_openset.json",
+      "sha256": "83c14f76a7ff345f07458c717626e1f930a3100aed7ebcbf6dbedab267679f3c"
+    },
+    {
+      "path": "docs/sholokhov_rigor10.json",
+      "sha256": "5346c397f7bc4e4dcec3eff88db1d6ca371f3120de22d447412e2a48218c1fd1"
+    },
+    {
+      "path": "docs/sholokhov_rigor11.json",
+      "sha256": "9bc97f9887148dcbc30d1d742eb3c22cf9585ff02555ccd22e3d5d661c60f339"
+    },
+    {
+      "path": "docs/sholokhov_rigor12.json",
+      "sha256": "4761d4a4a593b1a5a99bb0f4d402cf09e087c831d12141cfc0e1132ca35055e2"
+    },
+    {
+      "path": "docs/sholokhov_rigor3.json",
+      "sha256": "ed0b97892b59b66293724103f0675df6bf2df43e730d01a2442b467d51d62b91"
+    },
+    {
+      "path": "docs/sholokhov_rigor5.json",
+      "sha256": "155f4791342c85d7d1cc2a43637797a434a49f785647cf26da1062ef673f193d"
+    },
+    {
+      "path": "docs/sholokhov_rigor6.json",
+      "sha256": "faf6bbb38c110b27e20092df278f7850db0ee2d9627d66e3d3825202af7a8cb1"
+    },
+    {
+      "path": "docs/sholokhov_rigor7.json",
+      "sha256": "8e3016c390ebf8b88cac1c9d44b81dfea361fad3633b6bc45dd5fbdb1d5b8229"
+    },
+    {
+      "path": "docs/sholokhov_rigor8.json",
+      "sha256": "d16396fbfe7ae41671b3f98fe41e2f52811e923e6d67afd42c31651a65b6b736"
+    },
+    {
+      "path": "docs/sholokhov_rigor9.json",
+      "sha256": "7101c8a77f456a7f12af292c38e5143c8936524c6d1dd8aa48d8ce843e89dcb5"
+    },
+    {
+      "path": "docs/sholokhov_thematic.json",
+      "sha256": "1c130a11c5a036e41c4b304ec7661f29beefcb6188da20a7fda2d012cca2aa3d"
+    },
+    {
+      "path": "docs/sholokhov_verify.json",
+      "sha256": "5c59531b585ee0a7ae18902604b99e0791962f963d55e215bb25edffef29e931"
+    },
+    {
+      "path": "docs/td_candidates.json",
+      "sha256": "89eb9e993c7b895e09792a9f0a3454aed6f391db4d9276c45a915d0a0564b0cb"
+    }
+  ]
+}

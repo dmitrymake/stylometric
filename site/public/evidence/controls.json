@@ -1,0 +1,155 @@
+{
+  "schema": "stylo.reader-data.v1",
+  "chapter": "controls",
+  "title": "Контрольные панели: показатели и условия сравнения",
+  "scope": "Aggregate values used by the chapter and its shared controls. The files do not contain corpus texts or establish authorship probabilities.",
+  "datasets": {
+    "limits": {
+      "threshold": 0.8,
+      "metric": [
+        {
+          "id": "sovremennik",
+          "label": "Современник: две школы критиков",
+          "work": 1,
+          "chunk": 0.764
+        },
+        {
+          "id": "kolokol",
+          "label": "Колокол: Герцен и Огарёв",
+          "work": 0.6857,
+          "chunk": 0.6456
+        },
+        {
+          "id": "nekrasov",
+          "label": "Некрасов и Панаева (служебные слова)",
+          "work": 0.65,
+          "chunk": 0.5862
+        }
+      ],
+      "calibration": {
+        "easy": {
+          "macro": 0.9286,
+          "cos": 0.9223,
+          "label": "Достоевский (проза 1840-х) ↔ Чернышевский (критика 1850-х) — обе толстые, разные"
+        },
+        "medium": {
+          "macro": 0.8571,
+          "cos": 0.961,
+          "label": "Достоевский (проза 1840-х) ↔ Соллогуб (светская проза 1840-х) — один регистр/эпоха"
+        }
+      },
+      "separates": [
+        {
+          "id": "sovremennik",
+          "title": "Современник: две школы критиков",
+          "question": "Различает ли метод критиков-радикалов и эстетиков?",
+          "candidates": "радикалы (Чернышевский, Добролюбов) ↔ эстетики (Дружинин, Анненков, Боткин)",
+          "macro": 1,
+          "perm": 0.0005,
+          "cos": 0.9797,
+          "caveat": "Это разделение конкретных критиков двух школ, не перенос на «школу как класс». Боткин — одна работа (~14k слов), входит только в эстетиков. Значительная доля атрибуций «Современника» закрыта по гонорарным ведомостям (Боград), поэтому часть прогона — калибровка."
+        },
+        {
+          "id": "petersburg",
+          "title": "Фельетоны Ф.Д. «Петербургской летописи»",
+          "question": "Уходят ли фельетоны 1847 года к Достоевскому?",
+          "candidates": "Достоевский (публицистика), Соллогуб, Плещеев, Панаев",
+          "macro": 0.8155,
+          "perm": 0.0005,
+          "caveat": "Панель остаётся выше порога после равного веса работ, но спорный Н.Н. расколот 1:1 между публицистикой Достоевского и Панаевым. Это выполнимость панели, не положительная атрибуция Н.Н."
+        }
+      ],
+      "limitsCases": [
+        {
+          "id": "nekrasov",
+          "title": "Романы Некрасова и Панаевой",
+          "question": "Делятся соавторы по личному почерку или по теме?",
+          "candidates": "Некрасов, Панаева",
+          "reason": "автор ≡ тема",
+          "fwMacro": 0.65,
+          "fwPerm": 0.2273,
+          "char3Macro": 0.95,
+          "char3Perm": 0.0152,
+          "cos": 0.9675,
+          "kappa": 0.184
+        },
+        {
+          "id": "pair",
+          "title": "Современник: учитель и ученик",
+          "question": "Делится ли пара Чернышевский ↔ Добролюбов внутри одной школы?",
+          "candidates": "Чернышевский, Добролюбов",
+          "reason": "сросшиеся руки у границы",
+          "macro": 0.7,
+          "perm": 0.2222,
+          "cos": 0.983
+        },
+        {
+          "id": "kolokol",
+          "title": "Передовые «Колокола»",
+          "question": "Делятся ли руки Герцена и Огарёва?",
+          "candidates": "Герцен, Огарёв",
+          "reason": "сросшиеся руки · train-side audit",
+          "macro": 0.6857,
+          "perm": 0.0755,
+          "cos": 0.9779
+        },
+        {
+          "id": "chekhonte",
+          "title": "«Среди милых москвичей»",
+          "question": "Однородна ли чеховская подборка из колонки «Будильника»?",
+          "candidates": "Чехонте, Билибин, Лейкин, Александр Чехов",
+          "reason": "панель у случайности · source-check доступен",
+          "macro": 0.4321,
+          "perm": 0.009,
+          "status": "fail"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "path": "docs/cases/calibration_reference.json",
+      "sha256": "8b340a34ba619976b4587325f355b377c0c0bc40e5082b51bfff65a1808a661d"
+    },
+    {
+      "path": "docs/cases/chekhonte_15_micro.json",
+      "sha256": "e2990963ac8b273374525521b76a8a6b22df3ea9d6897adc656a2ec29dd1503a"
+    },
+    {
+      "path": "docs/cases/dostoevsky_petersburg_chronicle.json",
+      "sha256": "4250eff6d3b8110ad6a2ae3c399645e30cf3f973896d3f427fb7244323f1fe5b"
+    },
+    {
+      "path": "docs/cases/kolokol_herzen_ogaryov.json",
+      "sha256": "38e9b9aacefec081b09340f26e762965dbfdeda7d6452cbc5c090924f06aa168"
+    },
+    {
+      "path": "docs/cases/nekrasov_panaeva.json",
+      "sha256": "a161c6f8cae0971ffc2b0ca1c61fe056a2af689168f6868011db588a4e1caade"
+    },
+    {
+      "path": "docs/cases/nekrasov_panaeva_chapters.json",
+      "sha256": "d23032f6a5cc826510222208a671922e985da4e1b3417ef4bfd10acdde513e7e"
+    },
+    {
+      "path": "docs/cases/sovremennik.json",
+      "sha256": "a68d6da5958dc4f029a8031f6030c2ab5fef620540285cec42f364921acac717"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/kolokol_herzen_ogaryov.work_balanced.json",
+      "sha256": "7ba080b70c7a162c8d63e7789eb69f24a0f0166d13c9e5e158730f2900b9075c"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/nekrasov_panaeva.work_balanced.json",
+      "sha256": "b1ae0a44b478762e64fc8c5851fdc4271e56f59372d10956ba9a024b2bf47f3c"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/custom/sovremennik.work_balanced.json",
+      "sha256": "dd0fe7acb1617e0fa3af6fda6f4774cae3c53aef006c09e504864f861a3d6db0"
+    },
+    {
+      "path": "docs/cases/work_balanced_audit/summary.json",
+      "sha256": "c6eda554fbfca035ef1ecc2523eb0867b333438450b99d684eea39130f47c048"
+    }
+  ]
+}

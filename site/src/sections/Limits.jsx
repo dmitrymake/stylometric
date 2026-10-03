@@ -1,248 +1,100 @@
-import { EditorialPanel, Badge } from "@dmitrymake/rk-ui";
-import MeterBar from "../components/MeterBar.jsx";
 import { fmtScore, fmtP } from "../format.js";
 import { LIMITS } from "../segdata.js";
+import Sources from "../components/Sources.jsx";
 
-// Карта режимов контрольных панелей. Гейт выполнимости зарегистрирован заранее и требует двух условий
-// сразу: средняя по классам полнота по работам >= T и перестановочная проверка на уровне работ p <= P_GATE.
-// Числа — из LIMITS, формат — format.js.
+const T = LIMITS.threshold;
+const P_THRESHOLD = 0.05; // Registered decision threshold, not a measured value.
+const sc = (value) => fmtScore(value, 3);
+const pLabel = (value) => `p ${fmtP(value).startsWith("<") ? "" : "= "}${fmtP(value)}`;
 
-const T = LIMITS.threshold; // рабочий порог этой карты (0.80) — первое условие гейта
-const P_GATE = 0.05; // второе условие гейта: порог проверки, а не измеренная величина
-const sc = (x) => fmtScore(x, 3); // измеренные доли — три знака, порог печатается как есть
-const raw = (x) => String(x); // зафиксированные калибровочные значения — без округления
-
-const ACCENT = {
-  sovremennik: "var(--success)", petersburg: "var(--icon-blue)", nekrasov: "var(--cinnabar)",
-  pair: "var(--gold)", kolokol: "var(--gold)", chekhonte: "var(--cosmos)",
-};
-
-// какое условие гейта нарушено — короткая подпись бейджа, без внутренних маркеров прогона
-const GATE_MISS = {
-  nekrasov: "вклад автора и темы не разделён",
-  pair: "разделение не подтверждено",
-  kolokol: "разделение не подтверждено",
-  chekhonte: "полнота ниже рабочего порога",
-};
-
-// читательские примечания карточек: по id, компактно, без пересказа внутренних оговорок
-const NOTE = {
-  sovremennik: "Гейт пройден для конкретных критиков этой панели; перенос на «школу как класс» не показан. Боткин представлен одной работой, часть разметки основана на гонорарных ведомостях.",
-  petersburg: "Панель проходит гейт, но спорный фельетон под подписью «Н.Н.» остаётся без атрибуции: его куски делятся 1:1 между публицистикой Достоевского и Панаевым.",
-  nekrasov: "Группы признаков дают разные результаты, но этот дизайн не разделяет вклад автора и темы. Значение по символьным триграммам не читается как доказательство.",
-  pair: "Панель не подтверждает разделение пары учитель ↔ ученик внутри одной школы.",
-  kolokol: "Панель не подтверждает разделение. Невыполненное условие по перестановке не означает доказанного равенства авторов.",
-  chekhonte: "Архивный заказ Курепина относится к заметке 24 мая, а не ко всей подборке из пяти текстов: сильный документальный кандидат в пользу Чехова, но не доказательство авторства всей подборки.",
-};
-
-// оба условия гейта читаются вместе: маленькое p само по себе гейт не проходит
-const gateNote = (macro, p) => {
-  if (macro == null || p == null) return null;
-  const okMacro = macro >= T, okP = p <= P_GATE;
-  if (okMacro && okP) return "оба условия гейта выполнены";
-  if (okP) return "условие по перестановке выполнено, но средняя полнота ниже рабочего порога; гейт не пройден";
-  if (okMacro) return "средняя полнота не ниже рабочего порога, но условие по перестановке не выполнено; гейт не пройден";
-  return "ни одно из двух условий гейта не выполнено";
-};
-const gatePass = (macro, p) => macro != null && p != null && macro >= T && p <= P_GATE;
-const permColor = (p) => (p <= P_GATE ? "var(--success)" : "var(--cinnabar)"); // цвет — только про условие p
-const pLabel = (p) => `p ${fmtP(p).startsWith("<") ? "" : "= "}${fmtP(p)}`; // без «= < 0.001»
-
-// одна строка метрики внутри карточки
-function Row({ label, value, sub, color = "var(--text)" }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "baseline", borderTop: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingTop: 8 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 16, color: "var(--text-muted)" }}>{label}</div>
-        {sub && <div style={{ fontSize: 16, color: "var(--text-muted)", opacity: 0.78, marginTop: 2 }}>{sub}</div>}
-      </div>
-      <div className="mono" style={{ fontSize: 17, fontWeight: 600, whiteSpace: "nowrap", color }}>{value}</div>
-    </div>
-  );
+function ComparisonTable({ caption, headings, rows }) {
+  return <table className="limits-table">
+    <caption>{caption}</caption>
+    <thead><tr><th scope="col">Сравнение</th>{headings.map((heading) => <th key={heading} scope="col">{heading}</th>)}</tr></thead>
+    <tbody>{rows.map((row) => <tr key={row.id}>
+      <th scope="row">{row.label}{row.note && <span className="limits-row-note">{row.note}</span>}</th>
+      {row.values.map((value, index) => <td key={headings[index]} data-label={headings[index]}>{value}</td>)}
+    </tr>)}</tbody>
+  </table>;
 }
 
-// первое условие гейта: выше порога — зелёная, ровно на пороге — нейтральная, ниже — красная
-function MacroHead({ value, accent }) {
-  const at = Math.abs(value - T) < 1e-9;
-  const above = value > T;
-  const color = above ? "var(--success)" : at ? "var(--text)" : "var(--cinnabar)";
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
-        <span style={{ fontSize: 16, color: "var(--text-muted)" }}>средняя по классам доля правильно опознанных работ</span>
-        <span className="mono" style={{ fontSize: 17, fontWeight: 700, color }}>{sc(value)} · {at ? "ровно рабочий порог" : above ? "выше рабочего порога" : "ниже рабочего порога"}</span>
-      </div>
-      <div style={{ position: "relative" }}>
-        <MeterBar value={value} max={1} accent={accent} />
-        <span title={`рабочий порог ${fmtScore(T)}`} style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
-      </div>
-      <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)", marginTop: 4 }}>0 — ни одной правильно опознанной работы · {fmtScore(T)} — рабочий порог этой карты · 1 — все работы опознаны правильно</div>
-    </div>
-  );
+function CaseReading({ title, candidates, children }) {
+  return <div className="limits-reading">
+    <h4>{title}</h4>
+    <p className="limits-candidates">{candidates}</p>
+    <p>{children}</p>
+  </div>;
 }
 
 export default function Limits() {
-  const cal = LIMITS.calibration;
-  const sovr = LIMITS.metric.find((m) => m.id === "sovremennik");
-  return (
-    <section className="section" id="limits">
-      <div className="wrap flow">
-        {/* ───────────────────────── шапка ───────────────────────── */}
-        <div className="section-head reveal">
-          <p className="eyebrow">Границы метода</p>
-          <h2>Что показывают контрольные панели</h2>
-          <p className="prose lead muted">
-            Контрольная панель должна различать известных авторов до интерпретации
-            спорного текста. Здесь приняты два условия: средняя по авторским классам
-            доля верно распознанных произведений не ниже {fmtScore(T)} и перестановочная
-            проверка на уровне работ с p ≤ {P_GATE}. Перестановка меняет авторские метки
-            и показывает, насколько результат отличается от случайного распределения.
-            Обязательны оба условия. Карта использует собственные литературные подборки.
-          </p>
-        </div>
+  const calibration = LIMITS.calibration;
+  const sovremennik = LIMITS.metric.find((row) => row.id === "sovremennik");
+  const cases = Object.fromEntries([...LIMITS.separates, ...LIMITS.limitsCases].map((row) => [row.id, row]));
+  const comparisonRows = LIMITS.limitsCases.flatMap((row) => row.fwMacro != null ? [
+    { id: `${row.id}-fw`, label: row.title, note: "Служебные слова", values: [sc(row.fwMacro), fmtP(row.fwPerm), "—"] },
+    { id: `${row.id}-char3`, label: row.title, note: "Символьные триграммы", values: [sc(row.char3Macro), fmtP(row.char3Perm), "—"] },
+  ] : [{ id: row.id, label: row.title, values: [sc(row.macro), fmtP(row.perm), sc(row.cos)] }]);
 
-        {/* ──────────────── метрический урок: единица голоса ──────────────── */}
-        <div className="module reveal">
-          <h3>Как считать голоса</h3>
-          <p className="prose muted">
-            У каждой проверки есть выбор: что считать единицей оценки. Если голос даётся каждому куску,
-            толстая книга, нарезанная на сотню кусков, голосует сотню раз, а куски одного текста похожи и тянут
-            в одну сторону. Протокол этой карты сначала строит профиль каждой работы, затем даёт работам равный вес
-            в усреднённом профиле автора и один голос на проверяемый текст. Метрика гейта — средняя по классам доля
-            правильно опознанных работ, где каждый класс получает одинаковый вес. Значения по кускам остаются
-            диагностикой: в них длинные работы получают больше голосов.
-          </p>
+  return <section className="section" id="limits"><div className="wrap flow">
+    <div className="section-head">
+      <p className="eyebrow">Границы метода</p>
+      <h2>Что показывают контрольные сравнения</h2>
+      <p className="prose lead">Прежде чем обсуждать спорный текст, нужно проверить, различает ли метод известных авторов. Эти литературные подборки показывают, как результат зависит от состава кандидатов, признаков и единицы оценки.</p>
+    </div>
 
-          <div style={{ display: "grid", gap: 18, marginTop: "var(--beat-group)" }}>
-            {LIMITS.metric.map((m) => (
-              <div key={m.id} style={{ display: "grid", gap: 8 }}>
-                <span style={{ fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(20px, .5fr) auto", gap: 10, alignItems: "center" }}>
-                  <span style={{ fontSize: 16, color: "var(--text-muted)" }}>по работам · контрольная метрика</span>
-                  <div style={{ position: "relative" }}>
-                    <MeterBar value={m.work} max={1} accent={ACCENT[m.id] || "var(--icon-blue)"} />
-                    <span style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
-                  </div>
-                  <span className="mono" style={{ fontSize: 16, fontWeight: 700, color: m.work > T ? "var(--success)" : "var(--text)", whiteSpace: "nowrap" }}>{sc(m.work)}</span>
-                  <span style={{ fontSize: 16, color: "var(--text-muted)" }}>по кускам · диагностика</span>
-                  <MeterBar value={m.chunk} max={1} accent="color-mix(in srgb, var(--text-muted) 55%, transparent)" />
-                  <span className="mono" style={{ fontSize: 16, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{sc(m.chunk)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+    <div className="module limits-unit">
+      <h3>Произведение и фрагмент дают разные оценки</h3>
+      <p className="prose">Протокол сначала строит профиль каждого произведения, затем усредняет их с равным весом в профиле автора. При проверке одно произведение даёт один ответ. Средняя полнота — это доля правильно опознанных произведений, усреднённая по авторским классам с равным весом каждого класса.</p>
+      <p className="prose">При подсчёте по фрагментам длинные книги дают больше наблюдений, а соседние фрагменты связаны между собой. Поэтому значения по фрагментам служат отдельной диагностикой и не заменяют оценку по произведениям.</p>
+      <ComparisonTable caption="Один корпус, две единицы оценки" headings={["По произведениям", "По фрагментам"]} rows={LIMITS.metric.map((row) => ({ id: row.id, label: row.label, values: [sc(row.work), sc(row.chunk)] }))} />
+      <p className="prose">У «Современника» значения {sc(sovremennik.work)} и {sc(sovremennik.chunk)} описывают одну подборку. Различие возникает из-за единицы счёта; к условиям дальнейшей интерпретации относится только оценка по произведениям.</p>
+    </div>
 
-          {sovr && (
-            <p className="callout reveal" style={{ marginTop: "var(--beat-group)" }}>
-              У «Современника» контрольная метрика по работам — {sc(sovr.work)}, диагностика по кускам — {sc(sovr.chunk)}. Корпус один: расходятся единицы счёта. К условиям гейта диагностическое значение не применяется.
-            </p>
-          )}
-        </div>
+    <div className="module limits-calibration">
+      <h3>Два опорных сравнения</h3>
+      <p className="prose">Тот же протокол применён к двум парам известных авторов. Они показывают результат на конкретном материале; универсальную шкалу сходства и рабочий порог по этим двум примерам не устанавливают.</p>
+      <ComparisonTable caption="Различение известных авторов тем же методом" headings={["Средняя полнота", "Косинус профилей"]} rows={[
+        { id: "easy", label: calibration.easy.label.split(" — ")[0], note: "Разные эпоха и регистр", values: [String(calibration.easy.macro), String(calibration.easy.cos)] },
+        { id: "medium", label: calibration.medium.label.split(" — ")[0], note: "Один регистр и эпоха", values: [String(calibration.medium.macro), String(calibration.medium.cos)] },
+      ]} />
+      <p className="prose">Косинус описывает направление усреднённых профилей: значение 1 означает одинаковое направление, меньшее значение — менее похожие профили. Это вспомогательная характеристика, которая сама по себе не определяет, различимы ли авторы.</p>
+    </div>
 
-        {/* ──────────────── опорные примеры протокола ──────────────── */}
-        <div className="module reveal">
-          <h3>Опорные примеры протокола</h3>
-          <div className="split" style={{ alignItems: "start", marginTop: "var(--beat-group)" }}>
-            <EditorialPanel>
-              <div style={{ display: "grid", gap: 20 }}>
-                {[{ tag: "разные эпоха и регистр", accent: "var(--gold)", ...cal.easy }, { tag: "тот же регистр и эпоха", accent: "var(--icon-blue)", ...cal.medium }].map((r) => (
-                  <div key={r.tag} style={{ display: "grid", gap: 6 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                      <span style={{ fontSize: 16, fontWeight: 600, color: r.accent }}>{r.tag}</span>
-                      <span className="mono" style={{ fontSize: 16, color: "var(--editorial-positive)" }}>доля {raw(r.macro)}</span>
-                    </div>
-                    <MeterBar value={r.macro} max={1} accent={r.accent} />
-                    <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)" }}>косинус профилей {raw(r.cos)}</div>
-                  </div>
-                ))}
-              </div>
-            </EditorialPanel>
-            <p className="prose muted" style={{ margin: 0 }}>
-              Две пары известных авторов, прогнанные тем же протоколом, — опорные примеры этого протокола, а не
-              универсальная шкала и не источник рабочего порога. Косинус показывает, насколько совпадает направление
-              усреднённых профилей: 1 — одинаковое направление, меньшее значение — менее похожие профили. Это
-              вспомогательная диагностика: гейт читается по средней по классам полноте и перестановочному p.
-            </p>
-          </div>
-        </div>
+    <div className="module limits-conditions">
+      <h3>Условия интерпретации</h3>
+      <p className="prose">Для этих контрольных подборок заранее приняты два совместных условия: средняя полнота по произведениям не ниже {fmtScore(T)} и перестановочная проверка на уровне произведений с p ≤ {P_THRESHOLD}. Перестановка меняет авторские метки и проверяет, насколько результат отличается от случайного распределения. Малого p недостаточно без требуемой полноты.</p>
+      <p className="prose">Полнота лежит от 0 до 1: от отсутствия верно опознанных произведений до правильных ответов для всех произведений. Выполнение обоих условий относится к известным классам в данной подборке. Авторство спорного текста требует отдельного сравнения.</p>
+    </div>
 
-        {/* ──────────────── карта: панель проходит гейт ──────────────── */}
-        <div className="reveal">
-          <h3>Панели, различающие известных авторов</h3>
-          <p className="prose muted">
-            Обе панели выполняют оба условия сразу. Это значит, что панель различает заданные классы
-            в заданном составе кандидатов. Интерпретация спорного текста требует отдельного сравнения.
-          </p>
-        </div>
-        <div className="grid cols-2 reveal" style={{ marginTop: "var(--beat-group)" }}>
-          {LIMITS.separates.map((c) => {
-            const accent = ACCENT[c.id] || "var(--text-muted)";
-            const pass = gatePass(c.macro, c.perm);
-            return (
-              <EditorialPanel key={c.id}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ width: 22, height: 2, background: accent }} />
-                    <Badge className="case-badge" tone={pass ? "success" : "warning"}>{pass ? "панель проходит проверку" : "гейт не пройден"}</Badge>
-                  </div>
-                  <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
-                  <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
-                  <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
-                    <MacroHead value={c.macro} accent={accent} />
-                    {c.perm != null && <Row label="проверка на случайность (перестановка ярлыков)" value={pLabel(c.perm)} sub={gateNote(c.macro, c.perm)} color={permColor(c.perm)} />}
-                    {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="ближе к 1 — ближе направление усреднённых профилей" />}
-                  </div>
-                  <p className="note" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
-                </div>
-              </EditorialPanel>
-            );
-          })}
-        </div>
+    <div className="module limits-separates">
+      <h3>Где известные классы различимы</h3>
+      <ComparisonTable caption="Обе подборки выполняют два принятых условия" headings={["Средняя полнота", "p", "Косинус"]} rows={LIMITS.separates.map((row) => ({ id: row.id, label: row.title, values: [sc(row.macro), fmtP(row.perm), sc(row.cos)] }))} />
+      <CaseReading title={cases.sovremennik.title} candidates={cases.sovremennik.candidates}>
+        Результат относится к перечисленным критикам; перенос на любую «школу как класс» не показан. Боткин представлен одной работой, часть авторской разметки основана на гонорарных ведомостях.
+      </CaseReading>
+      <CaseReading title={cases.petersburg.title} candidates={cases.petersburg.candidates}>
+        Известные авторы различимы, но спорный фельетон под подписью «Н.Н.» остаётся без атрибуции: его фрагменты делятся 1:1 между публицистикой Достоевского и Панаевым.
+      </CaseReading>
+    </div>
 
-        {/* ──────────────── карта: панель не проходит гейт ──────────────── */}
-        <div className="reveal">
-          <h3>Панели с недостаточным разделением</h3>
-          <p className="prose muted">
-            Здесь нарушено хотя бы одно из двух условий. На карточках показано, какое именно и с какими
-            значениями. Непройденный гейт — это состояние проверки, а не вывод об авторстве.
-          </p>
-        </div>
-        <div className="grid cols-2 reveal" style={{ marginTop: "var(--beat-group)" }}>
-          {LIMITS.limitsCases.map((c) => {
-            const accent = ACCENT[c.id] || "var(--text-muted)";
-            return (
-              <EditorialPanel key={c.id}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ width: 22, height: 2, background: accent }} />
-                    <Badge className="case-badge" tone="warning">гейт не пройден · {GATE_MISS[c.id]}</Badge>
-                  </div>
-                  <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
-                  <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
-                  <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
-                    {/* две группы признаков — две дорожки, вклад автора и темы не разделён */}
-                    {c.fwMacro != null && <Row label="по служебным словам" value={sc(c.fwMacro)} sub="ниже рабочего порога" color="var(--cinnabar)" />}
-                    {c.fwPerm != null && <Row label="проверка на случайность (служебные слова)" value={pLabel(c.fwPerm)} sub={gateNote(c.fwMacro, c.fwPerm)} color={permColor(c.fwPerm)} />}
-                    {c.char3Macro != null && <Row label="по символьным триграммам" value={sc(c.char3Macro)} sub="другая группа признаков даёт другой результат" color={accent} />}
-                    {c.kappa != null && <Row label="согласие двух групп признаков (κ)" value={sc(c.kappa)} sub="группы признаков размечают тексты по-разному" />}
-                    {c.macro != null && <MacroHead value={c.macro} accent={accent} />}
-                    {c.perm != null && <Row label="проверка на случайность (перестановка ярлыков)" value={pLabel(c.perm)} sub={gateNote(c.macro, c.perm)} color={permColor(c.perm)} />}
-                    {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="ближе к 1 — ближе направление усреднённых профилей" />}
-                  </div>
-                  <p className="note" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
-                </div>
-              </EditorialPanel>
-            );
-          })}
-        </div>
-
-        <p className="verdict reveal">
-          <strong style={{ color: "var(--text)" }}>Одна работа — один голос.</strong>{" "}
-          Метрика гейта считается по работам, значения по кускам остаются диагностикой. Гейт требует
-          двух условий сразу и относится к панели, а не к спорному тексту внутри неё.
-        </p>
-        <p className="note reveal">Панели без пройденного гейта остаются открытыми вопросами для архивов и текстологов.</p>
-      </div>
-    </section>
-  );
+    <div className="module limits-unresolved">
+      <h3>Где различение остаётся недостаточным</h3>
+      <p className="prose">В этих сравнениях не выполнено хотя бы одно из двух условий либо авторское различие смешано с тематическим. Это ограничение конкретной проверки, а не доказательство равенства авторов или вывод об авторстве спорного текста.</p>
+      <ComparisonTable caption="Результаты зависят от пары авторов и группы признаков" headings={["Средняя полнота", "p", "Косинус"]} rows={comparisonRows} />
+      <p className="limits-table-note">Знак «—» означает, что отдельное значение в сводке не приведено. Показатели округлены для чтения; условия интерпретации применяются к исходным значениям.</p>
+      <CaseReading title={cases.nekrasov.title} candidates={cases.nekrasov.candidates}>
+        Служебные слова не достигают ни одного из двух принятых условий. Символьные триграммы дают другую картину, но автор и тема в этом дизайне не разделены. Косинус профилей в сводке — {sc(cases.nekrasov.cos)}; согласие двух групп признаков низкое: κ = {sc(cases.nekrasov.kappa)}. Высокая полнота на триграммах не доказывает авторство.
+      </CaseReading>
+      <CaseReading title={cases.pair.title} candidates={cases.pair.candidates}>
+        Полнота ниже {fmtScore(T)}, а {pLabel(cases.pair.perm)} превышает {P_THRESHOLD}. Эта проверка не подтверждает разделение учителя и ученика внутри одной школы.
+      </CaseReading>
+      <CaseReading title={cases.kolokol.title} candidates={cases.kolokol.candidates}>
+        Полнота и перестановочная проверка не достигают принятых условий. Отсутствие подтверждённого разделения не означает, что авторские манеры одинаковы.
+      </CaseReading>
+      <CaseReading title={cases.chekhonte.title} candidates={cases.chekhonte.candidates}>
+        Перестановочное условие выполнено, но полнота ниже {fmtScore(T)}. Архивный заказ Курепина относится к заметке 24 мая, а не ко всей подборке из пяти текстов. Это документальный довод в пользу Чехова для одной заметки; авторство всей подборки он не устанавливает.
+      </CaseReading>
+    </div>
+    <Sources label="Данные контрольных сравнений" artifact="controls" />
+  </div></section>;
 }

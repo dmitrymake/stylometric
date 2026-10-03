@@ -51,7 +51,6 @@ const COLOR_MAP = {
 };
 const accentOf = (k) => COLOR_MAP[nm(k)] || "var(--text-muted)";
 
-const PLAUS_CHIP = { "высокая": "hot", "средняя": "gold", "низкая": "", "маргинальная": "" };
 
 // Короткий ответ теста: один крючок-вывод сразу под вопросом, чтобы читатель
 // получал итог до разбора улик и не тонул в повторных развёрнутых вердиктах.
@@ -81,7 +80,6 @@ function CandidateCard({ c }) {
         <span className="mono muted" style={{ fontSize: 16 }}>† {c.death}</span>
       </div>
       <div style={{ display: "flex", gap: 7, margin: "9px 0 10px", flexWrap: "wrap" }}>
-        <span className={"chip " + PLAUS_CHIP[c.plaus]}>{c.plaus}</span>
         <span className="chip" style={{ opacity: 0.85 }}>
           {c.inCorpus ? (thin ? "в корпусе · профиль слабый" : "в корпусе · проверяем") : "вне теста"}
         </span>
@@ -94,7 +92,7 @@ function CandidateCard({ c }) {
 function ThematicRow({ rank, name, score, max }) {
   const hi = nm(name) === "Ф. Крюков" || nm(name) === "М. Шолохов";
   return (
-    <div className="data-row" style={{ display: "grid", gridTemplateColumns: "1.4ch 13ch 1fr 5ch", alignItems: "center", gap: 10 }}>
+    <div className="thematic-row">
       <span className="mono muted" style={{ fontSize: 16 }}>{rank}</span>
       <span style={{ fontSize: 16, color: hi ? "var(--text)" : "var(--text-muted)", fontWeight: hi ? 600 : 400 }}>
         {nm(name)}
@@ -155,7 +153,7 @@ export default function Sholokhov() {
         {/* 1. Поле кандидатов */}
 
         <div className="reveal module">
-          <h3 id="sholokhov-section-1">Кто, кроме Шолохова</h3>
+          <h2 id="sholokhov-section-1">Кто, кроме Шолохова</h2>
           <p className="prose muted" style={{ maxWidth: "64ch", marginBottom: 22 }}>
             Список фиксирует кандидатов, включённых в исследование. Для сравнения нужны
             собственные произведения каждого автора. Объём и состав сохранившейся прозы
@@ -178,7 +176,7 @@ export default function Sholokhov() {
           {/* Первый взгляд: ТД против ВСЕХ кандидатов — разминка перед пятью тестами */}
           <div className="reveal" style={{ marginTop: 34 }}>
             <p className="eyebrow" style={{ marginBottom: 6 }}>Первый взгляд</p>
-            <h4 style={{ marginBottom: 6 }}>«Тихий Дон» против всех кандидатов сразу</h4>
+            <h3 style={{ marginBottom: 6 }}>«Тихий Дон» против всех кандидатов сразу</h3>
             <p className="prose muted" style={{ maxWidth: "70ch", marginBottom: 16 }}>
               Сначала сравниваем усреднённые профили по синтаксису. Проверяемый текст
               отложен при построении профилей; меньшая величина означает большую близость.
@@ -211,7 +209,7 @@ export default function Sholokhov() {
 
         {/* 3. Атрибуция Тихого Дона — две модели */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-2">Тест №1 · Сравнение при равном объёме текста</h3>
+          <h2 id="sholokhov-section-2">Тест №1 · Сравнение при равном объёме текста</h2>
           <p className="prose muted" style={{ maxWidth: "68ch", marginBottom: 22 }}>
             Усреднённый профиль Шолохова строим <strong style={{ color: "var(--text)" }}>без единой страницы «Тихого
             Дона»</strong> (ранние рассказы и поздняя проза с корпусной меткой «Шолохов») и{" "}
@@ -264,7 +262,7 @@ export default function Sholokhov() {
 
         {/* Калибровка: «Поднятая целина» — заведомо Шолохов (негативный контроль) */}
         <div className="reveal module">
-          <h4 style={{ marginBottom: 6 }}>«Поднятая целина»: дополнительное сравнение</h4>
+          <h3 style={{ marginBottom: 6 }}>«Поднятая целина»: дополнительное сравнение</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 14 }}>
             Через тот же набор моделей проходит «Поднятая целина»: {PC.fragments}{" "}
             {plural(PC.fragments, "фрагмент", "фрагмента", "фрагментов")}. Это ещё одно наблюдение
@@ -290,7 +288,7 @@ export default function Sholokhov() {
 
         {/* 4. Почему все указывают на Крюкова */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-3">Тест №2 · Что показывает сходство словарей</h3>
+          <h2 id="sholokhov-section-3">Тест №2 · Что показывает сходство словарей</h2>
           <p className="prose muted" style={{ maxWidth: "66ch", marginBottom: 20 }}>
             Близость по словам показывает совпадение словарей. В этом сравнении
             ближайший к «Тихому Дону» — <strong style={{ color: "var(--text)" }}>сам Шолохов</strong> ({fmtScore(THEM.tihiyDon[0][1])}),
@@ -349,7 +347,7 @@ export default function Sholokhov() {
 
         {/* Тест №3: много рук — LEAK-FREE */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-4">Тест №3 · Поиск неоднородности между произведениями</h3>
+          <h2 id="sholokhov-section-4">Тест №3 · Поиск неоднородности между произведениями</h2>
           <p className="prose muted" style={{ maxWidth: "70ch", marginBottom: 8 }}>
             Проверяем различия между произведениями под одним авторским именем.
             Важно учесть и влияние большого объёма эталона: широкий профиль может
@@ -473,7 +471,7 @@ export default function Sholokhov() {
 
         {/* 5d. Гомогенность: разные люди писали разные работы? */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-5">Тест №4 · Насколько различаются книги одного автора</h3>
+          <h2 id="sholokhov-section-5">Тест №4 · Насколько различаются книги одного автора</h2>
           <p className="prose muted" style={{ maxWidth: "70ch", marginBottom: 18 }}>
             Сравниваем попарную различимость книг с диапазоном у контрольных авторов.
             У одного писателя произведения тоже меняются вместе с темой, периодом и жанром.
@@ -534,7 +532,7 @@ export default function Sholokhov() {
 
           {/* Может ли тест поймать подделку вообще: контроли + скрытый позитив */}
           <div className="reveal" style={{ marginTop: 34 }}>
-            <h4 style={{ marginBottom: 6 }}>Проверка на искусственных смесях</h4>
+            <h3 style={{ marginBottom: 6 }}>Проверка на искусственных смесях</h3>
             <p className="prose muted" style={{ maxWidth: "76ch", marginBottom: 16 }}>
               Чувствительность метода проверяем на искусственных смесях известных авторов.
               Склейку из трёх <strong style={{ color: "var(--text)" }}>разных</strong> авторов метод{" "}
@@ -582,7 +580,7 @@ export default function Sholokhov() {
 
         {/* 5e. Поиск чистого от темы признака → dependency */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-6">Тест №5 · Как уменьшить влияние тематической лексики</h3>
+          <h2 id="sholokhov-section-6">Тест №5 · Как уменьшить влияние тематической лексики</h2>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 16 }}>
             Сравниваем, насколько каждая группа признаков различает авторов и насколько
             чувствительна к жанру. Для DSP — профиля словообразовательных суффиксов —
@@ -666,7 +664,7 @@ export default function Sholokhov() {
 
         {/* 5f. Рукопись: глубина авторской правки (палеография через VertexAI) */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-7">Рукопись · глубина авторской правки</h3>
+          <h2 id="sholokhov-section-7">Рукопись · глубина авторской правки</h2>
           <p className="prose muted" style={{ maxWidth: "76ch", marginBottom: 12 }}>
             Отдельный скептический довод — не про стиль, а про <strong style={{ color: "var(--text)" }}>почерк</strong>:
             будто бы черновики «Тихого Дона» слишком чистые, как переписанные с чужого готового текста. Проверяем на
@@ -718,7 +716,7 @@ export default function Sholokhov() {
 
         {/* 6. Вердикт */}
         <div className="reveal module">
-          <h3 id="sholokhov-section-8">Вердикт</h3>
+          <h2 id="sholokhov-section-8">Вердикт</h2>
           <div className="split" style={{ alignItems: "start" }}>
             <div className="prose">
               <p className="callout" style={{ marginTop: 0 }}>
@@ -771,9 +769,9 @@ export default function Sholokhov() {
               </p>
               <ul className="muted" style={{ lineHeight: 1.6, paddingLeft: "1.1em" }}>
                 <li><strong style={{ color: "var(--text)" }}>Автор и редактор:</strong> «Шолохов
-                  писал сам» и «единый редактор переработал чужой материал» внутренними тестами на цельность
+                  писал сам» и «единый редактор переработал чужой материал» внутренними тестами на цельность{" "}
                   <em>неразличимы</em>. В отдельном сравнении профиль{" "}
-                  <strong style={{ color: "var(--text)" }}>Серафимовича</strong> не оказывается
+                  <strong style={{ color: "var(--text)" }}>Серафимовича</strong> не оказывается{" "}
                   <strong style={{ color: "var(--text)" }}>ближайшим</strong> — ТД ближе к ранним рассказам Шолохова
                   ({RIGOR.serafEdShDon}), чем к Серафимовичу ({RIGOR.serafEdSeraf}) или Крюкову ({RIGOR.serafEdKrukov}).
                   Это сравнение профилей не измеряет объём или характер редакторского участия.</li>
@@ -838,21 +836,20 @@ export default function Sholokhov() {
         <Sources
           label="Внешние исследования"
           items={[
-            { cite: "Н. П. Великанова, Б. В. Орехов (2019). «Цифровая текстология: атрибуция текста на примере романа М. А. Шолохова “Тихий Дон”»", url: "https://publications.hse.ru/pubs/share/direct/314793949.pdf" },
-            { cite: "К. А. Маслинский (2022). «Уточненная цифровая текстология: еще раз к вопросу об авторстве романа “Тихий Дон”» — повторный анализ опубликованных данных", url: "https://ruslitras.ru/index.php?dispatch=products.print_publication&format=pdf&product_id=95733&version_id=93851" },
+            { cite: "Н. П. Великанова, Б. В. Орехов (2019). «Цифровая текстология: атрибуция текста на примере романа М. А. Шолохова “Тихий Дон”»", url: "https://publications.hse.ru/pubs/share/direct/314793949.pdf#page=4", format: "PDF, статья со страницы 4 файла" },
+            { cite: "К. А. Маслинский (2022). «Уточненная цифровая текстология: еще раз к вопросу об авторстве романа “Тихий Дон”»", url: "https://ruslitras.ru/index.php?dispatch=products.print_publication&format=pdf&product_id=95733&version_id=93851", format: "PDF" },
           ]}
           note="Эти работы описывают задачу и методы сравнения. Графики Stylo используют отдельные агрегаты перечисленных ниже протоколов."
         />
         <Sources
-          label="Материалы и источники графиков Stylo"
+          label="Рукописи и научные издания"
           items={[
-            { cite: "Черновой автограф «Тихого Дона» — отдел рукописей ИМЛИ РАН (по материалам ФЭБ)", url: "http://feb-web.ru/feb/sholokh/" },
-            { cite: "Проза кандидатов (Крюков, Серафимович и др.), военная и сельская проза — открытые публикации az.lib.ru; используется локально для расчётов и не распространяется", url: "http://az.lib.ru/" },
-            { cite: "Покнижные сравнения, тема и дополнительные проверки — docs/sholokhov_lobo.json, docs/sholokhov_thematic.json и docs/sholokhov_rigor*.json; полная привязка полей — site/src/generated/manifest.json" },
-            { cite: "Смеси авторов и модельная оценка рукописи — docs/sholokhov_multihand.json, docs/hidden_positive.json, docs/multiple_hands.json, docs/sholokhov_manuscript.json" },
+            { cite: "ИМЛИ РАН: научное издание «Тихого Дона», история рукописей, факсимиле и транскрипция", url: "https://imli.ru/index.php/izdaniya/izdatelstvo/249-tikhij-don" },
+            { cite: "ФЭБ: описание электронного научного издания «Шолохов», включая собрание факсимиле", url: "https://feb-web.ru/feb/sholokh/rub1.html?cmd=1" },
           ]}
-          note="Палеографическая оценка правки рукописи — мультимодальной моделью Gemini 3.1 Pro через VertexAI."
         />
+        <Sources label="Данные графиков" artifact="sholokhov"
+          note="Файл содержит показатели главы и общих контрольных сравнений, названия файлов расчётов и их контрольные суммы. Разметка правки рукописей выполнена моделью Gemini 3.1 Pro через VertexAI; это автоматическая оценка изображений." />
       </div>
     </section>
   );

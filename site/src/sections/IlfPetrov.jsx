@@ -60,7 +60,7 @@ export default function IlfPetrov() {
         {/* ─────────────────────── ВОПРОС 1 ─────────────────────── */}
         <div className="module reveal">
           <p className="eyebrow" style={{ color: "var(--icon-blue)" }}>Вопрос 1 · сходство с Булгаковым</p>
-          <h3 id="ilfpetrov-section-1" style={{ marginTop: 0 }}>К какому профилю ближе «12 стульев»?</h3>
+          <h2 id="ilfpetrov-section-1" style={{ marginTop: 0 }}>К какому профилю ближе «12 стульев»?</h2>
           <p className="prose muted">
             В оконном сравнении с корпусом русской прозы роман отложен целиком. Все {fmtInt(D.nChunks)} его отрывков
             проходят проверку окно за окном по{" "}
@@ -117,7 +117,7 @@ export default function IlfPetrov() {
 
         {/* перепроверка на ЧИСТОМ признаке dependency (после кейса Шолохова) */}
         <div className="module reveal">
-          <h3 id="ilfpetrov-section-2">Та же проверка на обеих книгах</h3>
+          <h2 id="ilfpetrov-section-2">Та же проверка на обеих книгах</h2>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Чтобы жанр меньше мешал, тот же вопрос проверен на{" "}
             <strong style={{ color: "var(--text)" }}>синтаксических связях</strong> —
@@ -165,7 +165,7 @@ export default function IlfPetrov() {
         {/* ── Кейс-близнец: «Золотой телёнок» — собственная карта авторства (пик истории) ── */}
         <div className="module reveal flow">
           <p className="eyebrow" style={{ color: "var(--icon-blue)" }}>Вторая книга · «Золотой телёнок»</p>
-          <h3 id="ilfpetrov-section-3" style={{ marginTop: 0 }}>Карта ближайших профилей</h3>
+          <h2 id="ilfpetrov-section-3" style={{ marginTop: 0 }}>Карта ближайших профилей</h2>
           <p className="prose muted">
             «Золотой телёнок» проходит ту же проверку отрывок за отрывком, что и «12 стульев»:
             роман целиком убран из обучения, {fmtInt(GOLD.nChunks)} его отрывков отнесены к авторам
@@ -196,7 +196,7 @@ export default function IlfPetrov() {
         {/* ─────────────────────── ВОПРОС 2 ─────────────────────── */}
         <div className="module reveal">
           <p className="eyebrow" style={{ color: "var(--icon-blue)" }}>Вопрос 2 · различимость соавторов</p>
-          <h3 id="ilfpetrov-section-4" style={{ marginTop: 0 }}>Где Ильф, а где Петров?</h3>
+          <h2 id="ilfpetrov-section-4" style={{ marginTop: 0 }}>Где Ильф, а где Петров?</h2>
           <p className="prose muted">
             Для различения соавторов нужны сопоставимые сольные произведения каждого.
             В использованной подборке Ильф представлен записными книжками, Петров —
@@ -271,7 +271,7 @@ export default function IlfPetrov() {
 
         {/* мини-кейс: сольные тексты Ильфа и Петрова — разделимы ли руки соавторов */}
         <div className="module reveal">
-          <h4 style={{ marginBottom: 6 }}>А если добавить их сольные тексты?</h4>
+          <h3 style={{ marginBottom: 6 }}>А если добавить их сольные тексты?</h3>
           <p className="prose muted" style={{ maxWidth: "76ch", marginBottom: 16 }}>
             Для каждого соавтора есть отдельная подборка. В корпус входят
             общедоступные одиночные тексты — <strong style={{ color: "var(--text)" }}>«Записные книжки» Ильфа</strong>{" "}
@@ -315,11 +315,7 @@ export default function IlfPetrov() {
         />
         <Sources
           label="Источники графиков Stylo"
-          items={[
-            { cite: "Карты окон и сравнение кандидатов — docs/ilfpetrov_timeline.json, docs/disputed_ilfpetrov.json" },
-            { cite: "Сольные подборки и неоднородность — docs/ilf_vs_petrov.json, docs/ilfpetrov_heterogeneity.json" },
-            { cite: "Сравнение профилей и групп признаков — docs/cases_attribution.json, docs/feature_audit2.json; полная привязка полей — site/src/generated/manifest.json" },
-          ]}
+          artifact="ilfpetrov"
           note="Показатели главы относятся к оконным, синтаксическим и сольным сравнениям перечисленных корпусов; это отдельные протоколы от проверки на 248 произведениях."
         />
       </div>

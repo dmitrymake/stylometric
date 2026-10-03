@@ -174,9 +174,40 @@ const pairedScript = "scripts/evaluation/summarize_topic_validity.py";
 const authorRegistrySource = "src/stylo/resources/authors.json";
 const pairedOutput = "site/public/measurement/topic-validity-paired-summary.json";
 const hasPaired = sourcePathSet.has(pairedSource) || siteData.measurement?.pairedAnalysis !== undefined;
+const readerOutputPaths = [];
+if (siteData.caseDownloads !== undefined) {
+  if (siteData.caseDownloads === null || typeof siteData.caseDownloads !== "object" || Array.isArray(siteData.caseDownloads)) {
+    fail("caseDownloads must be a chapter catalogue");
+  }
+  for (const [chapter, descriptor] of Object.entries(siteData.caseDownloads)) {
+    exactKeys(descriptor, ["title", "publicArtifact", "keys"], `caseDownloads.${chapter}`);
+    if (!/^[a-z]+$/.test(chapter) || descriptor.publicArtifact !== `evidence/${chapter}.json` ||
+        typeof descriptor.title !== "string" || !descriptor.title || !Array.isArray(descriptor.keys) || !descriptor.keys.length ||
+        new Set(descriptor.keys).size !== descriptor.keys.length ||
+        descriptor.keys.some((key) => key === "caseDownloads" || !Object.hasOwn(siteData, key))) {
+      fail(`invalid reader download descriptor: ${chapter}`);
+    }
+    const path = `site/public/${descriptor.publicArtifact}`;
+    if (!outputPaths.includes(path)) fail(`reader download is not output-bound: ${path}`);
+    readerOutputPaths.push(path);
+    const download = JSON.parse(readFileSync(resolve(root, path), "utf-8"));
+    exactKeys(download, ["schema", "chapter", "title", "scope", "datasets", "sources"], path);
+    const datasets = Object.fromEntries(descriptor.keys.map((key) => [key, siteData[key]]));
+    if (download.schema !== "stylo.reader-data.v1" || download.chapter !== chapter || download.title !== descriptor.title ||
+        typeof download.scope !== "string" || !download.scope || JSON.stringify(download.datasets) !== JSON.stringify(datasets)) {
+      fail(`reader download differs from displayed chapter data: ${chapter}`);
+    }
+    const relevantSources = [...new Set(registry.entries.filter((entry) => descriptor.keys.includes(entry.key.split(".")[0]))
+      .flatMap((entry) => entry.sources))].sort();
+    const bindings = relevantSources.map((path) => registry.sources.find((source) => source.path === path));
+    if (!bindings.length || JSON.stringify(download.sources) !== JSON.stringify(bindings)) {
+      fail(`reader download source bindings mismatch: ${chapter}`);
+    }
+  }
+}
 if (sourcePathSet.has(topicSource) || siteData.measurement !== undefined) {
   if (JSON.stringify([...outputPaths].sort()) !== JSON.stringify(
-    ["site/src/generated/site-data.json", measurementOutput, ...(hasPaired ? [pairedOutput] : [])].sort())) {
+    ["site/src/generated/site-data.json", measurementOutput, ...(hasPaired ? [pairedOutput] : []), ...readerOutputPaths].sort())) {
     fail("measurement outputs must bind exactly site-data and the downloadable sources");
   }
   if (!sourcePathSet.has(topicSource) || !outputPaths.includes(measurementOutput)) {
