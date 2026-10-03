@@ -3,8 +3,12 @@
 - Updated: **2026-10-03**.
 - State: cloud study complete (992/992), results retrieved; temporary VM and boot disk deleted.
 - Product baseline: `5582d23`; final source/site review: `786b3df3311c06a7ff30030128956b3b3650416b`.
-- Implementation: the local commit containing this handoff and the remediation task; verify HEAD
-  and worktree before acting. No push or publication is authorized.
+- Latest owner instruction (2026-10-03): push the current Stylo commits to GitHub
+  and allow the existing automatic Pages deployment. Task:
+  `docs/tasks/2026-10-03-publish-stylo.md`; actual delivery receipt is retained in
+  `research/local/publish-20261003/receipt.json`. Earlier no-push statements below
+  describe their historical task scopes. No journal submission was requested.
+- Implementation: verify HEAD and worktree before acting.
 - Completed task: `docs/tasks/2026-10-03-product-hardening.md`. GCP task is also complete.
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
