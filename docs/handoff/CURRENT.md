@@ -2,34 +2,40 @@
 
 - Updated: **2026-10-03**.
 - State: cloud study complete (992/992), results retrieved; temporary VM and boot disk deleted.
-- Review baseline: `f312efb8f5fa291a961c337e6efa3b67cc247be4`.
+- Product baseline: `5582d23`; final source/site review: `786b3df3311c06a7ff30030128956b3b3650416b`.
 - Implementation: the local commit containing this handoff and the remediation task; verify HEAD
   and worktree before acting. No push or publication is authorized.
-- Active task: `docs/tasks/2026-10-03-product-hardening.md`. GCP task is complete.
+- Completed task: `docs/tasks/2026-10-03-product-hardening.md`. GCP task is also complete.
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
-## Active product hardening candidate
+## Product hardening complete locally
 
-Owner authorisation: full product/methodology/editorial hardening toward 9/10 on 2026-10-03,
-followed by independent cold Astra review. Work is local; no push/publication is authorised.
-Candidate branch `product-cleanup` is in `research/local/worktrees/product-cleanup/`, based on
-`5582d23`. Initial candidate `70be5c5` completed integration checks (1362 passed, 8 skipped),
-real wheel workflows outside Git, site build/SSR and desktop/mobile Chromium checks.
+Owner authorised the product/methodology/editorial hardening on 2026-10-03 and requested a final
+cold Astra review. Implementation commits: `70be5c5`, `c96c6f7`; final editorial corrections:
+`786b3df`. These commits are ready for the local fast-forward into main; verify HEAD and tree.
+There is no push/publication authorisation.
 
-The first cold Astra review reproduced three defects: target/reference near-duplicates could
-survive under the same author; a second model overwrote the first result for one target; report
-location/top-k were bound unnecessarily to model identity. Corrections are complete in the candidate worktree; final regression is running.
-Do not call the initial candidate accepted or rated 9/10. The exact review is
-`research/local/reviews/astra-product-hardening-20261003.md` in the main checkout.
-Installed-wheel regression covers the three real reproductions, including historical result reading
-without its original inputs/model. Final validation and independent closure follow the corrections. Details and evidence:
-`docs/tasks/2026-10-03-product-hardening.md`.
+The first cold review found target/reference leakage, overwritten result versions and unnecessary
+binding of output settings to a model. All three were fixed and independently reproduced as closed.
+The final review also corrected excessive article claims about topic independence and author counts.
+Astra's final scores: correctness 9, methodology 8.5, simplicity 8, usability 8.5, article 8.5.
+No blocker for ordinary local use was found; a uniform 9/10 is not claimed.
+Both exact reviews are retained in the main checkout under
+`research/local/reviews/astra-product-hardening-20261003.md` and
+`research/local/reviews/astra-final-product-20261003.md`.
 
-The owner accepted the five navigation labels/order: «Как это работает», «Тихий Дон»,
-«12 стульев», «Дневник Николая II», «Тарас Бульба». Keep this structure. The local preview is
-`research/local/product-preview-20261003/index.html`; refresh it from the accepted candidate.
-Historical case panels still require separate corpus/edition work and fresh measurements.
+Final source regression: **1390 passed, 8 skipped**, 84.64 s. Wheel/sdist build and ten real
+installed-wheel scenarios outside Git passed. These include two models for one target, unchanged
+old results, output/top-k changes without fitting, near-copy rejection before fitting, and reading
+an old result without its original texts/model/YAML. Final site build/no-undef/SSR5, provenance94/2,
+deterministic generation and repository gates passed. Native Windows/macOS are not runtime-tested;
+the separate historical replay failures below remain recorded. Full details are in the completed task.
+
+The accepted menu is «Как это работает», «Тихий Дон», «12 стульев», Дневник Николая II,
+«Тарас Бульба». Read the current local preview at
+`research/local/product-preview-20261003/index.html`. Historical case panels still require separate
+corpus/edition work and fresh measurements; this product work has not produced new novel attributions.
 
 The temporary `n2-standard-128` VM (64 workers) completed all 992 fits on 2026-10-03.
 Its scientific source is `bb3760f9b9237a9fbadfaf847dca56bba8024161`, not the product candidate.
