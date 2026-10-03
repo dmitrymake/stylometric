@@ -78,3 +78,27 @@ cloud checkpoint содержит 32 A0/current fits, сохранён такж�
 этот документ не утверждает завершение измерения. Подготовлен одноразовый локальный
 collector через user systemd: он ждёт явного enable marker, затем копирует проверенные
 результаты, проверяет commit/hash/ресурсную область и удаляет только созданную VM и boot disk.
+
+## Завершение 2026-10-03
+
+Источник bb3760f; n2-standard-128, 64 workers. Выполнены все **992 fits** за
+12447 секунд (3 ч 27 мин); topic_execute exit 0 в 01:41:49 UTC. Агрегат проверен и
+сохранён в `research/evidence/topic_validity_lobo_v1/aggregate.json`, self-hash
+`06b01f7a0fdf4e8e0440bd25ac5b499b943d77336813f78be2497f75d584290e`.
+
+A0 current: 216/248; A0 topic_strict: 218/248. A4: 225/248 в обоих вариантах.
+Суммы переходов по авторам согласованы с точностью; canonical aggregate побайтно
+совпадает с выгруженным. Интервалы этот runner не рассчитывает. Это сравнение
+методов на исправленном корпусе, не новая атрибуция спорных романов.
+
+Фактический последний основной pytest: **1343 passed, 1 skipped**; Git-free archive:
+**1335 passed, 9 skipped**. Исторический capture replay: **14 passed, 3 failed**;
+эти сбои не скрыты и не исправлены изменением fixture/tolerance. Остальные стадии
+сборки и проверок, включая итоговую неизменность исходников, завершились exit 0.
+
+Collector сохранил результаты в `research/local/cloud_20261003/retrieval-lrbk7f_m/results/`,
+проверил inventory/commit/completion и удалил временную VM вместе с boot disk.
+В 01:45:46 UTC записан phase=complete. Независимые `gcloud compute instances list`
+и `gcloud compute disks list` в anime-date-sim с точным именем
+`stylo-audit-20261003-ea10fc` вернули пустые списки. VM и диск больше не существуют.
+Никаких новых VM, bucket или service account для завершения не создавалось.

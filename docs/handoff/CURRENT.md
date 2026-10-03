@@ -1,13 +1,33 @@
 # Current Handoff
 
 - Updated: **2026-10-03**.
-- State: local long run interrupted by SIGTERM; owner authorized a temporary GCP runner.
+- State: cloud study complete (992/992), results retrieved; temporary VM and boot disk deleted.
 - Review baseline: `f312efb8f5fa291a961c337e6efa3b67cc247be4`.
 - Implementation: the local commit containing this handoff and the remediation task; verify HEAD
   and worktree before acting. No push or publication is authorized.
 - Active task: `docs/tasks/2026-10-03-gcp-validation.md`.
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
+
+## Parallel product cleanup draft
+
+The owner requested a simpler project and a restrained technical rewrite of the article on
+2026-10-03. Uncommitted changes are isolated in branch `product-cleanup`, worktree
+`research/local/worktrees/product-cleanup/`; inspect that worktree before continuing this work.
+The completed cloud run used `bb3760f`; main HEAD still matches that scientific source.
+Cleanup removes unused code and prose-matching tests, updates README/ROADMAP, and prepares a
+local site draft. These changes are not merged or published. Remaining product work includes
+portable snapshot publication, ordinary training without mandatory Git, and the two case runs.
+The readable static preview starts at `research/local/product-preview-20261003/index.html`.
+Validation and remaining warnings are appended to the remediation task in that worktree.
+The owner accepted the five navigation labels/order: «Как это работает», «Тихий Дон»,
+«12 стульев», «Дневник Николая II», «Тарас Бульба». Keep this structure in the rewrite.
+
+The temporary `n2-standard-128` VM (64 workers) completed the study on 2026-10-03.
+The collector verified and retrieved results, then deleted the VM and its boot disk; independent
+GCP exact-name lists confirmed both absent. Receipts and all 992 checkpoint records are retained in
+`research/local/cloud_20261003/retrieval-lrbk7f_m/results/`. Collector completion is recorded in
+`research/local/cloud_20261003/collector-state.json`. No further cloud polling or restart is needed.
 
 ## Verified implementation
 
@@ -16,42 +36,30 @@ macro-F1 uncertainty, whole-work controls, clean/split identity, embedding cache
 configuration and chunk tails. A diagnostic LZMA baseline is implemented but is not registered in
 the frozen evaluator and has no measured case accuracy. No calibrated open-set gate exists yet.
 
-Full regression: 1333 passed, 4 skipped, 2 warnings. The opt-in real v3.2 context test then passed
-separately. Package build, executable inventory and release/site provenance passed. The separately
-enabled live-golden module had 15 passed and two environment-fingerprint failures: its capture
-versions differ from requirements.lock. No full capture-environment parity PASS is claimed.
+Cloud checks on bb3760f: **1343 passed, 1 skipped** (the separate live-golden module).
+Git-free archive: **1335 passed, 9 expected skips**. Package build, fresh wheel smoke,
+executable inventory, release/site provenance and site build passed. Separate historical capture
+replay: **14 passed, 3 failed** (thread-pool identity and two numerical goldens). This is not an
+all-tests-green result; fixtures/tolerances were not changed.
 
-## Topic-validity execution
+## Completed topic-validity study
 
-Local execution reached the fit phase but was interrupted before its first new checkpoint.
-The user requested VM execution in GCP project `anime-date-sim` and subsequent shutdown.
-Cloud configuration, launchers and transfer receipts are in `research/local/cloud_20261003/`;
-read the active task before actions. A scoped runner fix resets worker signals and strengthens
-runtime/thread checkpoint identity. Use a fresh cloud checkpoint. Do not label interrupted runs
-complete or reuse the old 70 fits. No auxiliary service account or bucket is authorized/created.
+Canonical aggregate: `research/evidence/topic_validity_lobo_v1/aggregate.json`.
+Self-hash: `06b01f7a0fdf4e8e0440bd25ac5b499b943d77336813f78be2497f75d584290e`.
+Execution took 12447 seconds; all 992 fits completed. Each comparison evaluates 248 held-out
+works, with 43 metric labels and 47 probability classes:
 
-The owner authorized execution after the review. The exact 248-fold A0/A4 current/topic_strict
-study remains exploratory. New chunker v2 does not require re-chunking the frozen bundle: its
-recorded old identity is explicitly validated by the evaluator.
+| Training weighting | Current features | Topic-restricted features |
+|---|---|---|
+| A0: equal fragment weights | 216/248 (87.10%) | 218/248 (87.90%) |
+| A4: equal work weights | 225/248 (90.73%) | 225/248 (90.73%) |
 
-The old checkpoint contains **70 A0/current fits**, unlike the historical ledger narrative of
-260 fits. It is preserved and cannot resume against changed source. The new run uses:
-
-- `research/local/topic_validity_lobo_v1.20261002.repaired.process.json` for launch PID/commit/source;
-- `research/local/topic_validity_lobo_v1.20261002.repaired.log` for progress;
-- `research/local/topic_validity_lobo_v1.20261002.repaired.checkpoint.json` for resumable fits;
-- `research/evidence/topic_validity_lobo_v1/aggregate.json` only after all 992 fits finish.
-
-Check these ignored-local records and process state to determine whether launch occurred and
-whether execution is still running. Do not infer completion from this handoff. The full command
-and environment are in the active task. Preserve the old checkpoint; never use `--fresh` on it.
-While fits run, do not mutate `src/stylo`, the runner, runtime or HEAD. Stop/resume through the
-runner's signal/checkpoint mechanism when needed; do not mix records from different identities.
-
-After completion, independently audit the aggregate before any model-semantics decision.
-Production registration, confirmatory execution and publication remain separate uncompleted work.
-The normative scientific ledger is still `research/governance/status_ledger.json`; historical
-evidence and public claims were not rewritten by the implementation task.
+Transition counts are consistent with these totals; the canonical aggregate matches the retrieved
+bytes. The runner provides accuracy and per-author transitions, not confidence intervals. This is
+an exploratory comparison on the corrected corpus, not an authorship result for either novel.
+The aggregate is local/uncommitted, and public site data/governance were not rewritten. Inspect
+actual evidence before a model-selection or publication decision. Historical checkpoints remain
+separate and must not be relabelled or resumed against this source.
 
 ## Case research
 
