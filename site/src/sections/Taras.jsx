@@ -224,7 +224,7 @@ export default function Taras() {
                 <h4 style={{ color: "var(--text)" }}>Гоголь против Анненкова</h4>
                 <p className="prose muted">
                   Контрольные тексты различаются надёжно ({fmtScore(PA.annenkovBinary.work_macro_recall, 3)}).
-                  Добавления ближе к {nm(PA.annenkovBinary.top)}: туда уходят{" "}
+                  Добавления ближе к {nmDat(PA.annenkovBinary.top)}: туда уходят{" "}
                   {fmtPct(annShare, 1)} отрывков.
                 </p>
               </EditorialPanel>
@@ -232,7 +232,7 @@ export default function Taras() {
                 <h4 style={{ color: "var(--text)" }}>Гоголь против Сомова</h4>
                 <p className="prose muted">
                   Эта пара тоже хорошо различается ({fmtScore(PA.somovBinary.work_macro_recall, 3)}),
-                  но добавления ближе к {nm(PA.somovBinary.top)}:{" "}
+                  но добавления ближе к {nmDat(PA.somovBinary.top)}:{" "}
                   {fmtPct(somovShare, 1)} отрывков.
                 </p>
               </EditorialPanel>
