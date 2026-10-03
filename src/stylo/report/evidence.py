@@ -4,11 +4,11 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
-import stat
 import tempfile
 from collections.abc import Mapping
 
 from ..config import artifact_config_id
+from .._io import exclusive_file_lock, read_regular
 
 from ..jsonio import (
     artifact_self_hash,
@@ -16,6 +16,7 @@ from ..jsonio import (
     dump_strict,
     dumps_strict,
     load_strict,
+    loads_strict,
 )
 
 SECTION_SCHEMA = "stylo.report-section-evidence.v1"
@@ -33,21 +34,9 @@ def _sha256(payload: bytes) -> str:
 
 def _read_regular(path: pathlib.Path, *, label: str) -> bytes:
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    except OSError as exc:
-        raise SectionEvidenceError(f"cannot open {label}: {path}: {exc}") from exc
-    try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            raise SectionEvidenceError(f"{label} is not a regular file: {path}")
-        chunks: list[bytes] = []
-        while True:
-            block = os.read(fd, 1 << 20)
-            if not block:
-                break
-            chunks.append(block)
-        return b"".join(chunks)
-    finally:
-        os.close(fd)
+        return read_regular(path, label=label)
+    except (OSError, ValueError) as exc:
+        raise SectionEvidenceError(f"cannot read regular {label}: {path}") from exc
 
 
 def _code_tree_sha256() -> str:
@@ -135,6 +124,11 @@ def _publish_section(
     identity: dict[str, object],
 ) -> None:
     _safe_docs(docs)
+    with exclusive_file_lock(docs / f".{section}.lock"):
+        _publish_locked_section(docs, section=section, files=files, identity=identity)
+
+
+def _publish_locked_section(docs, *, section, files, identity):
     if not files or any(
         pathlib.PurePosixPath(name).name != name or not name for name in files
     ):
@@ -153,11 +147,7 @@ def _publish_section(
         },
     }
     envelope["self_hash"] = artifact_self_hash(envelope)
-    dump_strict(
-        envelope,
-        docs / f"{section}.evidence.json",
-        sort_keys=True,
-    )
+    _atomic_write_text(docs / f"{section}.evidence.json", dumps_strict(envelope, sort_keys=True))
 
 
 def _verify_section(
@@ -167,9 +157,14 @@ def _verify_section(
     expected_files: set[str],
 ) -> tuple[dict[str, object], dict[str, str]]:
     _safe_docs(docs)
+    with exclusive_file_lock(docs / f".{section}.lock"):
+        return _verify_locked_section(docs, section=section, expected_files=expected_files)
+
+
+def _verify_locked_section(docs, *, section, expected_files):
     manifest_path = docs / f"{section}.evidence.json"
     try:
-        envelope = load_strict(manifest_path)
+        envelope = loads_strict(_read_regular(manifest_path, label="section envelope").decode("utf-8"))
     except Exception as exc:
         raise SectionEvidenceError(
             f"invalid or missing {section} evidence envelope: {exc}"
@@ -231,6 +226,7 @@ def publish_corpus_validation(
 
 
 def verify_corpus_validation(cfg) -> str:
+    from ..pipeline._snapshot import resolve_directory_snapshot
     docs = pathlib.Path(cfg.get_path("paths.docs", "docs"))
     identity, bodies = _verify_section(
         docs,
@@ -239,7 +235,7 @@ def verify_corpus_validation(cfg) -> str:
     )
     expected = {
         "corpus_sha256": directory_digest(
-            pathlib.Path(cfg.get_path("paths.input_clean", "input_clean"))
+            resolve_directory_snapshot(pathlib.Path(cfg.get_path("paths.input_clean", "input_clean")))
         ),
         "config_id": _config_id(cfg),
         "code_tree_sha256": _code_tree_sha256(),
@@ -256,7 +252,10 @@ def publish_prediction(
     report: str,
     bundle_token: str,
     bundle_meta: dict,
-) -> None:
+    target=None,
+    selected_identity: dict | None = None,
+    structured: dict | None = None,
+) -> pathlib.Path | None:
     current_config = _config_id(cfg)
     current_code = _code_tree_sha256()
     if bundle_meta.get("config_id") != current_config:
@@ -267,6 +266,28 @@ def publish_prediction(
         raise SectionEvidenceError(
             "prediction bundle code tree does not match the executing code"
         )
+    if target is not None:
+        from ..pipeline.predict import resolve_prediction_target, target_identity
+        fresh = resolve_prediction_target(cfg, target.work_id, unknown_root=target.catalog_root)
+        observed = target_identity(fresh)
+        if observed != selected_identity:
+            raise SectionEvidenceError("selected target input changed during prediction")
+        if type(structured) is not dict or structured.get("target_work_id") != target.work_id:
+            raise SectionEvidenceError("structured prediction target identity mismatch")
+        identity = {
+            "prediction_schema_version": "stylo.target-prediction.v2",
+            "bundle_token": bundle_token,
+            "bundle_manifest_sha256": canonical_hash(bundle_meta),
+            "bundle_rows_digest": bundle_meta.get("rows_digest"),
+            "training_weighting": bundle_meta.get("training_weighting"),
+            "config_id": current_config, "code_tree_sha256": current_code,
+            **observed,
+        }
+        docs = prediction_directory(cfg, target.work_id, create=True)
+        _publish_section(docs, section=PREDICTION_SECTION,
+                         files={"prediction.txt": report, "prediction.json": dumps_strict(structured)},
+                         identity=identity)
+        return docs
     fragment_identity = _current_fragment_identity(cfg)
     if str(unknown_root.resolve()) != fragment_identity["unknown_root"]:
         raise SectionEvidenceError(
@@ -290,7 +311,69 @@ def publish_prediction(
     )
 
 
-def verify_prediction(cfg) -> str:
+def prediction_directory(cfg, target_work: str, *, create=False) -> pathlib.Path:
+    from ..pipeline.predict import _work_id
+    from ..pipeline.bundle import _verify_real_dir_chain
+    target_work = _work_id(target_work)
+    docs = pathlib.Path(cfg.get_path("paths.docs", "docs")) / "predictions" / _sha256(target_work.encode("utf-8"))
+    _verify_real_dir_chain(docs)
+    if create:
+        docs.mkdir(parents=True, exist_ok=True)
+        _verify_real_dir_chain(docs)
+    return docs
+
+
+def verify_prediction(cfg, target_work: str | None = None) -> str:
+    docs = pathlib.Path(cfg.get_path("paths.docs", "docs"))
+    if target_work is None and (docs / "prediction.evidence.json").exists():
+        return _verify_legacy_prediction(cfg)
+    if target_work is None:
+        from ..pipeline.predict import resolve_prediction_target
+        target_work = resolve_prediction_target(cfg).work_id
+    return _verify_target_prediction(cfg, target_work)[0]
+
+
+def verify_structured_prediction(cfg, target_work: str) -> dict:
+    return _verify_target_prediction(cfg, target_work)[1]
+
+
+def _verify_target_prediction(cfg, target_work):
+    from ..pipeline.predict import resolve_prediction_target, target_identity
+    from ..pipeline.bundle import load_bundle
+    from ..domain.work_weighting import resolve_training_weighting
+    docs = prediction_directory(cfg, target_work)
+    identity, bodies = _verify_section(docs, section=PREDICTION_SECTION,
+                                       expected_files={"prediction.txt", "prediction.json"})
+    expected_fields = {"prediction_schema_version", "bundle_token", "bundle_manifest_sha256",
+                       "bundle_rows_digest", "training_weighting", "config_id", "code_tree_sha256",
+                       "target_work_id", "target_root", "target_catalog_root", "target_files", "target_sha256"}
+    if set(identity) != expected_fields or identity.get("prediction_schema_version") != "stylo.target-prediction.v2":
+        raise SectionEvidenceError("per-target prediction identity field mismatch")
+    if identity["target_work_id"] != target_work or identity["config_id"] != _config_id(cfg) or identity["code_tree_sha256"] != _code_tree_sha256():
+        raise SectionEvidenceError("per-target prediction code/config/work identity is stale")
+    expected_token = cfg.get_path("deployment.expected_bundle_token", None)
+    if expected_token is not None and expected_token != identity["bundle_token"]:
+        raise SectionEvidenceError("prediction evidence differs from the trusted bundle token")
+    target = resolve_prediction_target(cfg, target_work, unknown_root=identity["target_catalog_root"])
+    if target_identity(target) != {key: identity[key] for key in target_identity(target)}:
+        raise SectionEvidenceError("selected prediction target has drifted")
+    weighting = resolve_training_weighting(cfg.get_path("evaluation.training_weighting"))
+    if identity["training_weighting"] != weighting:
+        raise SectionEvidenceError("prediction training weighting mismatch")
+    meta, _paths = load_bundle(_deployment_bundle_root(cfg, weighting), expected_token=identity["bundle_token"])
+    if meta["training_weighting"] != weighting or canonical_hash(meta) != identity["bundle_manifest_sha256"] or meta["rows_digest"] != identity["bundle_rows_digest"]:
+        raise SectionEvidenceError("prediction bundle evidence is stale")
+    structured = loads_strict(bodies["prediction.json"])
+    if structured.get("target_work_id") != target_work:
+        raise SectionEvidenceError("structured target differs from prediction evidence")
+    return bodies["prediction.txt"], structured
+
+
+def _deployment_bundle_root(cfg, weighting):
+    return pathlib.Path(cfg.get_path("paths.data", "data")) / "deployment" / weighting
+
+
+def _verify_legacy_prediction(cfg) -> str:
     from ..domain.work_weighting import CHUNK_WEIGHTED_LEGACY
     from ..pipeline.bundle import load_bundle
 
@@ -364,4 +447,6 @@ __all__ = [
     "publish_prediction",
     "verify_corpus_validation",
     "verify_prediction",
+    "verify_structured_prediction",
+    "prediction_directory",
 ]

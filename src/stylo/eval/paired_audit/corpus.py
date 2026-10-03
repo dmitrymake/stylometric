@@ -327,9 +327,13 @@ def build_audit_corpus(
     """
     from ...corpus import CorpusLoadError, load_dataset
     from ...workdoc import load_work_balanced_dataset
+    from ...pipeline._snapshot import SnapshotPublishError, resolve_directory_snapshot
 
     source_frags_root = pathlib.Path(source_frags_root)
-    input_clean_root = pathlib.Path(input_clean_root)
+    try:
+        input_clean_root = resolve_directory_snapshot(input_clean_root)
+    except SnapshotPublishError as exc:
+        raise AuditCorpusError(f"input_clean_root must be a real, valid snapshot: {exc}") from exc
     audit_parent = pathlib.Path(audit_parent)
     if source_frags_root.is_symlink() or input_clean_root.is_symlink():
         raise AuditCorpusError("source_frags_root/input_clean_root must be real directories, not symlinks")

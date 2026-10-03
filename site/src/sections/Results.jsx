@@ -1,134 +1,106 @@
 import { Card, Stat } from "@dmitrymake/rk-ui";
-import { MODELS, CHANNELS, HEADLINE } from "../data.js";
-import { CORPUS } from "../corpus.js";
-import { fmtScore, fmtPct } from "../format.js";
+import { MEASUREMENT } from "../data.js";
+import { fmtCount, fmtInt, fmtPct } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
+import HistoricalResults from "./HistoricalResults.jsx";
 
-const ACCENT = {
-  ours: "var(--gold)",
-  baseline: "var(--icon-blue)",
-  classic: "var(--text-muted)",
-  floor: "var(--danger)",
+const pct = (value) => fmtPct(value, 2).replace(".", ",");
+const CONDITIONS = {
+  A0: { title: "Обучение на фрагментах", note: "Авторские классы сбалансированы, но внутри автора длинные произведения сильнее влияют на словарь, частоты и обучение." },
+  A4: { title: "Пакет с балансировкой произведений", note: "Внутри каждого автора книги имеют равный суммарный вес; выравниваются авторские классы. Меняются также словарь, IDF и нормировка частот." },
 };
-
-const CH_ACCENT = { base: "var(--icon-blue)", bow: "var(--text-muted)", weak: "var(--danger)" };
-const bow = MODELS.find((m) => m.id === "bow_lr");
-const CH_MAX = Math.max(CHANNELS.ensembleTop1, CHANNELS.rows[0].top1);
-
-// Единые русские подписи лидерборда (данные в data.js только читаем, не меняем):
-// у обоих вариантов Дельты — «частых слов» вместо MFW; сырой char-3gram сопровождаем
-// словами «цепочки букв».
-const MODEL_LABEL = { "char-3gram косинус": "косинус по цепочкам букв (char-3gram)" };
-const modelLabel = (name) => MODEL_LABEL[name] || name.replace(" MFW", " частых слов");
-
-// Подписи каналов: технические токены (char, POS, идиолект) — с короткой русской глоссой,
-// как «цепочки букв» в тексте секции.
-const CHANNEL_LABEL = {
-  "char-n-граммы 2–5": "цепочки букв (char 2–5)",
-  "синтаксис (связи + POS + метрики)": "синтаксис (связи, части речи, метрики)",
-  "синтакс. связи (чистый идиолект)": "синтакс. связи (личный почерк)",
+const ARMS = {
+  current: "Исходный набор признаков",
+  topic_strict: "Фиксированные служебные слова и сокращённый синтаксис",
 };
-const channelLabel = (name) => CHANNEL_LABEL[name] || name;
 
 export default function Results() {
+  const balanced = MEASUREMENT.cells.find((cell) => cell.cell === "A4");
+  const fragment = MEASUREMENT.cells.find((cell) => cell.cell === "A0");
+  const changedBalanced = balanced.transitions.current_only_correct + balanced.transitions.topic_strict_only_correct
+    + balanced.transitions.both_wrong_changed_prediction;
   return (
     <section className="section" id="results">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Первый эксперимент</p>
-          <h2>Результаты по группам признаков</h2>
+          <p className="eyebrow">Завершённый замер</p>
+          <h2>Сохраняется ли качество при изменении признаков</h2>
           <p className="prose lead muted">
-            В первом эксперименте каждую книгу по очереди использовали для проверки: одну из{" "}
-            {CORPUS.lobo.books} книг, автора которой искали среди {CORPUS.lobo.tested_authors}{" "}
-            кандидатов. Отрывки проверяемой книги в обучение не попадали, но тот же рассказ
-            иногда входил ещё и в сборник. Поэтому полоски ниже — наблюдения первого опыта,
-            а не итоговая оценка точности.
+            Сравнили настройки обучения и признаки на одних и тех же {fmtInt(MEASUREMENT.works)} отложенных
+            произведениях. Качество проверено для {MEASUREMENT.testedAuthors} авторов. Каждый ответ
+            оценивался по целому произведению; всего выполнено {fmtInt(MEASUREMENT.fits)} обучений.
           </p>
         </div>
-
-        {/* Наблюдаемые доли первого эксперимента. Интервалы не показываем:
-            после обнаруженного пересечения они не описывают итоговую точность. */}
-        <Card padding={24} className="reveal">
-          <div style={{ display: "grid", gap: 15 }}>
-            {MODELS.map((m) => {
-              const SC = 0.95;
-              const w = (v) => `${Math.max(0, Math.min(100, (v / SC) * 100))}%`;
-              return (
-                <div key={m.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,16ch) 1fr 5ch", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 13, color: m.kind === "ours" ? "var(--text)" : "var(--text-muted)", fontWeight: m.kind === "ours" ? 700 : 400 }}>{modelLabel(m.name)}</span>
-                  <span style={{ position: "relative", height: 16, borderRadius: 5, background: "var(--surface-sunken)" }}>
-                    <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: w(m.acc), background: ACCENT[m.kind], borderRadius: 5, opacity: 0.92 }} />
-                  </span>
-                  <span className="mono" style={{ fontSize: 12, color: m.kind === "ours" ? "var(--gold)" : "var(--text-muted)", textAlign: "right" }}>{fmtScore(m.acc, 3)}</span>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mono muted" style={{ fontSize: 11, marginTop: 16 }}>
-            доля верно распознанных книг в первом эксперименте · будет пересчитано на
-            очищенном корпусе
-          </p>
-        </Card>
-
-        {/* вывод: признаки окупаются */}
-        <div className="split reveal module">
-          <div className="prose">
-            <p className="verdict">
-              В первом эксперименте полный набор признаков дал{" "}
-              <strong style={{ color: "var(--text)" }}>{fmtPct(HEADLINE.accuracy, 1)}</strong>,
-              а мешок слов — <strong style={{ color: "var(--icon-blue)" }}>{fmtPct(bow.acc, 1)}</strong>.
-              Размер этой разницы должен подтвердить новый прогон без пересекающихся
-              произведений.
-            </p>
-            <p>
-              Показанная здесь историческая Delta нормирует частоты по сумме только выбранных
-              частых слов. Это сохранённый вариант первого эксперимента, а не каноническая Delta
-              Бэрроуза. Косинусные строки используют ту же частотную нормировку, но другую меру
-              расстояния. Мешок слов смотрит только на то, какие слова и как часто встречаются,
-              без их порядка.
-            </p>
-          </div>
-          <div className="grid cols-2" style={{ alignContent: "start" }}>
-            <Stat label="полный профиль · первый опыт" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
-            <Stat label="мешок слов · первый опыт" value={fmtScore(bow.acc, 3)} accent="var(--icon-blue)" />
-            <Stat label="macro-F1 · первый опыт" value={fmtScore(HEADLINE.styloMacroF1, 3)} accent="var(--icon-blue)" hint="Каждый автор получает равный вес. Наблюдение первого эксперимента." />
-            <Stat label="книг в проверке" value={CORPUS.lobo.books} accent="var(--text)" />
-          </div>
+        <div className="grid cols-2 reveal">
+          <Stat label="с балансировкой · исходные признаки" value={pct(balanced.accuracy.current.value)}
+            accent="var(--gold)" hint={`${balanced.accuracy.current.correct} из ${balanced.accuracy.current.total} произведений опознаны верно`} parade />
+          <Stat label="с балансировкой · сокращённый набор" value={pct(balanced.accuracy.topic_strict.value)}
+            accent="var(--icon-blue)" hint={`${balanced.accuracy.topic_strict.correct} из ${balanced.accuracy.topic_strict.total} произведений опознаны верно`} />
         </div>
-
-        {/* что несёт сигнал — вклад каждого канала */}
-        <div className="reveal module">
-          <h3>Из чего складывается почерк</h3>
-          <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 18 }}>
-            Каждый набор признаков проверили одной и той же моделью. Выше всех поодиночке —
-            цепочки букв (символьные n-граммы, {fmtScore(CHANNELS.byId("char (2-5)").top1, 3)}),
-            за ними построение фразы и служебные слова.{" "}
-            <strong style={{ color: "var(--text)" }}>Все вместе (ансамбль, {fmtScore(CHANNELS.ensembleTop1, 3)})
-            дали на +{fmtScore(CHANNELS.ensembleTop1 - CHANNELS.rows[0].top1, 3)} больше лучшего одиночного набора</strong>{" "}
-            — сам этот зазор отдельно не проверялся.
-          </p>
-          <div className="split" style={{ alignItems: "center" }}>
-            <div>
-              {CHANNELS.rows.map((r) => (
-                <div key={r.name} style={{ display: "grid", gridTemplateColumns: "minmax(0,22ch) 1fr 5ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                  <span style={{ fontSize: 12, color: r.kind === "bow" ? "var(--icon-blue)" : r.kind === "weak" ? "var(--danger)" : "var(--text-muted)" }}>{channelLabel(r.name)}</span>
-                  <MeterBar value={r.top1} max={CH_MAX} accent={CH_ACCENT[r.kind]} />
-                  <span className="mono" style={{ fontSize: 10.5, color: "var(--text-muted)" }}>{fmtScore(r.top1, 3)}</span>
+        <div className="grid cols-2 reveal">
+          {MEASUREMENT.cells.map((cell) => (
+            <Card key={cell.cell} padding={24}>
+              <h3>{CONDITIONS[cell.cell].title}</h3>
+              <p className="note">{CONDITIONS[cell.cell].note}</p>
+              {Object.entries(ARMS).map(([arm, label]) => (
+                <div key={arm} style={{ display: "grid", gap: 8, marginTop: 20 }}>
+                  <span>{label}</span>
+                  <MeterBar value={cell.accuracy[arm].value} max={1}
+                    accent={arm === "current" ? "var(--gold)" : "var(--icon-blue)"} />
+                  <span className="mono">{cell.accuracy[arm].correct}/{cell.accuracy[arm].total} · {pct(cell.accuracy[arm].value)}</span>
                 </div>
               ))}
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,22ch) 1fr 5ch", alignItems: "center", gap: 8, padding: "6px 0 0", borderTop: "1px solid color-mix(in srgb, var(--line) 50%, transparent)", marginTop: 6 }}>
-                <span style={{ fontSize: 12, color: "var(--text)", fontWeight: 700 }}>АНСАМБЛЬ (равновесный)</span>
-                <MeterBar value={CHANNELS.ensembleTop1} max={CH_MAX} accent="var(--success)" />
-                <span className="mono" style={{ fontSize: 10.5, color: "var(--success)" }}>{fmtScore(CHANNELS.ensembleTop1, 3)}</span>
-              </div>
-            </div>
-            <p className="note" style={{ margin: 0 }}>
-              <strong style={{ color: "var(--danger)" }}>Словообразование по суффиксам (DSP) — {fmtScore(CHANNELS.byId("DSP (suffixes)").top1, 3)}</strong>:
-              это самый слабый из показанных наборов признаков. В этой проверке он заметно
-              уступает остальным группам.
+            </Card>
+          ))}
+        </div>
+        <div className="split reveal">
+          <div className="prose">
+            <h3>Равная точность, разные ответы</h3>
+            <p>
+              В пакете с балансировкой число попаданий осталось прежним, но изменились ответы
+              для {fmtCount(changedBalanced, "произведения", "произведений", "произведений")}: сокращённый набор
+              исправил {fmtCount(balanced.transitions.topic_strict_only_correct, "ошибку", "ошибки", "ошибок")}
+              {" "}и потерял {fmtCount(balanced.transitions.current_only_correct, "попадание", "попадания", "попаданий")}.
+              Поэтому одинаковая общая точность не означает полного совпадения решений.
+            </p>
+          </div>
+          <div className="prose">
+            <h3>Что изменилось без балансировки книг</h3>
+            <p>
+              При обучении на фрагментах сокращённый набор исправил
+              {" "}{fmtCount(fragment.transitions.topic_strict_only_correct, "ошибку", "ошибки", "ошибок")}
+              {" "}и потерял {fmtCount(fragment.transitions.current_only_correct, "попадание", "попадания", "попаданий")}.
+              Итоговая разница — {fmtCount(fragment.delta.numerator, "произведение", "произведения", "произведений")} из {fragment.delta.denominator}.
+              Это наблюдение на данном наборе, без оценки статистической значимости разницы.
             </p>
           </div>
         </div>
+        <p className="callout reveal">
+          Эти проценты описывают узнавание известных авторов по отложенным произведениям.
+          Версии о Булгакове и «Тихом Доне» этим прогоном не перепроверялись: состав эталонов
+          и поиск локального участия требуют отдельных сравнений.
+        </p>
+        <details className="reveal">
+          <summary>Состав проверки и источник чисел</summary>
+          <p className="prose muted">
+            В модели {MEASUREMENT.candidateClasses} класса кандидатов, качество проверено для
+            {" "}{MEASUREMENT.testedAuthors} авторов. У авторов с единственным произведением нет
+            другой книги для независимой проверки. Метрика — доля правильных ответов по работам;
+            macro-F1 и доверительные интервалы в этом расчёте не оценивались.
+          </p>
+          <p className="prose muted">
+            Пакеты различаются сразу несколькими настройками. Этот прогон не выделяет
+            отдельный эффект каждого механизма балансировки.
+          </p>
+          <a href={`${import.meta.env.BASE_URL}${MEASUREMENT.publicArtifact}`} download="topic-validity-aggregate.json">
+            Скачать исходный агрегат
+          </a>
+          <p className="note mono" style={{ overflowWrap: "anywhere" }}>{MEASUREMENT.source}</p>
+        </details>
+        <details className="reveal">
+          <summary>История: результаты исходного корпуса</summary>
+          <HistoricalResults />
+        </details>
       </div>
     </section>
   );

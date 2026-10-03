@@ -58,8 +58,8 @@ def _assert_binding(binding: dict, *, require_hash: bool) -> None:
         assert _sha256(path) == binding["sha256"]
 
 
-def test_status_ledger_keeps_every_authorization_latch_closed():
-    """The ledger may be reworded freely; the latches that gate publication may not drift."""
+def test_status_ledger_separates_completed_comparison_from_confirmatory_status():
+    """Completed measured work does not relabel the unimplemented confirmatory study."""
     ledger = _strict_json(GOVERNANCE / "status_ledger.json")
     assert set(ledger) == {
         "schema", "as_of", "authority", "paired_audit", "bounded_exploratory_milestones"
@@ -75,11 +75,26 @@ def test_status_ledger_keeps_every_authorization_latch_closed():
     }
     for key, expected in latches.items():
         assert ledger["paired_audit"][key]["status"] == expected, key
-    for state in ledger["paired_audit"].values():
-        assert set(state) in ({"status", "claim"}, {"status", "claim", "bindings"})
+    for name, state in ledger["paired_audit"].items():
+        expected_fields = {"status", "claim"}
+        if "bindings" in state:
+            expected_fields.add("bindings")
+        if name == "topic_validity_execution":
+            expected_fields.add("result")
+        assert set(state) == expected_fields
         assert state["status"] and state["claim"]
         for binding in state.get("bindings", []):
             _assert_binding(binding, require_hash=False)
+
+    from stylo.jsonio import artifact_self_hash
+    measured = ledger["paired_audit"]["topic_validity_execution"]
+    result = measured["result"]
+    aggregate = _strict_json(ROOT / result["path"])
+    assert measured["status"] == "completed_bounded_exploratory"
+    assert result["self_hash"] == aggregate["self_hash"] == artifact_self_hash(aggregate)
+    design = aggregate["design"]
+    assert result["completed_fits"] == len(design["cells"]) * len(design["arms"]) * design["fold_count"]
+    assert result["evidence_tier"] == "bounded_exploratory"
 
 
 def test_bounded_exploratory_milestone_is_exact_and_non_authorizing():
@@ -504,5 +519,4 @@ def test_active_taras_masking_consumer_imports_without_running_retired_cleaner()
         check=False,
     )
     assert result.returncode == 0, result.stderr
-
 

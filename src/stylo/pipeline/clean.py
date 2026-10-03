@@ -17,6 +17,7 @@ from joblib import Parallel, delayed
 
 from ..chunking import split_text_safe
 from ..config import load_config
+from .._io import is_link
 from ..jsonio import dump_strict, dumps_strict, loads_strict
 from ..nlp import load_ner, resolved_nlp_identity
 from ._snapshot import publish_directory_snapshot
@@ -146,7 +147,7 @@ def preprocessing_identity(cfg) -> dict:
 
 
 def _read_raw_strict(fp: pathlib.Path) -> tuple[bytes, str]:
-    if fp.is_symlink() or not fp.is_file():
+    if is_link(fp) or not fp.is_file():
         raise RuntimeError(f"raw corpus input must be a regular non-symlink file: {fp}")
     payload = fp.read_bytes()
     try:
@@ -175,7 +176,7 @@ def _process_file(
     relative = fp.relative_to(src)
     out = dst / relative
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(clean, encoding="utf-8")
+    out.write_text(clean, encoding="utf-8", newline="\n")
     return {
         "source": relative.as_posix(),
         "source_sha256": _sha256_bytes(payload),
@@ -184,11 +185,11 @@ def _process_file(
 
 
 def _raw_files(src: pathlib.Path) -> list[pathlib.Path]:
-    if src.is_symlink() or not src.is_dir():
+    if is_link(src) or not src.is_dir():
         raise RuntimeError(f"raw corpus root must be a real directory: {src}")
     files: list[pathlib.Path] = []
     for entry in sorted(src.iterdir()):
-        if entry.is_symlink():
+        if is_link(entry):
             raise RuntimeError(f"symlinked raw corpus entry rejected: {entry}")
         if not entry.is_dir():
             raise RuntimeError(
@@ -196,7 +197,7 @@ def _raw_files(src: pathlib.Path) -> list[pathlib.Path]:
             )
         author_files = 0
         for candidate in sorted(entry.iterdir()):
-            if candidate.is_symlink():
+            if is_link(candidate):
                 raise RuntimeError(f"symlinked raw corpus input rejected: {candidate}")
             if candidate.is_dir():
                 raise RuntimeError(
@@ -226,7 +227,7 @@ def _validate_staged_snapshot(
     output_paths = {
         fp.relative_to(staging).as_posix()
         for fp in staging.rglob("*.txt")
-        if fp.is_file() and not fp.is_symlink()
+        if fp.is_file() and not is_link(fp)
     }
     if source_paths != recorded_paths or output_paths != source_paths:
         raise RuntimeError(
@@ -239,7 +240,7 @@ def _validate_staged_snapshot(
     for relative in sorted(source_paths):
         source_payload, _text = _read_raw_strict(src / relative)
         output = staging / relative
-        if output.is_symlink() or not output.is_file():
+        if is_link(output) or not output.is_file():
             raise RuntimeError(f"cleaned output is missing/unsafe: {relative}")
         if _sha256_bytes(source_payload) != by_source[relative]["source_sha256"]:
             raise RuntimeError(f"raw input changed during cleaning: {relative}")
@@ -248,7 +249,7 @@ def _validate_staged_snapshot(
 
 
 def run(cfg=None, only: list[str] | None = None) -> None:
-    """Build and atomically publish an exact ``input_raw`` → ``input_clean`` snapshot.
+    """Publish an exact raw/clean snapshot as an immutable current generation.
 
     Partial rebuilding is intentionally unsupported: carrying outputs from a
     prior run could mix cleaner code/model/runtime generations even when the
@@ -297,9 +298,9 @@ def run(cfg=None, only: list[str] | None = None) -> None:
         _validate_staged_snapshot(src, staging, entries)
         if preprocessing_identity(cfg) != preprocessing:
             raise RuntimeError("cleaner/NER identity changed during snapshot construction")
-        publish_directory_snapshot(staging, dst)
+        published_root = publish_directory_snapshot(staging, dst)
         staging = None
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging)
-    log.info("Очищено и опубликовано %d/%d", len(entries), len(files))
+    log.info("Очищено и опубликовано %d/%d: %s", len(entries), len(files), published_root)

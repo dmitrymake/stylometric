@@ -1,6 +1,6 @@
 {
   "schema": "stylo.governance.status_ledger.v2",
-  "as_of": "2026-08-26",
+  "as_of": "2026-10-03",
   "authority": "This file is the normative current-state ledger. Narrative chronology, review-round labels, future-tense prose, and line-number references in research documents are historical and non-normative. Bindings name the code that owns each state; they are not byte pins, so ordinary refactoring does not require a ledger edit.",
   "paired_audit": {
     "protocol_v3_1": {
@@ -33,7 +33,7 @@
     },
     "evaluator_candidate": {
       "status": "implemented_reviewed_unregistered",
-      "claim": "The versioned v3.2 evaluator/evidence-adapter candidate is implemented and reviewed under docs/tasks/2026-08-10-paired-audit-v3-2-evaluator.md. Context construction consumes the immutable protocol identity and the exact stored manifest identity while the environment lock remains spaCy 3.8.11; it performs no chunking, fit, or prediction. Receipt validation derives its expectations independently. A synthetic topic-validity gate confirms that active stylo MFW can encode label-correlated content nouns while the evaluation-only topic_strict control removes that exact controlled dependency. The corrected-corpus magnitude and the model-semantics decision remain unmeasured, so the candidate is an unregistered input to later authorized tasks and carries no production registration or execution authority.",
+      "claim": "The v3.2 evaluator implements the corrected work-level corpus/fold contract. The completed topic-validity comparison is recorded separately below. A confirmatory evaluator is not registered; ordinary diagnostic comparisons do not require the retired confirmatory control plane.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/applicability_v3_2.py",
@@ -51,7 +51,7 @@
     },
     "topic_validity_challenger": {
       "status": "implemented_reviewed",
-      "claim": "A research-only A0/A4 current-versus-topic_strict adapter and aggregate-only schema is implemented under docs/tasks/2026-08-23-topic-validity-challenger-v1.md. Its binding maps semantic source roles to byte digests without exposing repository paths. It carries no registry entry, official receipt/result/run identity, model decision, readiness claim, publication or authorization.",
+      "claim": "The current and topic-restricted feature sets use the same A0/A4 training and held-out-work scoring routes. Their aggregate records accuracy, paired prediction transitions and source identities. It does not estimate confidence intervals or authorship probabilities.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
@@ -60,8 +60,8 @@
       ]
     },
     "topic_validity_execution": {
-      "status": "owner_authorized_resumable_unmeasured",
-      "claim": "The repository owner authorized the bounded R3b corrected-LOBO topic-validity study. Measured orchestration: sequential projected 98.4 hours, fixed-8 reached 10/992 at 957.7 seconds (26.4-hour projection) with safe memory, fixed-16 reached 10/992 at 1162.4 seconds (32.0-hour projection) and was slower under contention. The runner defaults to the measured eight-process fork and resumes from an ignored local checkpoint, so an interrupted run continues instead of discarding its fits. A first execution attempt reached 260/992 before the owner stopped it; no aggregate exists and the corrected-corpus effect stays unmeasured. Scope is exactly 248 LOBO folds, stylo A0/A4, current versus topic_strict, and one aggregate-only artifact. This is not confirmatory, registration, freeze, model-selection, headline or publication authority.",
+      "status": "completed_bounded_exploratory",
+      "claim": "All 992 fits completed on 2026-10-03: 248 held-out works, A0/A4 weighting and current/topic_strict features. A0 classified 216 and 218 works correctly; A4 classified 225 correctly with either feature set. The aggregate and checkpoint reduction were verified and the temporary VM/disk removed. This measures known-author benchmark accuracy; it does not establish new authorship results for disputed novels or a confirmatory generalisation claim.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
@@ -71,11 +71,18 @@
           "path": "scripts/evaluation/run_topic_validity_lobo_v1.py",
           "symbol": "main"
         }
-      ]
+      ],
+      "result": {
+        "path": "research/evidence/topic_validity_lobo_v1/aggregate.json",
+        "self_hash": "06b01f7a0fdf4e8e0440bd25ac5b499b943d77336813f78be2497f75d584290e",
+        "source_commit": "bb3760f9b9237a9fbadfaf847dca56bba8024161",
+        "completed_fits": 992,
+        "evidence_tier": "bounded_exploratory"
+      }
     },
     "manifest_freeze": {
       "status": "unapproved",
-      "claim": "No reviewed v3.2 immutable corpus root or fold-manifest digest is pinned, and no code holds an approved freeze constant. The v3.1 candidates are ineligible and cannot be promoted or reused."
+      "claim": "No confirmatory v3.2 freeze constant is registered. The completed bounded comparison records its own exact corpus/fold identities in the aggregate; the former v3.1 corpus remains ineligible for new runs."
     },
     "production_evaluator": {
       "status": "unregistered",
@@ -89,19 +96,19 @@
     },
     "preflight": {
       "status": "absent",
-      "claim": "No v3.2 execution preflight or preflight receipt exists."
+      "claim": "A confirmatory v3.2 preflight is not implemented. The bounded topic-validity runner has its own verified-input preflight."
     },
     "execution_authorization": {
       "status": "absent",
-      "claim": "No authorization exists for a v3.2 fit, prediction, checkpoint, result, or confirmatory execution."
+      "claim": "No confirmatory v3.2 execution is authorised. The owner authorised and completed the separate bounded topic-validity comparison and subsequently authorised product and methodology improvements."
     },
     "confirmatory_execution": {
       "status": "hard_disabled",
-      "claim": "No confirmatory execution path exists: the v3.1 control plane (runner, checkpoints, publisher, inference, headline gate, result audit) was deleted as superseded, and its historical results remain immutable evidence. A v3.2 run requires a separately implemented, reviewed and authorized corpus/fold/evaluator/preflight chain."
+      "claim": "The former v3.1 confirmatory runner was retired. A future confirmatory study needs an explicit design and implementation; rebuilding that campaign machinery is not a prerequisite for ordinary diagnostic comparisons."
     },
     "headline": {
       "status": "not_authorized",
-      "claim": "No paired-audit headline decision, publication, push, or deployment is authorized. Historical headline artifacts remain immutable."
+      "claim": "The completed bounded comparison is available for a local editorial draft. Public deployment and push require the owner's separate instruction; historical metrics remain labelled as historical."
     }
   },
   "bounded_exploratory_milestones": {

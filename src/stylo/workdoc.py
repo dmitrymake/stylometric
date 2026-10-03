@@ -41,7 +41,9 @@ from .domain.corpus_identity import (
     RowIdentity,
     build_provenance,
 )
+from ._io import is_link
 from .jsonio import dumps_strict, load_strict
+from .pipeline._snapshot import SnapshotPublishError, resolve_directory_snapshot
 
 CHUNKER_ALGORITHM = "stylo.sent_chunks/v2"  # short windows dropped, giant sentences retained
 NORMALIZATION_CONTRACT = "stylo.clean/v2"  # lossless NER text splitting + normalization (pipeline/clean.py)
@@ -97,7 +99,7 @@ class ChunkerConfig:
     language: str
     masking_model: str
     masking_model_version: str
-    masking_fallback: str
+    masking_fallback: str | None
 
 
 def _req_str_cfg(cfg, path: str) -> str:
@@ -111,7 +113,8 @@ def frozen_chunker_config(cfg) -> ChunkerConfig:
     """Validated, coercion-free chunker + masking settings used by the splitter and hash.
 
     Rejects non-int sizes (200 and 200.5 must not collide), non-finite / out-of-range
-    overlap, and non-string model fields (so None/NaN cannot sanitise to the same null).
+    overlap, and invalid model fields. Only the fallback may be None (disabled);
+    numeric values, including NaN, cannot masquerade as that explicit null.
     ``overlap`` is canonicalised so ``-0.0`` and ``0.0`` hash identically.
     """
     chunk_size = cfg.get_path("chunking.chunk_size", 500)
@@ -124,12 +127,15 @@ def frozen_chunker_config(cfg) -> ChunkerConfig:
     if type(overlap) is bool or not isinstance(overlap, (int, float)) or not math.isfinite(overlap) or not (0.0 <= overlap < 1.0):
         raise ManifestError(f"chunking.overlap must be a finite float in [0,1), got {overlap!r}")
     overlap = 0.0 if overlap == 0.0 else float(overlap)  # normalise -0.0 -> 0.0
+    fallback = cfg.get_path("language.spacy_fallback", None)
+    if fallback is not None and type(fallback) is not str:
+        raise ManifestError(f"language.spacy_fallback must be a string or null, got {fallback!r}")
     return ChunkerConfig(
         chunk_size, min_words, overlap,
         language=_req_str_cfg(cfg, "language.code"),
         masking_model=_req_str_cfg(cfg, "language.spacy_model"),
         masking_model_version=_req_str_cfg(cfg, "language.spacy_model_version"),
-        masking_fallback=_req_str_cfg(cfg, "language.spacy_fallback"),
+        masking_fallback=fallback,
     )
 
 
@@ -286,7 +292,7 @@ def _walk_txt_no_follow(root: pathlib.Path) -> list[pathlib.Path]:
 
 
 def _require_no_symlink(path: pathlib.Path, what: str) -> None:
-    if path.is_symlink():
+    if is_link(path):
         raise ManifestError(f"{what} is a symlink (rejected): {path}")
 
 
@@ -297,12 +303,12 @@ def _resolve_within_no_symlink(root: str | pathlib.Path, *parts: str, what: str)
     author dir cannot redirect the leaf source file outside the corpus.
     """
     root = pathlib.Path(root)
-    if root.is_symlink():
+    if is_link(root):
         raise ManifestError(f"{what}: root is a symlink (rejected): {root}")
     cur = root
     for part in parts:
         cur = cur / part
-        if cur.is_symlink():
+        if is_link(cur):
             raise ManifestError(f"{what}: symlinked path component (rejected): {cur}")
     if not cur.resolve().is_relative_to(root.resolve()):
         raise ManifestError(f"{what}: escapes root: {cur}")
@@ -346,7 +352,7 @@ def validate_work_manifest(
 
     # structure: no symlink .txt anywhere, no nested .txt, exact bijection
     all_txt = _walk_txt_no_follow(work_dir)
-    symlinked = [p for p in all_txt if p.is_symlink()]
+    symlinked = [p for p in all_txt if is_link(p)]
     if symlinked:
         raise ManifestError(f"{work_id}: symlinked chunk file(s) rejected: {sorted(p.name for p in symlinked)[:3]}")
     nested = [p for p in all_txt if p.parent != work_dir]
@@ -361,7 +367,11 @@ def validate_work_manifest(
 
     # provenance against the cleaned source (mandatory); whole path chain must be symlink-free
     author, book = work_id.split("/", 1)
-    src = _resolve_within_no_symlink(input_clean_root, author, f"{book}.txt", what=f"{work_id}: cleaned source")
+    try:
+        clean_root = resolve_directory_snapshot(input_clean_root)
+    except SnapshotPublishError as exc:
+        raise ManifestError(f"{work_id}: cleaned source root is invalid: {exc}") from exc
+    src = _resolve_within_no_symlink(clean_root, author, f"{book}.txt", what=f"{work_id}: cleaned source")
     if not src.is_file():
         raise ManifestError(f"{work_id}: cleaned source not found for provenance check: {src}")
     if source_provenance_sha256(src) != manifest.provenance_sha256:
@@ -396,7 +406,7 @@ def load_work_manifest(
     author_id = work_dir.parent.name
     work_id = f"{author_id}/{work_dir.name}"
     path = work_dir / MANIFEST_NAME
-    if path.is_symlink() or not path.is_file():
+    if is_link(path) or not path.is_file():
         raise ManifestError(f"missing/unsafe {MANIFEST_NAME} in {work_dir} (required for work_balanced)")
     manifest = WorkManifest.from_dict(load_strict(path))
     texts = validate_work_manifest(
@@ -433,6 +443,10 @@ def load_work_balanced_dataset(
     root_resolved = root.resolve()
     if input_clean_root is None:
         input_clean_root = cfg.get_path("paths.input_clean", "input_clean")
+    try:
+        input_clean_root = resolve_directory_snapshot(input_clean_root)
+    except SnapshotPublishError as exc:
+        raise ManifestError(f"cleaned source root is invalid: {exc}") from exc
     expected_hash = expected_chunker_config_hash
     if expected_hash is None:
         expected_hash = chunker_config_hash(cfg)
@@ -451,7 +465,7 @@ def load_work_balanced_dataset(
         """
         out = []
         for e in sorted(os.scandir(parent), key=lambda e: e.name):
-            if e.is_symlink():
+            if is_link(e.path):
                 raise ManifestError(f"symlinked {what} rejected: {e.path}")
             if e.is_dir(follow_symlinks=False):
                 p = pathlib.Path(e.path)

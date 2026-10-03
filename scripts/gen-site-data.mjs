@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
 //  Генератор данных сайта: docs/*.json (выходы прогонов) → site/src/generated/.
 //  data.js/corpus.js/segdata.js берут числа ТОЛЬКО отсюда (без литералов). Единств. исключения
-//  в segdata: ccat50Valla (внешняя цитата обзора Valla, не наш прогон) и nSegments=0 (сегмент-
-//  прогон 12 стульев, чей JSON не сохранён). Пересчёт прогона → этот скрипт → числа на сайте
+//  в segdata: ccat50Valla (внешняя цитата обзора Valla, не наш прогон).
+//  Новый измерительный блок отдельно читает research/evidence/topic_validity_lobo_v1/aggregate.json.
+//  Пересчёт прогона → этот скрипт → числа на сайте
 //  обновляются сами (prebuild-хук); сгенерированное — под coverage-гейтом ниже. Значения, что
 //  живут лишь в прозе прогона, тянутся якорным grab()-regex с null-фоллбэком (дрейф ловит гейт).
 //
@@ -112,6 +113,95 @@ function loadRepositoryJson(relativePath) {
   return parseStrictJson(readFileSync(p, "utf-8"), relativePath);
 }
 
+function topicMeasurement(artifact, source) {
+  const fail = (message) => { throw new Error(`${source}: ${message}`); };
+  const integer = (value, label, minimum = 0) => {
+    if (!Number.isSafeInteger(value) || value < minimum) fail(`${label} must be an integer >= ${minimum}`);
+    return value;
+  };
+  const ordered = (value, expected, label) => {
+    if (JSON.stringify(value) !== JSON.stringify(expected)) fail(`${label} mismatch`);
+  };
+  const canonical = (value) => {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+    }
+    return value;
+  };
+  if (artifact?.schema !== "stylo.topic_validity.aggregate.v1" ||
+      artifact.status !== "bounded_research_aggregate_only" ||
+      artifact.confirmatory_authorized !== false || artifact.publication_authorized !== false) {
+    fail("unsupported research aggregate contract");
+  }
+  const { self_hash: selfHash, ...payload } = artifact;
+  if (!/^[0-9a-f]{64}$/.test(selfHash) || sha256(JSON.stringify(canonical(payload))) !== selfHash) {
+    fail("aggregate self_hash mismatch");
+  }
+  const design = artifact.design;
+  if (design?.unit !== "held_out_whole_work" || design.accuracy_weighting !== "equal_held_out_work" ||
+      design.delta_direction !== "topic_strict_minus_current" || design.model !== "stylo") {
+    fail("measurement design mismatch");
+  }
+  ordered(design.cells, ["A0", "A4"], "cells");
+  ordered(design.arms, ["current", "topic_strict"], "arms");
+  const folds = integer(design.fold_count, "fold_count", 1);
+  const testedAuthors = integer(design.tested_author_count, "tested_author_count", 1);
+  const candidateClasses = integer(design.probability_class_count, "probability_class_count", testedAuthors);
+  ordered(artifact.cells?.map((cell) => cell.cell), design.cells, "cell records");
+  const categories = ["both_correct", "current_only_correct", "topic_strict_only_correct",
+    "both_wrong_same_prediction", "both_wrong_changed_prediction"];
+  ordered(design.transition_categories, categories, "transition categories");
+  const cells = artifact.cells.map((cell) => {
+    const accuracy = Object.fromEntries(design.arms.map((arm) => {
+      const record = cell.accuracy?.[arm];
+      const total = integer(record?.total, `${cell.cell}/${arm}.total`, 1);
+      const correct = integer(record?.correct, `${cell.cell}/${arm}.correct`);
+      if (total !== folds || correct > total) fail(`${cell.cell}/${arm} count mismatch`);
+      return [arm, { correct, total, value: correct / total }];
+    }));
+    const rows = cell.per_author_transitions;
+    if (!Array.isArray(rows) || rows.length !== testedAuthors ||
+        new Set(rows.map((row) => row.author)).size !== testedAuthors) {
+      fail(`${cell.cell}: tested author coverage mismatch`);
+    }
+    const transitions = Object.fromEntries(categories.map((key) => [key, 0]));
+    let coveredFolds = 0;
+    for (const row of rows) {
+      if (typeof row.author !== "string" || !row.author) fail(`${cell.cell}: author identifier missing`);
+      const count = integer(row.n_folds, `${cell.cell}/${row.author}.n_folds`, 1);
+      const sum = categories.reduce((total, key) => {
+        const value = integer(row[key], `${cell.cell}/${row.author}.${key}`);
+        transitions[key] += value;
+        return total + value;
+      }, 0);
+      if (sum !== count) fail(`${cell.cell}/${row.author}: transition count mismatch`);
+      coveredFolds += count;
+    }
+    if (coveredFolds !== folds ||
+        transitions.both_correct + transitions.current_only_correct !== accuracy.current.correct ||
+        transitions.both_correct + transitions.topic_strict_only_correct !== accuracy.topic_strict.correct) {
+      fail(`${cell.cell}: accuracy/transition arithmetic mismatch`);
+    }
+    const delta = cell.delta_accuracy;
+    const numerator = accuracy.topic_strict.correct - accuracy.current.correct;
+    if (delta?.direction !== design.delta_direction || delta.denominator !== folds || delta.numerator !== numerator) {
+      fail(`${cell.cell}: delta arithmetic mismatch`);
+    }
+    for (const arm of design.arms) {
+      const prediction = cell.prediction_vector_digests?.[arm];
+      if (prediction?.count !== folds || !/^[0-9a-f]{64}$/.test(prediction.sha256)) {
+        fail(`${cell.cell}/${arm}: prediction vector binding mismatch`);
+      }
+    }
+    return { cell: cell.cell, accuracy, delta: { numerator, denominator: folds, value: numerator / folds }, transitions };
+  });
+  return { source, sourceSelfHash: selfHash, studyIdentity: artifact.study_identity,
+    publicArtifact: "measurement/topic-validity-aggregate.json",
+    unit: design.unit, testedAuthors, candidateClasses, works: folds,
+    fits: folds * design.cells.length * design.arms.length, cells };
+}
+
 // final_comparison.csv: model,accuracy,acc_ci,macro_f1,top2,ece,vs_stylo_dacc,vs_stylo_mcnemar_p
 // acc_ci — поле в кавычках с запятой внутри: "[0.849,0.924]".
 function loadModelsCsv() {
@@ -141,6 +231,9 @@ function loadModelsCsv() {
 }
 
 const historicalSnapshot = loadRepositoryJson("docs/p0_baseline_snapshot.json");
+const measurementSource = "research/evidence/topic_validity_lobo_v1/aggregate.json";
+const measurement = topicMeasurement(loadRepositoryJson(measurementSource), measurementSource);
+track("measurement", [measurementSource], "whole-work accuracy and paired transitions; separate from historical headline/cases");
 for (const name of ["validation.json", "validation_pd.json"]) {
   const relativePath = `docs/${name}`;
   const registered = historicalSnapshot?.artifacts?.sha256?.[relativePath];
@@ -1085,7 +1178,7 @@ const repro = {
 };
 track("repro", ["docs/repro_gates.json"], "перепрогон gate-кейсов бит-в-бит + самый долгий gate");
 
-const data = { corpus, headline, models, channels, authorRecall, confusions, segment, loboStrict, ccat50, disputed, tomsk, benchPd, sholokhovThematic, ilfHeterogeneity, dynastyPanel, scribe, accession, sholokhovManuscript, nikolaiCrossreg, consistency, prozaBench, multihands, ilfPetrov, cases, rigor, nikolaiCase, nikolaiCats, limits, tarasCase, repro };
+const data = { corpus, headline, models, channels, authorRecall, confusions, segment, loboStrict, ccat50, disputed, tomsk, benchPd, sholokhovThematic, ilfHeterogeneity, dynastyPanel, scribe, accession, sholokhovManuscript, nikolaiCrossreg, consistency, prozaBench, multihands, ilfPetrov, cases, rigor, nikolaiCase, nikolaiCats, limits, tarasCase, repro, measurement };
 const holes = [];
 (function scan(o, path) {
   if (o === null || o === undefined) { holes.push(path); return; } // undefined ловим ДО JSON.stringify (он молча выкидывает ключ)
@@ -1144,6 +1237,10 @@ if (JSON.stringify(consumedSourcePaths) !== JSON.stringify(linkedSourcePaths)) {
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 const siteDataBytes = Buffer.from(JSON.stringify(data, null, 2) + "\n", "utf-8");
 writeFileSync(join(OUT, "site-data.json"), siteDataBytes);
+const measurementPublicPath = join(ROOT, "site", "public", measurement.publicArtifact);
+mkdirSync(dirname(measurementPublicPath), { recursive: true });
+const measurementBytes = readFileSync(join(ROOT, measurement.source));
+writeFileSync(measurementPublicPath, measurementBytes);
 const generatorPath = "scripts/gen-site-data.mjs";
 const provenance = {
   schema: PROVENANCE_SCHEMA,
@@ -1158,6 +1255,9 @@ const provenance = {
   outputs: [{
     path: "site/src/generated/site-data.json",
     sha256: sha256(siteDataBytes),
+  }, {
+    path: `site/public/${measurement.publicArtifact}`,
+    sha256: sha256(measurementBytes),
   }],
   entries: manifest,
 };

@@ -20,9 +20,7 @@ export const REPRO = D.repro;
 export const ILF_PETROV = {
   candidates: ["Илья Ильф и Евгений Петров", "Михаил Булгаков", "Валентин Катаев", "Юрий Олеша"],
   // Числа -> генератор (D.ilfPetrov) из ilf_vs_petrov.json + ilfpetrov_timeline.json.
-  dvenadtsat: { label: "«12 стульев»", ...D.ilfPetrov.dvenadtsat,
-    nSegments: 0, // сегментная атрибуция: 0 чужих отрезков (отдельный прогон, не таймлайн)
-  },
+  dvenadtsat: { label: "«12 стульев»", ...D.ilfPetrov.dvenadtsat },
   gold: { label: "«Золотой телёнок»", ...D.ilfPetrov.gold }, // своя карта: nForeign 2, к Булгакову 0
   solo: { ...D.ilfPetrov.solo,
     ilfSource: "Записные книжки (1925–1937), сольный Ильф",

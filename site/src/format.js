@@ -28,6 +28,11 @@ export const fmtRange = (lo, hi, fmt = fmtScore) => `${fmt(lo)}${EN}${fmt(hi)}`;
 export const fmtWordsM = (n) =>
   n == null || Number.isNaN(n) ? "—" : `${(n / 1e6).toFixed(1).replace(".", ",")} млн`;
 export const fmtInt = (n) => Number(n).toLocaleString("ru-RU");
+export const fmtCount = (n, one, few, many) => {
+  const lastTwo = Math.abs(n) % 100, last = Math.abs(n) % 10;
+  const noun = lastTwo >= 11 && lastTwo <= 14 ? many : last === 1 ? one : last >= 2 && last <= 4 ? few : many;
+  return `${fmtInt(n)} ${noun}`;
+};
 
 // значение дуги ConfidenceRing — всегда целый процент 0..100.
 export const ringPct = (frac) => Math.round(frac * 100);

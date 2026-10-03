@@ -1,139 +1,69 @@
-# Research and release roadmap
+# План Stylo
 
-Normative current status is recorded in
-[`governance/status_ledger.json`](governance/status_ledger.json). If chronology, review-round labels,
-future-tense prose, commit labels, or line references in this document disagree with that ledger, the
-ledger wins.
+Обновлён 2026-10-03 по запросу владельца: простой инструмент стилометрического сравнения,
+два подробно разобранных случая и технически содержательная статья на русском языке.
+Это текущий план продукта. Статусы уже зарегистрированных измерений остаются в
+[`governance/status_ledger.json`](governance/status_ledger.json); исторические протоколы и результаты
+сохраняются со своими исходными условиями.
 
-This is the single current roadmap for the repository. Scientific cell identifiers such as
-`A0/A1/A4` remain stable where they define an estimand; execution chronology belongs in status
-metadata, not filenames or directories.
+## 1. Измерение качества завершено
 
-Last reconciled: 2026-08-11.
+Все 992 обучения выполнены и проверены. [Агрегат](evidence/topic_validity_lobo_v1/aggregate.json)
+содержит четыре сравнения по 248 отложенным произведениям: A0 — 216 и 218 правильных ответов,
+A4 — 225 в обоих наборах признаков. A4 меняет сразу обучение признаков, их нормировку и веса
+примеров, поэтому сравнение не изолирует эффект только весов. Интервалы не рассчитывались.
 
-## Active scientific deliverable
+Временная VM и её диск удалены после выгрузки. Этот результат обосновывает дальнейшую проверку
+пакета A4, но не заменяет отдельные расчёты исторических случаев. Повторять полный прогон
+без новой проверяемой причины не требуется. Условия описаны в [методике](../docs/runbooks/stylometry.md).
 
-### Complete paired-audit v3.2 on a corrected internal corpus
+## 2. Довести простой рабочий путь
 
-Normative design: [`work_balanced/paired_audit_protocol.md`](work_balanced/paired_audit_protocol.md).
+- Удалить неиспользуемый код прежних запусков после проверки импортов и зарегистрированных ссылок.
+- Основной путь — `stylo analyze`: короткий конфиг, явная цель и панель, затем отчёт.
+  Отдельные команды нужны для повторного использования подготовленных данных.
+- Заменить проверки дословного текста README и статьи проверками вычислений, источников чисел
+  и работоспособности сайта. Литературная редактура не должна требовать исправления тестов.
+- Хранить состав входных данных, настройки, версии, результат и checkpoint длительного расчёта;
+  повторяющиеся журналы и историю действий оставлять вне Git.
+- Отделить обычное вычисление от воспроизведения исторического результата в точном окружении.
+  Проверка версии ОС сама по себе не определяет пригодность стилометрического метода.
+- Довести обычное обучение без Git и сохранение через версии с атомарным указателем.
+  Проверять восстановление после сбоя и конкурирующих записей; не объявлять Windows/macOS
+  проверенными без запуска на этих платформах.
 
-The former paired-audit v3.1 snapshot and LOBO/RuAA folds are registered as
-`ineligible_for_new_scientific_runs`; neither its corpus, freeze candidates, nor historical A0
-predictions can be reused for a new scientific run. v3.2 corrected-corpus/fold preparation is
-owner-accepted for evaluator implementation; the security review was terminated by the owner and no
-independent security-audit PASS is claimed. The evaluator candidate is now implemented. Its single
-bounded scientific review found one incomplete-class-universe blocker, which the one allowed
-correction pass fixed; no second independent-review PASS is claimed. The corrected candidate is
-accepted only as an unregistered input to a later task. This is not a reviewed freeze or an execution
-grant.
+Проверки, которые предотвращают подмешивание проверяемой книги в обучение, смешение checkpoint
+разных экспериментов или подмену чисел сайта, остаются. Удалённую систему управления старой
+подтверждающей кампанией не нужно восстанавливать ради обычного сравнения текстов.
 
-Frozen-input reconciliation now binds the candidate to the immutable design-freeze protocol bytes
-and validates the historical corpus manifests by their recorded chunker identity during read-only
-context construction. The supported lock remains spaCy 3.8.11; no chunking, fit, prediction, freeze,
-or execution occurred, and a future run must bind its actual execution environment separately.
+## 3. Рассчитать два случая
 
-The remediated preparation boundary derives one atomic local bundle with the exact three exclusions,
-full `author_id/work_slug` identities, diagnostic-only expected basename collisions, and the
-252/248/134 universe. The former `a70d82f2` candidate was unapproved and is superseded by the new
-storage contract. The next gates require separate authorization, in order:
+**Булгаков и «Двенадцать стульев».** Сверить состав и издания эталонных текстов Булгакова,
+совместной и сольной прозы Ильфа и Петрова. Учесть переносы материала между рассказами и романами;
+«Золотой телёнок» не считать автоматически независимой проверкой. Отдельно оценить, насколько
+жанр и период объясняют различия. Сольные образцы нужны для вопроса о вкладе соавторов.
 
-1. Resolve the model topic-validity gate. Synthetic counterfactuals confirm that active `stylo` MFW
-   can encode label-correlated content nouns, while the evaluation-only `topic_strict` control removes
-   that exact controlled dependency. The A0/A4 adapter, aggregate schema and a resumable runner are
-   implemented; the corrected-corpus effect remains unmeasured. One attempt reached 260 of 992 fits
-   and was stopped. `--cells A0` answers the question on the first cell for half the cost.
-2. After the model-semantics decision, scope the v3.2 RunPlan/evaluator-registration/freeze/preflight
-   boundary as a new task; do not infer authority from an accepted evaluator candidate.
-3. Independently review and pin the exact new freeze, then obtain separate execution authorization.
-4. Execute one full run, verify exact resume, and have a separate clean session independently audit
-   the durable result before any separately authorized headline decision.
+**Шолохов и «Тихий Дон».** Все четыре книги романа держать вне обучения и настройки.
+Сравнить ранние и поздние эталоны, Шолохова и альтернативных кандидатов, отдельно проверить
+влияние донской темы и состава опорных текстов. Сходство с корпусной меткой автора требует
+явно названных эталонов; оно само по себе не удостоверяет их происхождение.
 
-Gate 4 now costs more than it did: the v3.1 confirmatory control plane — runner, checkpoint store,
-publisher, cluster-level inference, headline gate and result audit — was deleted on 2026-08-26 as
-superseded legacy. A confirmatory run needs that machinery written again against the v3.2 contracts.
-The deletion removed no scientific result: the historical evidence and the `0.8805` headline are
-untouched, and the resumable topic-validity runner shows the shape the new one should have.
+Для обоих случаев: структурные признаки, частотная Delta и уже реализованный исследовательский
+LZMA baseline; контроль на известных произведениях, устойчивость к составу панели и размеру
+фрагментов. Дополнительные методы и источники добавляются для конкретного пробела в проверке.
+График по ходу книги имеет смысл вместе с оценкой ложных срабатываний на одноавторских текстах.
 
-Until all of these gates are satisfied, the freeze is unapproved, the production evaluator is
-unregistered, no confirmatory execution path exists, and headline/publication are not authorized.
-R1 v5, sealed evidence, scientific artifacts and historical bytes remain unchanged.
+Выход каждого случая: состав корпуса и источники, конфигурация запуска, агрегированные результаты,
+графики, короткий вывод с объяснением расхождений. Подготовленные библиографические сведения — в
+[`case-corpus census`](../docs/tasks/2026-10-02-case-corpus-census.md).
 
-## External evidence after the paired audit
+## 4. Переработать статью
 
-### Conduct «внешняя репликация на публичном benchmark без независимого ослепления»
+Порядок изложения: вопрос об авторстве → данные → метод сравнения → проверка → результат.
+Тон сухой, литературно аккуратный, с понятным объяснением технических решений. Подробные таблицы
+и методические ограничения располагаются рядом с соответствующим результатом; повторяющиеся
+предупреждения сокращаются. Исторические и новые измерения явно различаются.
 
-After the corrected paired audit is complete, run the frozen procedure once on a third-party public
-corpus. This is an external replication without independent blinding, not a blind benchmark or a
-publication decision by itself.
-
-First qualify Russian Stylometric Dataset (RSD) v1.0 with a **metadata-only census**: enumerate its
-25 subcorpora, document/document-part and same-novel relationships, available work IDs, author panel,
-fixed-split status, licensing/DOI metadata, and potential overlap with R1. Do not fit, predict, or
-construct an external split before that census demonstrates a clean panel.
-
-If RSD cannot supply 40–60 authors with several independent whole prose works each, stable work IDs,
-and no R1 overlap, do not force it into a prose replication. Instead conduct a public RusDraCor run
-as a cross-genre drama stress test and a separate Russian Poetry 2026 out-of-domain stress test.
-NCRL «Русская классика» remains a source to qualify only after its offline-export terms and mixed-genre
-inventory are separately resolved.
-
-There is presently no known ready corpus that has already demonstrated all of: 40–60 prose authors,
-multiple independent whole works per author, stable work IDs, fixed split, and no R1 overlap.
-
-## Release and publication
-
-### Produce the release artifact
-
-- scrub private/copyright corpus material from public Git history in a separately authorized,
-  destructive release operation;
-- provide a clean-clone reproduction command and release tag;
-- generate a claim table mapping every claim to its dataset, protocol, test, evidence tier, and
-  limitation;
-- remove remaining hand-copied site literals only after an artifact registry owns those values;
-- keep disputed historical cases as stress tests, not the primary methodological claim.
-
-### Prepare the paper decision
-
-Dialogue/NTI-style submission becomes actionable after the v3.2 paired audit, the external benchmark
-table, claim table, and reproducible artifact are complete. A stronger venue additionally requires a
-domain-specific neural baseline and a qualified external prose replication.
-
-## Completed foundations and historical records
-
-- work-level document and corpus contracts;
-- work-balanced feature and loss routing;
-- frozen legacy goldens and historical resumable true-LOBO evidence;
-- historical completed `753/753` stylo A0/A4/A1 LOBO validation, later made evidence-only by the
-  ineligible-corpus registration;
-- v3.1 synthetic paired-audit control-plane components, retained as historical implementation evidence
-  but not an implementation or authorization of v3.2;
-- an independently audited, sealed RuAA R1 v5 bounded exploratory LOBO run, complete as a local,
-  not-published milestone; it neither completes the paired audit nor counts as external replication;
-- runtime identity binding that omits OS/kernel release strings while binding libc and the numerical
-  stack;
-- focused and full Python tests, live frozen-golden replay, provenance verification, and site build
-  passed on 2026-07-20.
-
-Historical implementation handoffs are local-only under `research/local/`; they are not normative
-inputs and must not be linked as the current plan.
-
-## Deferred work
-
-These are useful but do not block the active work-weighting decision:
-
-- broad site redesign and narrative polish;
-- further disputed-authorship case intake;
-- mixed-authorship benchmark expansion;
-- large package-cycle refactors unrelated to checkpoint/provenance contracts;
-- bulk movement of `docs/*.json` before an artifact registry replaces hardcoded paths.
-
-## Naming contract
-
-- Name files as `<domain>_<operation>[_<variant>]` or use a domain directory plus a short concrete
-  noun such as `work_balanced/estimand.md`.
-- Do not use agent names, `wave`, `increment`, `round`, or a bare phase identifier in canonical
-  paths.
-- Keep a version suffix only when it identifies a real schema, dataset, frozen protocol, or public
-  artifact contract.
-- Put status, dates, commit hashes, and execution order inside the document or artifact metadata.
-- One canonical roadmap; archived plans never compete with it.
+Локальная версия проходит проверку сборки, источников чисел и холодное ревью Astra. Публикация и push выполняются по
+отдельному указанию владельца. До появления новых результатов текст не обещает положительного
+обнаружения чужого авторства.

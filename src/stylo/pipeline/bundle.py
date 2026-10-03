@@ -14,17 +14,18 @@ See “Output and artifact isolation” in research/work_balanced/estimand.md.
 from __future__ import annotations
 
 import hashlib
-import fcntl
 import os
 import pathlib
 import shutil
-import stat
 import tempfile
 from typing import Callable, Dict
 
 from ..jsonio import dump_strict, dumps_strict, load_strict
+from .._io import exclusive_file_lock, fsync_directory, read_regular
 
-BUNDLE_VERSION = "stylo.deployment.bundle.v2"
+BUNDLE_VERSION = "stylo.deployment.bundle.v3"
+LEGACY_BUNDLE_VERSION = "stylo.deployment.bundle.v2"
+SUPPORTED_BUNDLE_VERSIONS = {LEGACY_BUNDLE_VERSION, BUNDLE_VERSION}
 SIDECAR_NAME = "bundle_manifest.json"
 CURRENT_NAME = "current.json"
 VERSIONS_DIR = "versions"
@@ -32,7 +33,7 @@ PUBLISH_LOCK_NAME = ".publish.lock"
 import re as _re
 
 REQUIRED_FILES = ("authors.json", "delta.pkl", "model.pkl")           # exact, not configurable
-# mandatory attestation keys (non-null); binds the artifact to code/config/data it was trained on
+# All keys are present; only Git fields may be null in v3 packaged training.
 REQUIRED_META = ("training_weighting", "dataset_contract", "rows_digest", "chunker_config_hash",
                  "code_tree_sha256", "config_id", "git_commit", "git_dirty")
 _HEX64 = _re.compile(r"^[0-9a-f]{64}$")
@@ -60,22 +61,10 @@ def _sha256_file(path: pathlib.Path) -> str:
 
 def _read_regular_nofollow(path: pathlib.Path) -> bytes:
     """Read one immutable candidate through a no-follow descriptor."""
-
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(path, flags)
     try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            raise BundleError(f"bundle payload is not a regular file: {path}")
-        chunks = []
-        while True:
-            block = os.read(fd, 1 << 20)
-            if not block:
-                break
-            chunks.append(block)
-        return b"".join(chunks)
-    finally:
-        os.close(fd)
+        return read_regular(path, label="bundle payload")
+    except (OSError, ValueError) as exc:
+        raise BundleError(f"cannot read a regular bundle payload: {path}") from exc
 
 
 def _verify_real_dir_chain(path) -> None:
@@ -105,14 +94,17 @@ def _real_within(path: pathlib.Path, root: pathlib.Path, *, must_dir=False, must
     return True
 
 
-def _content_token(file_hashes: Dict[str, str], meta: Dict) -> str:
+def _content_token(file_hashes: Dict[str, str], meta: Dict, *, version: str = BUNDLE_VERSION) -> str:
     body = "".join(f"{n}:{h}\n" for n, h in sorted(file_hashes.items()))
     body += "\x00META\x00" + dumps_strict(meta, sort_keys=True)
+    if version != LEGACY_BUNDLE_VERSION:
+        body = version + "\x00" + body
     return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
 
 
-def _validate_meta_schema(meta: Dict) -> None:
-    missing = [k for k in REQUIRED_META if meta.get(k) in (None, "")]
+def _validate_meta_schema(meta: Dict, *, version: str = BUNDLE_VERSION) -> None:
+    nullable = {"git_commit", "git_dirty"} if version == BUNDLE_VERSION else set()
+    missing = [k for k in REQUIRED_META if k not in meta or (k not in nullable and meta[k] in (None, ""))]
     if missing:
         raise BundleError(f"attestation meta missing required non-null keys: {missing}")
     contracts = {
@@ -130,13 +122,18 @@ def _validate_meta_schema(meta: Dict) -> None:
             f"bundle dataset_contract must be {contracts[weighting]!r} "
             f"for training_weighting={weighting!r}"
         )
-    if type(meta["git_dirty"]) is not bool:
-        raise BundleError("git_dirty must be a bool")
-    if not (isinstance(meta["git_commit"], str) and meta["git_commit"].strip()):
-        raise BundleError("git_commit must be a non-empty string")
+    if not (version == BUNDLE_VERSION and meta["git_commit"] is None and meta["git_dirty"] is None):
+        if type(meta["git_dirty"]) is not bool or not (
+            type(meta["git_commit"]) is str and meta["git_commit"].strip()
+        ):
+            raise BundleError("Git attestation metadata must be both null, or non-null git_commit with bool git_dirty")
     for k in _HEX64_KEYS:
-        if not (isinstance(meta[k], str) and _HEX64.match(meta[k])):
+        if not (isinstance(meta[k], str) and _HEX64.fullmatch(meta[k])):
             raise BundleError(f"attestation {k} must be a 64-hex sha256 digest")
+    if "training_work_ids" in meta:
+        work_ids = meta["training_work_ids"]
+        if type(work_ids) is not list or not work_ids or any(type(value) is not str or not value for value in work_ids) or len(set(work_ids)) != len(work_ids):
+            raise BundleError("training_work_ids must be a nonempty unique string list")
 
 
 def _versioned_dir_complete(versioned: pathlib.Path, root: pathlib.Path,
@@ -193,16 +190,14 @@ def publish_bundle(bundle_root, writers: Dict[str, Callable[[pathlib.Path], None
         raise BundleError("versions/ escapes the bundle root")
 
     lock_path = bundle_root / PUBLISH_LOCK_NAME
-    lock_flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     try:
-        lock_fd = os.open(lock_path, lock_flags, 0o600)
-    except OSError as exc:
-        raise BundleError(f"cannot open safe bundle publication lock: {exc}") from exc
-    if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
-        os.close(lock_fd)
-        raise BundleError("bundle publication lock is not a regular file")
-    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        with exclusive_file_lock(lock_path):
+            return _publish_locked_bundle(bundle_root, versions, writers, meta)
+    except (OSError, ValueError) as exc:
+        raise BundleError(f"bundle publication I/O failed: {exc}") from exc
 
+
+def _publish_locked_bundle(bundle_root, versions, writers, meta):
     staging = pathlib.Path(tempfile.mkdtemp(dir=versions, prefix=".staging_"))
     try:
         file_hashes: Dict[str, str] = {}
@@ -243,14 +238,10 @@ def publish_bundle(bundle_root, writers: Dict[str, Callable[[pathlib.Path], None
                 tmp_ptr,
                 trailing_newline=True,
             )
-            with open(tmp_ptr, "rb") as pointer_handle:
+            with open(tmp_ptr, "r+b" if os.name == "nt" else "rb") as pointer_handle:
                 os.fsync(pointer_handle.fileno())
             os.replace(tmp_ptr, bundle_root / CURRENT_NAME)
-            dir_fd = os.open(bundle_root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
+            fsync_directory(bundle_root)
         finally:
             if tmp_ptr.exists():
                 tmp_ptr.unlink()
@@ -262,48 +253,51 @@ def publish_bundle(bundle_root, writers: Dict[str, Callable[[pathlib.Path], None
     finally:
         if staging is not None and staging.exists():
             shutil.rmtree(staging, ignore_errors=True)
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        os.close(lock_fd)
 
 
 def load_bundle(bundle_root, *, expected_token: str | None = None):
-    """Load the current bundle only if pointer/version/token/allow-list/containment/schema hold,
-    no symlinks anywhere, and every sha256 matches."""
+    """Load exactly the trusted immutable version, or inspect CURRENT without a token.
+
+    A supplied token never falls back to CURRENT. The same containment, schema,
+    complete inventory and byte/hash checks apply to historical versions.
+    """
     bundle_root = pathlib.Path(bundle_root)
     _verify_real_dir_chain(bundle_root)             # no symlink from / down to the bundle root
-    ptr = bundle_root / CURRENT_NAME
-    if not _real_within(ptr, bundle_root, must_file=True):
-        raise BundleError("current pointer missing, a symlink, or escapes root")
-    pointer = load_strict(ptr)
-    if pointer.get("bundle_version") != BUNDLE_VERSION:
-        raise BundleError(f"pointer bundle_version {pointer.get('bundle_version')!r} unexpected")
-    token = pointer.get("version")
-    if not isinstance(token, str) or not _safe_name(token):
-        raise BundleError("pointer version is not a safe token")
+    version = None
     if expected_token is not None:
         if not isinstance(expected_token, str) or not _safe_name(expected_token):
             raise BundleError("expected bundle token is malformed")
-        if token != expected_token:
-            raise BundleError(
-                f"current bundle token {token!r} does not match trusted expected token"
-            )
+        token = expected_token
+    else:
+        ptr = bundle_root / CURRENT_NAME
+        if not _real_within(ptr, bundle_root, must_file=True):
+            raise BundleError("current pointer missing, a symlink, or escapes root")
+        pointer = load_strict(ptr)
+        version = pointer.get("bundle_version")
+        if version not in SUPPORTED_BUNDLE_VERSIONS:
+            raise BundleError(f"pointer bundle_version {version!r} unexpected")
+        token = pointer.get("version")
+        if not isinstance(token, str) or not _safe_name(token):
+            raise BundleError("pointer version is not a safe token")
     versions = bundle_root / VERSIONS_DIR
     versioned = versions / token
     if not _real_within(versions, bundle_root, must_dir=True) or not _real_within(versioned, versions, must_dir=True):
-        raise BundleError("bundle version dir missing, a symlink, or escapes the bundle root")
+        raise BundleError("trusted expected token version missing, a symlink, or escapes the bundle root")
 
     sidecar_path = versioned / SIDECAR_NAME
     if not _real_within(sidecar_path, versioned, must_file=True):
         raise BundleError("bundle sidecar missing or a symlink")
     meta = load_strict(sidecar_path)
-    if meta.get("bundle_version") != BUNDLE_VERSION:
+    observed_version = meta.get("bundle_version")
+    if observed_version not in SUPPORTED_BUNDLE_VERSIONS or (version is not None and observed_version != version):
         raise BundleError(f"unexpected bundle_version {meta.get('bundle_version')!r}")
+    version = observed_version
     files = meta.get("files") or {}
     if sorted(files) != list(REQUIRED_FILES):
         raise BundleError(f"bundle must list exactly {list(REQUIRED_FILES)}, got {sorted(files)}")
     user_meta = {k: v for k, v in meta.items() if k not in _RESERVED_META}
-    _validate_meta_schema(user_meta)                # attestation schema also enforced on load
-    if _content_token(files, user_meta) != token:   # token binds served content+meta
+    _validate_meta_schema(user_meta, version=version) # preserve the strict v2 load contract
+    if _content_token(files, user_meta, version=version) != token:
         raise BundleError("bundle token does not bind the served content/meta (out-of-band edit)")
     # exact inventory: no untracked extras
     if {e.name for e in os.scandir(versioned)} != set(files) | {SIDECAR_NAME}:

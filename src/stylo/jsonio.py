@@ -185,7 +185,7 @@ def dump_strict(
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(dir=str(target.parent), prefix=f".{target.name}.", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
         # mkstemp forces 0600; restore the usual umask-respecting file mode so an
         # artifact stays world-readable like a normal write_text() would produce.

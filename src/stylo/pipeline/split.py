@@ -2,17 +2,16 @@
 from __future__ import annotations
 
 import dataclasses
-import fcntl
 import hashlib
 import logging
 import os
 import pathlib
 import re
 import shutil
-import stat
 import tempfile
 from typing import Sequence
 
+from .._io import exclusive_file_lock, is_link, read_regular
 from ..chunking import CombinedDoc, make_sent_chunks, sentences_for_text
 from ..config import load_config
 from ..jsonio import canonical_hash, dump_strict, dumps_strict, loads_strict
@@ -24,7 +23,7 @@ from ..workdoc import (
     frozen_chunker_config,
     sha256_text,
 )
-from ._snapshot import _fsync_dir, _fsync_tree
+from ._snapshot import SnapshotPublishError, _fsync_dir, _fsync_tree, resolve_directory_snapshot
 from .clean import CLEAN_MANIFEST, CLEAN_SCHEMA, preprocessing_identity
 
 log = logging.getLogger("stylo.pipeline.split")
@@ -66,21 +65,9 @@ def _sha256_file(path: pathlib.Path) -> str:
 
 def _read_regular_nofollow(path: pathlib.Path, *, label: str) -> bytes:
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    except OSError as exc:
+        return read_regular(path, label=label)
+    except (OSError, ValueError) as exc:
         raise FragmentSnapshotError(f"cannot open {label}: {path}: {exc}") from exc
-    try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            raise FragmentSnapshotError(f"{label} is not a regular file: {path}")
-        chunks: list[bytes] = []
-        while True:
-            block = os.read(fd, 1 << 20)
-            if not block:
-                break
-            chunks.append(block)
-        return b"".join(chunks)
-    finally:
-        os.close(fd)
 
 
 def _safe_generation_relative(value: object) -> str:
@@ -98,13 +85,13 @@ def _generation_files(root: pathlib.Path) -> dict[str, str]:
         directory = pathlib.Path(dirpath)
         for name in dirnames:
             child = directory / name
-            if child.is_symlink():
+            if is_link(child):
                 raise FragmentSnapshotError(f"symlink in fragment generation: {child}")
         for name in filenames:
             child = directory / name
             if child.name == GENERATION_MANIFEST and child.parent == root:
                 continue
-            if child.is_symlink() or not child.is_file():
+            if is_link(child) or not child.is_file():
                 raise FragmentSnapshotError(
                     f"fragment generation member is not a regular file: {child}"
                 )
@@ -130,7 +117,7 @@ def _validate_generation(
 ) -> FragmentSnapshot:
     if (
         not _TOKEN_RE.fullmatch(expected_token)
-        or generation_root.is_symlink()
+        or is_link(generation_root)
         or not generation_root.is_dir()
     ):
         raise FragmentSnapshotError(
@@ -179,11 +166,11 @@ def _validate_generation(
     unknown_root = generation_root / "frags_unknown"
     chunk_map = generation_root / "chunk_map.json"
     if (
-        train_root.is_symlink()
+        is_link(train_root)
         or not train_root.is_dir()
-        or unknown_root.is_symlink()
+        or is_link(unknown_root)
         or not unknown_root.is_dir()
-        or chunk_map.is_symlink()
+        or is_link(chunk_map)
         or not chunk_map.is_file()
     ):
         raise FragmentSnapshotError("fragment generation endpoints are incomplete")
@@ -230,16 +217,16 @@ def resolve_fragment_snapshot(
     """
 
     data = pathlib.Path(data_root)
-    if data.is_symlink() or not data.is_dir():
+    if is_link(data) or not data.is_dir():
         raise FragmentSnapshotError(f"data root must be a real directory: {data}")
     publication_root = data / SNAPSHOT_DIRECTORY
     pointer_path = publication_root / CURRENT_POINTER
-    if pointer_path.exists() or pointer_path.is_symlink():
-        if publication_root.is_symlink() or not publication_root.is_dir():
+    if pointer_path.exists() or is_link(pointer_path):
+        if is_link(publication_root) or not publication_root.is_dir():
             raise FragmentSnapshotError("fragment publication root is unsafe")
         token = _load_pointer(pointer_path)
         versions = publication_root / VERSIONS_DIRECTORY
-        if versions.is_symlink() or not versions.is_dir():
+        if is_link(versions) or not versions.is_dir():
             raise FragmentSnapshotError("fragment versions root is unsafe")
         return _validate_generation(versions / token, expected_token=token)
     if require_versioned:
@@ -247,16 +234,16 @@ def resolve_fragment_snapshot(
     train_root = data / "frags_train"
     unknown_root = data / "frags_unknown"
     if (
-        train_root.is_symlink()
+        is_link(train_root)
         or not train_root.is_dir()
-        or unknown_root.is_symlink()
+        or is_link(unknown_root)
         or not unknown_root.is_dir()
     ):
         raise FragmentSnapshotError(
             "neither a versioned fragment snapshot nor complete legacy roots exist"
         )
     chunk_map = data / "chunk_map.json"
-    if chunk_map.is_symlink():
+    if is_link(chunk_map):
         raise FragmentSnapshotError("legacy chunk map must not be a symlink")
     return FragmentSnapshot(
         generation_id="legacy-unversioned",
@@ -275,21 +262,17 @@ def _publish_current_pointer(
     pointer_fd, pointer_name = tempfile.mkstemp(
         prefix=".CURRENT.", dir=publication_root
     )
-    os.close(pointer_fd)
     pointer_tmp = pathlib.Path(pointer_name)
     try:
-        pointer_tmp.write_text(
-            dumps_strict(
+        with os.fdopen(pointer_fd, "wb") as handle:
+            handle.write((dumps_strict(
                 {
                     "schema_version": POINTER_SCHEMA,
                     "generation_id": generation_id,
                 },
                 sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        with open(pointer_tmp, "rb") as handle:
+            ) + "\n").encode("utf-8"))
+            handle.flush()
             os.fsync(handle.fileno())
         os.replace(pointer_tmp, publication_root / CURRENT_POINTER)
         _fsync_dir(publication_root)
@@ -319,42 +302,31 @@ def _publish_generation(
     _fsync_tree(staging)
     versions = publication_root / VERSIONS_DIRECTORY
     lock_path = publication_root / PUBLISH_LOCK
-    lock_fd = os.open(
-        lock_path,
-        os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
-        0o600,
-    )
-    try:
-        if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
-            raise FragmentSnapshotError("fragment publication lock is not a regular file")
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    with exclusive_file_lock(lock_path):
         version = versions / token
-        if version.exists() or version.is_symlink():
+        if version.exists() or is_link(version):
             _validate_generation(version, expected_token=token)
             shutil.rmtree(staging)
         else:
             os.replace(staging, version)
             _fsync_dir(versions)
         _publish_current_pointer(publication_root, token)
-    finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        os.close(lock_fd)
     return token
 
 
 def _source_books(src: pathlib.Path) -> list[tuple[pathlib.Path, bytes, str]]:
-    if src.is_symlink() or not src.is_dir():
+    if is_link(src) or not src.is_dir():
         raise RuntimeError(f"clean corpus root must be a real directory: {src}")
     books: list[tuple[pathlib.Path, bytes, str]] = []
     for author_entry in sorted(os.scandir(src), key=lambda item: item.name):
-        if author_entry.is_symlink():
+        if is_link(author_entry.path):
             raise RuntimeError(f"symlinked clean-corpus entry rejected: {author_entry.path}")
         if not author_entry.is_dir(follow_symlinks=False):
             continue
         author_dir = pathlib.Path(author_entry.path)
         author_books = 0
         for book_entry in sorted(os.scandir(author_dir), key=lambda item: item.name):
-            if book_entry.is_symlink():
+            if is_link(book_entry.path):
                 raise RuntimeError(f"symlinked clean source rejected: {book_entry.path}")
             if book_entry.is_dir(follow_symlinks=False):
                 raise RuntimeError(
@@ -474,9 +446,12 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
     if clean_existing is not True:
         raise ValueError("split only supports complete atomic replacement snapshots")
     cfg = cfg or load_config()
-    src = pathlib.Path(cfg.get_path("paths.input_clean", "input_clean"))
+    try:
+        src = resolve_directory_snapshot(cfg.get_path("paths.input_clean", "input_clean"))
+    except SnapshotPublishError as exc:
+        raise RuntimeError(f"invalid clean snapshot; rebuild with clean: {exc}") from exc
     data = pathlib.Path(cfg.get_path("paths.data", "data"))
-    if data.is_symlink():
+    if is_link(data):
         raise RuntimeError(f"data root must not be a symlink: {data}")
     data.mkdir(parents=True, exist_ok=True)
 
@@ -499,11 +474,11 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
         raise RuntimeError(f"leave-out work ids not present in clean corpus: {sorted(unknown_leave)}")
 
     publication_root = data / SNAPSHOT_DIRECTORY
-    if publication_root.is_symlink():
+    if is_link(publication_root):
         raise RuntimeError(f"fragment publication root must not be a symlink: {publication_root}")
     publication_root.mkdir(exist_ok=True)
     versions = publication_root / VERSIONS_DIRECTORY
-    if versions.is_symlink():
+    if is_link(versions):
         raise RuntimeError(f"fragment versions root must not be a symlink: {versions}")
     versions.mkdir(exist_ok=True)
     generation_stage = pathlib.Path(
@@ -544,7 +519,7 @@ def run(cfg=None, leave_out: Sequence[str] = (), clean_existing: bool = True) ->
             out_dir.mkdir(parents=True, exist_ok=False)
             filenames = [f"{book_id}_{idx:05d}.txt" for idx in range(len(chunks))]
             for name, chunk in zip(filenames, chunks, strict=True):
-                (out_dir / name).write_text(chunk, encoding="utf-8")
+                (out_dir / name).write_text(chunk, encoding="utf-8", newline="\n")
                 mapping.append(
                     {
                         "path": f"{published_root}/{author}/{book_id}/{name}",

@@ -8,8 +8,8 @@
     "src/stylo",
     "tests"
   ],
-  "release_python_file_count": 249,
-  "release_python_paths_sha256": "e92636278dab698974043c391549ec22b7348da7eb35559ad91852e9de592602",
+  "release_python_file_count": 247,
+  "release_python_paths_sha256": "d2ee1c091ca488eb6a04e343149fe9bf226ad9d7454701bc9787ba7cbbda1253",
   "required_release_files": [
     ".gitattributes",
     ".github/workflows/ci.yml",
@@ -17,6 +17,7 @@
     "README.md",
     "configs/default.yaml",
     "docs/ruaa_bench_leaderboard.md",
+    "docs/runbooks/stylometry.md",
     "pyproject.toml",
     "requirements.lock",
     "research/evidence/ineligible_corpus_registrations_v1.json",
@@ -27,6 +28,7 @@
     "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/models/equal_channel_ensemble.py",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source/src/stylo/models/stacked_clf.py",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json",
+    "research/evidence/topic_validity_lobo_v1/aggregate.json",
     "research/evidence/withdrawn_certificates_v1/manifest.json",
     "research/governance/contracts.json",
     "research/reviews/stylometry_owner_decision_memo.md",
@@ -36,6 +38,7 @@
     "site/index.html",
     "site/package-lock.json",
     "site/package.json",
+    "site/public/measurement/topic-validity-aggregate.json",
     "site/scripts/check-no-undef.mjs",
     "site/scripts/check-render.mjs",
     "site/src/App.jsx",
@@ -53,11 +56,11 @@
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json": "f5b3eda337dce7b7bf2c691b92c72c8445331b53c3716cf53349061764423bc5",
     "research/governance/contracts.json": "3705d669c30eb7a09b6854f17285090a24cc3999bda565530d51d8dd054566ed",
-    "research/governance/status_ledger.json": "9eb45a7ff587cb3e5e53871ccebf5f4d83782a694ff0cc59a0815682df4189ab",
-    "scripts/check-provenance.mjs": "cb9fbdc575734658dbf3240f6c3ca1cff6c5795c4ab1c5fc9f570f0fe8db3b8a",
+    "research/governance/status_ledger.json": "565dc3cdae4edc0a898c9d05b98d8f803910fd5fa2dc6f19e6fc0845fe644958",
+    "scripts/check-provenance.mjs": "108bfe34de176d9ffa33aee2ee892414708c0a6601420a6dbb9ba570dca55a08",
     "scripts/check_release_hygiene.py": "69534811b444999cedfbebb840f66fc9b72ad0609dc5cf3c4ccbea2d2d2284e5",
-    "scripts/gen-site-data.mjs": "bcd06281628c44da982d8a362ad9c885b9ea4011fd6829193de1dfebe3a029fd",
-    "site/src/generated/manifest.json": "8a38b2bb33ef1992493720c376076afb51fd3372aae2dc86294fa9e0dc6a0b67",
+    "scripts/gen-site-data.mjs": "4892a3933de6e086f898aa81444bb7a26bacce2ba1c15fdf987bbd62821f2b02",
+    "site/src/generated/manifest.json": "605aafef27d3f56f64e2564f892fa7d1a8759edcc9bac5edcfde64e854a8be16",
     "tests/fixtures/work_balanced_ablation_goldens_v1.json": "c66e63e7e8af36b03b6aaa28f3d8cb23b71ef8e7a433ddd0c85322463b993a25"
   }
 }

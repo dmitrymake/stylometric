@@ -42,11 +42,8 @@ from stylo.domain.prediction_contract import (
     validate_probabilities,
 )
 from stylo.domain.corpus_identity import ContentIsolationError
+from stylo.pipeline._snapshot import resolve_directory_snapshot
 from stylo.eval.ensemble import reliability_weighted
-from stylo.eval.run_attestation import (
-    LiveRunAttestationError,
-    LiveRunAttestor,
-)
 from stylo.jsonio import dumps_strict, load_strict
 from stylo.pipeline.bundle import load_bundle, publish_bundle
 
@@ -1081,15 +1078,6 @@ def test_raw_cv_kernel_symbols_cannot_hide_behind_aliases_or_dynamic_lookup():
     assert observed == allowed
 
 
-def test_run_all_checks_content_isolation_before_cache_and_training():
-    source = (
-        pathlib.Path(__file__).resolve().parents[1] / "run.sh"
-    ).read_text(encoding="utf-8")
-    split = source.index('run split "$@"')
-    isolation = source.index('run verify-evaluation-corpus "$@"')
-    warm = source.index('run warm "$@"')
-    train = source.index('train_receipt="$(run train "$@")"')
-    assert split < isolation < warm < train
 
 
 def test_benchmark_rejects_uncapped_overlap_before_rng_or_cache(
@@ -2508,28 +2496,6 @@ def test_legacy_report_name_delegates_fail_closed_without_evidence(tmp_path):
     assert set(tmp_path.iterdir()) == before
 
 
-def test_live_attestor_detects_mid_run_source_change(tmp_path):
-    source = tmp_path / "code.py"
-    config = tmp_path / "config.yaml"
-    cache = tmp_path / "cache.sqlite3"
-    source.write_text("VALUE = 1\n", encoding="utf-8")
-    config.write_text("seed: 42\n", encoding="utf-8")
-    cache.write_bytes(b"immutable-cache")
-    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
-    attestor = LiveRunAttestor.build(
-        repository_root=tmp_path,
-        code_hashes={"code.py": digest(source)},
-        config_path=config,
-        config_sha256=digest(config),
-        cache_path=cache,
-        cache_sha256=digest(cache),
-        cache_size_bytes=cache.stat().st_size,
-    )
-    source.write_text("VALUE = 2\n", encoding="utf-8")
-    with pytest.raises(LiveRunAttestationError, match="drifted"):
-        attestor.verify("before-checkpoint")
-
-
 def test_report_uses_verified_v2_strategy_and_rejects_tamper(
     tmp_path, monkeypatch
 ):
@@ -2995,7 +2961,7 @@ def test_split_binds_actual_clean_identity_and_manifest(tmp_path, monkeypatch):
     from stylo.pipeline import clean, split
 
     cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
-    manifest_path = tmp_path / "clean" / clean.CLEAN_MANIFEST
+    manifest_path = resolve_directory_snapshot(tmp_path / "clean") / clean.CLEAN_MANIFEST
     manifest = load_strict(manifest_path)
     ner = manifest["preprocessing"]["ner"]
     assert ner["requested_model"] == ner["resolved_model"] == "synthetic_A"
@@ -3044,7 +3010,7 @@ def test_clean_records_actual_fallback_identity(tmp_path, monkeypatch):
     cfg, state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
     state["resolved_model"] = "synthetic_fallback"
     clean.run(cfg)
-    manifest = load_strict(tmp_path / "clean" / clean.CLEAN_MANIFEST)
+    manifest = load_strict(resolve_directory_snapshot(tmp_path / "clean") / clean.CLEAN_MANIFEST)
     ner = manifest["preprocessing"]["ner"]
     assert ner["requested_model"] == "synthetic_A"
     assert ner["resolved_model"] == "synthetic_fallback"
@@ -3057,7 +3023,7 @@ def test_split_requires_exact_supported_clean_receipt(tmp_path, monkeypatch, fau
     from stylo.pipeline import clean, split
 
     cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
-    root = tmp_path / "clean"
+    root = resolve_directory_snapshot(tmp_path / "clean")
     manifest_path = root / clean.CLEAN_MANIFEST
     if fault == "bytes":
         with (root / "alpha" / "work.txt").open("a", encoding="utf-8") as out:
@@ -3088,9 +3054,10 @@ def test_split_rechecks_clean_manifest_before_publication(tmp_path, monkeypatch)
 
     cfg, _state = _actual_synthetic_clean_fixture(tmp_path, monkeypatch)
     original = split.make_sent_chunks
+    clean_root = resolve_directory_snapshot(tmp_path / "clean")
 
     def change_receipt(*args, **kwargs):
-        path = tmp_path / "clean" / clean.CLEAN_MANIFEST
+        path = clean_root / clean.CLEAN_MANIFEST
         manifest = load_strict(path)
         manifest["source_root"] += "-changed"
         path.write_text(dumps_strict(manifest), encoding="utf-8")

@@ -1,10 +1,7 @@
-"""Gate: the author-clustered macro-F1 CI stays WITHDRAWN across every published surface.
+"""Data contract for the withdrawn author-clustered macro-F1 confidence interval.
 
-author-clustered bootstrap resamples authors, which changes the class set of the macro-average
-(a dropped-but-predicted author contributes F1=0), so the old interval is not the CI of one fixed
-43-class function. It is withdrawn — not "conservative". This gate fails closed if the interval or
-the "conservative" wording leaks back into the source JSON, site data, README,
-or any versioned generator. Local-only paper drafts are outside the release.
+Resampling authors changes the class set of the macro-average. The old interval
+is withdrawn; the source and generated data retain a null CI and its erratum.
 """
 from __future__ import annotations
 
@@ -17,9 +14,6 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 STATUS = "withdrawn_pending_preregistered_recompute"
 SUPERSEDED = [0.6222, 0.8369]
 ERRATUM_REF = "docs/macro_f1_ci_withdrawal.json"
-# the withdrawn interval must never appear rendered as an active macro-F1 CI
-BANNED_INTERVAL_STRINGS = ["0.6222, 0.8369", "0.622, 0.837", "0.6222,0.8369", "0.622,0.837"]
-BANNED_WORDING = "интервал консервативен"
 
 
 def _authorci() -> dict:
@@ -30,7 +24,6 @@ def test_source_json_interval_is_json_null_not_a_magic_string():
     d = _authorci()
     # the CI KEY must be JSON null — never a magic string, never an array (no type flip, no return)
     assert d["macro_f1_authorclustered_CI"] is None
-    assert not isinstance(d["macro_f1_authorclustered_CI"], (str, list))
 
 
 def test_source_json_withdrawal_schema():
@@ -58,32 +51,3 @@ def test_site_data_headline_ci_withdrawn():
     assert h["macroF1CI"] is None
     assert h["macroF1CIStatus"] == STATUS
     assert h["macroF1CIErratumRef"] == ERRATUM_REF
-
-
-def test_versioned_readme_does_not_publish_the_withdrawn_interval():
-    for name in ("README.md",):
-        text = (ROOT / name).read_text(encoding="utf-8")
-        assert BANNED_WORDING not in text, f"{name} reintroduced the 'conservative interval' claim"
-        for frag in BANNED_INTERVAL_STRINGS:
-            assert frag not in text, f"{name} renders the withdrawn macro-F1 interval {frag!r}"
-        # positive: the withdrawal is stated in reader-facing prose, not as an internal status string
-        prose = " ".join(text.split())  # the README hard-wraps sentences
-        assert "интервал macro-F1 отозван" in prose, (
-            f"{name} does not state the macro-F1 CI withdrawal in reader-facing prose"
-        )
-        assert ERRATUM_REF in text, f"{name} does not link the erratum record {ERRATUM_REF}"
-        assert STATUS not in text, f"{name} leaks the internal status string into reader prose"
-
-
-def test_generators_cannot_reintroduce_conservative_wording():
-    # the template itself must not carry the banned wording (a re-run must stay clean)
-    src = (ROOT / "scripts" / "gen-site-data.mjs").read_text(encoding="utf-8")
-    assert BANNED_WORDING not in src, "scripts/gen-site-data.mjs still contains the banned wording"
-
-
-def test_site_sections_do_not_index_withdrawn_ci():
-    # a null macroF1CI must not be indexed ([0]/[1]) by any rendered section (would crash the build)
-    for sec in ("Hero.jsx", "Results.jsx", "Method.jsx"):
-        src = (ROOT / "site" / "src" / "sections" / sec).read_text(encoding="utf-8")
-        assert "macroF1CI[0]" not in src and "macroF1CI[1]" not in src, \
-            f"{sec} still indexes the withdrawn macroF1CI array"

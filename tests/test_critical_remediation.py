@@ -20,6 +20,7 @@ from stylo.domain.corpus_identity import (
     find_cross_work_content_overlaps,
 )
 from stylo.pipeline import clean, predict
+from stylo.pipeline._snapshot import resolve_directory_snapshot, snapshot_store, CURRENT_POINTER
 from stylo.pipeline.bundle import BundleError, publish_bundle
 
 
@@ -202,10 +203,13 @@ def test_aud003_clean_snapshot_removes_stale_and_preserves_old_on_failure(
     cfg = _clean_cfg(tmp_path)
 
     clean.run(cfg)
-    current = tmp_path / "clean"
+    current = resolve_directory_snapshot(tmp_path / "clean")
     assert (current / "author" / "one.txt").is_file()
     (raw / "one.txt").unlink()
+    previous = current
     clean.run(cfg)
+    current = resolve_directory_snapshot(tmp_path / "clean")
+    assert (previous / "author" / "one.txt").is_file()
     assert not (current / "author" / "one.txt").exists()
     before = (current / "author" / "two.txt").read_bytes()
 
@@ -216,6 +220,7 @@ def test_aud003_clean_snapshot_removes_stale_and_preserves_old_on_failure(
     )
     with pytest.raises(RuntimeError, match="injected normalizer failure"):
         clean.run(cfg)
+    assert resolve_directory_snapshot(tmp_path / "clean") == current
     assert (current / "author" / "two.txt").read_bytes() == before
 
 
@@ -227,11 +232,13 @@ def test_aud003_invalid_utf8_never_replaces_current_snapshot(monkeypatch, tmp_pa
     monkeypatch.setattr(clean, "normalize", lambda text, *_args: text)
     cfg = _clean_cfg(tmp_path)
     clean.run(cfg)
-    before = (tmp_path / "clean" / "author" / "one.txt").read_bytes()
+    current = resolve_directory_snapshot(tmp_path / "clean")
+    before = (current / "author" / "one.txt").read_bytes()
     source.write_bytes(b"\xff\xfe")
     with pytest.raises(RuntimeError, match="valid UTF-8"):
         clean.run(cfg)
-    assert (tmp_path / "clean" / "author" / "one.txt").read_bytes() == before
+    assert resolve_directory_snapshot(tmp_path / "clean") == current
+    assert (current / "author" / "one.txt").read_bytes() == before
 
 
 def test_aud003_nested_or_unexpected_raw_payload_fails_closed(
@@ -248,14 +255,14 @@ def test_aud003_nested_or_unexpected_raw_payload_fails_closed(
     monkeypatch.setattr(clean, "normalize", lambda text, *_args: text)
     with pytest.raises(RuntimeError, match="nested raw corpus"):
         clean.run(_clean_cfg(tmp_path))
-    assert not (tmp_path / "clean").exists()
+    assert not (snapshot_store(tmp_path / "clean") / CURRENT_POINTER).exists()
 
     hidden.unlink()
     hidden.parent.rmdir()
     (raw / "alpha" / "notes.md").write_text("unexpected", encoding="utf-8")
     with pytest.raises(RuntimeError, match="unexpected raw corpus payload"):
         clean.run(_clean_cfg(tmp_path))
-    assert not (tmp_path / "clean").exists()
+    assert not (snapshot_store(tmp_path / "clean") / CURRENT_POINTER).exists()
 
 
 def test_aud003_partial_clean_cannot_mix_preprocessing_generations(
@@ -269,19 +276,22 @@ def test_aud003_partial_clean_cannot_mix_preprocessing_generations(
     cfg = _clean_cfg(tmp_path)
     monkeypatch.setattr(clean, "normalize", lambda text, *_args: f"OLD:{text}")
     clean.run(cfg)
+    current = resolve_directory_snapshot(tmp_path / "clean")
     before = {
-        path.relative_to(tmp_path / "clean").as_posix(): path.read_bytes()
-        for path in (tmp_path / "clean").rglob("*")
+        path.relative_to(current).as_posix(): path.read_bytes()
+        for path in current.rglob("*")
         if path.is_file()
     }
+    assert {"alpha/book.txt", "beta/book.txt"} <= before.keys()
     monkeypatch.setattr(clean, "normalize", lambda text, *_args: f"NEW:{text}")
     with pytest.raises(ValueError, match="partial clean is disabled"):
         clean.run(cfg, only=["alpha"])
     after = {
-        path.relative_to(tmp_path / "clean").as_posix(): path.read_bytes()
-        for path in (tmp_path / "clean").rglob("*")
+        path.relative_to(current).as_posix(): path.read_bytes()
+        for path in current.rglob("*")
         if path.is_file()
     }
+    assert resolve_directory_snapshot(tmp_path / "clean") == current
     assert after == before
 
 

@@ -34,11 +34,7 @@ from spacy.tokens import Doc, DocBin
 from spacy.util import load_model_from_init_py as _spacy_load_model_from_init_py
 
 from .jsonio import dumps_strict
-
-try:  # Linux is the canonical bound-run platform; keep import portable.
-    import fcntl
-except ImportError:  # pragma: no cover - non-POSIX fallback is process-local only
-    fcntl = None
+from ._io import exclusive_file_lock, fsync_directory, read_regular
 
 log = logging.getLogger("stylo.nlp")
 
@@ -93,34 +89,19 @@ _NLP_IDENTITIES: Dict[int, ResolvedNLPIdentity] = {}
 _MEM_DOCS: Dict[str, Doc] = {}
 _MEM_CAP = 60_000  # мягкий предел числа Doc в памяти на процесс
 _MEM_DOCS_LOCK = threading.RLock()
-_DOC_WRITE_LOCK = threading.RLock()
 
 
 def _fsync_directory(path: pathlib.Path) -> None:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    fd = os.open(path, flags)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+    fsync_directory(path)
 
 
 @contextmanager
 def _exclusive_cache_key(lock_path: pathlib.Path):
-    """Serialize one cache-key publication across threads and POSIX processes."""
+    """Serialize one cache-key publication across threads and processes."""
 
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    nofollow = getattr(os, "O_NOFOLLOW", 0)
-    with _DOC_WRITE_LOCK:
-        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | nofollow, 0o600)
-        try:
-            if fcntl is not None:
-                fcntl.flock(fd, fcntl.LOCK_EX)
-            yield
-        finally:
-            if fcntl is not None:
-                fcntl.flock(fd, fcntl.LOCK_UN)
-            os.close(fd)
+    with exclusive_file_lock(lock_path):
+        yield
 
 
 def _mem_doc_get(key: str) -> Optional[Doc]:
@@ -1122,7 +1103,7 @@ class DocCache:
             log.warning("Небезопасный кеш %s — переразбор", p)
             return None
         try:
-            db = DocBin().from_disk(p)
+            db = DocBin().from_bytes(read_regular(p, label="DocBin cache"))
             docs = list(db.get_docs(self.recon_vocab))
             if len(docs) != 1 or docs[0].text != expected_text:
                 raise ValueError("DocBin payload text/count does not match its cache key")
@@ -1150,7 +1131,7 @@ class DocCache:
             tmp = pathlib.Path(tmp_name)
             try:
                 db.to_disk(tmp)
-                with tmp.open("rb") as handle:
+                with tmp.open("r+b" if os.name == "nt" else "rb") as handle:
                     os.fsync(handle.fileno())
                 os.replace(tmp, p)
                 _fsync_directory(p.parent)

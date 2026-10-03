@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "stylo"
 version = "0.4.0"
-description = "Reproducible Russian-prose authorship-attribution framework with fail-closed scientific gates"
+description = "Stylometric comparison and authorship analysis for Russian prose"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Dmitry Purtov" }]
 
 # Core dependency ranges describe package compatibility. The supported
@@ -26,8 +26,6 @@ dependencies = [
     "pandas>=2.0",
     "joblib>=1.5",
     "pyyaml>=6.0",
-    "matplotlib>=3.10",
-    "seaborn>=0.13",
     "requests>=2.32,<3",
 ]
 
@@ -40,6 +38,8 @@ embeddings = [
     "sentence-transformers>=5.0",
 ]
 viz = [
+    "matplotlib>=3.10",
+    "seaborn>=0.13",
     "umap-learn>=0.5.9,<0.6",
 ]
 dev = ["pytest>=8.0"]

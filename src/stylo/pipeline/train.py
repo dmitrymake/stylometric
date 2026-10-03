@@ -32,11 +32,10 @@ class WorkspaceRequiredError(RuntimeError):
 
 
 def _require_source_workspace(root: pathlib.Path | None = None) -> pathlib.Path:
-    """Return the canonical repository root or fail with an actionable error.
+    """Require an attestable source workspace for explicitly bound research runs.
 
-    Training and publication create research artifacts that bind a live Git
-    commit. Installed wheels intentionally support inference and configuration,
-    but cannot honestly manufacture that source-control attestation.
+    Ordinary deployment training uses content hashes and optional Git metadata.
+    Frozen research consumers may still require this stronger source boundary.
     """
     import subprocess
 
@@ -46,7 +45,7 @@ def _require_source_workspace(root: pathlib.Path | None = None) -> pathlib.Path:
         raise WorkspaceRequiredError(
             "training/artifact attestation requires a Stylo Git source workspace "
             "(with .git, pyproject.toml, requirements.lock and configs/); "
-            "an installed wheel is inference-only"
+            "use a source checkout for this bound research operation"
         )
     try:
         discovered = subprocess.check_output(
@@ -66,19 +65,29 @@ def _require_source_workspace(root: pathlib.Path | None = None) -> pathlib.Path:
     return candidate
 
 
-def _code_tree_sha256() -> str | None:
-    """Hash the CONTENT of the executing code tree (src/stylo/**/*.py), tracked or not — a bare
-    ``git diff`` misses untracked source files entirely, so this binds actual bytes+relpath+mode."""
+def _code_tree_sha256(src_root: pathlib.Path | None = None) -> str | None:
+    """Hash installed Python bytes and relative paths, including untracked source.
+
+    Deployment v3 is portable across wheel installs and filesystem permission
+    conventions. Presentation/CLI/release modules are excluded; all other
+    Python source is bound. Frozen research hashes retain their full mode pins.
+    """
     import hashlib
-    src = pathlib.Path(__file__).resolve().parents[1]        # src/stylo
+    src = src_root if src_root is not None else pathlib.Path(__file__).resolve().parents[1]
     try:
-        files = sorted(p for p in src.rglob("*.py") if p.is_file())
+        files = sorted(
+            p for p in src.rglob("*.py") if p.is_file()
+            and p.relative_to(src).parts[0] not in {"report", "release"}
+            and p.relative_to(src).as_posix() != "cli.py"
+        )
+        if not files:
+            raise RuntimeError("cannot attest an empty Stylo code tree")
         if any(p.is_symlink() for p in files):               # a symlinked .py must not be silently skipped
             raise RuntimeError("symlinked .py in the code tree — refusing to attest")
         h = hashlib.sha256()
         for p in files:
             rel = p.relative_to(src).as_posix()
-            h.update(f"{rel}\x00{oct(p.stat().st_mode & 0o777)}\x00".encode("utf-8"))
+            h.update(f"{rel}\x00".encode("utf-8"))
             h.update(hashlib.sha256(p.read_bytes()).hexdigest().encode())
             h.update(b"\n")
         return h.hexdigest()
@@ -91,22 +100,28 @@ def _attestation(cfg) -> dict:
 
     ``git_commit``/``git_dirty`` record the commit + dirtiness; ``code_tree_sha256`` hashes the
     actual on-disk code content (incl. untracked files); ``config_id`` hashes the resolved
-    config except its external bundle-token commitment. All four are required non-null by the bundle schema, so an
-    environment that cannot attest fails publish closed.
+    config except its external bundle-token commitment. Code/config hashes are
+    mandatory; Git metadata is null when the installed package has no checkout.
     """
     import subprocess
-    root = _require_source_workspace()
+    root = pathlib.Path(__file__).resolve().parents[3]
 
     def _git(*args):
         return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL, text=True)
     try:
+        discovered = pathlib.Path(_git("rev-parse", "--show-toplevel").strip()).resolve()
+        if discovered != root.resolve() or not (root / ".git").exists():
+            raise WorkspaceRequiredError("package is not loaded from its Git source tree")
         commit = _git("rev-parse", "HEAD").strip() or None
         dirty = bool(_git("status", "--porcelain").strip())
     except Exception:
-        commit, dirty = None, True
+        commit, dirty = None, None
+    code_hash = _code_tree_sha256()
+    if code_hash is None:
+        raise RuntimeError("cannot attest the installed Stylo code tree")
     config_id = artifact_config_id(cfg)
     return {"git_commit": commit, "git_dirty": dirty,
-            "code_tree_sha256": _code_tree_sha256(), "config_id": config_id}
+            "code_tree_sha256": code_hash, "config_id": config_id}
 
 
 def _verified_training_chunker_hash(cfg, frags: pathlib.Path, groups) -> str:
@@ -136,7 +151,6 @@ def _verified_training_chunker_hash(cfg, frags: pathlib.Path, groups) -> str:
 
 def run(cfg=None, warm: bool = True, *, weighting: str) -> dict:
     cfg = cfg or load_config()
-    _require_source_workspace()
     weighting = require_weighting(weighting)   # strict; resolved once upstream, not re-read from cfg
     candidates = deployment_candidates(cfg)
     data = pathlib.Path(cfg.get_path("paths.data", "data"))
@@ -180,11 +194,7 @@ def run(cfg=None, warm: bool = True, *, weighting: str) -> dict:
     # contract.  Loose model.pkl/delta.pkl/authors.json triples are no longer
     # written because they can mix generations and cannot be authenticated
     # before executable deserialisation.
-    if weighting == CHUNK_WEIGHTED_LEGACY:
-        bundle_dir = data / "deployment" / CHUNK_WEIGHTED_LEGACY
-    else:
-        from ..eval.provenance import safe_exploratory_dir
-        bundle_dir = safe_exploratory_dir(data, "exploratory", "work_balanced")
+    bundle_dir = data / "deployment" / weighting
     if _code_tree_sha256() != attest["code_tree_sha256"]:
         raise RuntimeError("code tree changed during training — refusing to publish the bundle")
     meta = {
@@ -192,6 +202,7 @@ def run(cfg=None, warm: bool = True, *, weighting: str) -> dict:
         "dataset_contract": ds.provenance.loader_kind,
         "rows_digest": ds.provenance.rows_digest,
         "chunker_config_hash": training_chunker_hash,
+        "training_work_ids": sorted(set(map(str, ds.groups))),
         **attest,
     }
     published = publish_bundle(bundle_dir, {

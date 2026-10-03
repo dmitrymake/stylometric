@@ -149,11 +149,9 @@ if (JSON.stringify(sourcePaths) !== JSON.stringify([...sourcePaths].sort())) {
 if (registry.generator.path !== "scripts/gen-site-data.mjs") {
   fail("generator path must be scripts/gen-site-data.mjs");
 }
-if (
-  registry.outputs.length !== 1 ||
-  registry.outputs[0].path !== "site/src/generated/site-data.json"
-) {
-  fail("outputs must bind exactly site/src/generated/site-data.json");
+const outputPaths = registry.outputs.map((item) => item.path);
+if (!outputPaths.includes("site/src/generated/site-data.json")) {
+  fail("outputs must bind site/src/generated/site-data.json");
 }
 
 let siteData;
@@ -169,6 +167,60 @@ if (siteData === null || typeof siteData !== "object" || Array.isArray(siteData)
 }
 
 const sourcePathSet = new Set(sourcePaths);
+const topicSource = "research/evidence/topic_validity_lobo_v1/aggregate.json";
+const measurementOutput = "site/public/measurement/topic-validity-aggregate.json";
+if (sourcePathSet.has(topicSource) || siteData.measurement !== undefined) {
+  if (JSON.stringify([...outputPaths].sort()) !== JSON.stringify(
+    ["site/src/generated/site-data.json", measurementOutput].sort())) {
+    fail("measurement outputs must bind exactly site-data and the downloadable aggregate");
+  }
+  if (!sourcePathSet.has(topicSource) || !outputPaths.includes(measurementOutput)) {
+    fail("measurement requires its canonical source and downloadable output bindings");
+  }
+  const sourceBytes = readFileSync(resolve(root, topicSource));
+  if (!sourceBytes.equals(readFileSync(resolve(root, measurementOutput)))) {
+    fail("downloadable measurement must be byte-identical to the canonical aggregate");
+  }
+  const artifact = JSON.parse(sourceBytes.toString("utf-8"));
+  const measurement = siteData.measurement;
+  exactKeys(measurement, ["source", "sourceSelfHash", "studyIdentity", "publicArtifact", "unit",
+    "testedAuthors", "candidateClasses", "works", "fits", "cells"], "measurement");
+  const expectedScope = {
+    source: topicSource, sourceSelfHash: artifact.self_hash, studyIdentity: artifact.study_identity,
+    publicArtifact: "measurement/topic-validity-aggregate.json", unit: artifact.design.unit,
+    testedAuthors: artifact.design.tested_author_count,
+    candidateClasses: artifact.design.probability_class_count, works: artifact.design.fold_count,
+    fits: artifact.design.fold_count * artifact.design.cells.length * artifact.design.arms.length,
+  };
+  for (const [key, expected] of Object.entries(expectedScope)) {
+    if (measurement[key] !== expected) fail(`measurement.${key} differs from the canonical source`);
+  }
+  if (!Array.isArray(measurement.cells) || measurement.cells.length !== artifact.cells.length) {
+    fail("measurement cells differ from the canonical source");
+  }
+  for (const [index, expected] of artifact.cells.entries()) {
+    const cell = measurement.cells[index];
+    if (cell.cell !== expected.cell) fail("measurement cell identity drift");
+    for (const arm of artifact.design.arms) {
+      const { correct, total } = expected.accuracy[arm];
+      if (cell.accuracy[arm].correct !== correct || cell.accuracy[arm].total !== total ||
+          cell.accuracy[arm].value !== correct / total) {
+        fail(`measurement ${cell.cell}/${arm} accuracy differs from the canonical source`);
+      }
+    }
+    const delta = expected.delta_accuracy;
+    if (cell.delta.numerator !== delta.numerator || cell.delta.denominator !== delta.denominator ||
+        cell.delta.value !== delta.numerator / delta.denominator) {
+      fail(`measurement ${cell.cell} delta differs from the canonical source`);
+    }
+    for (const key of artifact.design.transition_categories) {
+      const total = expected.per_author_transitions.reduce((sum, row) => sum + row[key], 0);
+      if (cell.transitions[key] !== total) fail(`measurement ${cell.cell}/${key} transition count drift`);
+    }
+  }
+} else if (JSON.stringify(outputPaths) !== JSON.stringify(["site/src/generated/site-data.json"])) {
+  fail("unexpected generated output without a measurement source");
+}
 const citedSources = new Set();
 const entryKeys = new Set();
 const coveredRoots = new Set();

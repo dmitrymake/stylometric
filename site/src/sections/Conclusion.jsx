@@ -1,5 +1,5 @@
 import { Card, Stat } from "@dmitrymake/rk-ui";
-import { HEADLINE, MODELS, AUTHOR_RECALL } from "../data.js";
+import { HEADLINE, MODELS, AUTHOR_RECALL, MEASUREMENT } from "../data.js";
 import { BENCH_EXT } from "../segdata.js";
 import { fmtPct, fmtScore } from "../format.js";
 
@@ -61,70 +61,63 @@ export default function Conclusion() {
     <section className="section" id="conclusion">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Вывод</p>
-          <h2>Надёжность начинается с корпуса</h2>
+          <p className="eyebrow">Следующий шаг</p>
+          <h2>От сравнения профилей к вопросу об авторстве</h2>
           <p className="prose lead muted">
-            Корпус задаёт границы вывода: важны число книг на автора, распределение
-            тем и жанров и схема проверки. Сравнение групп признаков помогает оценить
-            чувствительность результата к теме, но не доказывает, что тема полностью
-            отделена от авторской манеры.
+            Ранжирование показывает, к каким произведениям текст ближе по выбранным
+            признакам. Поиск участков помогает увидеть изменения внутри книги.
+            Для исторического вывода оба ответа нужно соотнести с составом эталонов,
+            изданиями и тем, какие различия способен заметить метод.
           </p>
         </div>
-
-        {/* признаки окупаются */}
-        <div className="split reveal module" style={{ alignItems: "start" }}>
+        <div className="split reveal module">
           <div className="prose">
-            <p className="verdict">
-              В первом эксперименте сочетание синтаксиса, служебных слов и пунктуации
-              дало более высокую долю верных ответов, чем модель по частотам слов:{" "}
-              <strong style={{ color: "var(--gold)" }}> {fmtPct(HEADLINE.accuracy, 1)} против {fmtPct(BOW.acc, 1)}</strong>,
-              соответственно. Эти значения относятся только к исходному корпусу;
-              их устойчивость должен проверить новый расчёт.
-            </p>
+            <h3>«Двенадцать стульев»</h3>
             <p>
-              Сравнивать кандидатов одного времени, школы или круга тем труднее.
-              Отдельного замера по каждой такой группе пока нет, поэтому данные не
-              поддерживают уверенных выводов о донской, одесской или деревенской
-              школах.
+              Сравнение с Булгаковым требует совместной прозы Ильфа и Петрова вне
+              проверяемой дилогии. Поиск отдельных рук соавторов — другая задача:
+              для неё нужны сопоставимые сольные произведения, а различие записных
+              книжек и военных очерков может отражать жанр.
             </p>
           </div>
-          <div className="grid cols-2" style={{ alignContent: "start" }}>
+          <div className="prose">
+            <h3>«Тихий Дон»</h3>
+            <p>
+              Здесь важен выбор между ранними рассказами и поздней прозой в эталоне,
+              а также общая донская тема у сравниваемых авторов. Сходство с текстами
+              под именем Шолохова устанавливает отношение между произведениями;
+              достоверность авторских меток остаётся отдельным основанием.
+            </p>
+          </div>
+        </div>
+        <p className="prose reveal">
+          Завершённое сравнение показывает, как меняются ответы на известных авторах
+          при другом обучении и ограничении признаков. Пакет с балансировкой даёт
+          {" "}{MEASUREMENT.cells.find((cell) => cell.cell === "A4").accuracy.current.correct} верных ответов
+          из {MEASUREMENT.works} в обоих вариантах признаков. Это основание для дальнейших
+          проверок метода. Для новых выводов о романах нужны отдельные сравнения с проверенным
+          составом эталонных произведений.
+        </p>
+        <details className="reveal module">
+          <summary>Дополнительные наблюдения первого эксперимента</summary>
+          <p className="prose">
+            Сочетание признаков дало {fmtPct(HEADLINE.accuracy, 1)} верных ответов,
+            модель по частотам слов — {fmtPct(BOW.acc, 1)}.
+            Подробное сравнение показано выше в результатах первого эксперимента.
+          </p>
+          <div className="grid cols-2">
             <Stat label="точность · первый замер" value={fmtScore(HEADLINE.accuracy, 3)} accent="var(--gold)" parade />
             <Stat label="macro-F1 · первый замер" value={fmtScore(HEADLINE.macroF1, 3)} accent="var(--icon-blue)" hint="Каждый автор получает одинаковый вес." />
           </div>
-        </div>
-
-        {/* три рычага */}
-        <div className="reveal module">
-          <h3>Что нужно проверить дальше</h3>
-          <div className="grid cols-3">
-            {LEVERS.map((l) => (
-              <Card key={l.title} padding={24}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span className="mono" style={{ fontSize: 13, color: l.accent, fontWeight: 700, letterSpacing: "0.04em" }}>{l.num}</span>
-                    <span style={{ width: 22, height: 2, background: l.accent }} />
-                  </div>
-                  <h3 style={{ margin: 0, color: l.accent }}>{l.title}</h3>
-                  <p className="muted" style={{ margin: 0 }}>{l.body}</p>
-                </div>
+          <div className="grid cols-3" style={{ marginTop: 24 }}>
+            {LEVERS.map((lever) => (
+              <Card key={lever.title} padding={24}>
+                <h3 style={{ color: lever.accent }}>{lever.title}</h3>
+                <p className="muted">{lever.body}</p>
               </Card>
             ))}
           </div>
-        </div>
-
-        {/* протокол как метод */}
-        <div className="reveal module">
-          <p className="prose muted">
-            Результату нужны оценка разброса, проверка на случайность и ясная схема
-            проверки. Без них одна метрика не показывает, насколько надёжен вывод.
-          </p>
-          <p className="verdict">
-            Хорошая проверка не обязана отвечать на каждый вопрос. Её задача —
-            показать, где данных достаточно для вывода, а где ответ пока лучше
-            отложить.
-          </p>
-        </div>
+        </details>
       </div>
     </section>
   );

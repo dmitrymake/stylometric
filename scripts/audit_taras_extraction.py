@@ -22,10 +22,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0, str(ROOT / "src"))
 from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
+from stylo.pipeline._snapshot import resolve_directory_snapshot  # noqa: E402
 CASE_DIR = ROOT / "input_cases" / "taras_bulba"
 DOC_DIR = ROOT / "docs" / "cases" / "taras_hardened"
 OUT_PATH = DOC_DIR / "reports" / "extraction_audit.json"
-ANCHOR_TB = ROOT / "input_clean" / "gogol" / "тарас_бульба.txt"
 SPEC_DIR = DOC_DIR / "specs"
 
 WORD_RE = re.compile(r"[\w\-]+", re.U)
@@ -106,6 +106,8 @@ def sha256(path: pathlib.Path) -> str:
 
 
 def main() -> int:
+    clean_root = resolve_directory_snapshot(ROOT / "input_clean")
+    anchor_tb = clean_root / "gogol" / "тарас_бульба.txt"
     toks = {name: tokens(path) for name, path in FILES.items()}
     sh = {name: shingles(t) for name, t in toks.items()}
     frags = {name: fragments(FILES[name]) for name in ("strict", "loose")}
@@ -137,7 +139,7 @@ def main() -> int:
     # works (the anchor is NER-masked, which only lowers verbatim overlap, so a
     # near-zero bound still detects contamination).
     anchor_works = [
-        p for p in sorted((ROOT / "input_clean" / "gogol").glob("*.txt"))
+        p for p in sorted((clean_root / "gogol").glob("*.txt"))
         if p.name != "тарас_бульба.txt"
     ]
     anchor_rest_toks: List[str] = []
@@ -153,14 +155,14 @@ def main() -> int:
         cont["loose_in_gogol_anchor_rest"] <= THRESHOLDS["loose_in_1835_max"])
 
     # Anchor copy: same work, different file/normalization, excluded everywhere.
-    anchor_toks = tokens(ANCHOR_TB)
+    anchor_toks = tokens(anchor_tb)
     anchor = {
-        "anchor_path": str(ANCHOR_TB.relative_to(ROOT)),
-        "anchor_sha256": sha256(ANCHOR_TB),
+        "anchor_path": str(anchor_tb.relative_to(ROOT)),
+        "anchor_sha256": sha256(anchor_tb),
         "edition_1842_sha256": sha256(FILES["edition_1842"]),
-        "distinct_files": sha256(ANCHOR_TB) != sha256(FILES["edition_1842"]),
+        "distinct_files": sha256(anchor_tb) != sha256(FILES["edition_1842"]),
         "anchor_words": len(anchor_toks),
-        "anchor_mask_chars": ANCHOR_TB.read_text(encoding="utf-8").count("@"),
+        "anchor_mask_chars": anchor_tb.read_text(encoding="utf-8").count("@"),
         "anchor_mask_note": "input_clean держит NER-маскированные тексты, поэтому дословный shingle-overlap с немаскированной редакцией ФЭБ снижен; величина ниже — описательная.",
         "anchor_shingle_overlap_with_1842": containment(
             shingles(anchor_toks), sh["edition_1842"]

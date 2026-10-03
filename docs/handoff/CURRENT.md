@@ -5,19 +5,23 @@
 - Review baseline: `f312efb8f5fa291a961c337e6efa3b67cc247be4`.
 - Implementation: the local commit containing this handoff and the remediation task; verify HEAD
   and worktree before acting. No push or publication is authorized.
-- Active task: `docs/tasks/2026-10-03-gcp-validation.md`.
+- Active task: `docs/tasks/2026-10-03-product-hardening.md`. GCP task is complete.
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
-## Parallel product cleanup draft
+## Active product hardening candidate
 
-The owner requested a simpler project and a restrained technical rewrite of the article on
-2026-10-03. Uncommitted changes are isolated in branch `product-cleanup`, worktree
+The owner authorised full product/methodology/editorial hardening toward 9/10 on 2026-10-03,
+with an independent cold Astra review at the end. That final review is still pending. Uncommitted changes are isolated in branch `product-cleanup`, worktree
 `research/local/worktrees/product-cleanup/`; inspect that worktree before continuing this work.
 The completed cloud run used `bb3760f`; main HEAD still matches that scientific source.
-Cleanup removes unused code and prose-matching tests, updates README/ROADMAP, and prepares a
-local site draft. These changes are not merged or published. Remaining product work includes
-portable snapshot publication, ordinary training without mandatory Git, and the two case runs.
+The candidate now includes portable versioned clean snapshots, Git-optional training, targeted
+LR/Delta reports, WB diagnostic inference, and one-command analyze. A completed-measurement block
+was added to the local site draft; source numbers are generated and bound. These changes are not
+merged or published. Integration checks and bounded corrections are complete: 1362 tests passed, 8 skipped;
+fresh-wheel analyze and two-model/two-report reuse passed outside Git. Perform the requested
+cold Astra review before final acceptance. The two historical case panels still need their
+separate corpus/edition work and fresh case measurements; do not conflate them with LOBO accuracy.
 The readable static preview starts at `research/local/product-preview-20261003/index.html`.
 Validation and remaining warnings are appended to the remediation task in that worktree.
 The owner accepted the five navigation labels/order: «Как это работает», «Тихий Дон»,

@@ -86,11 +86,7 @@ def with_overrides(cfg: "ConfigNode", dotted_overrides: Dict[str, Any]) -> "Conf
     cfg with explicitly-allowed root/policy (e.g. the RuAA full-corpus benchmark contract)."""
     raw = cfg.to_dict()
     for k, v in dotted_overrides.items():
-        node = raw
-        parts = k.split(".")
-        for p in parts[:-1]:
-            node = node.setdefault(p, {})
-        node[parts[-1]] = v
+        _set_dotted(raw, k, copy.deepcopy(v))
     return ConfigNode(raw)
 
 
@@ -135,6 +131,8 @@ def deployment_candidates(cfg: "ConfigNode") -> tuple[str, ...]:
 
 
 def _set_dotted(d: Dict[str, Any], dotted: str, value: Any) -> None:
+    if type(dotted) is not str or not dotted or any(not part for part in dotted.split(".")):
+        raise ValueError("Override path must contain non-empty dotted keys")
     parts = dotted.split(".")
     node = d
     for p in parts[:-1]:
@@ -142,6 +140,21 @@ def _set_dotted(d: Dict[str, Any], dotted: str, value: Any) -> None:
         if not isinstance(node, dict):
             raise ValueError(f"Override path conflicts with scalar: {dotted}")
     node[parts[-1]] = value
+
+
+def _merge_config(defaults: dict, supplied: dict) -> dict:
+    """Overlay nested mappings; explicit scalars, lists and null replace defaults."""
+    merged = copy.deepcopy(defaults)
+    for key, value in supplied.items():
+        if type(key) is not str or not key:
+            raise ValueError("Configuration keys must be non-empty strings")
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_config(merged[key], value)
+        elif isinstance(value, dict):
+            merged[key] = _merge_config({}, value)
+        else:
+            merged[key] = copy.deepcopy(value)
+    return merged
 
 
 def _coerce(value: str) -> Any:
@@ -166,14 +179,21 @@ def load_config(
     path: Optional[pathlib.Path | str] = None,
     overrides: Optional[Dict[str, Any]] = None,
 ) -> ConfigNode:
-    """Загрузить YAML-конфиг с опциональными dot-path override.
+    """Overlay an optional YAML file on packaged defaults, then dot-path overrides.
 
     overrides: {"features.char_ngrams.bleach": False, ...}
                значения-строки приводятся к типам (для CLI --set k=v).
     """
-    cfg_path = pathlib.Path(path) if path is not None else DEFAULT_CONFIG_PATH
-    with cfg_path.open("r", encoding="utf-8") as fh:
-        raw: Dict[str, Any] = yaml.safe_load(fh)
+    with DEFAULT_CONFIG_PATH.open("r", encoding="utf-8") as fh:
+        raw = yaml.safe_load(fh)
+    if type(raw) is not dict:
+        raise ValueError("Packaged configuration must be a YAML mapping")
+    if path is not None:
+        with pathlib.Path(path).open("r", encoding="utf-8") as fh:
+            supplied = yaml.safe_load(fh)
+        if type(supplied) is not dict:
+            raise ValueError("Configuration file must contain a YAML mapping")
+        raw = _merge_config(raw, supplied)
 
     if overrides:
         for k, v in overrides.items():
@@ -189,5 +209,7 @@ def parse_set_overrides(pairs: Optional[list[str]]) -> Dict[str, Any]:
         if "=" not in item:
             raise ValueError(f"--set ожидает key=value, получено: {item!r}")
         key, val = item.split("=", 1)
+        if not key.strip():
+            raise ValueError("--set requires a non-empty key")
         out[key.strip()] = val.strip()
     return out

@@ -39,6 +39,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from stylo.jsonio import dump_strict, dumps_strict  # noqa: E402
 from stylo.lang import function_words  # noqa: E402
 from stylo.models.delta import BurrowsDelta  # noqa: E402
+from stylo.pipeline._snapshot import resolve_directory_snapshot  # noqa: E402
 
 IC = ROOT / "input_clean"
 CASE = ROOT / "input_cases" / "taras_bulba"
@@ -63,28 +64,29 @@ def masked_path(rel: str) -> pathlib.Path:
     p = MASKED / rel
     return p if p.exists() else CASE / rel
 
-_GOGOL = [p for p in sorted((IC / "gogol").glob("*.txt"))
-          if p.name != "тарас_бульба.txt"]
+def _panels(clean_root: pathlib.Path) -> Dict[str, Dict[str, List[pathlib.Path]]]:
+    _GOGOL = [p for p in sorted((clean_root / "gogol").glob("*.txt"))
+              if p.name != "тарас_бульба.txt"]
 
-PANELS: Dict[str, Dict[str, List[pathlib.Path]]] = {
-    "suspects": {
-        "gogol": _GOGOL,
-        "annenkov_1840s": sorted(masked_path("cand_annenkov_1840s").glob("*.txt")),
-        "pushkin": sorted((IC / "pushkin").glob("*.txt")),
-        "turgenev": sorted((IC / "turgenev").glob("*.txt")),
-        "dostoevsky": sorted((IC / "dostoevsky").glob("*.txt")),
-    },
-    "somov_binary": {
-        "gogol": _GOGOL,
-        "somov": sorted(masked_path("cand_somov").glob("*.txt")),
-    },
-    "topic": {
-        "gogol": _GOGOL,
-        "somov": sorted(masked_path("cand_somov").glob("*.txt")),
-        "narezhny": sorted(masked_path("cand_narezhny").glob("*.txt")),
-        "grebenka": sorted(masked_path("cand_grebenka").glob("*.txt")),
-    },
-}
+    return {
+        "suspects": {
+            "gogol": _GOGOL,
+            "annenkov_1840s": sorted(masked_path("cand_annenkov_1840s").glob("*.txt")),
+            "pushkin": sorted((clean_root / "pushkin").glob("*.txt")),
+            "turgenev": sorted((clean_root / "turgenev").glob("*.txt")),
+            "dostoevsky": sorted((clean_root / "dostoevsky").glob("*.txt")),
+        },
+        "somov_binary": {
+            "gogol": _GOGOL,
+            "somov": sorted(masked_path("cand_somov").glob("*.txt")),
+        },
+        "topic": {
+            "gogol": _GOGOL,
+            "somov": sorted(masked_path("cand_somov").glob("*.txt")),
+            "narezhny": sorted(masked_path("cand_narezhny").glob("*.txt")),
+            "grebenka": sorted(masked_path("cand_grebenka").glob("*.txt")),
+        },
+    }
 
 TARGETS = {
     "strict_additions": masked_path("dobavleniya1842_strict.txt"),
@@ -491,6 +493,7 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> int:
     args = parse_args(argv)
+    panels = _panels(resolve_directory_snapshot(IC))
     out = args.out.expanduser()
     try:
         report_path = str(out.resolve().relative_to(ROOT))
@@ -518,7 +521,7 @@ def main(argv=None) -> int:
         },
         "panels": {},
     }
-    for panel_name, panel in PANELS.items():
+    for panel_name, panel in panels.items():
         rows = load_panel(panel)
         panel_entry = {"composition": {a: len(fs) for a, fs in panel.items()},
                        "modes": {}}

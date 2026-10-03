@@ -201,6 +201,16 @@ class TestFrozenConfigHash:
         with pytest.raises(wd.ManifestError):
             wd.chunker_config_hash(cfg)
 
+    def test_disabled_fallback_is_valid_and_has_a_distinct_identity(self):
+        cfg = load_config(overrides={"language.spacy_fallback": None})
+        assert wd.frozen_chunker_config(cfg).masking_fallback is None
+        assert wd.chunker_config_hash(cfg) != wd.chunker_config_hash(load_config())
+
+    def test_nonfinite_fallback_does_not_collide_with_disabled_fallback(self):
+        cfg = load_config(overrides={"language.spacy_fallback": float("nan")})
+        with pytest.raises(wd.ManifestError, match="spacy_fallback"):
+            wd.chunker_config_hash(cfg)
+
     def test_negative_zero_overlap_canonicalised(self):
         base = wd.chunker_config_hash(load_config())
         neg = wd.chunker_config_hash(load_config(overrides=parse_set_overrides(["chunking.overlap=-0.0"])))

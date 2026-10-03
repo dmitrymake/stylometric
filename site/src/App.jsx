@@ -9,11 +9,8 @@ import Corpus from "./sections/Corpus.jsx";
 import Repro from "./sections/Repro.jsx";
 import Limits from "./sections/Limits.jsx";
 import Conclusion from "./sections/Conclusion.jsx";
-import Taras from "./sections/Taras.jsx";
-import Sholokhov from "./sections/Sholokhov.jsx";
-import IlfPetrov from "./sections/IlfPetrov.jsx";
-import Nikolai from "./sections/Nikolai.jsx";
 import ForeignHands from "./sections/ForeignHands.jsx";
+import ResearchUpdate from "./components/ResearchUpdate.jsx";
 
 const CHAPTERS = [
   ["framework", "Как это работает"],
@@ -24,8 +21,21 @@ const CHAPTERS = [
 ];
 
 export const CHAPTER_IDS = Object.freeze(CHAPTERS.map(([id]) => id));
+const CHAPTER_LOADERS = {
+  sholokhov: () => import("./sections/Sholokhov.jsx"),
+  ilfpetrov: () => import("./sections/IlfPetrov.jsx"),
+  nikolai: () => import("./sections/Nikolai.jsx"),
+  hohol: () => import("./sections/Taras.jsx"),
+};
 
-export default function App({ initialChapter } = {}) {
+// The browser and server-render smoke use the same actual chapter modules.
+export async function loadChapterForRender(chapter) {
+  if (!CHAPTER_IDS.includes(chapter)) throw new Error(`unknown chapter: ${chapter}`);
+  if (chapter === "framework") return null;
+  return (await CHAPTER_LOADERS[chapter]()).default;
+}
+
+export default function App({ initialChapter, chapterComponent } = {}) {
   const [chapter, setChapter] = useState(() => {
     if (initialChapter !== undefined) {
       if (!CHAPTER_IDS.includes(initialChapter)) {
@@ -36,8 +46,23 @@ export default function App({ initialChapter } = {}) {
     const h = typeof window !== "undefined" ? window.location.hash.replace("#", "") : "";
     return CHAPTER_IDS.includes(h) ? h : "framework";
   });
-  const ref = useReveal();
+  const [loadedChapters, setLoadedChapters] = useState(() =>
+    chapterComponent ? { [initialChapter]: chapterComponent } : {});
+  const [loadError, setLoadError] = useState(false);
+  const Chapter = loadedChapters[chapter];
+  const ref = useReveal(`${chapter}:${Chapter ? "ready" : "loading"}`);
   const tabRef = useRef(null);
+  useEffect(() => {
+    setLoadError(false);
+    if (chapter === "framework" || loadedChapters[chapter]) return;
+    let active = true;
+    loadChapterForRender(chapter).then((component) => {
+      if (active) setLoadedChapters((current) => ({ ...current, [chapter]: component }));
+    }).catch(() => {
+      if (active) setLoadError(true);
+    });
+    return () => { active = false; };
+  }, [chapter, loadedChapters]);
   useEffect(() => {
     if (window.location.hash.replace("#", "") !== chapter) {
       window.history.replaceState(null, "", chapter === "framework" ? " " : `#${chapter}`);
@@ -78,23 +103,35 @@ export default function App({ initialChapter } = {}) {
       </nav>
 
       <main id="main">
+        {chapter !== "framework" && <aside className="wrap" aria-label="О расчётах этой главы">
+          <p className="note">
+            Прежний расчёт этого случая. Новое сравнение методов — в разделе «Как это работает».
+          </p>
+          <details>
+            <summary>Что изменилось в проверке</summary>
+            <ResearchUpdate />
+          </details>
+        </aside>}
         {chapter === "framework" && (
           <>
-            <Hero />
+            <Hero onChooseCase={setChapter} />
             <Problem />
             <Method />
             <Results />
-            <ForeignHands />
-            <Corpus />
-            <Repro />
-            <Limits />
             <Conclusion />
+            <details className="wrap section">
+              <summary>История исследования: исходный корпус и дополнительные проверки</summary>
+              <ResearchUpdate />
+              <ForeignHands />
+              <Corpus />
+              <Repro />
+              <Limits />
+            </details>
           </>
         )}
-        {chapter === "hohol" && <Taras />}
-        {chapter === "sholokhov" && <Sholokhov />}
-        {chapter === "ilfpetrov" && <IlfPetrov />}
-        {chapter === "nikolai" && <Nikolai />}
+        {chapter !== "framework" && (Chapter ? <Chapter /> : (
+          <p className="wrap" role="status">{loadError ? "Не удалось загрузить главу. Перезагрузите страницу." : "Загрузка главы…"}</p>
+        ))}
       </main>
 
       <footer className="foot">

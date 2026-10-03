@@ -1,26 +1,17 @@
-import { Card, Badge } from "@dmitrymake/rk-ui";
+import { Card } from "@dmitrymake/rk-ui";
 
-const TRAPS = [
+const TASKS = [
   {
-    num: "01",
-    accent: "var(--cinnabar)",
-    title: "Пересечение текстов",
-    body: "Если одно и то же содержание попадает в обучение и проверку, оценка может быть завышена. Тогда данные не показывают, как метод работает на новых текстах.",
-    fix: "Проверка: исключать проверяемую книгу и тексты с тем же содержанием.",
-  },
-  {
-    num: "02",
+    title: "Ранжировать кандидатов",
     accent: "var(--icon-blue)",
-    title: "Тема и авторская манера",
-    body: "Тема и жанр могут быть связаны с конкретным автором. Тогда метод различает лексику содержания, а не авторскую манеру.",
-    fix: "Проверка: контролировать жанр и сравнивать группы признаков, чтобы оценить вклад темы.",
+    body: "Профиль целого произведения сравнивается с профилями других книг. Получаем порядок сходства среди выбранных авторов: кто ближе к тексту и насколько устойчив этот ответ.",
+    question: "Какие произведения составляют эталон каждого кандидата?",
   },
   {
-    num: "03",
+    title: "Найти отличающиеся участки",
     accent: "var(--gold)",
-    title: "Метрика без контекста",
-    body: "Значение «Точность 95%» мало говорит без состава выборки и схемы проверки. Без простого базового метода неясно, оправдана ли сложность модели.",
-    fix: "Проверка: указывать протокол, неопределённость и сравнение с базовыми моделями.",
+    body: "Роман читается последовательными окнами. Если соседние участки меняют ближайший профиль, проверяем, связано ли это с темой, речью персонажей или возможным участием другого автора.",
+    question: "Замечает ли тот же метод известные вставки и смеси авторов?",
   },
 ];
 
@@ -29,55 +20,30 @@ export default function Problem() {
     <section className="section" id="problem">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Надёжность</p>
-          <h2>Что может исказить результат</h2>
+          <p className="eyebrow">Постановка задачи</p>
+          <h2>Целая книга и отдельный участок</h2>
           <p className="prose lead muted">
-            Стилометрический результат зависит не только от признаков текста, но и от
-            корпуса и схемы проверки. Особенно важны три риска: пересечение текстов,
-            связь автора с темой и метрика без контекста.
+            Версия о полном авторстве и версия о небольшой вставке требуют разных
+            проверок. Для первой нужен устойчивый профиль книги, для второй — способ
+            заметить изменение внутри неё. В обоих случаях результат зависит от
+            произведений, с которыми сравнивают текст.
           </p>
         </div>
-        <div className="grid cols-3 reveal">
-          {TRAPS.map((t) => (
-            <Card key={t.title} padding={24}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span className="mono" style={{ fontSize: 13, color: t.accent, fontWeight: 700, letterSpacing: "0.04em" }}>{t.num}</span>
-                  <span style={{ width: 22, height: 2, background: t.accent }} />
-                </div>
-                <h3 style={{ margin: 0, color: t.accent }}>{t.title}</h3>
-                <p className="muted" style={{ margin: 0 }}>{t.body}</p>
-                <p className="mono" style={{ margin: "auto 0 0", fontSize: 13, color: "var(--text)", paddingTop: 8 }}>
-                  {t.fix}
-                </p>
-              </div>
+        <div className="grid cols-2 reveal">
+          {TASKS.map((task) => (
+            <Card key={task.title} padding={24}>
+              <h3 style={{ color: task.accent }}>{task.title}</h3>
+              <p className="muted">{task.body}</p>
+              <p className="note">{task.question}</p>
             </Card>
           ))}
         </div>
-
-        <div className="split reveal" style={{ alignItems: "center" }}>
-          <p className="note">
-            Эти условия применяются к четырём вопросам об авторстве; кандидаты
-            перечислены рядом. В контрольной панели метод различает группы критиков
-            «Современника» по целым текстам, но это не общий вывод о школах. Для
-            «Колокола», Некрасова с Панаевой, пары «учитель↔ученик» и «Будильника»
-            данных недостаточно для уверенного вывода.
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-            <Badge tone="base">«Тихий Дон»</Badge>
-            <Badge tone="base">Шолохов?</Badge>
-            <Badge tone="facultative">Крюков?</Badge>
-            <Badge tone="base">«12 стульев»</Badge>
-            <Badge tone="base">Ильф · Петров?</Badge>
-            <Badge tone="facultative">Булгаков?</Badge>
-            <Badge tone="base">«Тарас Бульба»</Badge>
-            <Badge tone="base">Гоголь?</Badge>
-            <Badge tone="facultative">Анненков?</Badge>
-            <Badge tone="facultative">Прокопович?</Badge>
-            <Badge tone="base">Дневник Николая II</Badge>
-            <Badge tone="facultative">границы метода</Badge>
-          </div>
-        </div>
+        <p className="prose reveal">
+          Отрывок может оказаться ближе к Булгакову, потому что напоминает его прозу
+          по выбранным признакам. Для версии об участии Булгакова нужны дополнительные
+          основания: повторяется ли ответ на соседних страницах, сохраняется ли при
+          смене признаков и отличает ли метод сопоставимую прозу самих кандидатов.
+        </p>
       </div>
     </section>
   );

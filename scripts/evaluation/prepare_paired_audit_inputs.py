@@ -211,8 +211,9 @@ def prepare(repo: pathlib.Path, *, data_root: pathlib.Path | None = None,
             output_data_root: pathlib.Path | None = None,
             allow_unapproved_ruaa_drift: bool) -> pathlib.Path:
     cfg = load_config(repo / "configs" / "default.yaml")
+    from stylo.pipeline._snapshot import resolve_directory_snapshot
     data = (data_root or (repo / "data")).resolve()
-    input_clean = (input_clean_root or (repo / "input_clean")).resolve()
+    input_clean = resolve_directory_snapshot(input_clean_root or (repo / "input_clean")).resolve()
     output_data = (output_data_root or data).resolve()
     ruaa_root = data / "ruaa_bench_v1"
     from stylo.pipeline.split import resolve_fragment_snapshot

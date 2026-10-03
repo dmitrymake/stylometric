@@ -80,6 +80,8 @@ docs/cases/taras_hardened/reports/ranking.json
 
 # Regenerable cleaned corpus (produced from input/ by the clean step)
 input_clean/
+# Versioned clean-corpus stores, including custom configured clean roots.
+*.snapshots/
 # copyright/local raw corpus — НЕ в git (только локально для анализа). git не поддерживает
 # inline-комментарии в .gitignore — паттерн обязан быть на отдельной строке.
 input/

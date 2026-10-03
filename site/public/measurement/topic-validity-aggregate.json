@@ -1,0 +1,892 @@
+{
+  "bindings": {
+    "applicability_identity": "92c2d1cca7de759a88167ad0a0c0395ab797a6b932f3f816bcc8c37e5ed2018b",
+    "candidate_identity": "ff620b05f20b81c21732014b553aa739a393c74fe344e6d9f2bd8d80996cef21",
+    "config_identity": "22e7142efe7f675a01a771cf3b873829198da7a229b690faee368ba5a3e1d61d",
+    "content_isolation_identity": "a561bbde00a15071e9d5e0805e4e168ea705c4f52b803a167b2b715fcaf45784",
+    "context_identity": "2805aff91988173561be783c92c048d0276b9e0caeeef42318fe354d05680b81",
+    "corpus_manifest_identity": "a2dc0c4a6d3313354295a482466693d513ee8f77b297dfe4feb852104b2af3f7",
+    "corrected_corpus_identity": "1a9a0779e4e578f38664fd974c7ac4565f12fb4992cf29773a34061fddee8531",
+    "environment_lock_identity": "289987675bd6e870c2218d5355467beff68fc5b3a68f9e05cee146d89b97e27b",
+    "implementation_source_identity": "2e62113c3818a5224340ed50b9cdbb75ae3643eae3258636e85e33369232c518",
+    "lobo_dataset_rows_identity": "df20be8b2482af20d94b62caf8316b3ae8ffae285173e1c73ef2ffbdf703f188",
+    "lobo_fold_manifest_identity": "117b8ec9f51ef8c6359768a232660b156a16e0d124b8450e9c497b39cf4cc658",
+    "lobo_row_identity": "fb3c73652114950800ac3bfcb681008afc8718657f5b14780159f0a570dfdf01",
+    "metric_label_order_identity": "c1c25240052bcdb249bf6f84affa003caf30701d0c7f0dcf2902726db9881a0d",
+    "probability_class_order_identity": "941df3d92055e53ea3125fec07f7f53d86ccfcfa0fecda426d8e16a2f7f9b230",
+    "protocol_identity": "02341845749431ba99fde0cac4335dcce86f9d0a3389c6c0382f6bcf077b6334",
+    "runtime_identity": "d327105bf7e9547044639db4a2219f7b3977047a62866f3fb3136d6398fcbef7",
+    "study_binding_identity": "9f2f7a5b5833a474480519ceb7809583489cde755cb90bb3c59446c2ce0a8c80",
+    "tested_fold_order_identity": "9da95ff73e9bc56764187cc5870b1d9ccf9965d37a90e57d94f38f668df1c6b8",
+    "thread_identity": "8486838e89f010b689528cc370eed788187497b212c1489d6ceed89a80bc4f89",
+    "work_identity_catalog_identity": "85dfafc859912b83e88e8400565580eb01db9eac0afff51564d9ab4b57f12137"
+  },
+  "cells": [
+    {
+      "accuracy": {
+        "current": {
+          "correct": 216,
+          "total": 248
+        },
+        "topic_strict": {
+          "correct": 218,
+          "total": 248
+        }
+      },
+      "cell": "A0",
+      "delta_accuracy": {
+        "denominator": 248,
+        "direction": "topic_strict_minus_current",
+        "numerator": 2
+      },
+      "per_author_transitions": [
+        {
+          "author": "akunun",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "andreev",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "babel",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 2,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "bulgakov",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "bunin",
+          "both_correct": 10,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "chehov",
+          "both_correct": 13,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 13,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "dostoevsky",
+          "both_correct": 10,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "elizarov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "furmanov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "garshin",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 1
+        },
+        {
+          "author": "gazdanov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gogol",
+          "both_correct": 11,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 11,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gorky",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 1,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "grin",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gumilev",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 4,
+          "current_only_correct": 1,
+          "n_folds": 11,
+          "topic_strict_only_correct": 1
+        },
+        {
+          "author": "kataev",
+          "both_correct": 0,
+          "both_wrong_changed_prediction": 1,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "korolenko",
+          "both_correct": 7,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 7,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "krukov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "kumov",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 1,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 7,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "kuprin",
+          "both_correct": 7,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 7,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "leskov",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 1,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "mamleev",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "nabokov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 1,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "novikov_priboy",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 8,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "olesha",
+          "both_correct": 0,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 1,
+          "n_folds": 2,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "pilnyak",
+          "both_correct": 1,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 1,
+          "n_folds": 2,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "platonov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "prokhanov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "prutkov",
+          "both_correct": 0,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 2
+        },
+        {
+          "author": "pushkin",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "radov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "saltykov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "sasha_sokolov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "serafimovich",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 8,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "sevsky",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 5,
+          "current_only_correct": 0,
+          "n_folds": 8,
+          "topic_strict_only_correct": 1
+        },
+        {
+          "author": "sorokin",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 1
+        },
+        {
+          "author": "tolstoy",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 1,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "tolstoy_an",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "turgenev",
+          "both_correct": 11,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 11,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "uspensky",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "victor_erofeev",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "volcheck",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "zoshenko",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        }
+      ],
+      "prediction_vector_digests": {
+        "current": {
+          "count": 248,
+          "sha256": "163f708c4cb63a9735883bd16867f48b9066054dc7ffe53e151c4488c957a2b2"
+        },
+        "topic_strict": {
+          "count": 248,
+          "sha256": "d49a4cc9b731a48c33ed7c32e208dd11241bdbe73c0afd7dc60e41c634001aba"
+        }
+      }
+    },
+    {
+      "accuracy": {
+        "current": {
+          "correct": 225,
+          "total": 248
+        },
+        "topic_strict": {
+          "correct": 225,
+          "total": 248
+        }
+      },
+      "cell": "A4",
+      "delta_accuracy": {
+        "denominator": 248,
+        "direction": "topic_strict_minus_current",
+        "numerator": 0
+      },
+      "per_author_transitions": [
+        {
+          "author": "akunun",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "andreev",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "babel",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 2,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "bulgakov",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "bunin",
+          "both_correct": 10,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "chehov",
+          "both_correct": 13,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 13,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "dostoevsky",
+          "both_correct": 10,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "elizarov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "furmanov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "garshin",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gazdanov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gogol",
+          "both_correct": 11,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 11,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gorky",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "grin",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "gumilev",
+          "both_correct": 7,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 4,
+          "current_only_correct": 0,
+          "n_folds": 11,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "kataev",
+          "both_correct": 0,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 3,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "korolenko",
+          "both_correct": 7,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 7,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "krukov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "kumov",
+          "both_correct": 7,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 7,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "kuprin",
+          "both_correct": 7,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 7,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "leskov",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "mamleev",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "nabokov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 1,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "novikov_priboy",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 8,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "olesha",
+          "both_correct": 1,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 2,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "pilnyak",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 2,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "platonov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "prokhanov",
+          "both_correct": 3,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "prutkov",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "pushkin",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "radov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "saltykov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "sasha_sokolov",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "serafimovich",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 8,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "sevsky",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 8,
+          "topic_strict_only_correct": 1
+        },
+        {
+          "author": "sorokin",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "tolstoy",
+          "both_correct": 8,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 10,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "tolstoy_an",
+          "both_correct": 6,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 6,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "turgenev",
+          "both_correct": 11,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 11,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "uspensky",
+          "both_correct": 5,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 5,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "victor_erofeev",
+          "both_correct": 4,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 0,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "volcheck",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 2,
+          "current_only_correct": 0,
+          "n_folds": 4,
+          "topic_strict_only_correct": 0
+        },
+        {
+          "author": "zoshenko",
+          "both_correct": 2,
+          "both_wrong_changed_prediction": 0,
+          "both_wrong_same_prediction": 1,
+          "current_only_correct": 0,
+          "n_folds": 3,
+          "topic_strict_only_correct": 0
+        }
+      ],
+      "prediction_vector_digests": {
+        "current": {
+          "count": 248,
+          "sha256": "4392fa4d8530465160468cbad28801a4999420d163786384487931de0a8828ba"
+        },
+        "topic_strict": {
+          "count": 248,
+          "sha256": "3de0a8814b58144b350a9921ae361a020ba9de5b6420d21e58ccc92276ce9197"
+        }
+      }
+    }
+  ],
+  "confirmatory_authorized": false,
+  "design": {
+    "accuracy_weighting": "equal_held_out_work",
+    "arms": [
+      "current",
+      "topic_strict"
+    ],
+    "cells": [
+      "A0",
+      "A4"
+    ],
+    "dataset": "lobo",
+    "delta_direction": "topic_strict_minus_current",
+    "fold_count": 248,
+    "model": "stylo",
+    "prediction_rule": "stable_top1_lowest_index",
+    "probability_class_count": 47,
+    "tested_author_count": 43,
+    "transition_categories": [
+      "both_correct",
+      "current_only_correct",
+      "topic_strict_only_correct",
+      "both_wrong_same_prediction",
+      "both_wrong_changed_prediction"
+    ],
+    "unit": "held_out_whole_work"
+  },
+  "publication_authorized": false,
+  "schema": "stylo.topic_validity.aggregate.v1",
+  "self_hash": "06b01f7a0fdf4e8e0440bd25ac5b499b943d77336813f78be2497f75d584290e",
+  "status": "bounded_research_aggregate_only",
+  "study_identity": "2265dcc9edbd286ea26aa4fe5245ca91395c6f151eabcf6421f4891b9cba0dc1"
+}

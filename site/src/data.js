@@ -7,6 +7,9 @@
 import D from "./generated/site-data.json";
 import { CORPUS } from "./corpus.js";
 
+// Completed whole-work measurement; historical HEADLINE remains unchanged below.
+export const MEASUREMENT = D.measurement;
+
 const REQUIRED_HISTORICAL_CLAIM_STATUS = "exploratory_internal";
 if (D.headline.claimStatus !== REQUIRED_HISTORICAL_CLAIM_STATUS) {
   throw new Error(

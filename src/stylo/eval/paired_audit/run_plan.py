@@ -62,14 +62,12 @@ CANONICAL_ENVIRONMENT_SCHEMA = "stylo.canonical-environment.v1"
 CANONICAL_BOUND_DISTRIBUTIONS = (
     "click",
     "joblib",
-    "matplotlib",
     "numpy",
     "pandas",
     "pyyaml",
     "requests",
     "scikit-learn",
     "scipy",
-    "seaborn",
     "spacy",
     "threadpoolctl",
 )

@@ -155,7 +155,7 @@ def _versioned_json_files() -> list[str]:
     )
 
 
-def _raw_json_dump_calls(tree: "ast.Module") -> list[int]:
+def _non_strict_json_dump_calls(tree: "ast.Module") -> list[int]:
     """Line numbers of json.dump/json.dumps calls, alias-aware (import json as j,
     from json import dumps, dotted or bare, multiline)."""
     import ast
@@ -174,6 +174,9 @@ def _raw_json_dump_calls(tree: "ast.Module") -> list[int]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
+        if any(keyword.arg == "allow_nan" and isinstance(keyword.value, ast.Constant)
+               and keyword.value.value is False for keyword in node.keywords):
+            continue
         func = node.func
         if (isinstance(func, ast.Attribute) and func.attr in ("dump", "dumps")
                 and isinstance(func.value, ast.Name) and func.value.id in module_aliases):
@@ -183,10 +186,9 @@ def _raw_json_dump_calls(tree: "ast.Module") -> list[int]:
     return hits
 
 
-def test_no_raw_json_dump_in_production_code():
-    # production code (src/ and scripts/) must write JSON only through the strict
-    # writer, so an artifact can never carry a literal NaN/Infinity. Alias-aware AST
-    # check: `import json as j; j.dumps(...)` and `from json import dumps` are caught.
+def test_json_writers_reject_non_finite_numbers():
+    # Shared strict JSON or explicit allow_nan=False both reject invalid numeric
+    # literals. Standalone stdlib tools need not import the application package.
     import ast
     offenders = []
     for root in ("src", "scripts"):
@@ -195,9 +197,9 @@ def test_no_raw_json_dump_in_production_code():
                 continue
             relative = path.relative_to(REPO_ROOT).as_posix()
             tree = ast.parse(path.read_text(encoding="utf-8"))
-            for line in _raw_json_dump_calls(tree):
+            for line in _non_strict_json_dump_calls(tree):
                 offenders.append(f"{relative}:{line}")
-    assert not offenders, "raw json.dump call in production code:\n" + "\n".join(offenders)
+    assert not offenders, "JSON writer without explicit finite-number policy:\n" + "\n".join(offenders)
 
 
 def test_all_versioned_json_is_strict():
@@ -341,6 +343,30 @@ def _init_repo(repo: Path) -> None:
 
 
 class TestReleaseHygiene:
+    @pytest.mark.parametrize("relative", [
+        "input_clean.snapshots/versions/fixture/author/work.txt",
+        "custom/Clean.SNAPSHOTS/versions/fixture/author/work.txt",
+        "custom.snapshots",
+    ])
+    def test_clean_generations_stay_private_in_archive_index_and_history(self, tmp_path, relative):
+        repo = tmp_path / "repo"
+        payload = repo / relative
+        payload.parent.mkdir(parents=True)
+        payload.write_text("generated snapshot fixture", encoding="utf-8")
+        assert hygiene.is_private_path(relative)
+        assert any(relative in issue for issue in hygiene.check_archive_content(repo))
+
+        _init_repo(repo)
+        _git(repo, "add", ".")
+        assert relative in hygiene.check_index(cwd=str(repo))
+        _git(repo, "commit", "-qm", "snapshot fixture")
+        assert relative in hygiene.check_publish_ref("HEAD", cwd=str(repo))
+
+        payload.unlink()
+        _git(repo, "add", "-u")
+        _git(repo, "commit", "-qm", "remove fixture from tip")
+        assert relative in hygiene.check_publish_ref("HEAD", cwd=str(repo))
+
     def test_is_private_path(self):
         assert hygiene.is_private_path("input_clean/a.txt")
         assert hygiene.is_private_path("data/frags_train/x/y.txt")

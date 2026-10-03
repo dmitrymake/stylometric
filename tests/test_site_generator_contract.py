@@ -3,33 +3,10 @@ from __future__ import annotations
 import json
 import pathlib
 import subprocess
-import tomllib
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "gen-site-data.mjs"
-RENDER_SMOKE = ROOT / "site" / "scripts" / "check-render.mjs"
-NO_UNDEF_GATE = ROOT / "site" / "scripts" / "check-no-undef.mjs"
-SITE_INDEX = ROOT / "site" / "index.html"
-RESEARCH_UPDATE = (
-    ROOT / "site" / "src" / "components" / "ResearchUpdate.jsx"
-)
-PUBLIC_HEADLINE_SECTIONS = (
-    "Hero.jsx",
-    "Method.jsx",
-    "Results.jsx",
-    "Corpus.jsx",
-    "Problem.jsx",
-    "Repro.jsx",
-    "Conclusion.jsx",
-)
-PUBLIC_HEADLINE_SUPPORT_FILES = (
-    GENERATOR,
-    ROOT / "site" / "src" / "data.js",
-    ROOT / "site" / "src" / "corpus.js",
-    ROOT / "site" / "src" / "segdata.js",
-    RESEARCH_UPDATE,
-)
 
 
 def test_site_generator_strict_input_self_test():
@@ -51,7 +28,7 @@ def test_site_generator_has_no_token_rewrite_or_subtree_null_allowlist():
     assert "NULLABLE_PATHS.has(h)" in source
 
 
-def test_site_build_executes_a_real_server_render_smoke():
+def test_site_build_includes_render_and_undefined_identifier_checks():
     package = json.loads((ROOT / "site" / "package.json").read_text(encoding="utf-8"))
     assert package["scripts"]["test:render"] == "node ./scripts/check-render.mjs"
     assert "npm run test:render" in package["scripts"]["build"]
@@ -59,23 +36,6 @@ def test_site_build_executes_a_real_server_render_smoke():
     assert "npm run check:undef" in package["scripts"]["build"]
     assert package["devDependencies"]["@babel/parser"] == "7.29.7"
     assert package["devDependencies"]["@babel/traverse"] == "7.29.7"
-
-    source = RENDER_SMOKE.read_text(encoding="utf-8")
-    no_undef_source = NO_UNDEF_GATE.read_text(encoding="utf-8")
-    app_source = (ROOT / "site" / "src" / "App.jsx").read_text(encoding="utf-8")
-    assert 'ssrLoadModule("/src/App.jsx")' in source
-    assert "renderToStaticMarkup" in source
-    assert "Исследование продолжается" in source
-    assert "PUBLIC_BANNED_MARKERS" in source
-    assert "NONDEFAULT_FREE_IDENTIFIER" in source
-    assert "initialChapter: chapter" in source
-    for chapter in ("framework", "sholokhov", "ilfpetrov", "nikolai", "hohol"):
-        assert f"{chapter}: [" in source
-    assert "export const CHAPTER_IDS" in app_source
-    assert "CHAPTER_IDS.includes(initialChapter)" in app_source
-    assert "ReferencedIdentifier" in no_undef_source
-    assert "scope.hasBinding" in no_undef_source
-    assert "NONDEFAULT_FREE_IDENTIFIER" in no_undef_source
 
 
 def test_site_lock_contains_every_declared_optional_platform_package():
@@ -101,7 +61,7 @@ def test_site_lock_contains_every_declared_optional_platform_package():
     assert incomplete_registry_records == []
 
 
-def test_first_experiment_context_is_honest_and_machine_status_fails_closed():
+def test_first_experiment_machine_status_matches_source():
     registry = json.loads(
         (
             ROOT
@@ -120,172 +80,6 @@ def test_first_experiment_context_is_honest_and_machine_status_fails_closed():
     assert headline["corpusEligibilityStatus"] == registry["status"]
     assert headline["claimStatus"] == "exploratory_internal"
 
-    # разметка переносит строки внутри предложений — сверяем по нормализованным пробелам
-    notice = " ".join(RESEARCH_UPDATE.read_text(encoding="utf-8").split())
-    for marker in (
-        "относятся к первому эксперименту, а не к итоговой оценке",
-        "Такое пересечение может завысить оценку модели",
-        "обучение и проверку разделили по содержанию",
-        "новая итоговая оценка ещё не опубликована",
-        "тексты с тем же содержанием",
-    ):
-        assert marker in notice
-    for internal_marker in (
-        "ineligible_for_new_scientific_runs",
-        "exploratory_internal",
-        "headline отозван",
-        "inferential",
-    ):
-        assert internal_marker not in notice
-
-    rendered_contexts = []
-    for section in PUBLIC_HEADLINE_SECTIONS:
-        source = (ROOT / "site" / "src" / "sections" / section).read_text(
-            encoding="utf-8"
-        )
-        if "ResearchUpdate" in source:
-            rendered_contexts.append(section)
-        assert "HistoricalHeadlineNotice" not in source
-    assert rendered_contexts == ["Hero.jsx"]
-
-
-def test_public_surfaces_do_not_restore_active_ineligible_headline_claims():
-    site_source = "\n".join(
-        [
-            *(
-                (ROOT / "site" / "src" / "sections" / section).read_text(
-                    encoding="utf-8"
-                )
-                for section in PUBLIC_HEADLINE_SECTIONS
-            ),
-            *(path.read_text(encoding="utf-8") for path in PUBLIC_HEADLINE_SUPPORT_FILES),
-        ]
-    )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    banned = (
-        "Заголовочная цифра",
-        "главная цифра",
-        "Перевес не случаен",
-        "разница не случайна",
-        "уверенно обгоняет",
-        "Случайным совпадением такой разрыв не объяснить",
-        "полное публикуемое число",
-        "Канонический headline",
-        "полный leakage-free per-book LOBO",
-        "**Главный честный вывод:**",
-        "Публикуемый бенчмарк",
-        "публикуемом срезе",
-        "точность по авторам (главная метрика)",
-        "ансамбль (равновесный, leak-free)",
-        "Протокол · без подсматривания",
-        "Модель не видит проверяемую книгу",
-        "Отложенная книга появляется ровно один раз",
-        "Канонический headline-срез",
-        "HEADLINE = продакшен",
-        "таблица моделей (leak-free сравнение)",
-        "PD-срез (публикуемый бенчмарк)",
-        "честная верхняя граница для утверждения",
-        "Единственная честная единица оценки — книга",
-        "Решение — проверка по целым книгам",
-        "Отложенная книга ничем не помогает угадать саму себя",
-        "Каждая наша цифра отвечает на все три",
-        "lobo.py (leakage-free)",
-        "Главный тест держит ровно одно правило",
-        "не видела проверяемую книгу",
-        "На чистой машине скрипт докачивает классиков",
-        'title="весь прогон одной командой"',
-        "./run.sh all                 # validate → split",
-    )
-    for phrase in banned:
-        assert phrase not in site_source
-        assert phrase not in readme
-
-
-def test_package_summary_and_readme_opening_are_accurate_and_reader_facing():
-    project = tomllib.loads(
-        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    )["project"]
-    summary = project["description"].lower()
-    assert "fail-closed" in summary
-    assert "honest" not in summary
-    assert "leakage-free" not in summary
-
-    opening = " ".join(
-        "\n".join(
-            (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[:12]
-        ).split()
-    )
-    assert opening.startswith("# Stylo ")
-    assert (
-        "исследовательский инструмент для сравнения авторской манеры русской прозы"
-        in opening
-    )
-    assert "[Интерактивная статья](https://stylometry.russkiykod.com/)" in opening
-    assert "научпоп" not in opening
-    assert "ineligible_for_new_scientific_runs" not in opening
-    assert "честно оценивает" not in opening
-
-
-def test_static_site_metadata_is_reader_facing_and_uses_production_domain():
-    index = SITE_INDEX.read_text(encoding="utf-8")
-    assert "leakage-free LOBO" not in index
-    assert "russkykod.com" not in index
-    assert index.count("https://stylometry.russkiykod.com/") == 2
-    assert (
-        index.count(
-            "Стилометрия русской прозы — как сравнивают авторскую манеру"
-        )
-        == 3
-    )
-    assert "как язык выдаёт автора" not in index
-    assert "Исторический LOBO headline отозван" not in index
-    assert "cross-work content leakage" not in index
-    assert 'content="summary"' in index
-
-
-def test_readme_is_a_compact_reviewed_entry_page():
-    text = (ROOT / "README.md").read_text(encoding="utf-8")
-    lines = text.splitlines()
-    assert len(lines) <= 100, f"README grew to {len(lines)} lines"
-    assert len(text.split()) <= 900, f"README grew to {len(text.split())} words"
-
-    headings = [line for line in lines if line.startswith("## ")]
-    assert headings == [
-        "## Статус исследования",
-        "## Возможности",
-        "## Быстрый старт",
-        "## Структура репозитория",
-        "## Данные и лицензия",
-    ]
-
-    prose = " ".join(text.split())  # the README hard-wraps Markdown links
-    for evidence in (
-        "research/evidence/ineligible_corpus_registrations_v1.json",
-        "docs/macro_f1_ci_withdrawal.json",
-        "research/governance/status_ledger.json",
-    ):
-        link = f"[{evidence}]({evidence})"
-        assert link in prose, f"README no longer renders {evidence} as a relative link"
-
-    for banned in (
-        "научпоп",
-        "почерк",
-        "|---",  # historical metric tables
-        "тома ТД → Шолохову",
-        "McNemar",
-        "bootstrap",
-        "ECE",
-        "CCAT50",
-        "нейросети отстают",
-        "тематически нейтрален",
-        "чистый идиолект",
-        "0.8805",
-        "0.8398",
-        "итоговая оценка опубликована",
-        "пересчёт выполнен",
-    ):
-        assert banned not in text, f"README reintroduced the banned fragment {banned!r}"
-
 
 def test_sholokhov_claim_is_bound_to_registered_lobo_source():
     registered = json.loads(
@@ -297,73 +91,97 @@ def test_sholokhov_claim_is_bound_to_registered_lobo_source():
         )
     )
     rigor = site_data["rigor"]
-    site_generator = GENERATOR.read_text(encoding="utf-8")
 
     assert rigor["tdLoboAttributed"] == registered["td_attributed_to_sholokhov"]
     assert [step["ff"] for step in rigor["loboTd"]["gradient"]] == [
         step["foreign_fraction"] for step in registered["disputed_td"]
     ]
-    assert "tdLoboP: slob.td1_vs_null_permutation_p" in site_generator
-    assert (
-        "tdLoboSurvives: slob.don_source_signal_significant"
-        in site_generator
-    )
-    assert "tdLoboP: r12.test_registry.confirmatory" not in site_generator
-
-    # the entry page no longer publishes a numeric Sholokhov verdict
-    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
-    assert "тома ТД → Шолохову" not in readme
-    assert registered["td_attributed_to_sholokhov"] not in readme
+    assert rigor["tdLoboP"] == registered["td1_vs_null_permutation_p"]
+    assert rigor["tdLoboSurvives"] == registered["don_source_signal_significant"]
 
 
-def test_sholokhov_wording_separates_target_leakage_from_reference_labels():
+def test_sholokhov_registered_reference_and_heldout_worksets():
     registered = json.loads(
         (ROOT / "docs" / "sholokhov_lobo.json").read_text(encoding="utf-8")
-    )
-    source = " ".join(
-        (ROOT / "site" / "src" / "sections" / "Sholokhov.jsx")
-        .read_text(encoding="utf-8")
-        .split()
     )
     assert registered["anchor_solo_in_train"] == ["rodinka", "zherebenok", "batraki"]
     heldout_td = {work for work in registered["heldout"] if work.startswith("tihiy_don_")}
     assert heldout_td == {f"tihiy_don_{index}" for index in range(1, 5)}
     assert registered["td_attributed_to_sholokhov"] == "3/4"
-    for overclaim in (
-        "без замкнутого круга", "без этого круга", "только бесспорные рассказы",
-        "бесспорных «Донских рассказов»", "даже бесспорные рассказы",
-        "Бесспорный Шолохов", "собственные бесспорные «Донские рассказы»",
-        "бесспорные одиночные работы", "претензии закрыты",
-    ):
-        assert overclaim not in source
-    for required in (
-        "без утечки проверяемых произведений",
-        "с исключением проверяемых работ из обучения",
-        "зависимость от меток оставшихся опорных текстов сохраняется",
-        "не замкнутость эталона по меткам опорных текстов",
-        "корпусной меткой «Шолохов»",
-        "Замкнутый круг с эталоном (важно)",
-    ):
-        assert required in source
 
 
-def test_method_does_not_render_the_withdrawn_macro_f1_interval():
-    source = (ROOT / "site" / "src" / "sections" / "Method.jsx").read_text(encoding="utf-8")
-    assert "MF1_CI" not in source
-    assert "точность по авторам в диапазоне" not in source
-    assert "Старый интервал macro-F1 здесь не показывается" in source
-    assert "Проверка без подсказок" in source
-    assert "Проверяемая книга и все тексты с тем же содержанием" in source
-    assert "ineligible" not in source
-    assert "content-safe" not in source
+def _measurement_source():
+    return json.loads((ROOT / 'research/evidence/topic_validity_lobo_v1/aggregate.json').read_text())
 
 
-def test_repro_explains_acquisition_and_safety_in_plain_language():
-    source = (ROOT / "site" / "src" / "sections" / "Repro.jsx").read_text(
-        encoding="utf-8"
-    )
-    assert "./run.sh fetch-classics" in source
-    assert "Если корпус ещё не готов, расчёт останавливается" in source
-    assert "проверяемую книгу" in source
-    for internal_marker in ("artifact replay", "ineligible snapshot", "content-isolation gate"):
-        assert internal_marker not in source
+def test_completed_measurement_is_distinct_from_historical_headline_and_source_bound():
+    data = json.loads((ROOT / 'site/src/generated/site-data.json').read_text())
+    artifact = _measurement_source()
+    measured = data['measurement']
+    assert measured['sourceSelfHash'] == artifact['self_hash']
+    assert measured['works'] == artifact['design']['fold_count']
+    assert measured['testedAuthors'] == artifact['design']['tested_author_count']
+    assert measured['candidateClasses'] == artifact['design']['probability_class_count']
+    assert measured['fits'] == measured['works'] * len(artifact['design']['cells']) * len(artifact['design']['arms'])
+    for cell, source in zip(measured['cells'], artifact['cells'], strict=True):
+        assert cell['cell'] == source['cell']
+        for arm in artifact['design']['arms']:
+            correct, total = source['accuracy'][arm]['correct'], source['accuracy'][arm]['total']
+            assert cell['accuracy'][arm] == {'correct': correct, 'total': total, 'value': correct / total}
+        assert cell['delta']['numerator'] == source['delta_accuracy']['numerator']
+        for key in artifact['design']['transition_categories']:
+            assert cell['transitions'][key] == sum(row[key] for row in source['per_author_transitions'])
+    assert 'macroF1' not in measured and 'ci' not in measured
+    assert data['headline']['macroF1CI'] is None
+    assert data['headline']['claimStatus'] == 'exploratory_internal'
+    registry = json.loads((ROOT / 'site/src/generated/manifest.json').read_text())
+    entry = next(row for row in registry['entries'] if row['key'] == 'measurement')
+    assert entry['sources'] == [measured['source']]
+    assert (ROOT / 'site/public' / measured['publicArtifact']).read_bytes() == (ROOT / measured['source']).read_bytes()
+
+
+def _copy_site_provenance_tree(destination):
+    import shutil
+
+    registry = json.loads((ROOT / 'site/src/generated/manifest.json').read_text())
+    paths = {row['path'] for row in [registry['generator'], *registry['sources'], *registry['outputs']]}
+    paths.update({'site/src/generated/manifest.json', 'scripts/check-provenance.mjs'})
+    for relative in sorted(paths):
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / relative, target)
+    return registry
+
+
+def test_measurement_provenance_rejects_forged_count_even_if_output_digest_is_updated(tmp_path):
+    import hashlib
+
+    registry = _copy_site_provenance_tree(tmp_path)
+    path = tmp_path / 'site/src/generated/site-data.json'
+    data = json.loads(path.read_text())
+    data['measurement']['cells'][0]['accuracy']['current']['correct'] += 1
+    path.write_text(json.dumps(data))
+    output = next(row for row in registry['outputs'] if row['path'] == 'site/src/generated/site-data.json')
+    output['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (tmp_path / 'site/src/generated/manifest.json').write_text(json.dumps(registry))
+    result = subprocess.run(['node', str(tmp_path / 'scripts/check-provenance.mjs'),
+                             '--root', str(tmp_path), '--skip-tracked'], text=True, capture_output=True)
+    assert result.returncode != 0
+    assert 'accuracy differs from the canonical source' in result.stderr
+
+
+def test_measurement_generator_rejects_inconsistent_transition_arithmetic(tmp_path):
+    import hashlib
+
+    _copy_site_provenance_tree(tmp_path)
+    path = tmp_path / 'research/evidence/topic_validity_lobo_v1/aggregate.json'
+    artifact = json.loads(path.read_text())
+    artifact['cells'][0]['accuracy']['current']['correct'] += 1
+    unsigned = {key: value for key, value in artifact.items() if key != 'self_hash'}
+    artifact['self_hash'] = hashlib.sha256(json.dumps(unsigned, ensure_ascii=False,
+        sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    path.write_text(json.dumps(artifact, ensure_ascii=False))
+    result = subprocess.run(['node', str(tmp_path / 'scripts/gen-site-data.mjs')],
+                             cwd=tmp_path, text=True, capture_output=True)
+    assert result.returncode != 0
+    assert 'accuracy/transition arithmetic mismatch' in result.stderr

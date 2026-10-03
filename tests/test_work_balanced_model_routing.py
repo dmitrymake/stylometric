@@ -381,7 +381,8 @@ class TestBundle:
         root = tmp_path / "wb"
         side = self._publish(root)
         assert set(side["files"]) == self.THREE
-        assert side["bundle_version"] == "stylo.deployment.bundle.v2"
+        from stylo.pipeline.bundle import BUNDLE_VERSION
+        assert side["bundle_version"] == BUNDLE_VERSION
         assert len(side["bundle_token"]) == 32
         meta, files = load_bundle(root)
         assert meta["training_weighting"] == "work_balanced" and set(files) == self.THREE
@@ -611,18 +612,21 @@ class TestTypeGatesAndLaundering:
 
 
 class TestPredictFailClosed:
-    def test_predict_raises_under_work_balanced(self, tmp_path, monkeypatch):
+    def test_work_balanced_predict_requires_its_own_authenticated_bundle(self, tmp_path, monkeypatch):
         from stylo.pipeline import predict
-        from stylo.config import load_config
-
-        class _Cfg:
-            def __init__(self, base): self._b = base
-            def get_path(self, k, d=None):
-                if k == "evaluation.training_weighting":
-                    return "work_balanced"
-                return self._b.get_path(k, d)
-        with pytest.raises(UnsupportedVariantError):
-            predict.run(_Cfg(load_config()))
+        from stylo.config import load_config, with_overrides
+        from stylo.pipeline.bundle import BundleError
+        from types import SimpleNamespace
+        unknown = tmp_path / "unknown"
+        unknown.mkdir()
+        (unknown / "query.txt").write_text("Синтетический независимый query.", encoding="utf-8")
+        cfg = with_overrides(load_config(), {"paths.data": str(tmp_path),
+            "evaluation.training_weighting": "work_balanced",
+            "deployment.candidate_authors": ["a", "b"]})
+        monkeypatch.setattr(predict, "resolve_fragment_roots", lambda _cfg: SimpleNamespace(unknown_root=unknown))
+        monkeypatch.setattr(predict.joblib, "load", lambda *_a, **_kw: pytest.fail("no legacy fallback"))
+        with pytest.raises(BundleError, match="trusted expected token version missing"):
+            predict.run(cfg, expected_bundle_token="a" * 32)
 
 
 class TestAstGuard:
@@ -788,20 +792,6 @@ class TestRuntimeContractHardening:
         assert (tmp_path / "a.txt").read_text() == "OLD-A"            # a.txt NOT changed (all-or-nothing)
         assert (tmp_path / "legacy").read_text() == "H"              # symlink not followed
 
-    def test_preflight_blocks_wb_predict(self):
-        from stylo.eval.provenance import UnsupportedVariantError
-
-        class _Cfg:
-            def __init__(s, b): s._b = b
-            def get_path(s, k, d=None):
-                return "work_balanced" if k == "evaluation.training_weighting" else s._b.get_path(k, d)
-        # emulate the CLI preflight branch logic
-        from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY, resolve_training_weighting
-        w = resolve_training_weighting(_Cfg(CFG).get_path("evaluation.training_weighting"))
-        assert w != CHUNK_WEIGHTED_LEGACY
-        if "predict" in ["train", "predict"] and w != CHUNK_WEIGHTED_LEGACY:
-            with pytest.raises(UnsupportedVariantError):
-                raise UnsupportedVariantError("predict unsupported under work_balanced")
 
 
 # ── mandatory runtime test: RuAA pin ──────────────────────────────────────────

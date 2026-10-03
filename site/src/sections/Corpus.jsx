@@ -48,8 +48,8 @@ const FINDINGS = [
     text:
       "У самого многословного автора, Достоевского, текста в сотни раз больше, чем у самого " +
       "немногословного, Волошина. Если считать все отрывки одинаковыми голосами, толстые " +
-      "романы начинают решать за весь корпус. Поэтому в следующем расчёте каждая книга " +
-      "получает равный вес.",
+      "романы сильнее влияют на профиль. В завершённом сравнении A4 выравнивает вес " +
+      "авторов и книг внутри автора; одновременно меняются обучение признаков и их нормировка.",
   },
   {
     severity: "info",
@@ -63,8 +63,8 @@ const FINDINGS = [
     severity: "info",
     title: "Дуэт и дневники — отдельно",
     text:
-      "Ильф и Петров писали вдвоём, а дневники Николая II — не проза. Их вынесли из основного " +
-      "зачёта и разбирают отдельно.",
+      "Совместная проза Ильфа и Петрова и дневники Николая II требуют собственных эталонов " +
+      "и схем проверки. Эти случаи разбираются отдельно от общего бенчмарка.",
   },
 ];
 
@@ -92,23 +92,23 @@ export default function Corpus() {
     <section className="section" id="corpus">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Корпус</p>
-          <h2>Как собрать честный корпус</h2>
+          <p className="eyebrow">Исходная коллекция</p>
+          <h2>От коллекции текстов к проверке</h2>
           <p className="prose lead muted">
-            В коллекции {CORPUS.research.authors}{" "}
-            {plu(CORPUS.research.authors, ["автора", "авторов", "авторов"])} и{" "}
+            В исходной коллекции — {CORPUS.research.authors}{" "}
+            {plu(CORPUS.research.authors, ["авторский профиль", "авторских профиля", "авторских профилей"])} и{" "}
             {CORPUS.research.books}{" "}
-            {plu(CORPUS.research.books, ["книга", "книги", "книг"])}. Но объём ещё
-            не делает корпус хорошим. До обучения программа-ревизор ищет повторы,
-            вложенные произведения и перекосы по объёму. Иначе машина будет узнавать
-            знакомое издание или сюжет вместо авторского почерка.
+            {plu(CORPUS.research.books, ["текстовый файл", "текстовых файла", "текстовых файлов"])}.
+            Ниже показаны её состав и обнаруженные проблемы. Новый замер выше выполнен
+            на исправленной выборке. Число файлов само по себе не говорит о числе
+            независимых произведений: среди них встречаются переиздания и сборники.
           </p>
         </div>
 
         {/* Сводка */}
         <div className="grid cols-4 reveal module">
-          <Stat label="Авторов" value={CORPUS.research.authors} accent="var(--icon-blue)" hint={`${CORPUS.benchmark.authors} в бенчмарке`} />
-          <Stat label="Книг" value={CORPUS.research.books} accent="var(--gold)" />
+          <Stat label="Авторских профилей" value={CORPUS.research.authors} accent="var(--icon-blue)" hint={`${CORPUS.benchmark.authors} в первом бенчмарке`} />
+          <Stat label="Файлов в коллекции" value={CORPUS.research.books} accent="var(--gold)" />
           <Stat label="Слов" value={fmtWordsM(CORPUS.research.words)} accent="var(--cosmos)" />
           <Stat label="Перекос между авторами" value={CORPUS.research.imbalanceRatio + "×"} accent="var(--warning)" hint="у многословных авторов текста намного больше" />
         </div>

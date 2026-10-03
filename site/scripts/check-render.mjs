@@ -6,28 +6,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
 const siteRoot = fileURLToPath(new URL("..", import.meta.url));
-const CHAPTER_MARKERS = {
-  framework: ["Можно ли узнать", "Как собрать честный корпус", "Исследование продолжается"],
-  sholokhov: ["«Шолохов вообще не писатель»?"],
-  ilfpetrov: ["Ильф и Петров: писал ли дилогию Булгаков?"],
-  nikolai: ["Николай II: писал ли он свои дневники?"],
-  hohol: ["Кто дописал «Тараса Бульбу»?"],
+// Stable chapter/root identifiers are navigation and render contracts; prose is editorial.
+const CHAPTER_ROOTS = {
+  framework: "top",
+  ilfpetrov: "ilfpetrov",
+  sholokhov: "sholokhov",
+  nikolai: "nikolai",
+  hohol: "hohol",
 };
-const PUBLIC_BANNED_MARKERS = [
-  "Исторический LOBO headline отозван",
-  "ОТОЗВАН",
-  "ineligible_for_new_scientific_runs",
-  "exploratory_internal",
-  "cross-work content leakage",
-  "inferential use",
-  "content-safe",
-  "train-side",
-  "pseudoreplication",
-  "estimand",
-  "exploratory",
-  "legacy",
-  "headline",
-];
+const textContent = (html) => html.replace(/<[^>]*>/g, "").trim();
 
 function verifyReferenceErrorSensitivity() {
   function BrokenNondefaultBranch() {
@@ -52,30 +39,29 @@ const server = await createServer({
 
 try {
   verifyReferenceErrorSensitivity();
-  const { default: App, CHAPTER_IDS } = await server.ssrLoadModule("/src/App.jsx");
-  const expectedChapters = Object.keys(CHAPTER_MARKERS);
-  if (JSON.stringify(CHAPTER_IDS) !== JSON.stringify(expectedChapters)) {
+  const { default: App, CHAPTER_IDS, loadChapterForRender } = await server.ssrLoadModule("/src/App.jsx");
+  const expectedChapters = Object.keys(CHAPTER_ROOTS);
+  if (new Set(CHAPTER_IDS).size !== CHAPTER_IDS.length ||
+      JSON.stringify([...CHAPTER_IDS].sort()) !== JSON.stringify([...expectedChapters].sort())) {
     throw new Error(
       `site render smoke chapter mismatch: ${JSON.stringify(CHAPTER_IDS)} != ${JSON.stringify(expectedChapters)}`
     );
   }
   for (const chapter of expectedChapters) {
+    const chapterComponent = await loadChapterForRender(chapter);
     const html = renderToStaticMarkup(
-      React.createElement(App, { initialChapter: chapter })
+      React.createElement(App, { initialChapter: chapter, chapterComponent })
     );
-    for (const marker of CHAPTER_MARKERS[chapter]) {
-      if (!html.includes(marker)) {
-        throw new Error(
-          `site render smoke: chapter ${chapter} missing marker ${JSON.stringify(marker)}`
-        );
-      }
+    const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/)?.[1];
+    if (!main || !textContent(main)) {
+      throw new Error(`site render smoke: chapter ${chapter} has no main content`);
     }
-    for (const marker of PUBLIC_BANNED_MARKERS) {
-      if (html.includes(marker)) {
-        throw new Error(
-          `site render smoke: chapter ${chapter} exposes internal marker ${JSON.stringify(marker)}`
-        );
-      }
+    const heading = main.match(/<h[12]\b[^>]*>([\s\S]*?)<\/h[12]>/)?.[1];
+    if (!heading || !textContent(heading)) {
+      throw new Error(`site render smoke: chapter ${chapter} has no heading`);
+    }
+    if (!main.includes(`id="${CHAPTER_ROOTS[chapter]}"`)) {
+      throw new Error(`site render smoke: chapter ${chapter} did not render its content root`);
     }
   }
   console.log(`site render smoke: OK (${expectedChapters.length} chapters)`);

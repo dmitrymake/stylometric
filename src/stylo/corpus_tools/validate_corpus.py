@@ -12,6 +12,7 @@
 Выдаёт человекочитаемый отчёт + JSON. Ничего не меняет.
 """
 from __future__ import annotations
+from .._io import is_link
 
 import collections
 import hashlib
@@ -89,7 +90,7 @@ def validate(corpus_dir: pathlib.Path | str, near_dup_threshold: float = 0.4,
              min_words_tiny: int = 50) -> CorpusReport:
     corpus_dir = pathlib.Path(corpus_dir)
     rep = CorpusReport()
-    if corpus_dir.is_symlink() or not corpus_dir.is_dir():
+    if is_link(corpus_dir) or not corpus_dir.is_dir():
         rep.add("error", "invalid_root", f"небезопасный/отсутствующий каталог: {corpus_dir}")
         return rep
 
@@ -100,7 +101,7 @@ def validate(corpus_dir: pathlib.Path | str, near_dup_threshold: float = 0.4,
 
     author_dirs = []
     for entry in sorted(os.scandir(corpus_dir), key=lambda item: item.name):
-        if entry.is_symlink():
+        if is_link(entry.path):
             rep.add("error", "symlink", f"символическая ссылка запрещена: {entry.path}")
         elif entry.is_dir(follow_symlinks=False):
             author_dirs.append(pathlib.Path(entry.path))
@@ -108,7 +109,7 @@ def validate(corpus_dir: pathlib.Path | str, near_dup_threshold: float = 0.4,
         author = adir.name
         books = []
         for entry in sorted(os.scandir(adir), key=lambda item: item.name):
-            if entry.is_symlink():
+            if is_link(entry.path):
                 rep.add("error", "symlink", f"символическая ссылка запрещена: {entry.path}")
             elif entry.is_file(follow_symlinks=False) and entry.name.endswith(".txt"):
                 books.append(pathlib.Path(entry.path))
@@ -227,15 +228,17 @@ def run(
     report_only: bool = False,
 ) -> CorpusReport:
     from ..config import load_config
+    from ..pipeline._snapshot import resolve_directory_snapshot
     cfg = cfg or load_config()
     cdir = corpus_dir or cfg.get_path("paths.input_clean", "input_clean")
+    cdir = resolve_directory_snapshot(cdir)
     near = cfg.get_path("corpus_policy.near_dup_threshold", 0.4)
     min_books = cfg.get_path("corpus_policy.min_books_per_author", 2)
     min_words = cfg.get_path("corpus_policy.min_words_per_book", 500)
     rep = validate(cdir, near_dup_threshold=near, min_books=min_books,
                    min_words_book=min_words)
     docs = pathlib.Path(cfg.get_path("paths.docs", "docs"))
-    if docs.is_symlink():
+    if is_link(docs):
         raise RuntimeError(f"docs root must not be a symlink: {docs}")
     docs.mkdir(parents=True, exist_ok=True)
     txt = format_report(rep)

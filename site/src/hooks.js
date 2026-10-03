@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 // Reveal-on-scroll: добавляет класс .in при попадании в вьюпорт.
-export function useReveal() {
+export function useReveal(revision) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -19,6 +19,6 @@ export function useReveal() {
     );
     el.querySelectorAll(".reveal").forEach((n) => io.observe(n));
     return () => io.disconnect();
-  }, []);
+  }, [revision]);
   return ref;
 }

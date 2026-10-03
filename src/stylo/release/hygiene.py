@@ -51,7 +51,10 @@ _ROOTS = tuple(prefix.rstrip("/") for prefix in PRIVATE_PREFIXES)
 _CASEFOLDED_ROOTS = tuple(root.casefold() for root in _ROOTS)
 # Case-insensitive index pathspecs: a private file committed with non-canonical
 # case (Input_Clean/…) on a case-insensitive filesystem must not slip past.
-_INDEX_PATHSPECS = [f":(icase){root}" for root in _ROOTS]
+_INDEX_PATHSPECS = [f":(icase){root}" for root in _ROOTS] + [
+    ":(glob,icase)**/*.snapshots",
+    ":(glob,icase)**/*.snapshots/**",
+]
 
 # Build these byte markers without embedding a literal developer-home path in
 # the scanner's own source.  The release archive contains tests and gate code,
@@ -93,9 +96,12 @@ def _decode_z(blob: bytes) -> list[str]:
 
 
 def is_private_path(path: str) -> bool:
-    """True if ``path`` is, or is under, a protected root (case-insensitive)."""
+    """Recognise private roots and versioned clean stores, including custom paths."""
     folded = path.casefold()
-    return any(folded == root or folded.startswith(root + "/") for root in _CASEFOLDED_ROOTS)
+    return (
+        any(part.endswith(".snapshots") for part in folded.split("/"))
+        or any(folded == root or folded.startswith(root + "/") for root in _CASEFOLDED_ROOTS)
+    )
 
 
 def _private_content_marker(path: Path) -> bytes | None:

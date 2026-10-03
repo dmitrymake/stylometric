@@ -1,4 +1,4 @@
-"""Runtime resources and workspace-only training behave honestly after packaging."""
+"""Runtime resources are packaged; frozen research can require a source workspace."""
 from __future__ import annotations
 
 import importlib.resources
@@ -48,7 +48,7 @@ def test_requests_is_declared_as_a_core_runtime_dependency():
     assert any(dep.startswith("requests") for dep in project["dependencies"])
 
 
-def test_training_reports_honest_workspace_only_contract(tmp_path):
+def test_frozen_research_helper_requires_a_source_workspace(tmp_path):
     with pytest.raises(train.WorkspaceRequiredError, match="Git source workspace"):
         train._require_source_workspace(tmp_path)
     if (ROOT / ".git").exists():

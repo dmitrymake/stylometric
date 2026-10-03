@@ -17,6 +17,39 @@ log = logging.getLogger("stylo.report")
 SWEEP_PROVENANCE_SCHEMA = "stylo.sweep.v2.provenance"
 
 
+def format_prediction_report(result: dict, top_k: int) -> str:
+    """Format already-computed method outputs; this function never scores text."""
+    from ..lang import display_name
+    authors = result["candidate_authors"]
+    top_k = min(top_k, len(authors))
+    lr = result["methods"]["stylo_lr"]
+    delta = result["methods"]["delta"]
+    denominator = {
+        "sum_selected_mfw_counts": "частоты по выбранному словарю",
+        "all_analyzer_events": "частоты по всем словам анализатора",
+        "not_recorded": "знаменатель не записан",
+    }[delta["frequency_denominator"]]
+    content_check = {
+        "checked_matching_training_references": "точные совпадения с эталонами проверены",
+        "unavailable_no_training_texts": "проверка точных совпадений недоступна: исходных эталонов нет",
+    }[result["overlap_check"]["exact_content"]]
+    lines = ["=== Диагностический рейтинг кандидатов (LR и Delta) ===",
+             f"Дата: {datetime.datetime.now():%d.%m.%Y %H:%M}",
+             f"Произведение: {result['target_work_id']}",
+             f"Фрагментов: {result['n_fragments']}",
+             "Панель: " + ", ".join(display_name(author) for author in authors),
+             "Сравнение внутри панели: LR score выше — ближе, Delta distance ниже — ближе; авторство не установлено.",
+             "", f"Топ-{top_k} по Stylo LR:"]
+    for author in sorted(authors, key=lambda value: -lr["scores"][value])[:top_k]:
+        lines.append(f"  {display_name(author):24} LR={lr['scores'][author]:.4f}")
+    lines.extend(["", f"Margin LR над 2-м местом: {result['margin']:.4f}",
+                  f"Топ-{top_k} по Delta ({denominator}):"])
+    for author in sorted(authors, key=lambda value: delta["distances"][value])[:top_k]:
+        lines.append(f"  {display_name(author):24} distance={delta['distances'][author]:.4f}")
+    lines.extend(["", "Проверка пересечения с эталонами: " + content_check])
+    return "\n".join(lines)
+
+
 class ReportEvidenceError(RuntimeError):
     """Required report evidence is missing, stale, or digest-invalid."""
 
@@ -143,10 +176,43 @@ def _verified_sweep(cfg, docs: pathlib.Path) -> tuple[str, str]:
     return title, bodies["sweep_table.v2.txt"]
 
 
-def run(cfg=None) -> None:
+def run_prediction(cfg, target_work: str) -> pathlib.Path:
+    """Render one verified prediction independently of corpus/sweep reports."""
+    from .evidence import prediction_directory, verify_prediction
+    body = verify_prediction(cfg, target_work)
+    docs = prediction_directory(cfg, target_work)
+    output = docs / "index.html"
+    if output.is_symlink():
+        raise ReportEvidenceError("prediction report output must not be a symlink")
+    page = (
+        '<!doctype html><html lang="ru"><meta charset="utf-8">'
+        '<title>Stylo — сравнение произведения</title>'
+        '<style>body{font:16px system-ui;max-width:960px;margin:3rem auto;padding:0 1rem}'
+        'pre{white-space:pre-wrap;line-height:1.6}</style>'
+        f'<h1>{html.escape(target_work)}</h1><pre>{html.escape(body)}</pre></html>'
+    )
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=docs, delete=False) as handle:
+        temporary = pathlib.Path(handle.name)
+        handle.write(page)
+        handle.flush(); os.fsync(handle.fileno())
+    try:
+        os.replace(temporary, output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f"Отчёт произведения: {output}")
+    return output
+
+
+def run(cfg=None, *, target_work: str | None = None, prediction_only: bool = False) -> None:
     from ..config import load_config
 
     cfg = cfg or load_config()
+    if target_work is not None or prediction_only:
+        if target_work is None:
+            from ..pipeline.predict import resolve_prediction_target
+            target_work = resolve_prediction_target(cfg).work_id
+        run_prediction(cfg, target_work)
+        return
     docs = pathlib.Path(cfg.get_path("paths.docs", "docs"))
     if docs.is_symlink() or not docs.is_dir():
         raise ReportEvidenceError(f"docs root must be a real existing directory: {docs}")

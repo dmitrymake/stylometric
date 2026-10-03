@@ -53,11 +53,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         "report",
         "fetch-classics",
         "evaluate",
+        "analyze",
     ]:
         sp = sub.add_parser(name)
         _add_global(sp)
         simple_commands[name] = sp
-    for name in ("train", "predict"):
+    for name in ("train", "predict", "analyze"):
         simple_commands[name].add_argument(
             "--candidate-author", action="append", default=None,
             help="Author ID in the explicit deployment panel; repeat for each candidate",
@@ -67,14 +68,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         required=False,
         help="Trusted content token printed by `stylo train`; required unless pinned in config",
     )
+    simple_commands["predict"].add_argument("--target-work", default=None, help="One unknown work as author/work")
+    simple_commands["predict"].add_argument("--unknown-dir", default=None, help="Explicit unknown input root for standalone inference")
+    simple_commands["report"].add_argument("--target-work", default=None)
+    simple_commands["report"].add_argument("--prediction-only", action="store_true")
+    simple_commands["analyze"].add_argument("--target-work", required=True,
+                                           help="Work held out of training, as author/work")
     simple_commands["validate-corpus"].add_argument(
         "--report-only",
         action="store_true",
         help="Write the advisory report but do not fail on severity=error findings",
     )
-
-    sp_pre = sub.add_parser("preflight"); _add_global(sp_pre)
-    sp_pre.add_argument("--stages", default="", help="comma-separated run-plan stages to validate")
 
     sp_split = sub.add_parser("split"); _add_global(sp_split)
     sp_split.add_argument("--leave-out", nargs="*", default=[])
@@ -208,18 +212,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         from .features.reps import make_rep_cache
         ds = load_dataset(resolve_fragment_roots(cfg).train_root)
         make_rep_cache(cfg).warm(list(ds.texts), n_process=cfg.get_path("language.parse_n_process", 4))
-    elif args.cmd == "preflight":
-        # validate the WHOLE run-plan before any mutation: work_balanced cannot run predict/deploy
-        from .eval.provenance import UnsupportedVariantError
-        from .domain.work_weighting import CHUNK_WEIGHTED_LEGACY, resolve_training_weighting
-        w = resolve_training_weighting(cfg.get_path("evaluation.training_weighting"))
-        stages = [s for s in args.stages.split(",") if s]
-        if "predict" in stages and w != CHUNK_WEIGHTED_LEGACY:
-            raise UnsupportedVariantError(
-                f"run-plan includes 'predict' but weighting={w} has no supported deployment "
-                "inference path — "
-                "run the exploratory stages individually")
-        print(f"preflight OK: weighting={w} stages={stages}")
     elif args.cmd == "train":
         from .pipeline import train
         from .domain.work_weighting import resolve_training_weighting
@@ -241,7 +233,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
     elif args.cmd == "predict":
         from .pipeline import predict
-        predict.run(cfg, expected_bundle_token=args.model_bundle_token)
+        predict.run(cfg, unknown_dir=args.unknown_dir, target_work=args.target_work,
+                    expected_bundle_token=args.model_bundle_token)
+    elif args.cmd == "analyze":
+        from .config import deployment_candidates
+        from .domain.work_weighting import resolve_training_weighting
+        from .pipeline import clean, split, train, predict
+        from .corpus_tools import validate_corpus
+        from .report import build
+        target = predict._work_id(args.target_work)
+        deployment_candidates(cfg)  # Reject implicit/invalid panels before writes.
+        weighting = resolve_training_weighting(cfg.get_path("evaluation.training_weighting"))
+        clean.run(cfg)
+        validate_corpus.run(cfg)
+        split.run(cfg, leave_out=(target,))
+        receipt = train.run(cfg, weighting=weighting)
+        pinned = with_overrides(cfg, {"deployment.expected_bundle_token": receipt["bundle_token"]})
+        predict.run(pinned, target_work=target, expected_bundle_token=receipt["bundle_token"])
+        build.run(pinned, target_work=target, prediction_only=True)
     elif args.cmd == "lobo":
         from .eval.lobo import (
             build_generic_lobo_fold_manifest,
@@ -392,7 +401,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         fetch_classics.run(cfg)
     elif args.cmd == "report":
         from .report import build
-        build.run(cfg)
+        build.run(cfg, target_work=args.target_work, prediction_only=args.prediction_only)
     elif args.cmd == "case":
         from .cases import cli as case_cli
         if args.case_cmd == "run":
