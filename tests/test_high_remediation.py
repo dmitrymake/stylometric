@@ -2591,9 +2591,12 @@ def test_report_corpus_section_binds_bytes_and_current_corpus(
     )
     assert evidence.verify_corpus_validation(cfg) == "corpus ok"
 
-    (docs / "corpus_validation.txt").write_text("tampered", encoding="utf-8")
-    with pytest.raises(evidence.SectionEvidenceError, match="hash mismatch"):
+    payload = evidence._section_directory(docs, section="corpus_validation") / "corpus_validation.txt"
+    original = payload.read_bytes()
+    payload.write_text("tampered", encoding="utf-8")
+    with pytest.raises(evidence.SectionEvidenceError, match="(?:hash|digest) mismatch"):
         evidence.verify_corpus_validation(cfg)
+    payload.write_bytes(original)
 
     evidence.publish_corpus_validation(
         cfg,
@@ -2673,9 +2676,12 @@ def test_report_prediction_section_binds_bundle_and_unknown_inputs(
         ):
             evidence.verify_prediction(cfg)
 
-    (docs / "prediction.txt").write_text("tampered", encoding="utf-8")
-    with pytest.raises(evidence.SectionEvidenceError, match="hash mismatch"):
+    payload = evidence._section_directory(docs, section="prediction") / "prediction.txt"
+    original = payload.read_bytes()
+    payload.write_text("tampered", encoding="utf-8")
+    with pytest.raises(evidence.SectionEvidenceError, match="(?:hash|digest) mismatch"):
         evidence.verify_prediction(cfg)
+    payload.write_bytes(original)
 
     evidence.publish_prediction(
         cfg,

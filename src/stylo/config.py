@@ -91,16 +91,20 @@ def with_overrides(cfg: "ConfigNode", dotted_overrides: Dict[str, Any]) -> "Conf
 
 
 def artifact_config_id(cfg: "ConfigNode") -> str:
-    """Bind every resolved setting except the external deployment commitment.
+    """Bind model/computation settings independently of output and presentation.
 
     A bundle token is derived from the training configuration and supplied after
     training. Including it in that configuration's digest creates a circular
-    identity. All other deployment, model, corpus and output settings stay bound.
-    Configurations without deployment settings retain their existing digest.
+    identity. View-only top-k and report directory also do not change fitted
+    scores. Features, panel, processing, data paths and weighting stay bound.
     """
     from .jsonio import dumps_strict
 
     raw = cfg.to_dict()
+    if isinstance(raw.get("evaluation"), dict):
+        raw["evaluation"].pop("top_k_candidates", None)
+    if isinstance(raw.get("paths"), dict):
+        raw["paths"].pop("docs", None)
     deployment = raw.get("deployment")
     if isinstance(deployment, dict):
         deployment.pop("expected_bundle_token", None)

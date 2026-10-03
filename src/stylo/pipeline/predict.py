@@ -141,11 +141,14 @@ def _target_texts(target: PredictionTarget) -> list[str]:
 
 
 def _overlap_status(cfg, target, texts, authors, meta) -> dict:
+    from ..corpus_tools.validate_corpus import text_overlap_coverage, validate_threshold
+    threshold = validate_threshold(cfg.get_path("corpus_policy.near_dup_threshold", 0.4))
     trained = meta.get("training_work_ids")
     if trained is not None and target.work_id in trained:
         raise BundleError("target work_id overlaps the trained references")
     result = {"work_id": "checked_bundle_metadata" if trained is not None else "unavailable_legacy_bundle",
-              "exact_content": "unavailable_no_training_texts", "near_duplicates": "not_checked_by_prediction"}
+              "exact_content": "unavailable_no_training_texts",
+              "near_duplicates": "unavailable_no_training_texts", "near_dup_threshold": threshold}
     try:
         snapshot = resolve_fragment_roots(cfg)
     except (RuntimeError, FileNotFoundError):
@@ -172,7 +175,13 @@ def _overlap_status(cfg, target, texts, authors, meta) -> dict:
         whole_works.setdefault(str(group), []).append(str(text))
     if any(text in fragments for text in texts) or " ".join(texts) in {" ".join(parts) for parts in whole_works.values()}:
         raise BundleError("target exactly copies available training content")
-    result.update(work_id="checked_training_references", exact_content="checked_matching_training_references")
+    target_text = " ".join(texts)
+    for parts in whole_works.values():
+        coverage = text_overlap_coverage(target_text, " ".join(parts))
+        if coverage > 0 and coverage >= threshold:
+            raise BundleError("target normalized/shingle content overlaps available training references")
+    result.update(work_id="checked_training_references", exact_content="checked_matching_training_references",
+                  near_duplicates="checked_matching_training_references")
     return result
 
 
@@ -282,6 +291,7 @@ def run(
         "score_scope": "closed_set_method_diagnostics", "margin": margin,
         "aggregation": "mean_over_selected_work_fragments", "overlap_check": overlap,
         "training_weighting": weighting,
+        "view_settings": {"top_k_candidates": top_k, "output_directory": str(docs_dir)},
         "methods": {
             "stylo_lr": {"scores": {author: float(lr_full[i]) for i, author in enumerate(authors)},
                          "top_candidate": authors[int(order[0])]},
@@ -298,7 +308,7 @@ def run(
     report = format_prediction_report(result, top_k)
     from ..report.evidence import publish_prediction
 
-    publish_prediction(
+    published = publish_prediction(
         cfg,
         unknown_root=target.root,
         target=target,
@@ -309,4 +319,6 @@ def run(
         bundle_meta=bundle_meta,
     )
     print(report)
+    if published is not None:
+        print(f"Result ID: {published.name}\nОтчёт: {published / 'index.html'}")
     return result

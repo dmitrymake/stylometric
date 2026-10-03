@@ -853,9 +853,20 @@ export default function Sholokhov() {
         </div>
 
         <Sources
+          label="Внешние исследования"
+          items={[
+            { cite: "Н. П. Великанова, Б. В. Орехов (2019). «Цифровая текстология: атрибуция текста на примере романа М. А. Шолохова “Тихий Дон”»", url: "https://publications.hse.ru/pubs/share/direct/314793949.pdf" },
+            { cite: "К. А. Маслинский (2022). «Уточненная цифровая текстология: еще раз к вопросу об авторстве романа “Тихий Дон”» — повторный анализ опубликованных данных", url: "https://ruslitras.ru/index.php?dispatch=products.print_publication&format=pdf&product_id=95733&version_id=93851" },
+          ]}
+          note="Эти работы дают контекст задачи и методических вопросов. Собственные показатели Stylo ниже привязаны к сохранённым артефактам проекта; результаты внешних исследований в них не подставляются."
+        />
+        <Sources
+          label="Материалы и источники графиков Stylo"
           items={[
             { cite: "Черновой автограф «Тихого Дона» — отдел рукописей ИМЛИ РАН (по материалам ФЭБ)", url: "http://feb-web.ru/feb/sholokh/" },
             { cite: "Проза кандидатов (Крюков, Серафимович и др.), военная и сельская проза — открытые публикации az.lib.ru; используется локально для расчётов и не распространяется", url: "http://az.lib.ru/" },
+            { cite: "Покнижные сравнения, тема и дополнительные проверки — docs/sholokhov_lobo.json, docs/sholokhov_thematic.json и сохранённые docs/sholokhov_rigor*.json; полная привязка полей — site/src/generated/manifest.json" },
+            { cite: "Смеси авторов и модельная оценка рукописи — docs/sholokhov_multihand.json, docs/hidden_positive.json, docs/multiple_hands.json, docs/sholokhov_manuscript.json" },
           ]}
           note="Палеографическая оценка правки рукописи — мультимодальной моделью Gemini 3.1 Pro через VertexAI."
         />

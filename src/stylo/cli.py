@@ -72,6 +72,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     simple_commands["predict"].add_argument("--unknown-dir", default=None, help="Explicit unknown input root for standalone inference")
     simple_commands["report"].add_argument("--target-work", default=None)
     simple_commands["report"].add_argument("--prediction-only", action="store_true")
+    simple_commands["report"].add_argument("--result-id", default=None,
+        help="Saved result generation ID (or legacy)")
     simple_commands["analyze"].add_argument("--target-work", required=True,
                                            help="Work held out of training, as author/work")
     simple_commands["validate-corpus"].add_argument(
@@ -242,10 +244,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         from .corpus_tools import validate_corpus
         from .report import build
         target = predict._work_id(args.target_work)
-        deployment_candidates(cfg)  # Reject implicit/invalid panels before writes.
+        panel = deployment_candidates(cfg)  # Reject implicit/invalid panels before writes.
+        validate_corpus.validate_threshold(cfg.get_path("corpus_policy.near_dup_threshold", 0.4))
         weighting = resolve_training_weighting(cfg.get_path("evaluation.training_weighting"))
         clean.run(cfg)
-        validate_corpus.run(cfg)
+        validate_corpus.run(cfg, target_work_id=target, reference_authors=panel)
         split.run(cfg, leave_out=(target,))
         receipt = train.run(cfg, weighting=weighting)
         pinned = with_overrides(cfg, {"deployment.expected_bundle_token": receipt["bundle_token"]})
@@ -401,7 +404,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         fetch_classics.run(cfg)
     elif args.cmd == "report":
         from .report import build
-        build.run(cfg, target_work=args.target_work, prediction_only=args.prediction_only)
+        build.run(cfg, target_work=args.target_work, prediction_only=args.prediction_only,
+                  result_id=args.result_id)
     elif args.cmd == "case":
         from .cases import cli as case_cli
         if args.case_cmd == "run":

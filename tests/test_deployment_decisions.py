@@ -201,19 +201,22 @@ def test_invalid_or_implicit_panel_fails_before_reading_corpus(panel, tmp_path):
     assert not (tmp_path / "uncreated").exists()
 
 
-def test_config_hash_preserves_legacy_without_token():
-    import hashlib
-    from stylo.jsonio import dumps_strict
-
+def test_config_hash_excludes_only_presentation_and_external_token():
     cfg = load_config()
-    previous = hashlib.sha256(dumps_strict(cfg.to_dict(), sort_keys=True).encode()).hexdigest()
-    assert artifact_config_id(cfg) == previous
+    previous = artifact_config_id(cfg)
     pinned = with_overrides(cfg, {"deployment.expected_bundle_token": "a" * 32})
     assert artifact_config_id(pinned) == previous
+    assert artifact_config_id(with_overrides(cfg, {"evaluation.top_k_candidates": 1,
+                                                 "paths.docs": "different-results"})) == previous
     for key, value in [("model.classifier.C", 3.0),
                        ("deployment.candidate_authors", ["a", "b"]),
                        ("deployment.other_setting", "changed")]:
         assert artifact_config_id(with_overrides(pinned, {key: value})) != previous
+    for key, value in [("features.char_ngrams.max_features", 123),
+                       ("language.spacy_model", "different"),
+                       ("evaluation.training_weighting", "work_balanced"),
+                       ("chunking.chunk_size", 123)]:
+        assert artifact_config_id(with_overrides(cfg, {key: value})) != previous
 
 
 def test_cli_accepts_explicit_panel_for_both_commands(monkeypatch):
@@ -382,7 +385,10 @@ def test_analyze_composes_stages_and_carries_fresh_trusted_token(monkeypatch, tm
     from stylo.report import build
     events = []
     monkeypatch.setattr(clean, "run", lambda cfg: events.append("clean"))
-    monkeypatch.setattr(validate_corpus, "run", lambda cfg: events.append("validate"))
+    def validated(cfg, **kwargs):
+        assert kwargs == {"target_work_id": "alpha/heldout", "reference_authors": ("alpha", "beta")}
+        events.append("validate")
+    monkeypatch.setattr(validate_corpus, "run", validated)
     monkeypatch.setattr(split, "run", lambda cfg, **kw: events.append(("split", kw["leave_out"])))
     monkeypatch.setattr(train, "run", lambda cfg, **kw: events.append(("train", kw["weighting"])) or {"bundle_token": "f" * 32})
     def predicted(cfg, **kw):
@@ -504,3 +510,37 @@ def test_real_grouped_fit_save_load_predict_preserves_method_outputs(tmp_path, m
     (data / "deployment" / weighting / "current.json").unlink()
     assert evidence.verify_structured_prediction(cfg, "unknown/query") == result
     assert evidence.verify_structured_prediction(changed_cfg, "unknown/second") == second_result
+
+
+@pytest.mark.parametrize("target_author", ["bulgakov", "unknown"])
+def test_predict_rejects_normalized_collection_before_model_scoring(deployment, monkeypatch, target_author):
+    cfg, receipt = deployment
+    root = predict.resolve_fragment_roots(cfg).unknown_root
+    (root / "target.txt").unlink()
+    directory = root / target_author / "edition"
+    directory.mkdir(parents=True)
+    reference = train.resolve_fragment_roots(cfg).train_root / "bulgakov/reference"
+    original = " ".join((reference / f"{i}.txt").read_text() for i in range(5))
+    changed = "Учебное предисловие. " + original.replace(" ", "; ") + " Учебное послесловие."
+    (directory / "0.txt").write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(ToyClassifier, "predict_proba", lambda *_: pytest.fail("overlap must fail before scoring"))
+    monkeypatch.setattr(ToyDelta, "distances", lambda *_: pytest.fail("overlap must fail before scoring"))
+    with pytest.raises(BundleError, match="normalized/shingle content overlaps"):
+        predict.run(cfg, target_work=f"{target_author}/edition", expected_bundle_token=receipt["bundle_token"])
+
+
+def test_prediction_scope_excludes_inactive_authors_and_unselected_unknown(deployment):
+    cfg, receipt = deployment
+    root = _nested_targets(cfg)
+    references = train.resolve_fragment_roots(cfg).train_root
+    (root / "unknown/one/0.txt").write_text((references / "background/reference/0.txt").read_text(), encoding="utf-8")
+    (root / "unknown/two/0.txt").write_text((references / "bulgakov/reference/0.txt").read_text(), encoding="utf-8")
+    result = predict.run(cfg, target_work="unknown/one", expected_bundle_token=receipt["bundle_token"])
+    assert result["overlap_check"]["near_duplicates"] == "checked_matching_training_references"
+
+
+def test_existing_model_accepts_view_only_changes(deployment, tmp_path):
+    cfg, receipt = deployment
+    changed = with_overrides(cfg, {"evaluation.top_k_candidates": 1, "paths.docs": str(tmp_path / "other-output")})
+    result = predict.run(changed, expected_bundle_token=receipt["bundle_token"])
+    assert result["view_settings"] == {"top_k_candidates": 1, "output_directory": str(tmp_path / "other-output")}

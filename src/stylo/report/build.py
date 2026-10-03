@@ -33,6 +33,15 @@ def format_prediction_report(result: dict, top_k: int) -> str:
         "checked_matching_training_references": "точные совпадения с эталонами проверены",
         "unavailable_no_training_texts": "проверка точных совпадений недоступна: исходных эталонов нет",
     }[result["overlap_check"]["exact_content"]]
+    overlap = result["overlap_check"]
+    near_status = overlap.get("near_duplicates")
+    if near_status == "checked_matching_training_references":
+        near_check = ("совпадения содержания по последовательностям слов проверены; "
+                      f"порог покрытия: {overlap['near_dup_threshold']}")
+    elif near_status == "unavailable_no_training_texts":
+        near_check = "проверка сходного содержания недоступна: исходных эталонов нет"
+    else:
+        near_check = "сходное содержание не проверялось"
     lines = ["=== Диагностический рейтинг кандидатов (LR и Delta) ===",
              f"Дата: {datetime.datetime.now():%d.%m.%Y %H:%M}",
              f"Произведение: {result['target_work_id']}",
@@ -46,7 +55,8 @@ def format_prediction_report(result: dict, top_k: int) -> str:
                   f"Топ-{top_k} по Delta ({denominator}):"])
     for author in sorted(authors, key=lambda value: delta["distances"][value])[:top_k]:
         lines.append(f"  {display_name(author):24} distance={delta['distances'][author]:.4f}")
-    lines.extend(["", "Проверка пересечения с эталонами: " + content_check])
+    lines.extend(["", "Проверка пересечения с эталонами: " + content_check,
+                  "Сходное содержание: " + near_check])
     return "\n".join(lines)
 
 
@@ -176,42 +186,60 @@ def _verified_sweep(cfg, docs: pathlib.Path) -> tuple[str, str]:
     return title, bodies["sweep_table.v2.txt"]
 
 
-def run_prediction(cfg, target_work: str) -> pathlib.Path:
-    """Render one verified prediction independently of corpus/sweep reports."""
-    from .evidence import prediction_directory, verify_prediction
-    body = verify_prediction(cfg, target_work)
-    docs = prediction_directory(cfg, target_work)
-    output = docs / "index.html"
-    if output.is_symlink():
-        raise ReportEvidenceError("prediction report output must not be a symlink")
-    page = (
+def render_prediction_html(target_work: str, body: str, *, identity: dict) -> str:
+    """Render a saved result before publication; no scores are recomputed."""
+    return (
         '<!doctype html><html lang="ru"><meta charset="utf-8">'
         '<title>Stylo — сравнение произведения</title>'
         '<style>body{font:16px system-ui;max-width:960px;margin:3rem auto;padding:0 1rem}'
-        'pre{white-space:pre-wrap;line-height:1.6}</style>'
-        f'<h1>{html.escape(target_work)}</h1><pre>{html.escape(body)}</pre></html>'
+        'pre{white-space:pre-wrap;line-height:1.6}.meta{overflow-wrap:anywhere}</style>'
+        f'<h1>{html.escape(target_work)}</h1>'
+        f'<p class="meta">Модель: {html.escape(str(identity["bundle_token"]))}<br>'
+        f'Конфигурация: {html.escape(str(identity["config_id"]))}</p>'
+        f'<pre>{html.escape(body)}</pre></html>'
     )
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=docs, delete=False) as handle:
-        temporary = pathlib.Path(handle.name)
-        handle.write(page)
-        handle.flush(); os.fsync(handle.fileno())
+
+
+def run_prediction(cfg, target_work: str | None = None, *, result_id: str | None = None) -> pathlib.Path:
+    """Open a complete verified generation, including its already-published HTML."""
+    from .evidence import SectionEvidenceError, _publish_section, read_prediction_result
+    from ..jsonio import canonical_hash, dumps_strict
     try:
-        os.replace(temporary, output)
-    finally:
-        temporary.unlink(missing_ok=True)
-    print(f"Отчёт произведения: {output}")
+        directory, identity, bodies = read_prediction_result(cfg, target_work, result_id=result_id)
+        if "index.html" in bodies:
+            output = directory / "index.html"
+        else:
+            # A legacy flat result remains read-only. Its HTML is a separate
+            # derived generation bound to the verified original result files.
+            source = {"identity": identity,
+                      "files": {name: _sha256_text(body) for name, body in bodies.items()}}
+            selected_work = identity.get("target_work_id", "Legacy prediction")
+            derived = _publish_section(
+                directory, section="prediction_view",
+                files={"index.html": render_prediction_html(selected_work,
+                                                           bodies["prediction.txt"], identity=identity),
+                       "source.json": dumps_strict(source, sort_keys=True)},
+                identity={"source_result_sha256": canonical_hash(source),
+                          "target_work_id": selected_work},
+            )
+            output = derived / "index.html"
+    except SectionEvidenceError as exc:
+        raise ReportEvidenceError(str(exc)) from exc
+    selected_id = directory.name if "index.html" in bodies else "legacy"
+    print(f"Отчёт произведения: {output}\nResult ID: {selected_id}")
     return output
 
 
-def run(cfg=None, *, target_work: str | None = None, prediction_only: bool = False) -> None:
+def run(cfg=None, *, target_work: str | None = None, prediction_only: bool = False,
+        result_id: str | None = None) -> None:
     from ..config import load_config
 
     cfg = cfg or load_config()
-    if target_work is not None or prediction_only:
-        if target_work is None:
+    if target_work is not None or prediction_only or result_id is not None:
+        if target_work is None and result_id is None:
             from ..pipeline.predict import resolve_prediction_target
             target_work = resolve_prediction_target(cfg).work_id
-        run_prediction(cfg, target_work)
+        run_prediction(cfg, target_work, result_id=result_id)
         return
     docs = pathlib.Path(cfg.get_path("paths.docs", "docs"))
     if docs.is_symlink() or not docs.is_dir():

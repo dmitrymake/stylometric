@@ -1,6 +1,7 @@
 import { Card, Stat, ConfidenceBar, AnomalyGlyph } from "@dmitrymake/rk-ui";
 import AuthorshipTimeline from "../components/AuthorshipTimeline.jsx";
 import RingStat from "../components/RingStat.jsx";
+import Sources from "../components/Sources.jsx";
 import { fmtPct, fmtScore, fmtZ, fmtInt } from "../format.js";
 import { ILF_PETROV, CASES, RIGOR } from "../segdata.js";
 
@@ -308,6 +309,24 @@ export default function IlfPetrov() {
           Ильфа и Петрова не делится на два устойчивых почерка. Дилогия совместима
           с авторством дуэта, но разделить страницы между соавторами не даёт.
         </p>
+
+        <Sources
+          label="Внешние исследования и контекст"
+          items={[
+            { cite: "B. Ryabko, N. Savina (2021). Using Data Compression to Build a Method for Statistically Verified Attribution of Literary Texts — компрессионный подход и сравнение дилогии с прозой Булгакова", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8534409/" },
+            { cite: "Е. С. Тарасова (2020). «Илья Ильф и Евгений Петров как соавторы романов Ильфа и Петрова» — связи сольных рассказов и фельетонов с совместными романами", url: "https://www.philology.nsc.ru/journals/sis/article.php?id=264" },
+          ]}
+          note="Это внешние работы о постановке вопроса и способах сравнения. Назначения блоков в компрессионном исследовании не являются вероятностями авторства и не входят в показатели графиков Stylo."
+        />
+        <Sources
+          label="Источники графиков Stylo"
+          items={[
+            { cite: "Карты окон и сравнение кандидатов — docs/ilfpetrov_timeline.json, docs/disputed_ilfpetrov.json" },
+            { cite: "Сольные подборки и неоднородность — docs/ilf_vs_petrov.json, docs/ilfpetrov_heterogeneity.json" },
+            { cite: "Сравнение профилей и аудит признаков — docs/cases_attribution.json, docs/feature_audit2.json; полная привязка полей — site/src/generated/manifest.json" },
+          ]}
+          note="Собственные показатели этой главы взяты из сохранённых артефактов проекта."
+        />
       </div>
     </section>
   );

@@ -11,26 +11,31 @@
 
 ## Active product hardening candidate
 
-The owner authorised full product/methodology/editorial hardening toward 9/10 on 2026-10-03,
-with an independent cold Astra review at the end. That final review is still pending. Uncommitted changes are isolated in branch `product-cleanup`, worktree
-`research/local/worktrees/product-cleanup/`; inspect that worktree before continuing this work.
-The completed cloud run used `bb3760f`; main HEAD still matches that scientific source.
-The candidate now includes portable versioned clean snapshots, Git-optional training, targeted
-LR/Delta reports, WB diagnostic inference, and one-command analyze. A completed-measurement block
-was added to the local site draft; source numbers are generated and bound. These changes are not
-merged or published. Integration checks and bounded corrections are complete: 1362 tests passed, 8 skipped;
-fresh-wheel analyze and two-model/two-report reuse passed outside Git. Perform the requested
-cold Astra review before final acceptance. The two historical case panels still need their
-separate corpus/edition work and fresh case measurements; do not conflate them with LOBO accuracy.
-The readable static preview starts at `research/local/product-preview-20261003/index.html`.
-Validation and remaining warnings are appended to the remediation task in that worktree.
-The owner accepted the five navigation labels/order: «Как это работает», «Тихий Дон»,
-«12 стульев», «Дневник Николая II», «Тарас Бульба». Keep this structure in the rewrite.
+Owner authorisation: full product/methodology/editorial hardening toward 9/10 on 2026-10-03,
+followed by independent cold Astra review. Work is local; no push/publication is authorised.
+Candidate branch `product-cleanup` is in `research/local/worktrees/product-cleanup/`, based on
+`5582d23`. Initial candidate `70be5c5` completed integration checks (1362 passed, 8 skipped),
+real wheel workflows outside Git, site build/SSR and desktop/mobile Chromium checks.
 
-The temporary `n2-standard-128` VM (64 workers) completed the study on 2026-10-03.
-The collector verified and retrieved results, then deleted the VM and its boot disk; independent
-GCP exact-name lists confirmed both absent. Receipts and all 992 checkpoint records are retained in
-`research/local/cloud_20261003/retrieval-lrbk7f_m/results/`. Collector completion is recorded in
+The first cold Astra review reproduced three defects: target/reference near-duplicates could
+survive under the same author; a second model overwrote the first result for one target; report
+location/top-k were bound unnecessarily to model identity. Corrections are complete in the candidate worktree; final regression is running.
+Do not call the initial candidate accepted or rated 9/10. The exact review is
+`research/local/reviews/astra-product-hardening-20261003.md` in the main checkout.
+Installed-wheel regression covers the three real reproductions, including historical result reading
+without its original inputs/model. Final validation and independent closure follow the corrections. Details and evidence:
+`docs/tasks/2026-10-03-product-hardening.md`.
+
+The owner accepted the five navigation labels/order: «Как это работает», «Тихий Дон»,
+«12 стульев», «Дневник Николая II», «Тарас Бульба». Keep this structure. The local preview is
+`research/local/product-preview-20261003/index.html`; refresh it from the accepted candidate.
+Historical case panels still require separate corpus/edition work and fresh measurements.
+
+The temporary `n2-standard-128` VM (64 workers) completed all 992 fits on 2026-10-03.
+Its scientific source is `bb3760f9b9237a9fbadfaf847dca56bba8024161`, not the product candidate.
+Results were verified/retrieved and the VM plus boot disk deleted; independent exact-name GCP
+lists confirmed both absent. Retained receipts/checkpoint:
+`research/local/cloud_20261003/retrieval-lrbk7f_m/results/`; collector state:
 `research/local/cloud_20261003/collector-state.json`. No further cloud polling or restart is needed.
 
 ## Verified implementation
@@ -55,14 +60,14 @@ works, with 43 metric labels and 47 probability classes:
 
 | Training weighting | Current features | Topic-restricted features |
 |---|---|---|
-| A0: equal fragment weights | 216/248 (87.10%) | 218/248 (87.90%) |
-| A4: equal work weights | 225/248 (90.73%) | 225/248 (90.73%) |
+| A0: fragment-fitted features, balanced author classes | 216/248 (87.10%) | 218/248 (87.90%) |
+| A4: work-fitted features, work weights within author | 225/248 (90.73%) | 225/248 (90.73%) |
 
 Transition counts are consistent with these totals; the canonical aggregate matches the retrieved
 bytes. The runner provides accuracy and per-author transitions, not confidence intervals. This is
 an exploratory comparison on the corrected corpus, not an authorship result for either novel.
-The aggregate is local/uncommitted, and public site data/governance were not rewritten. Inspect
-actual evidence before a model-selection or publication decision. Historical checkpoints remain
+The canonical aggregate is committed in `5582d23`; local site/governance updates are in the product
+candidate. Nothing has been published. Inspect actual evidence before a model-selection decision. Historical checkpoints remain
 separate and must not be relabelled or resumed against this source.
 
 ## Case research
@@ -70,4 +75,4 @@ separate and must not be relabelled or resumed against this source.
 Targets: Bulgakov / «Двенадцать стульев», Sholokhov / «Тихий Дон». The corrected benchmark
 bundle contains neither the Ilf–Petrov nor Sholokhov label and is not a ready case panel. The census
 lists exact available work identities and source/edition gaps; new independent reference panels
-and a calibrated verification benchmark still need preparation. R9 public wording was not changed.
+and a calibrated verification benchmark still need preparation. The product candidate revises the local article; it does not replace the historical case measurements.
