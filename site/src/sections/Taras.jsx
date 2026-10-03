@@ -1,4 +1,5 @@
-import { Card, Stat, Badge } from "@dmitrymake/rk-ui";
+import ArticleContents from "../components/ArticleContents.jsx";
+import { EditorialPanel, EditorialMetric, Badge } from "@dmitrymake/rk-ui";
 import { TARAS } from "../segdata.js";
 import { fmtScore, fmtP, fmtPct, fmtInt } from "../format.js";
 import MeterBar from "../components/MeterBar.jsx";
@@ -93,8 +94,8 @@ function WinnerLine({ row }) {
   if (row.targetChunks === 1) {
     return (
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
-        <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>единственный кусок — только направление</span>
-        <span className="mono" style={{ fontSize: 13, color: "var(--text)" }}>ближе к {nmDat(row.top)}</span>
+        <span style={{ fontSize: 16, color: "var(--text-muted)" }}>единственный кусок — только направление</span>
+        <span className="mono" style={{ fontSize: 16, color: "var(--text)" }}>ближе к {nmDat(row.top)}</span>
       </div>
     );
   }
@@ -102,8 +103,8 @@ function WinnerLine({ row }) {
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
-        <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>доля отрывков к ближайшему профилю</span>
-        <span className="mono" style={{ fontSize: 13, color: "var(--text)" }}>{nm(row.top)} · {fmtPct(share, 1)}</span>
+        <span style={{ fontSize: 16, color: "var(--text-muted)" }}>доля отрывков к ближайшему профилю</span>
+        <span className="mono" style={{ fontSize: 16, color: "var(--text)" }}>{nm(row.top)} · {fmtPct(share, 1)}</span>
       </div>
       <MeterBar value={share} max={1} accent="var(--icon-blue)" />
     </div>
@@ -111,44 +112,44 @@ function WinnerLine({ row }) {
 }
 
 function ResultCard({ row, title, accent = "var(--icon-blue)" }) {
-  const ci = row.ci.length ? `[${fmtScore(row.ci[0], 4)}, ${fmtScore(row.ci[1], 4)}]` : "—";
+
   return (
-    <Card padding={22}>
+    <EditorialPanel>
       <div style={{ display: "grid", gap: 13 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
           <h4 style={{ margin: 0, color: "var(--text)" }}>{title}</h4>
           <Badge tone={STATUS_TONE[row.status] || "warning"}>{statusText(row.status)}</Badge>
         </div>
         <div className="grid cols-3" style={{ gap: 10 }}>
-          <Stat label="надёжность панели" value={fmtScore(row.gate, 4)} accent={row.gatePass ? "var(--success)" : "var(--cinnabar)"} hint="узнаёт ли панель известных авторов; нужно ≥ 0.80" />
-          <Stat label="случайность" value={fmtP(row.p)} accent="var(--gold)" hint="вероятность такого совпадения при случайной перетасовке" />
-          <Stat label="оценка доводов" value={fmtScore(row.score, 1)} accent={accent} hint="сводный балл по правилам этой проверки; это не вероятность авторства" />
+          <EditorialMetric label="надёжность панели" value={fmtScore(row.gate, 4)} accent={row.gatePass ? "var(--success)" : "var(--cinnabar)"} hint="узнаёт ли панель известных авторов; нужно ≥ 0.80" />
+          <EditorialMetric label="случайность" value={fmtP(row.p)} accent="var(--gold)" hint="вероятность такого совпадения при случайной перетасовке" />
+          <EditorialMetric label="оценка доводов" value={fmtScore(row.score, 1)} accent={accent} hint="сводный балл по правилам этой проверки; это не вероятность авторства" />
         </div>
         <WinnerLine row={row} />
-        <div className="mono" style={{ display: "grid", gap: 5, fontSize: 12.5, color: "var(--text-muted)" }}>
+        <div className="mono" style={{ display: "grid", gap: 5, fontSize: 16, color: "var(--text-muted)" }}>
           <span>кусков текста: {row.targetChunks}</span>
-          <span>запас за победителя: {fmtScore(row.margin, 4)} · интервал {ci}</span>
+          <span>разница оценок ближайших профилей: {fmtScore(row.margin, 4)}</span>
           <span>по кускам: {Object.entries(row.perChunk).map(([k, v]) => `${nm(k)} ${v}/${row.targetChunks}`).join(", ") || "—"}</span>
         </div>
       </div>
-    </Card>
+    </EditorialPanel>
   );
 }
 
 function ControlCard({ row }) {
   const share = row.winnerShare[row.top] ?? 0;
   return (
-    <Card padding={16}>
+    <EditorialPanel>
       <div style={{ display: "grid", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-          <span style={{ color: "var(--text)", fontSize: 14 }}>{CONTROL_TITLE[row.id] || row.target}</span>
+          <span style={{ color: "var(--text)", fontSize: 17 }}>{CONTROL_TITLE[row.id] || row.target}</span>
           <Badge tone={STATUS_TONE[row.status] || "warning"}>{statusText(row.status)}</Badge>
         </div>
-        <span className="mono" style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+        <span className="mono" style={{ fontSize: 16, color: "var(--text-muted)" }}>
           → {nm(row.top)} · {fmtPct(share, 1)} · запас {fmtScore(row.margin, 4)}
         </span>
       </div>
-    </Card>
+    </EditorialPanel>
   );
 }
 
@@ -168,69 +169,73 @@ export default function Taras() {
       <section className="section" id="hohol">
         <div className="wrap flow">
           <div className="section-head reveal">
-            <p className="eyebrow">Литературное расследование · две редакции повести</p>
-            <h2>«Тарас Бульба»: сравнение добавлений</h2>
+            <p className="eyebrow">Две редакции повести</p>
+            <h1>«Тарас Бульба»: сравнение добавлений</h1>
             <p className="prose lead muted">
-              Между редакциями 1835 и 1842 годов повесть почти удвоилась, стала
-              эпичнее, в ней появилась знаменитая речь о товариществе. Гоголь жил
-              за границей, Павел Анненков переписывал его рукописи набело, Николай
-              Прокопович готовил книгу к печати. Мог ли кто-то из них не только
-              переписать, но и сочинить большие вставки? Сравниваем добавленный
-              текст с прозой самого Гоголя и его современников.
+              Сравниваем добавления к редакции 1842 года с прозой Гоголя и его
+              современников. Вопрос об участии Анненкова и Прокоповича требует
+              отделить сходство авторской манеры от общей литературной нормы эпохи.
             </p>
             <div className="grid cols-4 reveal" style={{ maxWidth: 900 }}>
-              <Stat label="слов в строгом наборе" value={fmtInt(TARAS.manifest.strictWords)} accent="var(--icon-blue)" />
-              <Stat label="слов в широком наборе" value={fmtInt(TARAS.manifest.looseWords)} accent="var(--cosmos)" />
-              <Stat label="узнаваемость группы подозреваемых" value={fmtScore(PA.suspectsStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="Ниже принятого порога 0.80: группа недостаточно надёжно узнаёт известные тексты." />
-              <Stat label="узнаваемость авторов эпохи" value={fmtScore(PA.samePeriodStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="Ниже принятого порога 0.80." />
+              <EditorialMetric label="слов в строгом наборе" value={fmtInt(TARAS.manifest.strictWords)} accent="var(--icon-blue)" />
+              <EditorialMetric label="слов в широком наборе" value={fmtInt(TARAS.manifest.looseWords)} accent="var(--cosmos)" />
+              <EditorialMetric label="узнаваемость группы подозреваемых" value={fmtScore(PA.suspectsStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="Ниже принятого порога 0.80: группа недостаточно надёжно узнаёт известные тексты." />
+              <EditorialMetric label="узнаваемость авторов эпохи" value={fmtScore(PA.samePeriodStrict.work_macro_recall, 4)} accent="var(--cinnabar)" hint="Ниже принятого порога 0.80." />
             </div>
           </div>
+        <ArticleContents chapter="hohol" items={[
+            ["hohol-section-1", "Что именно сравниваем"],
+            ["hohol-section-2", "Проверка профилей с равным весом произведений"],
+            ["hohol-section-3", "Парные сравнения: Гоголь, Анненков и Сомов"],
+            ["hohol-section-4", "Состав кандидатов и набор признаков"]
+          ]} />
+
 
           <div className="module reveal">
-            <h3>Что именно сравниваем</h3>
+            <h3 id="hohol-section-1">Что именно сравниваем</h3>
             <p className="prose muted" style={{ maxWidth: "76ch" }}>
-              Обе редакции взяты из академического издания. Машина выделила
+              Обе редакции взяты из академического издания. Алгоритм выделяет
               предложения, появившиеся в 1842 году и почти отсутствующие в версии
-              1835-го. Получились строгий и широкий наборы добавлений. Сравнение идёт
-              по служебным словам — союзам, частицам и предлогам, — чтобы казачья тема
-              не выдавала себя за авторский почерк. Саму «Тараса Бульбу» из профиля
-              Гоголя убрали.
+              1835-го. Строгий и широкий наборы задают два способа выделения добавлений.
+              Служебные слова — союзы, частицы и предлоги — уменьшают прямое влияние
+              тематической лексики, хотя также зависят от жанра. «Тарас Бульба»
+              исключён из эталонной прозы Гоголя.
             </p>
           </div>
 
           <div className="module reveal">
-            <h3>Почему прежний ответ изменился</h3>
+            <h3 id="hohol-section-2">Проверка профилей с равным весом произведений</h3>
             <p className="prose muted" style={{ maxWidth: "76ch" }}>
-              Раньше длинная книга влияла на профиль автора столько раз, сколько из
-              неё получилось отрывков. После правила «одна книга — один голос»
-              широкая группа подозреваемых узнаёт известные контрольные тексты с
+              Для каждого произведения строится отдельный профиль; профиль автора
+              усредняет произведения с равным весом. При сравнении ближайших профилей
+              группа кандидатов узнаёт контрольные тексты с
               результатом {fmtScore(PA.suspectsStrict.work_macro_recall, 4)}, а группа
               авторов той же эпохи — {fmtScore(PA.samePeriodStrict.work_macro_recall, 4)}.
-              Обе чуть ниже заранее выбранного порога 0.80. Если сравнение недостаточно
-              хорошо узнаёт тексты с известным автором, его победителя нельзя превращать
-              в имя автора спорных вставок.
+              Это средние по авторам доли верно распознанных произведений. Обе ниже
+              рабочего порога 0.80, поэтому назначения добавлений на этих панелях
+              остаются диагностикой.
             </p>
           </div>
 
           <div className="module reveal">
-            <h3>Почему пары подозреваемых спорят друг с другом</h3>
+            <h3 id="hohol-section-3">Парные сравнения: Гоголь, Анненков и Сомов</h3>
             <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
-              <Card padding={22}>
+              <EditorialPanel>
                 <h4 style={{ color: "var(--text)" }}>Гоголь против Анненкова</h4>
                 <p className="prose muted">
                   Контрольные тексты различаются надёжно ({fmtScore(PA.annenkovBinary.work_macro_recall, 3)}).
                   Добавления ближе к {nm(PA.annenkovBinary.top)}: туда уходят{" "}
                   {fmtPct(annShare, 1)} отрывков.
                 </p>
-              </Card>
-              <Card padding={22}>
+              </EditorialPanel>
+              <EditorialPanel>
                 <h4 style={{ color: "var(--text)" }}>Гоголь против Сомова</h4>
                 <p className="prose muted">
                   Эта пара тоже хорошо различается ({fmtScore(PA.somovBinary.work_macro_recall, 3)}),
-                  но добавления теперь ближе к {nm(PA.somovBinary.top)}:{" "}
+                  но добавления ближе к {nm(PA.somovBinary.top)}:{" "}
                   {fmtPct(somovShare, 1)} отрывков.
                 </p>
-              </Card>
+              </EditorialPanel>
             </div>
             <p className="callout">
               Версия «все большие вставки написал Анненков» не подтверждается. Но
@@ -240,12 +245,12 @@ export default function Taras() {
           </div>
 
           <div className="module reveal">
-            <h3>Что можно сказать сейчас</h3>
+            <h3 id="hohol-section-4">Состав кандидатов и набор признаков</h3>
             <p className="verdict">
               Данные возражают против простой версии «всё написал Анненков», но не
               дают устойчивого выбора между Гоголем, Сомовым и другими авторами эпохи.
-              Даже два способа считать частые слова в паре Гоголь–Сомов выбирают
-              разных лидеров: {nm(PA.delta.somovBinaryFw.targets.strict_additions.top)} и{" "}
+              В методе Delta фиксированный список служебных слов и список частых слов,
+              выбранных по обучающим текстам, дают в паре Гоголь–Сомов разных лидеров: {nm(PA.delta.somovBinaryFw.targets.strict_additions.top)} и{" "}
               {nm(PA.delta.somovBinaryMfw.targets.strict_additions.top)}. Прозы
               Прокоповича почти не сохранилось, поэтому его участие напрямую
               проверить нельзя. Этот набор сравнений не даёт устойчивого выбора автора.
@@ -254,12 +259,12 @@ export default function Taras() {
 
           <Sources
             items={[
-              { cite: "Повторный расчёт: равный вес книг, 16 проверок по 2000 перестановок", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/README.md" },
+              { cite: "Сравнение с равным весом книг: 16 проверок по 2000 перестановок", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/README.md" },
               { cite: "Проверка методом Delta с равным весом книг", url: "https://github.com/dmitrymake/stylometric/blob/main/docs/cases/work_balanced_audit/custom/taras_delta_full_refit_work_balanced.json" },
               { cite: "«Тарас Бульба», редакция 1835 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-097-.htm" },
               { cite: "«Тарас Бульба», редакция 1842 года — ФЭБ", url: "https://feb-web.ru/feb/gogol/texts/gtb/gtb-005-.htm" },
             ]}
-            note={`В пересчёте каждая книга получает одинаковый вес. Дата проверки: ${PA.date}.`}
+            note="Каждая книга получает одинаковый вес. Эти панели используют собственный корпус прозы XIX века и не входят в проверку на 248 произведениях."
           />
         </div>
       </section>
@@ -270,7 +275,7 @@ export default function Taras() {
       <div className="wrap flow">
         <div className="section-head reveal">
           <p className="eyebrow">Разбор · вторая редакция «Тараса Бульбы»</p>
-          <h2>«Тарас Бульба»: сравнение добавлений</h2>
+          <h1>«Тарас Бульба»: сравнение добавлений</h1>
           <p className="prose lead muted">
             Между первой редакцией повести (1835) и школьной (1842) — большая разница. Текст вырос
             почти вдвое, изменился по объёму и устройству повествования, в нём появилась речь о товариществе. Гоголь тогда
@@ -282,16 +287,28 @@ export default function Taras() {
             писали сами.
           </p>
           <div className="grid cols-4 reveal" style={{ maxWidth: 860 }}>
-            <Stat label="строгий набор, слов" value={fmtInt(TARAS.manifest.strictWords)} accent="var(--icon-blue)" hint="слова, вошедшие в узкое выделение добавлений" />
-            <Stat label="широкий набор, слов" value={fmtInt(TARAS.manifest.looseWords)} accent="var(--cosmos)" hint="слова более широкого выделения добавлений" />
-            <Stat label="надёжность панели" value={fmtScore(strict.gate, 4)} accent="var(--success)" parade hint="панель узнаёт известных авторов выше порога 0.80" />
-            <Stat label="случайность" value={fmtP(strict.p)} accent="var(--gold)" hint="вероятность такого результата при случайной перетасовке" />
+            <EditorialMetric label="строгий набор, слов" value={fmtInt(TARAS.manifest.strictWords)} accent="var(--icon-blue)" hint="слова, вошедшие в узкое выделение добавлений" />
+            <EditorialMetric label="широкий набор, слов" value={fmtInt(TARAS.manifest.looseWords)} accent="var(--cosmos)" hint="слова более широкого выделения добавлений" />
+            <EditorialMetric label="надёжность панели" value={fmtScore(strict.gate, 4)} accent="var(--success)" hint="панель узнаёт известных авторов выше порога 0.80" />
+            <EditorialMetric label="случайность" value={fmtP(strict.p)} accent="var(--gold)" hint="вероятность такого результата при случайной перетасовке" />
           </div>
         </div>
+        <ArticleContents chapter="hohol" items={[
+            ["hohol-section-5", "Что именно дописали"],
+            ["hohol-section-6", "Проверка №1 · Сравнение с Анненковым"],
+            ["hohol-section-7", "Проверка №2 · Ответы на контрольных произведениях"],
+            ["hohol-section-8", "Проверка №3 · Так писала вся эпоха?"],
+            ["hohol-section-9", "Почему всплыл Сомов"],
+            ["hohol-section-10", "Прокопович: ограничение эталонных текстов"],
+            ["hohol-section-11", "Речь о товариществе"],
+            ["hohol-section-12", "Панель поздних классиков"],
+            ["hohol-section-13", "Итог"]
+          ]} />
 
-        {/* 1. Сам текст добавлений */}
+
+          {/* 1. Сам текст добавлений */}
         <div className="module reveal">
-          <h3>Что именно дописали</h3>
+          <h3 id="hohol-section-5">Что именно дописали</h3>
           <p className="prose muted" style={{ maxWidth: "72ch" }}>
             Обе редакции взяты целиком из академического издания (ФЭБ, изд. АН СССР):
             редакция 1842 года — {fmtInt(E.edition1842Words)} {ruWords(E.edition1842Words)}, редакция 1835-го —{" "}
@@ -309,7 +326,7 @@ export default function Taras() {
 
         {/* 2. Главный подозреваемый */}
         <div className="module reveal">
-          <h3>Проверка №1 · Сравнение с Анненковым</h3>
+          <h3 id="hohol-section-6">Проверка №1 · Сравнение с Анненковым</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Анненков переписывал гоголевские рукописи римского периода. Подозрение простое: в добавления
             «Тараса Бульбы» он вписал уже своё. Его
@@ -323,17 +340,17 @@ export default function Taras() {
             <ResultCard row={loose} title="Широкий набор · панель подозреваемых" accent="var(--cosmos)" />
           </div>
           <p className="callout">
-            В этом прежнем парном сравнении с Анненковым ближе профиль Гоголя ({annChunks} из {AB.targetChunks}).
-            Исправленный полный круг кандидатов не проходит контроль качества, а парное сравнение с Сомовым
-            даёт другое направление. Ответ зависит от состава сравнения.
+            В парном сравнении с Анненковым ближе профиль Гоголя ({annChunks} из {AB.targetChunks}).
+            Многоавторная панель ближайших профилей с равным весом произведений не проходит
+            контроль качества; парное сравнение с Сомовым даёт другое направление. Ответ зависит от состава сравнения.
           </p>
         </div>
 
         {/* 3. Контроль честности */}
         <div className="module reveal">
-          <h3>Проверка №2 · Ответы на контрольных произведениях</h3>
+          <h3 id="hohol-section-7">Проверка №2 · Ответы на контрольных произведениях</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
-            Честное возражение: инструмент просто отдаёт всё спорное самому известному автору?
+            Честное возражение: инструмент выбирает Гоголя для любого текста?
             Проверяем на четырёх задачах с заранее известными ответами: прячем от эталона по одной
             работе и смотрим, вернётся ли она к своему автору.
           </p>
@@ -341,14 +358,14 @@ export default function Taras() {
             {TARAS.controls.map((row) => <ControlCard key={row.id} row={row} />)}
           </div>
           <p className="callout">
-            Четыре из четырёх вернулись к своим. Спрятанная проза Анненкова уверенно приходит обратно
-            к Анненкову — метод умеет говорить «не Гоголь», когда это правда.
+            Все четыре контрольных произведения отнесены к своим авторам.
+            Этот результат описывает выбранные контроли и не заменяет проверку всей панели.
           </p>
         </div>
 
         {/* 4. Панель эпохи */}
         <div className="module reveal">
-          <h3>Проверка №3 · Так писала вся эпоха?</h3>
+          <h3 id="hohol-section-8">Проверка №3 · Так писала вся эпоха?</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Расширяем круг: Пушкин, Соллогуб, Анненков, Гребёнка — проза тех же 1830–40-х. Если
             добавления написаны «просто языком эпохи», на широкой панели они расползутся между
@@ -359,41 +376,41 @@ export default function Taras() {
             <ResultCard row={sameLoose} title="Широкий набор · панель эпохи" accent="var(--cosmos)" />
           </div>
           <p className="callout">
-            Legacy-направление было к Гоголю, но work-balanced gate этой панели равен 0.7876.
-            Поэтому target после аудита не интерпретируется.
+            При равном весе произведений средняя полнота этой панели по авторам равна 0.7876,
+            ниже порога 0.80. Назначения добавлений на ней остаются диагностикой.
           </p>
         </div>
 
         {/* 5. Панель, которая показала не туда */}
         <div className="module reveal">
-          <h3>Почему всплыл Сомов</h3>
+          <h3 id="hohol-section-9">Почему всплыл Сомов</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
-            Одна проверка сначала показала не на Гоголя. На панели из казачьей и украинской прозы
+            На панели из казачьей и украинской прозы
             (Орест Сомов, Нарежный, Гребёнка) добавления потянулись к Сомову — с очень маленьким
             запасом. Разбираемся. Первое: бесспорный текст 1835 года на <em>той же</em> панели идёт
             к Гоголю. Значит, панель умеет узнавать Гоголя в казачьем материале. Просто добавления звучат
             «сказовее» базового текста — переработка 1839–1842 годов сделала повесть
-            эпичнее. Второе: считаем то же самое другим методом (историческая Delta с нормировкой
-            по выбранным словам) — и сомовский результат исчезает.
+            эпичнее. Метод Delta с нормировкой по выбранным словам даёт иной результат.
+            Его ответ также зависит от выбора слов и состава панели.
           </p>
           <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
             <ResultCard row={TARAS.topic.additions} title="Строгий набор · казачья панель" accent="var(--cinnabar)" />
             <ResultCard row={TARAS.topic.base1835} title="«Тарас Бульба» 1835 · та же панель" />
           </div>
           <p className="verdict">
-            Исторический Delta-отчёт был невалиден как permutation null. Исправленный full-refit
-            rerun проходит на suspects и ведёт к Гоголю, но в binary Гоголь–Сомов меняет top:
-            fixed FW → Гоголь, learned MFW → Сомов. Cross-feature устойчивости нет.
+            В Delta словарь и нормировка строятся заново при каждой перестановке меток.
+            На панели кандидатов этот протокол проходит контроль и выбирает Гоголя.
+            В паре Гоголь–Сомов фиксированный список служебных слов выбирает Гоголя,
+            а частые слова из обучающего корпуса — Сомова. Наборы признаков не дают устойчивого выбора.
           </p>
         </div>
 
         {/* 6. Второй подозреваемый */}
         <div className="module reveal">
-          <h3>Прокопович: ограничение эталонных текстов</h3>
+          <h3 id="hohol-section-10">Прокопович: ограничение эталонных текстов</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Редактора издания 1842 года напрямую проверить не выйдет: своей прозы Прокопович почти
-            не оставил (стихи и пара писем). Это честное ограничение. Что можно — сделали: сравнили его
-            письма 1843 года с Гоголем и Анненковым. Фрагмент один и короткий — поэтому
+            не оставил (стихи и пара писем). Это честное ограничение. Его письма 1843 года сравниваются с Гоголем и Анненковым. Фрагмент один и короткий — поэтому
             только направление, без вывода.
           </p>
           <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
@@ -401,16 +418,16 @@ export default function Taras() {
             <div className="note" style={{ margin: 0 }}>
               Есть и прямое свидетельство из переписки. Получив издание 1842 года, Гоголь жаловался Прокоповичу
               на ошибки набора — то есть <em>внимательно вычитывал</em> итоговый текст. (Опечатки набора
-              — это не то же самое, что редактура содержания.) Стилометрия после аудита не
-              устанавливает единственную руку больших вставок; Прокопович остаётся
-              documented-but-unmodelled кандидатом.
+              — это не то же самое, что редактура содержания.) Сравнение профилей не
+              устанавливает единственного автора больших вставок. Участие Прокоповича
+              нельзя оценить по сопоставимой подборке собственной прозы.
             </div>
           </div>
         </div>
 
         {/* 7. Речь о товариществе */}
         <div className="module reveal">
-          <h3>Речь о товариществе</h3>
+          <h3 id="hohol-section-11">Речь о товариществе</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Самый цитируемый фрагмент добавлений — речь Тараса о товариществе — выносим отдельной
             целью: именно его чаще всего называют «идеологической вставкой». Но фрагмент короткий
@@ -420,15 +437,16 @@ export default function Taras() {
           <div className="grid cols-2" style={{ marginTop: "var(--beat-group)" }}>
             <ResultCard row={TARAS.speech} title="Речь о товариществе" accent="var(--gold)" />
             <div className="note" style={{ margin: 0 }}>
-              Legacy-направление речи было к Гоголю, но это один кусок, а corrected
-              multi-candidate gate не пройден. Атрибуционного вывода из него нет.
+              Речь представлена одним фрагментом. Многоавторная панель ближайших профилей
+              с равным весом произведений не проходит контроль качества, поэтому
+              её назначение не служит основанием для атрибуции.
             </div>
           </div>
         </div>
 
         {/* 8. Панель-неудача */}
         <div className="module reveal">
-          <h3>Что не сработало · Панель поздних классиков</h3>
+          <h3 id="hohol-section-12">Панель поздних классиков</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Стресс-панель с Толстым, Лесковым и Салтыковым-Щедриным (авторы более поздней эпохи) не
             берёт порог надёжности, поэтому её результаты не читаем — показываем как есть. Панель,
@@ -442,13 +460,12 @@ export default function Taras() {
 
         {/* 9. Итог */}
         <div className="module reveal">
-          <h3>Итог</h3>
+          <h3 id="hohol-section-13">Итог</h3>
           <p className="verdict">
             {TARAS.claim} Речь о <strong style={{ color: "var(--text)" }}>больших
             добавленных пассажах</strong> — точечную редакторскую правку, замену отдельных слов и
             орфографию этот протокол не проверяет. Прокопович проверен лишь косвенно: его прозы не
-            сохранилось. Статус «перевес» означает уверенное большинство кусков при положительном
-            интервале запаса, но доля отрывков к ближайшему профилю не дотягивает до порога статуса «уверенно».
+            сохранилось. Статусы карточек описывают диагностическое сравнение фрагментов внутри выбранной панели.
           </p>
         </div>
 

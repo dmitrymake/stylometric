@@ -9,6 +9,20 @@
 - Implementation task: `docs/tasks/2026-10-02-review-remediation.md`.
 - Case corpus input: `docs/tasks/2026-10-02-case-corpus-census.md`.
 
+## Active editorial/design task
+
+Owner authorisation on 2026-10-03: remove development history from reader-facing prose;
+Astra may substantially redesign rk, rk-example and the article, preserving logos. First show
+rk-example, then update Stylo, with 2–3 visual iterations. Journal-quality research is the
+scientific target; no particular journal has been selected. Task:
+`docs/tasks/2026-10-03-editorial-rk.md`.
+
+rk and rk-example have existing user WIP. Design copies and original-file hashes are in
+`/tmp/stylo-editorial-rk-jy6jx_7d/`; integrate only the task delta, checking originals before writes.
+Astra owns design; a Sol editor owns section prose until explicit freeze; the scientific agent
+owns `docs/research/publication-methods.md` and ignored exploratory analysis. Existing site preview
+runs locally at 127.0.0.1:4173. Publication and push remain outside the task.
+
 ## Product hardening complete locally
 
 Owner authorised the product/methodology/editorial hardening on 2026-10-03 and requested a final

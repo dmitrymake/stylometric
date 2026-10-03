@@ -2,7 +2,7 @@
 //  Генератор данных сайта: docs/*.json (выходы прогонов) → site/src/generated/.
 //  data.js/corpus.js/segdata.js берут числа ТОЛЬКО отсюда (без литералов). Единств. исключения
 //  в segdata: ccat50Valla (внешняя цитата обзора Valla, не наш прогон).
-//  Новый измерительный блок отдельно читает research/evidence/topic_validity_lobo_v1/aggregate.json.
+//  Измерительный блок читает research/evidence/topic_validity_lobo_v1/.
 //  Пересчёт прогона → этот скрипт → числа на сайте
 //  обновляются сами (prebuild-хук); сгенерированное — под coverage-гейтом ниже. Значения, что
 //  живут лишь в прозе прогона, тянутся якорным grab()-regex с null-фоллбэком (дрейф ловит гейт).
@@ -202,6 +202,71 @@ function topicMeasurement(artifact, source) {
     fits: folds * design.cells.length * design.arms.length, cells };
 }
 
+function pairedMeasurement(summary, source, aggregate, script, authorRegistry) {
+  const fail = (message) => { throw new Error(`${source}: ${message}`); };
+  if (summary.schema !== "stylo.topic_validity.paired_summary.v1" ||
+      summary.canonical_self_hash !== aggregate.self_hash ||
+      summary.canonical_study_identity !== aggregate.study_identity ||
+      summary.inputs?.aggregate?.sha256 !== sha256(readFileSync(join(ROOT, measurementSource))) ||
+      summary.script_path !== script || summary.script_sha256 !== sha256(readFileSync(join(ROOT, script)))) {
+    fail("paired summary source binding mismatch");
+  }
+  consumedSources.add(script);
+  const arms = summary.arms;
+  if (!Array.isArray(arms) || arms.length !== 4 ||
+      new Set(arms.map((arm) => `${arm.cell}/${arm.arm}`)).size !== 4) fail("four distinct arms required");
+  const near = (a, b) => Number.isFinite(a) && Math.abs(a - b) < 1e-12;
+  for (const arm of arms) {
+    const cell = aggregate.cells.find((row) => row.cell === arm.cell);
+    const expected = cell?.accuracy?.[arm.arm];
+    if (!expected || arm.correct !== expected.correct || arm.total !== expected.total ||
+        !near(arm.accuracy, expected.correct / expected.total)) fail("arm accuracy mismatch");
+    const sourceRows = new Map(cell.per_author_transitions.map((row) => [row.author, row]));
+    if (arm.per_author?.length !== sourceRows.size ||
+        new Set(arm.per_author.map((row) => row.author)).size !== sourceRows.size) fail("author coverage mismatch");
+    const oneCorrect = arm.arm === "current" ? "current_only_correct" : "topic_strict_only_correct";
+    for (const row of arm.per_author) {
+      const expectedRow = sourceRows.get(row.author);
+      if (!expectedRow || row.works !== expectedRow.n_folds ||
+          row.correct !== expectedRow.both_correct + expectedRow[oneCorrect] ||
+          !near(row.recall, row.correct / row.works)) fail("author recall differs from source counts");
+    }
+    const mean = arm.per_author.reduce((sum, row) => sum + row.recall, 0) / sourceRows.size;
+    if (!near(arm.macro_author_recall, mean)) fail("macro author recall mismatch");
+  }
+  if (!Array.isArray(summary.comparisons) || summary.comparisons.length !== 6 ||
+      new Set(summary.comparisons.map((pair) => JSON.stringify([pair.left, pair.right]))).size !== 6) {
+    fail("six distinct paired comparisons required");
+  }
+  for (const pair of summary.comparisons) {
+    const left = arms.find((arm) => arm.cell === pair.left[0] && arm.arm === pair.left[1]);
+    const right = arms.find((arm) => arm.cell === pair.right[0] && arm.arm === pair.right[1]);
+    const categories = ["corrected", "lost", "both_correct", "both_wrong_same_prediction", "both_wrong_changed_prediction"];
+    if (!left || !right || left === right || categories.some((key) => !Number.isSafeInteger(pair[key]) || pair[key] < 0) ||
+        categories.reduce((sum, key) => sum + pair[key], 0) !== left.total ||
+        pair.both_correct + pair.lost !== left.correct || pair.both_correct + pair.corrected !== right.correct ||
+        pair.net_correct !== right.correct - left.correct ||
+        !near(pair.delta_accuracy, pair.net_correct / left.total)) fail("paired transition arithmetic mismatch");
+    if (pair.per_author?.length !== left.per_author.length ||
+        new Set(pair.per_author.map((row) => row.author)).size !== left.per_author.length) fail("paired author coverage mismatch");
+    for (const row of pair.per_author) {
+      const l = left.per_author.find((author) => author.author === row.author);
+      const r = right.per_author.find((author) => author.author === row.author);
+      if (!l || !r || row.works !== l.works || row.net_correct !== r.correct - l.correct ||
+          !Number.isSafeInteger(row.corrected) || !Number.isSafeInteger(row.lost) ||
+          row.corrected < 0 || row.lost < 0 || row.corrected > l.works - l.correct || row.lost > l.correct ||
+          row.corrected - row.lost !== row.net_correct) fail("paired author arithmetic mismatch");
+    }
+    for (const key of ["corrected", "lost"]) {
+      if (pair.per_author.reduce((sum, row) => sum + row[key], 0) !== pair[key]) fail("paired author totals mismatch");
+    }
+  }
+  return { source, publicArtifact: "measurement/topic-validity-paired-summary.json",
+    sourceSelfHash: summary.self_hash,
+    authorNames: Object.fromEntries(arms[0].per_author.map(({ author }) => [author, authorRegistry[author]?.name || author])),
+    arms, comparisons: summary.comparisons };
+}
+
 // final_comparison.csv: model,accuracy,acc_ci,macro_f1,top2,ece,vs_stylo_dacc,vs_stylo_mcnemar_p
 // acc_ci — поле в кавычках с запятой внутри: "[0.849,0.924]".
 function loadModelsCsv() {
@@ -232,8 +297,15 @@ function loadModelsCsv() {
 
 const historicalSnapshot = loadRepositoryJson("docs/p0_baseline_snapshot.json");
 const measurementSource = "research/evidence/topic_validity_lobo_v1/aggregate.json";
-const measurement = topicMeasurement(loadRepositoryJson(measurementSource), measurementSource);
-track("measurement", [measurementSource], "whole-work accuracy and paired transitions; separate from historical headline/cases");
+const measurementArtifact = loadRepositoryJson(measurementSource);
+const measurement = topicMeasurement(measurementArtifact, measurementSource);
+track("measurement", [measurementSource], "whole-work accuracy and paired transitions for the 248-work comparison");
+const pairedSource = "research/evidence/topic_validity_lobo_v1/paired_summary.json";
+const pairedScript = "scripts/evaluation/summarize_topic_validity.py";
+const authorRegistrySource = "src/stylo/resources/authors.json";
+measurement.pairedAnalysis = pairedMeasurement(loadRepositoryJson(pairedSource), pairedSource, measurementArtifact,
+  pairedScript, loadRepositoryJson(authorRegistrySource));
+track("measurement.pairedAnalysis", [pairedSource, pairedScript, authorRegistrySource], "author recall and paired decisions across four settings from validated saved predictions");
 for (const name of ["validation.json", "validation_pd.json"]) {
   const relativePath = `docs/${name}`;
   const registered = historicalSnapshot?.artifacts?.sha256?.[relativePath];
@@ -1241,6 +1313,8 @@ const measurementPublicPath = join(ROOT, "site", "public", measurement.publicArt
 mkdirSync(dirname(measurementPublicPath), { recursive: true });
 const measurementBytes = readFileSync(join(ROOT, measurement.source));
 writeFileSync(measurementPublicPath, measurementBytes);
+const pairedBytes = readFileSync(join(ROOT, pairedSource));
+writeFileSync(join(ROOT, "site", "public", measurement.pairedAnalysis.publicArtifact), pairedBytes);
 const generatorPath = "scripts/gen-site-data.mjs";
 const provenance = {
   schema: PROVENANCE_SCHEMA,
@@ -1258,6 +1332,9 @@ const provenance = {
   }, {
     path: `site/public/${measurement.publicArtifact}`,
     sha256: sha256(measurementBytes),
+  }, {
+    path: `site/public/${measurement.pairedAnalysis.publicArtifact}`,
+    sha256: sha256(pairedBytes),
   }],
   entries: manifest,
 };

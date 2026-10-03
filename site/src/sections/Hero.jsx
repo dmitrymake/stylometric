@@ -1,51 +1,19 @@
-import { Stat } from "@dmitrymake/rk-ui";
-import { fmtInt } from "../format.js";
+import { EditorialHeader, EditorialContents } from "@dmitrymake/rk-ui";
 import { MEASUREMENT } from "../data.js";
+import { fmtInt } from "../format.js";
 
-export default function Hero({ onChooseCase } = {}) {
-  return (
-    <header className="hero wrap" id="top">
-      <p className="eyebrow reveal in">Стилометрия · сравнение авторской манеры</p>
-
-      <div className="split" style={{ alignItems: "start" }}>
-        <div>
-          <h1 className="reveal in">
-            Чей стиль<br />в тексте?
-          </h1>
-          <p className="sub reveal in">
-            «Двенадцать стульев» сравниваем с прозой Ильфа и Петрова, Булгакова и
-            их литературных соседей. «Тихий Дон» — с ранними и поздними произведениями
-            под именем Шолохова и прозой донских авторов. Вопрос в том, какие сходства
-            сохраняются при смене книг, признаков и состава сравнения.
-          </p>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
-            <button className="chapter-btn" type="button" onClick={() => onChooseCase?.("ilfpetrov")}>
-              «12 стульев» и Булгаков
-            </button>
-            <button className="chapter-btn" type="button" onClick={() => onChooseCase?.("sholokhov")}>
-              «Тихий Дон» и Шолохов
-            </button>
-          </div>
-          <div className="hero-stats">
-            <Stat label="произведений в новом замере" value={fmtInt(MEASUREMENT.works)} accent="var(--gold)" />
-            <Stat label="авторов в проверке" value={MEASUREMENT.testedAuthors} accent="var(--icon-blue)" />
-          </div>
-        </div>
-
-        <div className="prose reveal in">
-          <p>
-            Авторская манера складывается из повторяющихся решений: какие служебные
-            слова употреблять, как строить фразу, где ставить знак препинания.
-            Стилометрия переводит часть этих привычек в измерения и строит профиль текста.
-          </p>
-          <p>
-            Профиль помогает ранжировать кандидатов и искать участки, отличающиеся от
-            окружающего повествования. Сходство с другим автором приходится проверять:
-            общая тема и жанр тоже сближают тексты.
-          </p>
-        </div>
-      </div>
-    </header>
-  );
+export default function Hero() {
+  return <div className="wrap" id="top">
+    <EditorialHeader eyebrow="01 / Как это работает" title="Как измеряют авторскую манеру" standfirst={<p>Служебные слова, синтаксис и пунктуация помогают сравнивать тексты. Разбираем, как устроено это сравнение, что оно показывает и где заканчивается его объяснительная сила.</p>} metadata={<><span>Метод и четыре литературных случая</span><span>{fmtInt(MEASUREMENT.works)} произведений в проверке метода</span></>} />
+    <div className="article-opening">
+      <p>Авторская манера складывается из повторяющихся решений: как строить фразу, какие слова связывать, где ставить знак препинания. Стилометрия переводит часть этих привычек в измерения. Их сходство приходится отделять от общей темы, жанра и состава сравниваемых книг.</p>
+      <EditorialContents items={[
+        { href: "#framework/problem", label: "Какой вопрос решает сравнение" },
+        { href: "#framework/method", label: "Как устроена проверка" },
+        { href: "#framework/results", label: "Что показывают результаты" },
+        { href: "#framework/conclusion", label: "Как перейти к вопросу об авторстве" },
+        { href: "#framework/repro", label: "Как повторить сравнение" },
+      ]} />
+    </div>
+  </div>;
 }

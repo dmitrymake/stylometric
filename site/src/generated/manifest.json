@@ -2,7 +2,7 @@
   "schema": "stylo.site_generation_provenance.v2",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "4892a3933de6e086f898aa81444bb7a26bacce2ba1c15fdf987bbd62821f2b02"
+    "sha256": "113ebc163bb43e5e2bbbb69203c3f1025903f0fdb3c7b6761fb68e983dbac15f"
   },
   "sources": [
     {
@@ -380,16 +380,32 @@
     {
       "path": "research/evidence/topic_validity_lobo_v1/aggregate.json",
       "sha256": "f1a2a9630cef83a339c882a4c8d8706c7fd4abe568c581d6f6a8e512b3dec556"
+    },
+    {
+      "path": "research/evidence/topic_validity_lobo_v1/paired_summary.json",
+      "sha256": "8857e364375d021d7613815c77bbdd1a9e82df2462ecc839bced8503c6c7755b"
+    },
+    {
+      "path": "scripts/evaluation/summarize_topic_validity.py",
+      "sha256": "af20f8d3224f6f84fef44258af3cf9dcdabbbac7f4cf952c159fa20bfffd76ca"
+    },
+    {
+      "path": "src/stylo/resources/authors.json",
+      "sha256": "f97202aa22a8ee6b870121d445eeef435aee84b5d01654d814a5eba3a172b369"
     }
   ],
   "outputs": [
     {
       "path": "site/src/generated/site-data.json",
-      "sha256": "e46df108c8b3273290078944c50ac94ba2c5b3c59015bcfa40072b1b7ac2ff80"
+      "sha256": "bded3778b77c388071a91c779b1e500496ada36a069bf859e6ed22c412b861f9"
     },
     {
       "path": "site/public/measurement/topic-validity-aggregate.json",
       "sha256": "f1a2a9630cef83a339c882a4c8d8706c7fd4abe568c581d6f6a8e512b3dec556"
+    },
+    {
+      "path": "site/public/measurement/topic-validity-paired-summary.json",
+      "sha256": "8857e364375d021d7613815c77bbdd1a9e82df2462ecc839bced8503c6c7755b"
     }
   ],
   "entries": [
@@ -398,7 +414,16 @@
       "sources": [
         "research/evidence/topic_validity_lobo_v1/aggregate.json"
       ],
-      "note": "whole-work accuracy and paired transitions; separate from historical headline/cases"
+      "note": "whole-work accuracy and paired transitions for the 248-work comparison"
+    },
+    {
+      "key": "measurement.pairedAnalysis",
+      "sources": [
+        "research/evidence/topic_validity_lobo_v1/paired_summary.json",
+        "scripts/evaluation/summarize_topic_validity.py",
+        "src/stylo/resources/authors.json"
+      ],
+      "note": "author recall and paired decisions across four settings from validated saved predictions"
     },
     {
       "key": "corpus.research",

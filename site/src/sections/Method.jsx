@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Card, Timeline, WhyBlock } from "@dmitrymake/rk-ui";
+import { EditorialPanel, EditorialFigure, EditorialNote } from "@dmitrymake/rk-ui";
 import { FEATURES, TOMSK, MEASUREMENT } from "../data.js";
 import { CASES, BENCH_EXT } from "../segdata.js";
 import { fmtScore, fmtRange, fmtPct } from "../format.js";
@@ -34,7 +34,7 @@ const TOMSK_KMIN = Math.min(...TOMSK.headToHead.table.map((r) => r.k));
 const TOMSK_KMAX = Math.max(...TOMSK.headToHead.table.map((r) => r.k));
 
 // Единый стиль заголовка сворачиваемых блоков «детали».
-const SUMMARY_STYLE = { cursor: "pointer", fontFamily: "var(--font-text)", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", letterSpacing: "var(--tracking-caption)", textTransform: "uppercase", color: "var(--text-muted)" };
+const SUMMARY_STYLE = { cursor: "pointer", fontFamily: "var(--font-text)", fontSize: 16, fontWeight: "var(--fw-semibold)", letterSpacing: "var(--tracking-caption)", textTransform: "uppercase", color: "var(--text-muted)" };
 
 // Признаки перечислены без статусных бейджей. Факультативные блоки (kind: «opt») приглушены через opacity.
 const KIND_STYLE = { opt: { dim: true } };
@@ -53,9 +53,9 @@ const featNote = (n) => FEAT_NOTE_RU[n] || n;
 
 const PROTOCOL = [
   { marker: "01", title: "чистим тексты", body: "Убираем библиотечные пометы и точные повторы, приводим дореформенную орфографию к современной, но сохраняем ритм и пунктуацию.", color: "var(--icon-blue)", state: "done" },
-  { marker: "02", title: "собираем семьи текстов", body: "Рассказ, отдельное издание и сборник с тем же рассказом считаются связанными и не расходятся по разные стороны проверки.", color: "var(--icon-blue)", state: "done" },
-  { marker: "03", title: "прячем книгу целиком", body: "Каждую книгу по очереди убираем вместе со связанными текстами. Профиль автора строится только по тому, что осталось.", color: "var(--gold)", state: "done" },
-  { marker: "04", title: "сравниваем варианты", body: "На одинаковых отложенных произведениях сравниваем пакеты обучения и наборы признаков. Считаем попадания и изменения отдельных ответов.", color: "var(--success)", state: "done" },
+  { marker: "02", title: "проверяем пересечения", body: "При подготовке корпуса проверяем совпадения содержания. Библиографические связи между изданиями и состав сборников требуют отдельной сверки.", color: "var(--icon-blue)", state: "done" },
+  { marker: "03", title: "прячем книгу целиком", body: "Каждое произведение по очереди исключаем из обучения. Профиль автора строится по другим произведениям.", color: "var(--gold-ink)", state: "done" },
+  { marker: "04", title: "сравниваем варианты", body: "На одинаковых отложенных произведениях сравниваем пакеты обучения и наборы признаков. Считаем попадания и изменения отдельных ответов.", color: "var(--editorial-positive)", state: "done" },
 ];
 
 export default function Method() {
@@ -63,12 +63,12 @@ export default function Method() {
     <section className="section" id="method">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Метод</p>
+          <p className="eyebrow">02 / Метод</p>
           <h2>Проверка на независимых произведениях</h2>
           <p className="prose lead muted">
             Одну книгу целиком откладывают, а профиль её автора строят по другим
-            произведениям. Вместе с книгой исключают её копии и тексты с тем же
-            содержанием: например, рассказ в сборнике. Затем проверяют, какой профиль
+            произведениям. Пересечения содержания проверяют при подготовке корпуса;
+            библиографические связи изданий требуют отдельной сверки. Затем проверяют, какой профиль
             окажется ближе к отложенной книге.
           </p>
           <p className="prose muted">
@@ -78,62 +78,22 @@ export default function Method() {
           </p>
         </div>
 
-        {/* Строгая проверка без подсказок */}
-        <div className="split reveal" style={{ alignItems: "start" }}>
-          <div className="prose">
-            {/* Заголовок раздела — вручную свёрстанный <h3>, а не <StageHeader>:
-                у того title рендерится как <h1> и ломает иерархию заголовков. */}
-            <header style={{ marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
-                <span style={{ width: 10, height: 10, background: "var(--gold)", flex: "0 0 auto" }} />
-                <span style={{ fontFamily: "var(--font-text)", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", letterSpacing: "var(--tracking-caption)", textTransform: "uppercase", color: "var(--text-muted)" }}>
-                  Проверка без подсказок
-                </span>
-              </div>
-              <h3 style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-display-2)", lineHeight: "var(--lh-display-2)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--tracking-tight)", margin: 0, color: "var(--text)" }}>
-                Профиль строится по учебным книгам
-              </h3>
-              <p style={{ fontFamily: "var(--font-text)", fontSize: "var(--fs-body)", lineHeight: "var(--lh-body)", color: "var(--text-muted)", margin: "var(--space-2) 0 0", maxWidth: "60ch" }}>
-                Словарь, частоты и классификатор строятся только по учебным книгам.
-                Проверяемая книга и все тексты с тем же содержанием появляются лишь
-                после обучения.
-              </p>
-            </header>
-            <p>
-              Каждое отложенное произведение образует отдельную проверку — fold.
-              Словарь признаков и их частотные веса заново строятся по учебным текстам.
-              После ответа модель перестраивается для следующего произведения.
-              Всего в каждом варианте {MEASUREMENT.works} таких проверок.
-            </p>
-            <p>
-              Сопоставлены два пакета обучения. При работе с фрагментами авторские классы
-              уже сбалансированы, но внутри автора длинные книги влияют сильнее. Пакет
-              балансировки выравнивает суммарный вес авторов и вес книг внутри каждого автора;
-              вместе с этим меняются построение словаря, частотные веса IDF и нормировка частот.
-              IDF учитывает, насколько редко признак встречается в учебных текстах. Поэтому
-              разницу между пакетами нельзя свести к одному весовому коэффициенту.
-            </p>
-            <p>
-              Во второй паре вариантов меняются признаки: наиболее частые слова заменяются
-              фиксированным списком служебных слов; из синтаксического блока исключаются
-              доли частей речи и словарное богатство. Такой вариант уменьшает некоторые
-              пути влияния темы и жанра, но не гарантирует их полного устранения.
-            </p>
-          </div>
-          <Card padding={20} parade>
-            <Timeline items={PROTOCOL} />
-          </Card>
+        <div className="prose">
+          <p>Словарь, частоты и классификатор строятся только по учебным книгам. Проверяемое произведение появляется лишь после обучения. Для каждой следующей книги модель строится заново.</p>
+          <p>Каждое отложенное произведение образует отдельную проверку — fold. Всего в каждом варианте {MEASUREMENT.works} таких проверок.</p>
         </div>
-
-        {/* Единица проверки: книга, а не отрывок */}
-        <div className="reveal module">
-          <WhyBlock title="Почему единица проверки — книга, а не отрывок">
-            Отрывки внутри одной книги похожи между собой: общая тема, лексика, герои.
-            Поэтому число окон не равно числу независимых произведений. В новом замере
-            каждое произведение даёт один ответ: правильно или ошибочно назван автор.
-            Авторы с большим числом проверяемых работ дают больше наблюдений в общей доле попаданий.
-          </WhyBlock>
+        <EditorialFigure label="Схема 1" caption="Порядок проверки. Отложенная книга не участвует ни в выборе словаря, ни в оценке частот, ни в обучении классификатора.">
+          <ol className="protocol-list">{PROTOCOL.map((step) => <li key={step.marker}><strong>{step.title}</strong><p>{step.body}</p></li>)}</ol>
+        </EditorialFigure>
+        <div className="prose">
+          <h3>Два пакета обучения и два набора признаков</h3>
+          <p>При работе с фрагментами авторские классы уже сбалансированы, но внутри автора длинные книги влияют сильнее. Пакет балансировки выравнивает суммарный вес авторов и вес книг внутри каждого автора; словарь и частотные веса IDF строятся по произведениям, а частоты делятся на полную длину текста.</p>
+          <p>IDF учитывает, насколько редко признак встречается в учебных текстах. Поэтому разницу между пакетами нельзя свести к одному весовому коэффициенту.</p>
+          <p>Сокращённый набор использует фиксированный список служебных слов вместо наиболее частых слов; из синтаксического блока исключены доли частей речи и словарное богатство. Это уменьшает некоторые пути влияния темы и жанра, но не гарантирует их полного устранения.</p>
         </div>
+        <EditorialNote title="Почему единица проверки — произведение">
+          <p>Окна внутри одной книги связаны общей темой, лексикой и героями. Поэтому число окон не равно числу независимых наблюдений. Здесь каждое произведение даёт один ответ: правильно или ошибочно назван автор. Авторы с большим числом книг сильнее влияют на общую точность.</p>
+        </EditorialNote>
 
         {/* Контроль: держится ли один автор сквозь жанры */}
         <div className="reveal module">
@@ -146,10 +106,10 @@ export default function Method() {
           <div className="split" style={{ alignItems: "center" }}>
             <div>
               {TA.sil.slice().sort((a, b) => a.v - b.v).map((r) => (
-                <div key={r.a} style={{ display: "grid", gridTemplateColumns: "14ch 1fr 5ch", alignItems: "center", gap: 8, padding: "2.5px 0" }}>
-                  <span style={{ fontSize: 12.5, color: r.hi ? "var(--text)" : "var(--text-muted)", fontWeight: r.hi ? 700 : 400 }}>{r.a}</span>
+                <div key={r.a} className="data-row" style={{ display: "grid", gridTemplateColumns: "14ch 1fr 5ch", alignItems: "center", gap: 8, padding: "2.5px 0" }}>
+                  <span style={{ fontSize: 16, color: r.hi ? "var(--text)" : "var(--text-muted)", fontWeight: r.hi ? 700 : 400 }}>{r.a}</span>
                   <MeterBar value={r.v} max={SIL_MAX} accent={r.hi ? "var(--icon-blue)" : "var(--text-muted)"} />
-                  <span className="mono" style={{ fontSize: 11, color: r.hi ? "var(--icon-blue)" : "var(--text-muted)" }}>{fmtScore(r.v, 3)}</span>
+                  <span className="mono" style={{ fontSize: 16, color: r.hi ? "var(--icon-blue)" : "var(--text-muted)" }}>{fmtScore(r.v, 3)}</span>
                 </div>
               ))}
             </div>
@@ -157,8 +117,8 @@ export default function Method() {
               <p className="verdict" style={{ margin: 0 }}>
                 А. Н. Толстой ({fmtScore(TA_ROW.v, 3)}) остаётся в том же узком диапазоне,
                 что и авторы с бесспорным единственным авторством{" "}
-                ({fmtRange(SIL_REF_LOW, SIL_REF_HIGH, (v) => fmtScore(v, 3))}). Смена жанра
-                сама по себе не разводит его книги на разные профили.
+                ({fmtRange(SIL_REF_LOW, SIL_REF_HIGH, (v) => fmtScore(v, 3))}). В этой подборке жанровое разнообразие не сопровождается более чётким делением
+                фрагментов на группы.
               </p>
               <p className="note" style={{ margin: 0 }}>
                 <strong style={{ color: "var(--text)" }}>{TA.nSelf} из {TA.nBooks}</strong> его
@@ -166,9 +126,8 @@ export default function Method() {
                 Льву Толстому.
               </p>
               <p className="note" style={{ margin: 0 }}>
-                Это одно наблюдение на одном признаке. Оно показывает, что жанр не разваливает
-                профиль в этой проверке, но не измеряет, насколько вклад темы отделён в
-                остальных расчётах.
+                Это наблюдение на одной группе признаков и одной подборке книг.
+                Его нельзя переносить на чувствительность остальных сравнений к теме и жанру.
               </p>
             </div>
           </div>
@@ -182,24 +141,24 @@ export default function Method() {
             обороты. Другие описывают устройство фразы: служебные слова, синтаксические связи,
             пунктуацию. Каждый блок проверяется отдельно — правдоподобная идея признака не
             считается результатом, пока не показала вклад в общей оценке. Сравнение групп
-            признаков между собой — в разделе «Первый эксперимент».
+            признаков между собой — в разделе «Группы признаков на корпусе с пересечениями».
           </p>
           <div className="grid cols-3">
             {FEATURES.map((f) => {
               const k = KIND_STYLE[f.kind] || {};
               return (
-                <Card key={f.id} padding={18} style={{ opacity: k.dim ? 0.66 : 1 }}>
+                <EditorialPanel key={f.id} style={{ opacity: k.dim ? 0.66 : 1 }}>
                   <div style={{ marginBottom: 8 }}>
                     <span style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem", color: "var(--text)" }}>{featName(f.name)}</span>
                   </div>
-                  <p className="muted mono" style={{ margin: 0, fontSize: 12.5 }}>{featNote(f.note)}</p>
-                </Card>
+                  <p className="muted mono" style={{ margin: 0, fontSize: 16 }}>{featNote(f.note)}</p>
+                </EditorialPanel>
               );
             })}
           </div>
           <details style={{ marginTop: 14 }}>
             <summary style={SUMMARY_STYLE}>Перевод сокращений</summary>
-            <p className="muted" style={{ fontSize: 12.5, marginTop: 10, maxWidth: "80ch" }}>
+            <p className="muted" style={{ fontSize: 16, marginTop: 10, maxWidth: "80ch" }}>
               <strong style={{ color: "var(--text)" }}>n-граммы</strong> — цепочки из нескольких
               подряд идущих букв или слов; <strong style={{ color: "var(--text)" }}>MFW-300</strong> — 300 самых частых
               слов; <strong style={{ color: "var(--text)" }}>POS</strong> — часть речи; <strong style={{ color: "var(--text)" }}>TTR</strong> —
@@ -216,14 +175,14 @@ export default function Method() {
         {/* технические сверки — факты и источники, свёрнуты */}
         <details className="reveal module">
           <summary style={SUMMARY_STYLE}>Сверки на внешних данных и команды</summary>
-          <p className="prose muted" style={{ fontSize: 13, borderLeft: "2px solid var(--gold)", paddingLeft: 14, maxWidth: "74ch", marginBottom: 14 }}>
+          <p className="prose muted" style={{ fontSize: 16, borderLeft: "2px solid var(--gold)", paddingLeft: 14, maxWidth: "74ch", marginBottom: 14 }}>
             Что можно сверить с внешними данными: два чужих набора текстов, открытый код
             другой группы и команды для повторного прогона.
           </p>
 
           <details style={{ marginBottom: 10 }}>
             <summary style={SUMMARY_STYLE}>Чужие наборы данных (CCAT50, Proza.ru)</summary>
-            <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 8px", maxWidth: "80ch" }}>
+            <p className="muted" style={{ fontSize: 16, margin: "10px 0 8px", maxWidth: "80ch" }}>
               <strong style={{ color: "var(--text)" }}>CCAT50</strong> — общепринятый англоязычный
               набор (Reuters, 50 авторов). Равновесный ансамбль даёт{" "}
               {fmtScore(BENCH_EXT.ccat50Ensemble, 3)} при одном фиксированном делении данных.
@@ -232,7 +191,7 @@ export default function Method() {
               обзоре результат {fmtScore(BENCH_EXT.ccat50Valla.record, 3)} получен при другом
               способе деления данных и с этим расчётом напрямую не сравнивается.
             </p>
-            <p className="muted" style={{ fontSize: 12.5, margin: "0 0 8px", maxWidth: "80ch" }}>
+            <p className="muted" style={{ fontSize: 16, margin: "0 0 8px", maxWidth: "80ch" }}>
               <strong style={{ color: "var(--text)" }}>Proza.ru</strong> — внешний русский набор
               (50 авторов), одно деление. Выше всех — один классификатор по цепочкам букв
               ({fmtScore(BENCH_EXT.prozaLeader, 3)}); равновесное усреднение всех групп ниже
@@ -241,19 +200,19 @@ export default function Method() {
               дообученные и профильные модели для атрибуции авторства здесь не сравнивались,
               и причина низкого числа этим прогоном не установлена.
             </p>
-            <p className="muted" style={{ fontSize: 12.5, margin: 0, maxWidth: "80ch" }}>
+            <p className="muted" style={{ fontSize: 16, margin: 0, maxWidth: "80ch" }}>
               Взвешивание по надёжности (веса групп пропорциональны их точности на отложенной
               части обучения) поднимает ансамбль до {fmtScore(BENCH_EXT.prozaEnsemble, 3)}. Его
               настройка выбрана по лучшему результату из небольшого перебора на этом же тесте,
               поэтому перевес +{fmtScore(BENCH_EXT.prozaEnsemble - BENCH_EXT.prozaLeader, 3)} над
-              лидером настроен под тест и лежит в пределах шума.
+              лидером настроен под тест ; независимая проверка этого перевеса отсутствует.
             </p>
           </details>
 
           <details style={{ marginBottom: 10 }}>
             <summary style={SUMMARY_STYLE}>Сверка протокола с открытым кодом группы из ТУСУР</summary>
             <div className="split" style={{ alignItems: "start", marginTop: 12 }}>
-              <div className="note" style={{ fontSize: 13 }}>
+              <div className="note" style={{ fontSize: 16 }}>
                 <p style={{ margin: 0 }}>
                   Опубликовано {fmtPct(TOMSK.theirAcc, 1)} на {TOMSK_50.k} {ruAuthors(TOMSK_50.k)}.
                   В их открытом демо-коде отрывки одной книги попадают и в обучение, и в
@@ -261,11 +220,12 @@ export default function Method() {
                   по книгам, точность на {TOMSK_50.k} авторах — около {fmtPct(TOMSK_50.grouped)}{" "}
                   против {fmtPct(TOMSK_50.rand)} без деления. Разрыв того же порядка держится на
                   всех масштабах — от {TOMSK_KMIN} до {TOMSK_KMAX} авторов. Это сверка на открытом
-                  демо-коде, а не пересчёт их полного корпуса.
+                  демо-коде, и относится только к доступной демо-подборке.
                 </p>
                 {/* на узком экране таблица прокручивается внутри своей рамки, а не режется */}
-                <div style={{ marginTop: 12, overflowX: "auto" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "5ch 1fr 1fr 6.5ch", gap: "4px 10px", fontSize: 12, alignItems: "center", minWidth: "36ch" }}>
+                <p className="table-scroll-hint">Таблица прокручивается по горизонтали →</p>
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="Сравнение протоколов — таблицу можно прокрутить по горизонтали" style={{ marginTop: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "5ch 1fr 1fr 6.5ch", gap: "4px 10px", fontSize: 16, alignItems: "center", minWidth: "36ch" }}>
                   <span className="mono muted">авт.</span>
                   <span className="mono muted">их протокол</span>
                   <span className="mono muted">по книге</span>
@@ -275,7 +235,7 @@ export default function Method() {
                       <span className="mono" style={{ color: "var(--text)" }}>{r.k}</span>
                       <span className="mono muted">{fmtScore(r.rand, 3)}</span>
                       <span className="mono" style={{ color: "var(--text)" }}>{fmtScore(r.grouped, 3)}</span>
-                      <span className="mono" style={{ color: "var(--gold)", textAlign: "right" }}>+{r.prem}</span>
+                      <span className="mono" style={{ color: "var(--gold-ink)", textAlign: "right" }}>+{r.prem}</span>
                     </Fragment>
                   ))}
                 </div>
@@ -295,22 +255,21 @@ export default function Method() {
           </details>
 
           <details>
-            <summary style={SUMMARY_STYLE}>Команды и сохранённые расчёты</summary>
-            <p className="muted" style={{ fontSize: 12.5, margin: "10px 0 8px", maxWidth: "72ch" }}>
+            <summary style={SUMMARY_STYLE}>Команды и артефакты</summary>
+            <p className="muted" style={{ fontSize: 16, margin: "10px 0 8px", maxWidth: "72ch" }}>
               Первые две строки — команды открытых прогонов: каждая запускается целиком и
-              пишет результат в отдельный файл. Третья строка — исходные модули первого
-              эксперимента и его сохранённый результат, а не готовый к запуску путь расчёта.
-              Полный путь от корпуса до вердикта — в разделе «Можно повторить у себя».
+              пишет результат в отдельный файл. Третья строка указывает модули покнижной диагностики и файл её результата.
+              Для собственного сравнения предназначен раздел «Как запустить своё сравнение».
             </p>
             <div style={{ display: "grid", gap: 8, maxWidth: "72ch" }}>
               {[
                 { what: "Открытая выборка классиков", cmd: "python scripts/run_benchmark.py --pd-only", out: "docs/validation_pd.json" },
                 { what: "Русский набор Proza.ru", cmd: "python scripts/run_proza_ru.py", out: null },
-                { what: "Первый эксперимент по книгам", cmd: "src/stylo/eval/final.py + src/stylo/eval/lobo.py", out: "docs/final_comparison.csv" },
+                { what: "Корпус с пересечениями", cmd: "src/stylo/eval/final.py + src/stylo/eval/lobo.py", out: "docs/final_comparison.csv" },
               ].map((r) => (
-                <div key={r.cmd} style={{ display: "grid", gridTemplateColumns: "minmax(0, 20ch) minmax(0, 1fr)", gap: 10, alignItems: "baseline", borderBottom: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingBottom: 7 }}>
-                  <span style={{ fontSize: 12.5, color: "var(--text)" }}>{r.what}</span>
-                  <span className="mono muted" style={{ fontSize: 11, overflowWrap: "anywhere" }}>
+                <div key={r.cmd} className="data-row" style={{ display: "grid", gridTemplateColumns: "minmax(0, 20ch) minmax(0, 1fr)", gap: 10, alignItems: "baseline", borderBottom: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingBottom: 7 }}>
+                  <span style={{ fontSize: 16, color: "var(--text)" }}>{r.what}</span>
+                  <span className="mono muted" style={{ fontSize: 16, overflowWrap: "anywhere" }}>
                     {r.cmd}{r.out ? <> → {r.out}</> : null}
                   </span>
                 </div>

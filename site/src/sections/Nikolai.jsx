@@ -1,4 +1,5 @@
-import { Stat, ConfidenceBar, AnomalyGlyph } from "@dmitrymake/rk-ui";
+import ArticleContents from "../components/ArticleContents.jsx";
+import { EditorialMetric, EditorialBar, AnomalyGlyph } from "@dmitrymake/rk-ui";
 import { NIKOLAI as N } from "../segdata.js";
 import { fmtScore, fmtPct, fmtP, fmtRange, fmtZ } from "../format.js";
 import Sources from "../components/Sources.jsx";
@@ -25,7 +26,9 @@ const plainModel = (s) =>
 // Честная сноска про источник писем: жаргон «size-matched, бутстрап» → уже введённое бытовое описание
 // уравнивания; капс-выкрики (ОРИГИНАЛ, НЕНАДЁЖНА, ЧИСТОМ) гасит deCaps.
 const plainNote = (s) =>
-  deCaps(s.replace("при уравнивании объёмов (size-matched, бутстрап)", "при равном объёме, с пересчётом много раз"));
+  deCaps(s.replace("при уравнивании объёмов (size-matched, бутстрап)", "при равном объёме, в повторных выборках")
+    .replace("Честные ограничения данных по письмам Николая.", "Состав писем Николая.")
+    .replace("— опускаем.", "здесь не оценена."));
 
 // Примечание под панелью регистра приходит из данных с жаргоном (перестановочный тест, силуэт, логбук,
 // «регистр», n) — отзеркаливаем уже введённые в тексте бытовые слова.
@@ -43,12 +46,11 @@ const plainPanelNote = (s) =>
 
 function DistRow({ name, v, hi }) {
   return (
-    <ConfidenceBar
+    <EditorialBar
       value={v}
       max={distMax}
       accent={hi ? "var(--cinnabar)" : "var(--text-muted)"}
       valueText={fmtScore(v, 3)}
-      size="sm"
       label={<span style={{ color: hi ? "var(--text)" : "var(--text-muted)", fontWeight: hi ? 700 : 400 }}>{name}</span>}
     />
   );
@@ -59,12 +61,11 @@ function AxisRow({ r }) {
   const accent = r.isThrone ? "var(--cinnabar)" : r.group === "великий князь" ? "var(--icon-blue)" : "var(--text-muted)";
   const tag = r.period ? `  · ${r.period}` : "";
   return (
-    <ConfidenceBar
+    <EditorialBar
       value={r.axis}
       max={1}
       accent={accent}
       valueText={r.closer}
-      size="sm"
       label={<span style={{ color: r.isRoyal ? "var(--text)" : "var(--text-muted)", fontWeight: r.isThrone ? 700 : 400 }}>
         {r.name}<span className="muted" style={{ fontWeight: 400 }}>{tag}</span>
       </span>}
@@ -86,25 +87,33 @@ export default function Nikolai() {
     <section className="section" id="nikolai">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Разбор · дневники последнего царя</p>
-          <h2>Дневники Николая II: рукопись и профиль текста</h2>
+          <p className="eyebrow">Личные документы</p>
+          <h1>Дневники Николая II: рукопись и профиль текста</h1>
           <p className="prose lead muted">
-            Двадцать четыре года почти ежедневных записей — и давний вопрос: сам ли
-            последний царь вёл свой дневник? Версия держится десятилетиями: подлог
-            или глубокая редакторская правка. В пользу неё приводят будничный,
-            протокольный тон записей, переклички с придворными дневниками и советскую
-            историю публикации. Проверяем так: сравниваем дневник с его{" "}
-            <em>бесспорными</em> письмами и сверяемся с архивными источниками.
+            Дневник Николая II охватывает двадцать четыре года почти ежедневных записей.
+            Его будничный, протокольный тон отличается от личных писем.
+            Для обсуждения авторства и редакторского участия важны два разных
+            сравнения: опубликованный текст с рукописью и стиль дневника со стилем писем.
+            Ниже оба сопоставления рассмотрены вместе с жанровыми контролями.
           </p>
           <p className="callout" style={{ maxWidth: "72ch" }}>
-            Сведения о рукописях и сохранённые сравнения стиля согласуются с ведением дневника Николаем.
-            Вопрос о редакторском изменении опубликованного текста требует отдельной сверки издания с рукописью.
+            Проверенная страница печатного дневника совпадает с рукописью.
+            Стилевой профиль дневника заметно отличается от писем. Происхождение
+            конкретных спорных записей требует их прямой сверки с автографом.
           </p>
         </div>
+        <ArticleContents chapter="nikolai" items={[
+            ["nikolai-section-1", "Дневник и письма: сравнение при равном объёме"],
+            ["nikolai-section-2", "Рукопись и печатный текст"],
+            ["nikolai-section-3", "Дневник и камер-фурьерский журнал"],
+            ["nikolai-section-4", "Влияние дневникового жанра"],
+            ["nikolai-section-5", "Записи об охоте и внутренняя однородность"]
+          ]} />
+
 
         {/* 1. Аномалия */}
         <div className="module reveal">
-          <h3>Дневник и письма: сравнение при равном объёме</h3>
+          <h3 id="nikolai-section-1">Дневник и письма: сравнение при равном объёме</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 18 }}>
             Сравниваем дневник автора с его письмами по частотам{" "}
             <strong style={{ color: "var(--text)" }}>служебных слов</strong> — союзов, частиц и предлогов.
@@ -122,8 +131,8 @@ export default function Nikolai() {
             </div>
             <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
               <div style={{ textAlign: "center" }}>
-                <div className="bignum ring-num" style={{ color: "var(--cinnabar)" }}>z&nbsp;≈&nbsp;{fmtZ(N.crossReg.z, 0)}</div>
-                <div className="mono muted" style={{ fontSize: 12, marginTop: 6 }}>
+                <div className="bignum ring-num" style={{ color: "var(--editorial-accent)" }}>z&nbsp;≈&nbsp;{fmtZ(N.crossReg.z, 0)}</div>
+                <div className="mono muted" style={{ fontSize: 16, marginTop: 6 }}>
                   насколько Николай выходит за обычный разброс авторов (медиана нормы {fmtScore(N.crossReg.controlsMedian, 3)}) · ориентир: выборка мала и неидеальна
                 </div>
               </div>
@@ -142,7 +151,7 @@ export default function Nikolai() {
 
         {/* 2. Тест 1 — манускрипт */}
         <div className="module reveal">
-          <h3>Тест №1 · Рукопись против печати</h3>
+          <h3 id="nikolai-section-2">Рукопись и печатный текст</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Если дневник переписан редактором — печатный текст расходился бы с рукописью. Рукопись
             сохранилась ({N.manuscript.fond}), поэтому печатный текст можно сверить с оригиналом — например,
@@ -150,55 +159,56 @@ export default function Nikolai() {
           </p>
           <div className="split" style={{ alignItems: "center" }}>
             <p className="verdict" style={{ margin: 0 }}>
-              Результат: <strong style={{ color: "var(--success)" }}>{N.manuscript.result}</strong>.
+              Результат: <strong style={{ color: "var(--editorial-positive)" }}>{N.manuscript.result}</strong>.
             </p>
             <p className="callout" style={{ margin: 0 }}>
-              Печатный текст совпадает с рукописью: <strong style={{ color: "var(--text)" }}>конкретную страницу не сочиняли заново</strong>{" "}
-              при печати. Но довод ограничен: {N.manuscript.caveat}. То есть сверка исключает версию
-              «текст переписан редактором» лишь точечно, а не для самых спорных мест.
+              Печатный текст этой страницы совпадает с рукописью.
+              Область сверки ограничена: {N.manuscript.caveat}. Другие страницы
+              и спорные записи требуют самостоятельного сопоставления.
             </p>
           </div>
         </div>
 
         {/* 3. Тест 2 — не копипаст */}
         <div className="module reveal">
-          <h3>Тест №2 · Не переписан ли придворный журнал</h3>
+          <h3 id="nikolai-section-3">Дневник и камер-фурьерский журнал</h3>
           <p className="prose muted" style={{ maxWidth: "72ch", marginBottom: 16 }}>
             Другая версия: будничные записи механически переписаны из придворного камер-фурьерского
             журнала (официальной хроники дня). Тогда у дневника и журнала совпадали бы целые куски.
             Меряем дословные совпадения (общие цепочки из четырёх слов подряд).
           </p>
           <div className="grid cols-2" style={{ gap: 18 }}>
-            <Stat label="дневник ∩ камер-фурьерский журнал" value={fmtPct(N.kamerfurier.overlap, 1)} accent="var(--text-muted)" parade hint="на уровне случайности" />
-            <Stat label="контроль (дневник Бунина ∩ журнал)" value={fmtPct(N.kamerfurier.control, 0)} accent="var(--text-muted)" hint="фон" />
+            <EditorialMetric label="дневник ∩ камер-фурьерский журнал" value={fmtPct(N.kamerfurier.overlap, 1)} accent="var(--text-muted)" hint="на уровне случайности" />
+            <EditorialMetric label="контроль (дневник Бунина ∩ журнал)" value={fmtPct(N.kamerfurier.control, 0)} accent="var(--text-muted)" hint="фон" />
           </div>
           <p className="callout">
-            Совпадений не больше, чем вышло бы случайно: дословного переписывания нет. <strong style={{ color: "var(--text)" }}>Но
-            этот тест почти ничего не может показать</strong> — в открытом доступе лишь небольшая подборка вторичных цитат
-            журнала, а не архивный оригинал. На таком объёме отсутствие совпадений мало о чём говорит, поэтому
-            тест здесь <em>для наглядности</em>, а не решающий.
+            В доступной подборке совпадения не превышают контрольный фон.
+            Сравнение использует небольшое собрание вторичных цитат из журнала,
+            а не архивный оригинал. Отсутствие совпадений в этой подборке не оценивает
+            возможное заимствование из полного журнала.
           </p>
         </div>
 
         {/* 4. Тест 3 — жанровый регистр + контроль на «кровь» */}
         <div className="module reveal">
-          <h3>Тест №3 · Влияние дневникового жанра</h3>
+          <h3 id="nikolai-section-4">Влияние дневникового жанра</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 16 }}>
-            Возможный невинный источник аномалии — <strong style={{ color: "var(--text)" }}>разница
+            Возможный источник расхождения — <strong style={{ color: "var(--text)" }}>разница
             жанров</strong>: безличный служебный журнал («встал в 8, гулял, принял доклад») против
             интимных писем жене. Проверяем это прямо на других Романовых. Если сухой стиль — это{" "}
             жанр придворного дневника <strong style={{ color: "var(--text)" }}>престольной линии</strong>, его дадут
             и другие лица главной линии престолонаследия, но не великие князья той же крови. Берём по служебным
             словам дневники {N.controlsN} человек: двух Романовых главной линии (Николай&nbsp;II как император и
             Александр&nbsp;III как наследник), двух великих князей (Андрей&nbsp;Владимирович и
-            Константин&nbsp;Константинович, К.&nbsp;Р.) и писателей-сановников. Смотрим, к какому образцу ближе каждый.
+            Константин&nbsp;Константинович, К.&nbsp;Р.) и писателей-сановников. Сравниваем близость к выбранным образцам. Корпус личных документов
+            и его жанровые контроли используются отдельно от бенчмарка художественной прозы.
           </p>
 
           {/* Панель регистра: позиция каждого дневника на оси монарх↔писатель */}
           <div style={{ display: "grid", gap: 7, marginBottom: 8 }}>
             {N.dynasty.panel.rows.map((r) => <AxisRow key={r.name} r={r} />)}
           </div>
-          <p className="mono muted" style={{ fontSize: 11.5, marginBottom: 18, maxWidth: "82ch" }}>
+          <p className="mono muted" style={{ fontSize: 16, marginBottom: 18, maxWidth: "82ch" }}>
             ось: 0 — служебные слова как у Романовых главной линии, 1 — как у писателей · красным —
             престольная линия (Александр III — наследнический дневник 1880), синим — великие князья (та же
             кровь, но не на престоле)
@@ -206,10 +216,10 @@ export default function Nikolai() {
 
           <div className="split" style={{ alignItems: "start" }}>
             <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-              <Stat label="разделение «монархи / не-монархи», проверка на случайность"
-                    value={`p = ${fmtP(P.permP)}`} accent="var(--gold)" parade
+              <EditorialMetric label="разделение «монархи / не-монархи», проверка на случайность"
+                    value={`p = ${fmtP(P.permP)}`} accent="var(--gold)"
                     hint={`чёткость деления надвое ${fmtScore(P.silhouette)} · разрыв ${fmtScore(P.registerGap, 3)}`} />
-              <Stat label="великих князей ушло к писателям"
+              <EditorialMetric label="великих князей ушло к писателям"
                     value={`${P.dukesWriterside} из ${P.dukesTotal}`} accent="var(--icon-blue)"
                     hint="та же кровь — но служебного журнала нет" />
             </div>
@@ -235,10 +245,9 @@ export default function Nikolai() {
             оно не говорит ни за подлог, ни против. Если добавить Александра&nbsp;III к обычным авторам-эталонам, z Николая
             падает с ориентировочных&nbsp;≈&nbsp;{fmtZ(N.crossReg.z, 0)} до&nbsp;{fmtZ(N.dynasty.zWithRoyal)}. Но это лишь механический эффект:
             в эталон добавлен человек, который сам выбивается и сам же — предмет вопроса. Независимого
-            подтверждения тут нет — z&nbsp;{fmtZ(N.dynasty.zWithRoyal)} остаётся умеренной аномалией. Вес против подлога несут
-            не эти сравнения, а прямые тесты — и те тоже с оговорками.
+            подтверждения тут нет — z&nbsp;{fmtZ(N.dynasty.zWithRoyal)} остаётся умеренной аномалией. Для проверки публикации нужны прямые сопоставления с рукописью.
           </p>
-          <p className="muted" style={{ fontSize: 12.5, marginTop: 12, maxWidth: "82ch" }}>
+          <p className="muted" style={{ fontSize: 16, marginTop: 12, maxWidth: "82ch" }}>
             {plainPanelNote(P.note)}
           </p>
 
@@ -250,9 +259,9 @@ export default function Nikolai() {
               частями текста одного автора и между разными авторами:
             </p>
             <div className="grid cols-3" style={{ gap: 14 }}>
-              <Stat label="внутри одного автора (половины дневника)" value={fmtRange(sc.selfMin, sc.selfMax, (x) => fmtScore(x, 3))} accent="var(--success)" hint="одна рука" />
-              <Stat label="Николай ↔ Александр III" value={fmtScore(sc.dMonarchs, 3)} accent="var(--cinnabar)" parade hint={`в ${sc.ratioToSelf}× больше`} />
-              <Stat label="между разными писателями" value={fmtScore(sc.betweenWritersMedian, 3)} accent="var(--text-muted)" hint="разные руки, медиана" />
+              <EditorialMetric label="внутри одного автора (половины дневника)" value={fmtRange(sc.selfMin, sc.selfMax, (x) => fmtScore(x, 3))} accent="var(--success)" hint="внутритекстовый разброс" />
+              <EditorialMetric label="Николай ↔ Александр III" value={fmtScore(sc.dMonarchs, 3)} accent="var(--cinnabar)" hint={`в ${sc.ratioToSelf}× больше`} />
+              <EditorialMetric label="между разными писателями" value={fmtScore(sc.betweenWritersMedian, 3)} accent="var(--text-muted)" hint="межавторский разброс, медиана" />
             </div>
             <p className="callout">
               Расхождение Николай↔Александр — на уровне того, что бывает между <strong style={{ color: "var(--text)" }}>разными</strong>{" "}
@@ -272,28 +281,29 @@ export default function Nikolai() {
               периодами на фоне обычного разброса внутри периода.
             </p>
             <div className="grid cols-3" style={{ gap: 14 }}>
-              <Stat label="до воцарения ↔ после" value={fmtScore(ac.dPrePost, 3)} accent="var(--cinnabar)" parade hint={`в ${ac.ratioBaseline}× больше разброса`} />
-              <Stat label="обычный разброс (половины блока)" value={fmtScore(ac.baseline, 3)} accent="var(--success)" hint="одна рука, один период" />
-              <Stat label="порог разных людей" value={fmtScore(ac.diffAuthorRef, 3)} accent="var(--text-muted)" hint={`сдвиг = ${ac.ratioDiffAuthor} от него`} />
+              <EditorialMetric label="до воцарения ↔ после" value={fmtScore(ac.dPrePost, 3)} accent="var(--cinnabar)" hint={`в ${ac.ratioBaseline}× больше разброса`} />
+              <EditorialMetric label="обычный разброс (половины блока)" value={fmtScore(ac.baseline, 3)} accent="var(--success)" hint="один автор, один период" />
+              <EditorialMetric label="межавторский ориентир" value={fmtScore(ac.diffAuthorRef, 3)} accent="var(--text-muted)" hint={`сдвиг = ${ac.ratioDiffAuthor} от него`} />
             </div>
             <p className="verdict">
-              Стиль действительно сдвинулся. После трона дневник стал <strong style={{ color: "var(--text)" }}>протокольнее</strong>:
+              Стиль действительно сдвинулся. В период царствования дневник стал <strong style={{ color: "var(--text)" }}>протокольнее</strong>:
               разрыв между «до» и «после» в {ac.ratioBaseline}&nbsp;раза больше обычного разброса внутри одного периода
               (две левые плитки).
               <br />
-              Но это <strong style={{ color: "var(--text)" }}>та же рука</strong>. Сдвиг заметный ({ac.ratioDiffAuthor} от
-              дистанции между разными людьми), но до неё всё же не дотягивает. И главное — «царские» записи держатся вместе:
+              Сдвиг меньше межавторского ориентира ({ac.ratioDiffAuthor} от
+              дистанции между разными людьми), при этом «царские» записи держатся вместе:
               ранний царский дневник почти совпадает с поздним, хотя их разделяют примерно два десятилетия. Доцарский от позднего заметно дальше.
               <br />
-              Помощник-протоколист дал бы стиль другого человека. Вывод: <strong style={{ color: "var(--text)" }}>{ac.classification}</strong>.
+              Этот результат описывает смену профиля внутри дневника; он не устанавливает, кто писал записи.
             </p>
             <p className="note">
               <strong style={{ color: "var(--text)" }}>Почерк согласуется.</strong> {plainModel(N.paleography)} Вместе со сверкой
-              рукописи (Тест №1) это значит: после воцарения дневник стал суше по жанру, но писал его сам Николай, а не канцелярия.
+              рукописи это отдельное основание для обсуждения происхождения записей.
+              Стилевое расстояние само по себе не различает личное ведение дневника и участие помощника.
             </p>
-            <p className="muted" style={{ fontSize: 12, maxWidth: "82ch" }}>
-              Оговорки: распознавание дореформенного шрифта не идеально. По-настоящему чистое сравнение здесь — до и после
-              внутри одного издания и одного распознавания. Блоки разделены несколькими годами, поэтому часть сдвига может быть возрастной. Прямой
+            <p className="muted" style={{ fontSize: 16, maxWidth: "82ch" }}>
+              Тексты обоих периодов взяты из одного издания и распознаны одним способом.
+              Ошибки распознавания дореформенного шрифта могут влиять на профиль. Блоки разделены несколькими годами, поэтому часть сдвига может быть возрастной. Прямой
               визуальной сверки почерка до и после нет: доцарская рукопись в открытом доступе не выложена (хранится в ГАРФ).
             </p>
           </div>
@@ -301,17 +311,17 @@ export default function Nikolai() {
 
         {/* 5. Тест 4 — вставки про кошек? */}
         <div className="module reveal">
-          <h3>Тест №4 · Вставлены ли записи про кошек?</h3>
+          <h3 id="nikolai-section-5">Записи об охоте и внутренняя однородность</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 16 }}>
-            Тонкая версия: дневник в целом подлинный, но в него <em>добавили</em> конкретные одиозные
-            записи (про стрельбу по кошкам и воронам), создающие образ равнодушного царя. Если так —
-            эти записи были бы «чужими»: дневник распадался бы надвое, а удаление самых далёких записей
-            возвращало бы его к норме. Проверяем.
+            Версия о локальных вставках требует проверить конкретные записи —
+            о стрельбе по кошкам и воронам, а также об охоте. Сравниваем их профиль
+            с остальным дневником и смотрим, сокращается ли расстояние до писем
+            при удалении наиболее далёких записей.
           </p>
           <div className="split" style={{ alignItems: "start" }}>
             <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-              <Stat label="внутренняя однородность дневника" value="ровнее нормы" accent="var(--icon-blue)" hint="записи по стилю ближе друг к другу, чем у любого проверенного автора — не смесь" />
-              <Stat label="записей, близких к письмам" value={`${N.inserted.bimodality}%`} accent="var(--text-muted)" hint="нет второй группы записей" />
+              <EditorialMetric label="внутренняя однородность дневника" value="ровнее нормы" accent="var(--icon-blue)" hint="записи ближе друг к другу, чем в выбранных контрольных дневниках" />
+              <EditorialMetric label="записей, близких к письмам" value={`${N.inserted.bimodality}%`} accent="var(--text-muted)" hint="нет второй группы записей" />
             </div>
             <p className="callout" style={{ margin: 0 }}>
               Дневник Николая — <strong style={{ color: "var(--text)" }}>самый однородный</strong> из всех
@@ -329,7 +339,7 @@ export default function Nikolai() {
             авторов с близким стилем и не удостоверяет подлинность текста.
           </p>
           <p className="note">
-            <strong style={{ color: "var(--text)" }}>Прямая проверка именно «одиозных» записей.</strong> Выделили все
+            <strong style={{ color: "var(--text)" }}>Отдельное сравнение записей об охоте.</strong> Выделили все
             отрывки дневника со стрельбой по кошкам, воронам и охотой — их <strong style={{ color: "var(--text)" }}>{N.cats.share}%</strong>{" "}
             (Николай был страстным охотником). У них чуть свой оттенок стиля (счёт добычи — особый ритм), но к
             письмам они <strong style={{ color: "var(--text)" }}>не ближе</strong> остального дневника (p&nbsp;=&nbsp;{fmtP(N.cats.p)}),
@@ -337,7 +347,7 @@ export default function Nikolai() {
             Эти результаты не дают отдельного стилометрического основания считать выбранные записи
             чужими вставками. Установить их происхождение можно только вместе с проверкой рукописи и издания.
           </p>
-          <p className="muted" style={{ fontSize: 12, maxWidth: "82ch" }}>
+          <p className="muted" style={{ fontSize: 16, maxWidth: "82ch" }}>
             Разрывы в этом тесте (и в сравнении с чиновником ниже, в вердикте) посчитаны
             по полному архиву писем Николая, а не по уравненной по объёму выборке из шапки. Поэтому их абсолютную
             величину с заголовочной медианой напрямую не сравнивают — смысл несут направление и то, убирает ли
@@ -350,14 +360,13 @@ export default function Nikolai() {
           <div className="split" style={{ alignItems: "center" }}>
             <div style={{ display: "grid", placeItems: "center", gap: 12 }}>
               <AnomalyGlyph kind="relation_mismatch" size={48} />
-              <span className="muted mono" style={{ fontSize: 12, textAlign: "center", maxWidth: "24ch" }}>
+              <span className="muted mono" style={{ fontSize: 16, textAlign: "center", maxWidth: "24ch" }}>
                 сильная аномалия<br />не закрывает вопрос ни в одну сторону
               </span>
             </div>
             <div className="verdict" style={{ margin: 0, display: "grid", gap: 10 }}>
               <p style={{ margin: 0 }}>
-                <strong style={{ color: "var(--text)" }}>Вердикт: подлог дневников Николая II не подтверждается — но
-                и не исключается.</strong>
+                <strong style={{ color: "var(--text)" }}>Итог: происхождение спорных записей остаётся открытым.</strong>
               </p>
               <p style={{ margin: 0 }}>
                 <strong style={{ color: "var(--text)" }}>Разрыв сохраняется в выбранных контрольных сравнениях.</strong>{" "}
@@ -367,8 +376,8 @@ export default function Nikolai() {
                 почти сходится (разрыв {fmtScore(N.official.val, 3)}, как у писателей), а дневник Николая выбивается.
               </p>
               <p style={{ margin: 0 }}>
-                <strong style={{ color: "var(--text)" }}>Против подлога — но у каждого довода есть граница.</strong>{" "}
-                На проверенной странице печатный текст совпал с рукописью; в сохранённом сравнении не
+                <strong style={{ color: "var(--text)" }}>Рукопись, совпадения и жанровые контроли.</strong>{" "}
+                На проверенной странице печатный текст совпадает с рукописью; сравнение не
                 обнаружено дословного переписывания из придворного журнала. Дневник однороднее выбранных
                 контролей. Два дневника наследников и императоров сближаются (p&nbsp;=&nbsp;{fmtP(P.permP)}),
                 а дневники двух великих князей ближе к писательским. Это позволяет предположить влияние
@@ -395,7 +404,7 @@ export default function Nikolai() {
             {cg.letterCorrect}/{cg.letterDocs} при {cg.candidates} кандидатах) — и всего {fmtScore(cg.chunkTop1, 2)} для одного
             куска. Узнавание автора между жанрами — AUC (0.5 — наугад, 1.0 — безошибочно){" "}
             {fmtScore(N.crossRegAuc.all, 3)} на полном наборе служебных слов и {fmtScore(N.crossRegAuc.invariant, 3)} на
-            устойчивых к теме служебных словах (проверка «без одного автора»); контрольная точность
+            подмножестве служебных слов с меньшей чувствительностью к теме (проверка «без одного автора»); контрольная точность
             калибровки {fmtScore(cg.calibrationAcc, 2)} на {cg.calibrationAuthors} авторах с обоими жанрами. Поэтому
             величина z — ориентир силы аномалии, а не вероятность подлога, и норма построена на малом числе авторов.
           </p>

@@ -185,3 +185,33 @@ def test_measurement_generator_rejects_inconsistent_transition_arithmetic(tmp_pa
                              cwd=tmp_path, text=True, capture_output=True)
     assert result.returncode != 0
     assert 'accuracy/transition arithmetic mismatch' in result.stderr
+
+
+def test_paired_analysis_preserves_source_metrics_and_download_bytes():
+    from stylo.jsonio import artifact_self_hash
+
+    source = ROOT / 'research/evidence/topic_validity_lobo_v1/paired_summary.json'
+    artifact = json.loads(source.read_text())
+    assert artifact_self_hash(artifact) == artifact['self_hash']
+    data = json.loads((ROOT / 'site/src/generated/site-data.json').read_text())
+    paired = data['measurement']['pairedAnalysis']
+    assert paired['arms'] == artifact['arms']
+    assert paired['comparisons'] == artifact['comparisons']
+    assert (ROOT / 'site/public' / paired['publicArtifact']).read_bytes() == source.read_bytes()
+
+
+def test_paired_provenance_rejects_forged_macro_recall_with_updated_output_hash(tmp_path):
+    import hashlib
+
+    registry = _copy_site_provenance_tree(tmp_path)
+    path = tmp_path / 'site/src/generated/site-data.json'
+    data = json.loads(path.read_text())
+    data['measurement']['pairedAnalysis']['arms'][0]['macro_author_recall'] += 0.01
+    path.write_text(json.dumps(data))
+    output = next(row for row in registry['outputs'] if row['path'] == 'site/src/generated/site-data.json')
+    output['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (tmp_path / 'site/src/generated/manifest.json').write_text(json.dumps(registry))
+    result = subprocess.run(['node', str(tmp_path / 'scripts/check-provenance.mjs'),
+                             '--root', str(tmp_path), '--skip-tracked'], text=True, capture_output=True)
+    assert result.returncode != 0
+    assert 'paired analysis differs from source metrics/transitions' in result.stderr

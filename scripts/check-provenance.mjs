@@ -169,10 +169,15 @@ if (siteData === null || typeof siteData !== "object" || Array.isArray(siteData)
 const sourcePathSet = new Set(sourcePaths);
 const topicSource = "research/evidence/topic_validity_lobo_v1/aggregate.json";
 const measurementOutput = "site/public/measurement/topic-validity-aggregate.json";
+const pairedSource = "research/evidence/topic_validity_lobo_v1/paired_summary.json";
+const pairedScript = "scripts/evaluation/summarize_topic_validity.py";
+const authorRegistrySource = "src/stylo/resources/authors.json";
+const pairedOutput = "site/public/measurement/topic-validity-paired-summary.json";
+const hasPaired = sourcePathSet.has(pairedSource) || siteData.measurement?.pairedAnalysis !== undefined;
 if (sourcePathSet.has(topicSource) || siteData.measurement !== undefined) {
   if (JSON.stringify([...outputPaths].sort()) !== JSON.stringify(
-    ["site/src/generated/site-data.json", measurementOutput].sort())) {
-    fail("measurement outputs must bind exactly site-data and the downloadable aggregate");
+    ["site/src/generated/site-data.json", measurementOutput, ...(hasPaired ? [pairedOutput] : [])].sort())) {
+    fail("measurement outputs must bind exactly site-data and the downloadable sources");
   }
   if (!sourcePathSet.has(topicSource) || !outputPaths.includes(measurementOutput)) {
     fail("measurement requires its canonical source and downloadable output bindings");
@@ -184,7 +189,7 @@ if (sourcePathSet.has(topicSource) || siteData.measurement !== undefined) {
   const artifact = JSON.parse(sourceBytes.toString("utf-8"));
   const measurement = siteData.measurement;
   exactKeys(measurement, ["source", "sourceSelfHash", "studyIdentity", "publicArtifact", "unit",
-    "testedAuthors", "candidateClasses", "works", "fits", "cells"], "measurement");
+    "testedAuthors", "candidateClasses", "works", "fits", "cells", ...(hasPaired ? ["pairedAnalysis"] : [])], "measurement");
   const expectedScope = {
     source: topicSource, sourceSelfHash: artifact.self_hash, studyIdentity: artifact.study_identity,
     publicArtifact: "measurement/topic-validity-aggregate.json", unit: artifact.design.unit,
@@ -216,6 +221,28 @@ if (sourcePathSet.has(topicSource) || siteData.measurement !== undefined) {
     for (const key of artifact.design.transition_categories) {
       const total = expected.per_author_transitions.reduce((sum, row) => sum + row[key], 0);
       if (cell.transitions[key] !== total) fail(`measurement ${cell.cell}/${key} transition count drift`);
+    }
+  }
+  if (hasPaired) {
+    if (!sourcePathSet.has(pairedSource) || !sourcePathSet.has(pairedScript) || !sourcePathSet.has(authorRegistrySource)) {
+      fail("paired analysis requires source and computation script bindings");
+    }
+    const bytes = readFileSync(resolve(root, pairedSource));
+    if (!bytes.equals(readFileSync(resolve(root, pairedOutput)))) fail("downloadable paired summary differs from source");
+    const summary = JSON.parse(bytes.toString("utf-8"));
+    if (summary.canonical_self_hash !== artifact.self_hash ||
+        summary.inputs?.aggregate?.sha256 !== digest(sourceBytes) ||
+        summary.script_path !== pairedScript ||
+        summary.script_sha256 !== digest(readFileSync(resolve(root, pairedScript)))) {
+      fail("paired summary source binding mismatch");
+    }
+    const authorRegistry = JSON.parse(readFileSync(resolve(root, authorRegistrySource), "utf-8"));
+    const expected = { source: pairedSource, publicArtifact: "measurement/topic-validity-paired-summary.json",
+      sourceSelfHash: summary.self_hash,
+      authorNames: Object.fromEntries(summary.arms[0].per_author.map(({ author }) => [author, authorRegistry[author]?.name || author])),
+      arms: summary.arms, comparisons: summary.comparisons };
+    if (JSON.stringify(measurement.pairedAnalysis) !== JSON.stringify(expected)) {
+      fail("paired analysis differs from source metrics/transitions");
     }
   }
 } else if (JSON.stringify(outputPaths) !== JSON.stringify(["site/src/generated/site-data.json"])) {

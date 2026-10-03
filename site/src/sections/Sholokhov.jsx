@@ -1,4 +1,5 @@
-import { Card, Stat, AnomalyGlyph, ConfidenceBar } from "@dmitrymake/rk-ui";
+import ArticleContents from "../components/ArticleContents.jsx";
+import { EditorialPanel, EditorialMetric, EditorialFigure, AnomalyGlyph, EditorialBar } from "@dmitrymake/rk-ui";
 import { SHOLOKHOV, RIGOR, CONSISTENCY, MULTIHANDS } from "../segdata.js";
 import { DISPUTED } from "../data.js";
 import { TD_CANDIDATES } from "../candidates.js";
@@ -31,21 +32,14 @@ const plural = (n, one, few, many) => {
   return many;
 };
 
-const METHODS = [
-  "сравниваем профили при равном объёме текста",
-  "сопоставляем словари",
-  "проверяем различия между произведениями",
-  "сравниваем разброс с контрольными авторами",
-  "оцениваем влияние тематической лексики",
-];
 
 // Один и тот же предел у всех проверок на цельность — один короткий указатель на «Пределы»
 // вердикта вместо повторения оговорки в каждом под-тесте.
 function SimilarHandLimit() {
   return (
-    <p className="muted" style={{ fontSize: 12, marginTop: 16, textAlign: "center" }}>
-      У всех проверок этого раздела предел один и тот же — похожего донского соавтора с малой долей текста
-      анализ стиля не различает; пороги по каждому тесту сведены в «Пределы» вердикта.
+    <p className="muted" style={{ fontSize: 16, marginTop: 16, textAlign: "center" }}>
+      Для похожих донских авторов и малой доли примеси чувствительность ограничена.
+      Пороги конкретных проверок сведены в условиях интерпретации.
     </p>
   );
 }
@@ -62,26 +56,14 @@ const PLAUS_CHIP = { "высокая": "hot", "средняя": "gold", "низ�
 // Короткий ответ теста: один крючок-вывод сразу под вопросом, чтобы читатель
 // получал итог до разбора улик и не тонул в повторных развёрнутых вердиктах.
 function TestSummary({ children }) {
-  return (
-    <p style={{
-      display: "flex", gap: 12, alignItems: "baseline",
-      margin: "0 0 22px", padding: "10px 14px",
-      borderLeft: "3px solid var(--icon-blue)",
-      background: "var(--surface-sunken)", borderRadius: "0 6px 6px 0",
-    }}>
-      <strong style={{ color: "var(--icon-blue)", whiteSpace: "nowrap", fontSize: 11.5, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-        Короткий ответ
-      </strong>
-      <span style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--text)" }}>{children}</span>
-    </p>
-  );
+  return <p className="test-summary">{children}</p>;
 }
 
 // Пояснения к некоторым карточкам в исходных данных содержат служебные пометки и жаргон.
 // Для читателя без подготовки заменяем их обычным русским; смысл и направление вывода сохранены.
 const WHY_CLEAN = {
   "Николай Гумилёв":
-    "Поэт Серебряного века; версия о его авторстве — на дальней обочине спора. Проверили его отдельно, как заведомо чужого автора: «Тихий Дон» лежит далеко от Гумилёва — версия не поддержана.",
+    "Поэт Серебряного века. В отдельном контрольном сравнении профиль «Тихого Дона» далёк от представленных произведений Гумилёва.",
   "Андрей Платонов":
     "В дополнительном сравнении «Поднятая целина» дальше от профиля Платонова и ближе к профилю Шолохова. Тем же методом проверена собственная проза Платонова. Это результат для данных эталонов.",
 };
@@ -93,10 +75,10 @@ function CandidateCard({ c }) {
   const thin = THIN_CORPUS.has(c.name);
   const why = WHY_CLEAN[c.name] || c.why;
   return (
-    <Card padding={18}>
+    <EditorialPanel>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-        <strong style={{ color: "var(--text)", fontSize: 15.5 }}>{c.name}</strong>
-        <span className="mono muted" style={{ fontSize: 12 }}>† {c.death}</span>
+        <strong style={{ color: "var(--text)", fontSize: 17 }}>{c.name}</strong>
+        <span className="mono muted" style={{ fontSize: 16 }}>† {c.death}</span>
       </div>
       <div style={{ display: "flex", gap: 7, margin: "9px 0 10px", flexWrap: "wrap" }}>
         <span className={"chip " + PLAUS_CHIP[c.plaus]}>{c.plaus}</span>
@@ -104,21 +86,21 @@ function CandidateCard({ c }) {
           {c.inCorpus ? (thin ? "в корпусе · профиль слабый" : "в корпусе · проверяем") : "вне теста"}
         </span>
       </div>
-      <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>{why}</p>
-    </Card>
+      <p className="muted" style={{ fontSize: 16, lineHeight: 1.5, margin: 0 }}>{why}</p>
+    </EditorialPanel>
   );
 }
 
 function ThematicRow({ rank, name, score, max }) {
   const hi = nm(name) === "Ф. Крюков" || nm(name) === "М. Шолохов";
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.4ch 13ch 1fr 5ch", alignItems: "center", gap: 10 }}>
-      <span className="mono muted" style={{ fontSize: 12 }}>{rank}</span>
-      <span style={{ fontSize: 13.5, color: hi ? "var(--text)" : "var(--text-muted)", fontWeight: hi ? 600 : 400 }}>
+    <div className="data-row" style={{ display: "grid", gridTemplateColumns: "1.4ch 13ch 1fr 5ch", alignItems: "center", gap: 10 }}>
+      <span className="mono muted" style={{ fontSize: 16 }}>{rank}</span>
+      <span style={{ fontSize: 16, color: hi ? "var(--text)" : "var(--text-muted)", fontWeight: hi ? 600 : 400 }}>
         {nm(name)}
       </span>
       <MeterBar value={score} max={max} accent={hi ? accentOf(name) : "var(--border-strong)"} />
-      <span className="mono" style={{ fontSize: 12, color: hi ? "var(--text)" : "var(--text-muted)" }}>{fmtScore(score, 3)}</span>
+      <span className="mono" style={{ fontSize: 16, color: hi ? "var(--text)" : "var(--text-muted)" }}>{fmtScore(score, 3)}</span>
     </div>
   );
 }
@@ -145,26 +127,35 @@ export default function Sholokhov() {
     <section className="section" id="sholokhov">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Кейс · «Тихий Дон»</p>
-          <h2>«Тихий Дон»: с какими текстами он сходен</h2>
+          <p className="eyebrow">Донская проза</p>
+          <h1>«Тихий Дон»: с какими текстами он сходен</h1>
           <p className="prose lead muted">
-            Сравнение «Тихого Дона» с Крюковым и другими донскими авторами осложняет
-            общий материал. Сравнение с Шолоховым зависит от того, какие произведения
-            составляют его профиль: ранние рассказы или поздняя проза. Ниже рассмотрены
-            эти варианты, различия между книгами и чувствительность поиска другого автора.
+            «Тихий Дон» сравнивается с ранней и поздней прозой под именем Шолохова
+            и произведениями других донских авторов. Проверяем, как выбор эталонов
+            меняет сходство и какие различия между частями романа замечает метод.
           </p>
           <p className="prose muted">
-            В эталоне приняты авторские метки ранних и поздних произведений Шолохова.
-            Их достоверность остаётся предпосылкой всех следующих сравнений.
+            Авторские метки эталонов приняты как предпосылка. Общая донская тема
+            может сближать тексты. Этот корпус не входит в проверку метода
+            на 248 произведениях.
           </p>
-          <ol className="prose muted" style={{ maxWidth: "62ch", margin: "4px 0 0", paddingLeft: "1.4em", lineHeight: 1.6, fontSize: 14 }}>
-            {METHODS.map((m, i) => <li key={i} style={{ marginBottom: 2 }}>{m}</li>)}
-          </ol>
         </div>
+        <ArticleContents chapter="sholokhov" items={[
+            ["sholokhov-section-1", "Кто, кроме Шолохова"],
+            ["sholokhov-section-2", "Тест №1 · Сравнение при равном объёме текста"],
+            ["sholokhov-section-3", "Тест №2 · Что показывает сходство словарей"],
+            ["sholokhov-section-4", "Тест №3 · Поиск неоднородности между произведениями"],
+            ["sholokhov-section-5", "Тест №4 · Насколько различаются книги одного автора"],
+            ["sholokhov-section-6", "Тест №5 · Как уменьшить влияние тематической лексики"],
+            ["sholokhov-section-7", "Рукопись · глубина авторской правки"],
+            ["sholokhov-section-8", "Вердикт"]
+          ]} />
+
 
         {/* 1. Поле кандидатов */}
+
         <div className="reveal module">
-          <h3>Кто, кроме Шолохова</h3>
+          <h3 id="sholokhov-section-1">Кто, кроме Шолохова</h3>
           <p className="prose muted" style={{ maxWidth: "64ch", marginBottom: 22 }}>
             Список фиксирует кандидатов, включённых в исследование. Для сравнения нужны
             собственные произведения каждого автора. Объём и состав сохранившейся прозы
@@ -196,22 +187,22 @@ export default function Sholokhov() {
             <div className="split" style={{ alignItems: "center" }}>
               <div>
                 {RIGOR.tdCandDist.map((r) => (
-                  <div key={r.a} style={{ display: "grid", gridTemplateColumns: "16ch 1fr 4ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                    <span style={{ fontSize: 12.5, color: r.self ? "var(--text)" : "var(--text-muted)", fontWeight: r.self ? 700 : 400 }}>{r.a}</span>
+                  <div key={r.a} className="data-row" style={{ display: "grid", gridTemplateColumns: "16ch 1fr 4ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                    <span style={{ fontSize: 16, color: r.self ? "var(--text)" : "var(--text-muted)", fontWeight: r.self ? 700 : 400 }}>{r.a}</span>
                     <MeterBar value={r.d} max={Math.max(...RIGOR.tdCandDist.map((x) => x.d))} accent={r.self ? "var(--icon-blue)" : "var(--text-muted)"} />
-                    <span className="mono" style={{ fontSize: 11, color: r.self ? "var(--icon-blue)" : "var(--text-muted)" }}>{fmtScore(r.d)}</span>
+                    <span className="mono" style={{ fontSize: 16, color: r.self ? "var(--icon-blue)" : "var(--text-muted)" }}>{fmtScore(r.d)}</span>
                   </div>
                 ))}
               </div>
               <p className="callout" style={{ margin: 0 }}>
-                «Тихий Дон» ближе всего к <strong style={{ color: "var(--text)" }}>ранним рассказам Шолохова</strong> ({fmtScore(tdSelfDist)}) —
+                «Тихий Дон» ближе всего к <strong style={{ color: "var(--text)" }}>ранним рассказам под именем Шолохова</strong> ({fmtScore(tdSelfDist)}) —
                 и так во всех 4 томах. Парное сравнение в одном жанре подтверждает: против <em>каждого</em> из{" "}
                 {RIGOR.tdCandGm.length} кандидатов ТД уходит к Шолохову{" "}
                 ({RIGOR.tdCandGm.map((c) => `${c.a} ${c.p}`).join(", ")} — все&nbsp;&gt;&nbsp;0.5).{" "}
                 <strong style={{ color: "var(--text)" }}>Ни один</strong> кандидат этой подборки не даёт более близкого профиля.
               </p>
             </div>
-            <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
+            <p className="muted" style={{ fontSize: 16, marginTop: 12 }}>
               Сравнение относится к перечисленным профилям. Кандидата без сопоставимой
               прозы ({RIGOR.tdCandUntestable}) такой набор не представляет.
             </p>
@@ -220,7 +211,7 @@ export default function Sholokhov() {
 
         {/* 3. Атрибуция Тихого Дона — две модели */}
         <div className="reveal module">
-          <h3>Тест №1 · Сравнение при равном объёме текста</h3>
+          <h3 id="sholokhov-section-2">Тест №1 · Сравнение при равном объёме текста</h3>
           <p className="prose muted" style={{ maxWidth: "68ch", marginBottom: 22 }}>
             Усреднённый профиль Шолохова строим <strong style={{ color: "var(--text)" }}>без единой страницы «Тихого
             Дона»</strong> (ранние рассказы и поздняя проза с корпусной меткой «Шолохов») и{" "}
@@ -233,25 +224,14 @@ export default function Sholokhov() {
             При равном объёме текста «Тихий Дон» уходит к Шолохову (медиана {fmtScore(RIGOR.dsTdFullMed, 3)}). Но
             стоит выровнять ещё и жанр — счёт по словам почти ничейный, так что сам по себе он ничего не решает.
           </TestSummary>
-          <div style={{ display: "grid", gap: 9, marginTop: 8 }}>
-            <div className="mono muted" style={{ display: "grid", gridTemplateColumns: "16ch 1fr 1fr 8ch", gap: 10, fontSize: 11 }}>
-              <span></span><span>полная модель</span><span>меньше слов</span><span>согласие</span>
+          <EditorialFigure label="Таблица 1" caption="Доли назначений к профилю Шолохова при равном объёме эталонного текста. Полная модель и вариант с меньшим вкладом слов сопоставлены для каждой книги. Согласие — отдельная мера между LR и Delta.">
+            <p className="table-scroll-hint">Таблица прокручивается по горизонтали →</p>
+      <div className="table-scroll" tabIndex={0} role="region" aria-label="Сравнение книг романа — таблица прокручивается по горизонтали">
+              <table><thead><tr><th scope="col">Произведение</th><th scope="col">Полная модель</th><th scope="col">Меньше слов</th><th scope="col">Согласие</th></tr></thead><tbody>
+                {RIGOR.attrib.map((r) => <tr key={r.book}><th scope="row">{r.book}</th><td>{fmtPct(r.full, 0)}<MeterBar value={r.full} max={1} /></td><td>{fmtPct(r.topic, 0)}<MeterBar value={r.topic} max={1} /></td><td>{r.agree}</td></tr>)}
+              </tbody></table>
             </div>
-            {RIGOR.attrib.map((r) => (
-              <div key={r.book} style={{ display: "grid", gridTemplateColumns: "16ch 1fr 1fr 8ch", gap: 10, alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: "var(--text)" }}>{r.book}</span>
-                {[r.full, r.topic].map((v, i) => (
-                  <span key={i} style={{ position: "relative", height: 16, borderRadius: 4, background: "var(--surface-sunken)", overflow: "hidden" }}>
-                    <span style={{ display: "block", height: "100%", width: `${v * 100}%`, background: "var(--icon-blue)", opacity: 0.55 + 0.45 * v }} />
-                    <span className="mono" style={{ position: "absolute", right: 5, top: 1, fontSize: 10.5, color: "var(--text)" }}>{fmtPct(v, 0)}</span>
-                  </span>
-                ))}
-                <span className="mono" style={{ fontSize: 11, color: r.reliable ? "var(--success)" : "var(--gold)" }} title="согласие LR и Delta">
-                  {r.agree}
-                </span>
-              </div>
-            ))}
-          </div>
+          </EditorialFigure>
 
           <p className="verdict">
             Когда объём текста у всех авторов выровнен, полная модель отдаёт «Тихий Дон» Шолохову ({fmtScore(fullMin, 2)}–{fmtScore(fullMax, 3)}) —
@@ -260,20 +240,20 @@ export default function Sholokhov() {
             объёме. Вклад темы и жанра проверяется отдельно.
           </p>
           <p className="note">
-            <strong style={{ color: "var(--cinnabar)" }}>Самый строгий тест ослабляет вывод:</strong>{" "}
+            <strong style={{ color: "var(--editorial-accent)" }}>Самый строгий тест ослабляет вывод:</strong>{" "}
             если уравнять не только объём, но и <em>жанр</em> — собрать профиль Шолохова <strong style={{ color: "var(--text)" }}>только
             из ранних донских рассказов</strong> ({RIGOR.earlyPoolN}, тот же тип текста, что ТД) и взять у Крюкова столько же —
-            полная модель на «Тихом Доне» даёт почти <strong style={{ color: "var(--cinnabar)" }}>ничью</strong>:
+            полная модель на «Тихом Доне» даёт почти <strong style={{ color: "var(--editorial-accent)" }}>ничью</strong>:
             Шолохов {RIGOR.gmlrTdShFull} vs Крюков {RIGOR.gmlrTdKrFull}. Ответ меняется вместе с составом
             опорных произведений. По этому сравнению нельзя отдельно установить причину изменения.
             С поправкой на тему ТД всё ещё к Шолохову ({RIGOR.gmlrTdShTopic}) — но и тематические признаки несут жанр.
             Словарный сигнал «ТД = Шолохов, не Крюков» при выровненном жанре — <strong style={{ color: "var(--text)" }}>неубедителен</strong>.
           </p>
           <details style={{ margin: "6px 0" }}>
-            <summary style={{ cursor: "pointer", color: "var(--icon-blue)", fontSize: 13, fontWeight: 600 }}>
+            <summary style={{ cursor: "pointer", color: "var(--icon-blue)", fontSize: 16, fontWeight: 600 }}>
               Почему столбец «согласие» — не мера надёжности
             </summary>
-            <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
+            <p className="muted" style={{ marginTop: 8, marginBottom: 0, fontSize: 16 }}>
               «Согласие» — насколько по каждому отрывку сходятся две разные модели: одна взвешивает признаки, другая
               мерит близость ({fmtScore(agreeMin, 2)}–{fmtScore(agreeMax, 2)}). При 5 кандидатах случайное совпадение уже ≈{fmtScore(1 / 5)},
               а вторая модель по отдельным отрывкам ведёт себя как шум. Поэтому вывод по книгам опирается на общий
@@ -292,7 +272,7 @@ export default function Sholokhov() {
           </p>
           <div style={{ display: "grid", gap: 12, maxWidth: "54ch" }}>
             {PC.candidates.map((c, i) => (
-              <ConfidenceBar
+              <EditorialBar
                 key={c.name}
                 value={c.full}
                 valueText={fmtScore(c.full, 3)}
@@ -310,7 +290,7 @@ export default function Sholokhov() {
 
         {/* 4. Почему все указывают на Крюкова */}
         <div className="reveal module">
-          <h3>Тест №2 · Что показывает сходство словарей</h3>
+          <h3 id="sholokhov-section-3">Тест №2 · Что показывает сходство словарей</h3>
           <p className="prose muted" style={{ maxWidth: "66ch", marginBottom: 20 }}>
             Близость по словам показывает совпадение словарей. В этом сравнении
             ближайший к «Тихому Дону» — <strong style={{ color: "var(--text)" }}>сам Шолохов</strong> ({fmtScore(THEM.tihiyDon[0][1])}),
@@ -324,23 +304,23 @@ export default function Sholokhov() {
             Такое сходство согласуется с общей темой, но само по себе не отделяет её от авторской манеры.
           </TestSummary>
           <div className="grid cols-2" style={{ gap: 22 }}>
-            <Card padding={22}>
+            <EditorialPanel>
               <p className="eyebrow" style={{ marginBottom: 14 }}>«Тихий Дон» — ближайшие по словам</p>
               <div style={{ display: "grid", gap: 9 }}>
                 {THEM.tihiyDon.map(([n, s], i) =>
                   <ThematicRow key={n} rank={i + 1} name={n} score={s} max={THEM.tihiyDon[0][1]} />)}
               </div>
-            </Card>
-            <Card padding={22}>
+            </EditorialPanel>
+            <EditorialPanel>
               <p className="eyebrow" style={{ marginBottom: 14 }}>«Донские рассказы» Шолохова — ближайшие</p>
               <div style={{ display: "grid", gap: 9 }}>
                 {THEM.donskie.map(([n, s], i) =>
                   <ThematicRow key={n} rank={i + 1} name={n} score={s} max={THEM.donskie[0][1]} />)}
               </div>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
+              <p className="muted" style={{ fontSize: 16, marginTop: 12 }}>
                 Ранние рассказы с меткой «Шолохов» тоже близки к Крюкову по словарю.
               </p>
-            </Card>
+            </EditorialPanel>
           </div>
 
           <div className="split" style={{ marginTop: 28, alignItems: "center" }}>
@@ -352,15 +332,15 @@ export default function Sholokhov() {
               </p>
               <p>
                 Это видно по тому, что «Донские рассказы» с корпусной меткой «Шолохов» тоже стоят к
-                Крюкову вплотную. Но как только корпус починен, а объёмы у авторов уравнены (Тест&nbsp;№1), даже
-                модель по словам отдаёт и «Тихий Дон», и «Поднятую целину»{" "}
+                Крюкову вплотную. При равном объёме эталонов (Тест&nbsp;№1)
+                модель по словам относит и «Тихий Дон», и «Поднятую целину»{" "}
                 <strong style={{ color: "var(--text)" }}>Шолохову</strong>, а не Крюкову.
                 Смена ответа показывает, почему важно указывать состав и объём эталонов.
               </p>
             </div>
             <div style={{ display: "grid", placeItems: "center", gap: 12 }}>
               <AnomalyGlyph kind="relation_mismatch" size={46} />
-              <span className="muted mono" style={{ fontSize: 12, textAlign: "center", maxWidth: "22ch" }}>
+              <span className="muted mono" style={{ fontSize: 16, textAlign: "center", maxWidth: "22ch" }}>
                 сходство словарей<br />требует проверки по другим признакам
               </span>
             </div>
@@ -369,7 +349,7 @@ export default function Sholokhov() {
 
         {/* Тест №3: много рук — LEAK-FREE */}
         <div className="reveal module">
-          <h3>Тест №3 · Поиск неоднородности между произведениями</h3>
+          <h3 id="sholokhov-section-4">Тест №3 · Поиск неоднородности между произведениями</h3>
           <p className="prose muted" style={{ maxWidth: "70ch", marginBottom: 8 }}>
             Проверяем различия между произведениями под одним авторским именем.
             Важно учесть и влияние большого объёма эталона: широкий профиль может
@@ -384,7 +364,7 @@ export default function Sholokhov() {
           <div className="split" style={{ alignItems: "start", marginTop: 18 }}>
             <div>
               <p className="eyebrow" style={{ marginBottom: 6 }}>Каждая книга → к какому автору ближе (по одной отложенной книге за раз)</p>
-              <p className="muted" style={{ fontSize: 12, margin: "0 0 12px" }}>
+              <p className="muted" style={{ fontSize: 16, margin: "0 0 12px" }}>
                 Эталон «Шолохов» здесь <em>включает</em> его ранние донские рассказы — круг сравнения замкнут на самого
                 автора. Тест в вердикте исключает проверяемые работы из обучения (там первый том «Тихого Дона» уже
                 спорный), но зависимость от меток оставшихся опорных текстов сохраняется.
@@ -395,42 +375,42 @@ export default function Sholokhov() {
                   const td1 = r.book === "Тихий Дон кн.1";
                   return (
                     <div key={r.book} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", alignItems: "center", gap: 10, padding: "3px 0" }}>
-                      <span style={{ fontSize: 13, color: td ? "var(--text)" : "var(--text-muted)", fontWeight: td ? 600 : 400 }}>
+                      <span style={{ fontSize: 16, color: td ? "var(--text)" : "var(--text-muted)", fontWeight: td ? 600 : 400 }}>
                         {r.book}{td1 && <span className="muted" style={{ fontWeight: 400 }}> · спорный при строгом тесте</span>}
                       </span>
-                      <span style={{ fontSize: 12.5, color: r.stays ? "var(--icon-blue)" : "var(--cinnabar)", fontWeight: r.stays ? 500 : 700 }}>
+                      <span style={{ fontSize: 16, color: r.stays ? "var(--icon-blue)" : "var(--cinnabar)", fontWeight: r.stays ? 500 : 700 }}>
                         {r.stays ? "→ Шолохов" : `→ ${r.nearest}`}
                       </span>
                     </div>
                   );
                 })}
               </div>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
+              <p className="muted" style={{ fontSize: 16, marginTop: 12 }}>
                 <strong style={{ color: "var(--text)" }}>{RIGOR.b2Stay}/{RIGOR.b2N}</strong> книг ближе к «Шолохову без
                 этой книги», включая все 4 тома «Тихого Дона» и обе книги «Поднятой целины». Два иных ответа получены на коротких
-                поздние рассказы (14 и 30 отрывков, профиль на них шумный): «Судьба человека»→Крюков (но Крюков †1920,
+                поздних рассказах (14 и 30 отрывков, профиль на них шумный): «Судьба человека»→Крюков (но Крюков †1920,
                 рассказ 1957 — назначение требует отдельного исторического обоснования), «Наука ненависти»→Булгаков. Причину этих назначений
                 сами значения сходства не устанавливают.
               </p>
             </div>
             <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
-              <Stat label="книг ближе к Шолохову" value={`${RIGOR.b2Stay}/${RIGOR.b2N}`} accent="var(--success)" parade />
-              <Stat label="разброс книг: место среди одиночек" value={`${RIGOR.dispRank} / ${RIGOR.dispPanelN}`} accent="var(--icon-blue)" hint={`${RIGOR.dispSholohov} против ${RIGOR.dispControl}±${RIGOR.dispControlStd} у одиночек — в нижней четверти по разбросу: метка не раздута, ведёт себя как обычный автор`} />
+              <EditorialMetric label="книг ближе к Шолохову" value={`${RIGOR.b2Stay}/${RIGOR.b2N}`} accent="var(--success)" />
+              <EditorialMetric label="разброс книг: место среди одиночек" value={`${RIGOR.dispRank} / ${RIGOR.dispPanelN}`} accent="var(--icon-blue)" hint={`${RIGOR.dispSholohov} против ${RIGOR.dispControl}±${RIGOR.dispControlStd} у одиночек — в нижней четверти по разбросу: метка не раздута, ведёт себя как обычный автор`} />
             </div>
           </div>
 
           {/* Решающий тест «много рук»: supervised pairwise authorship-verification (author-disjoint) */}
           <div className="module" style={{ marginTop: 26 }}>
             <p className="eyebrow" style={{ marginBottom: 4 }}>Попарное сравнение с одноавторскими текстами и смесями</p>
-            <p className="muted" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+            <p className="muted" style={{ fontSize: 16, margin: "0 0 14px" }}>
               авторы в обучении и проверке не пересекаются, отрывки равного объёма; настроено на {MULTIHANDS.avMultiHand.nPos} псевдонимных смесях (разные авторы под одним именем) и {MULTIHANDS.avMultiHand.nNeg} одиночках
             </p>
-            <p className="prose" style={{ margin: 0, fontSize: 14 }}>
-              Для каждой пары книг считаем, насколько они «разные руки». У настоящего коллектива (смесь под псевдонимом)
+            <p className="prose" style={{ margin: 0, fontSize: 17 }}>
+              Для каждой пары книг считаем, насколько они «разные авторские профили». У настоящего коллектива (смесь под псевдонимом)
               оценка ≈ <strong style={{ color: "var(--text)" }}>{MULTIHANDS.avMultiHand.posMean}</strong>, у одиночек ≈{" "}
               <strong style={{ color: "var(--text)" }}>{MULTIHANDS.avMultiHand.negMean}</strong>. Корпус Шолохова даёт{" "}
-              <strong style={{ color: "var(--success)" }}>{MULTIHANDS.avMultiHand.score}</strong> — то есть он{" "}
-              <strong style={{ color: "var(--success)" }}>близок к контрольным одиночкам</strong> по этой оценке:
+              <strong style={{ color: "var(--editorial-positive)" }}>{MULTIHANDS.avMultiHand.score}</strong> — то есть он{" "}
+              <strong style={{ color: "var(--editorial-positive)" }}>близок к контрольным одиночкам</strong> по этой оценке:
               z = <strong style={{ color: "var(--text)" }}>{MULTIHANDS.avMultiHand.zPseudo}</strong> (насколько велико отклонение
               против обычного разброса — здесь ~5 таких разбросов ниже смесей), различимость{" "}
               {MULTIHANDS.avMultiHand.auc} [{MULTIHANDS.avMultiHand.aucCi[0]}–{MULTIHANDS.avMultiHand.aucCi[1]}] (1.0 — идеально, 0.5 — наугад),
@@ -438,38 +418,38 @@ export default function Sholokhov() {
               представленным в этой проверке.
             </p>
             <div className="grid cols-3" style={{ marginTop: 14 }}>
-              <Stat label="отрыв от псевдонимной смеси (z)" value={fmtZ(MULTIHANDS.avMultiHand.zPseudo)} accent="var(--success)" hint="~5 обычных разбросов — сильно ниже смесей" />
-              <Stat label="различимость: смеси и одиночки" value={fmtScore(MULTIHANDS.avMultiHand.auc)} accent="var(--icon-blue)" hint={`p ${fmtP(MULTIHANDS.avMultiHand.permP)} (проверка на случайность)`} />
-              <Stat label="оценка «много рук» у Шолохова" value={fmtScore(MULTIHANDS.avMultiHand.score)} accent="var(--success)" hint={`≈ одиночки ${MULTIHANDS.avMultiHand.negMean}, далеко от смеси ${MULTIHANDS.avMultiHand.posMean}`} />
+              <EditorialMetric label="отрыв от псевдонимной смеси (z)" value={fmtZ(MULTIHANDS.avMultiHand.zPseudo)} accent="var(--success)" hint="ниже контрольных смесей по этой оценке" />
+              <EditorialMetric label="различимость: смеси и одиночки" value={fmtScore(MULTIHANDS.avMultiHand.auc)} accent="var(--icon-blue)" hint={`p ${fmtP(MULTIHANDS.avMultiHand.permP)} (проверка на случайность)`} />
+              <EditorialMetric label="оценка «много рук» у Шолохова" value={fmtScore(MULTIHANDS.avMultiHand.score)} accent="var(--success)" hint={`≈ одиночки ${MULTIHANDS.avMultiHand.negMean}, далеко от смеси ${MULTIHANDS.avMultiHand.posMean}`} />
             </div>
-            <p className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 0 }}>
+            <p className="muted" style={{ fontSize: 16, marginTop: 12, marginBottom: 0 }}>
               Этот тест различает смеси <em>разных</em> авторов. Смесь <em>похожих</em> донских авторов здесь не отделяется от одиночек,
-              поэтому скрыть похожего соавтора с малой долей текста метод не может (пороги — в «Пределах» вердикта).
+              поэтому выявление похожего соавтора с малой долей текста здесь не подтверждено (пороги — в условиях интерпретации).
             </p>
           </div>
 
           <div className="grid cols-2" style={{ marginTop: 22, gap: 16 }}>
-            <Card padding={22}>
+            <EditorialPanel>
               <p className="eyebrow" style={{ marginBottom: 4 }}>Что тест вообще способен заметить</p>
-              <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>подмешиваем Крюкова → доля «крюковских» отрывков</p>
+              <p className="muted" style={{ fontSize: 16, margin: "0 0 12px" }}>подмешиваем Крюкова → доля «крюковских» отрывков</p>
               <div style={{ display: "grid", gap: 6 }}>
                 {RIGOR.power.map((x) => (
-                  <div key={x.k} style={{ display: "grid", gridTemplateColumns: "4ch 1fr 4ch", alignItems: "center", gap: 8 }}>
-                    <span className="mono muted" style={{ fontSize: 11 }}>{x.k}%</span>
+                  <div key={x.k} className="data-row" style={{ display: "grid", gridTemplateColumns: "4ch 1fr 4ch", alignItems: "center", gap: 8 }}>
+                    <span className="mono muted" style={{ fontSize: 16 }}>{x.k}%</span>
                     <MeterBar value={x.frac} max={powMax} accent={x.k >= RIGOR.powerDetectK ? "var(--cinnabar)" : "var(--border-strong)"} />
-                    <span className="mono" style={{ fontSize: 11 }}>{x.frac}</span>
+                    <span className="mono" style={{ fontSize: 16 }}>{x.frac}</span>
                   </div>
                 ))}
               </div>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
-                Чужую руку тест уверенно ловит лишь от <strong style={{ color: "var(--cinnabar)" }}>~{RIGOR.powerDetectK}%</strong>{" "}
-                примеси похожего по стилю автора. Меньшую долю различить не способен — честный предел.
+              <p className="muted" style={{ fontSize: 16, marginTop: 10 }}>
+                В этой серии тест обнаруживает примесь начиная с <strong style={{ color: "var(--editorial-accent)" }}>~{RIGOR.powerDetectK}%</strong>{" "}
+                примеси похожего по стилю автора. Для меньших долей надёжное обнаружение в этой серии не показано.
               </p>
-            </Card>
+            </EditorialPanel>
             <p className="callout gold" style={{ margin: 0 }}>
               И у «поправки на тему» есть предел. Строгая проверка — военная проза одного писателя против сельской прозы
-              другого — показывает: даже признаки, которые считаются нечувствительными к теме, уверенно различают{" "}
-              <strong style={{ color: "var(--cinnabar)" }}>жанр</strong>{" "}
+              другого — показывает: даже структурные признаки различают{" "}
+              <strong style={{ color: "var(--editorial-accent)" }}>жанр</strong>{" "}
               (<strong style={{ color: "var(--text)" }}>{RIGOR.crossGenreAuc}</strong>, где 0.5 — наугад, 1.0 — безошибочно).
               Значит, они несут ещё и жанр с эпохой, а не только личный почерк — поэтому говорим «стилистически похоже»,
               а не «доказано авторство».
@@ -487,13 +467,13 @@ export default function Sholokhov() {
           <p className="verdict">
             Итог: «много рук» <strong style={{ color: "var(--text)" }}>не подтверждается</strong> — корпус не разнороднее
             одиночных авторов (по разбросу место {RIGOR.dispRank}/{RIGOR.dispPanelN}), метка не раздута. Похожего соавтора
-            с малой долей текста тесты не поймали бы — общий предел см. в «Пределах» вердикта.
+            с малой долей текста тесты не поймали бы — чувствительность указана в условиях интерпретации.
           </p>
         </div>
 
         {/* 5d. Гомогенность: разные люди писали разные работы? */}
         <div className="reveal module">
-          <h3>Тест №4 · Насколько различаются книги одного автора</h3>
+          <h3 id="sholokhov-section-5">Тест №4 · Насколько различаются книги одного автора</h3>
           <p className="prose muted" style={{ maxWidth: "70ch", marginBottom: 18 }}>
             Сравниваем попарную различимость книг с диапазоном у контрольных авторов.
             У одного писателя произведения тоже меняются вместе с темой, периодом и жанром.
@@ -506,8 +486,8 @@ export default function Sholokhov() {
           </TestSummary>
           <div className="split" style={{ alignItems: "center" }}>
             <div>
-              <div className="mono muted" style={{ fontSize: 11, display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span>← похожи (одна рука)</span><span>отделимы →</span>
+              <div className="mono muted" style={{ fontSize: 16, display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span>← похожи</span><span>отделимы →</span>
               </div>
               {[
                 { a: "ориентир: две половины одной книги", v: RIGOR.homFloor, hi: false, anchor: true },
@@ -515,10 +495,10 @@ export default function Sholokhov() {
                 { a: "ШОЛОХОВ (все его книги)", v: RIGOR.homSholohov, hi: true },
                 { a: "ориентир: разные авторы", v: RIGOR.homCeil, hi: false, anchor: true },
               ].sort((x, y) => x.v - y.v).map((r) => (
-                <div key={r.a} style={{ display: "grid", gridTemplateColumns: "20ch 1fr 4ch", alignItems: "center", gap: 8, padding: "2px 0" }}>
-                  <span style={{ fontSize: 12.5, color: r.hi ? "var(--text)" : "var(--text-muted)", fontWeight: r.hi ? 700 : 400, fontStyle: r.anchor ? "italic" : "normal" }}>{r.a}</span>
+                <div key={r.a} className="data-row" style={{ display: "grid", gridTemplateColumns: "20ch 1fr 4ch", alignItems: "center", gap: 8, padding: "2px 0" }}>
+                  <span style={{ fontSize: 16, color: r.hi ? "var(--text)" : "var(--text-muted)", fontWeight: r.hi ? 700 : 400, fontStyle: r.anchor ? "italic" : "normal" }}>{r.a}</span>
                   <MeterBar value={r.v - 0.5} max={homTop - 0.5} accent={r.hi ? "var(--icon-blue)" : r.anchor ? "var(--border-strong)" : "var(--gold)"} />
-                  <span className="mono" style={{ fontSize: 11, color: r.hi ? "var(--text)" : "var(--text-muted)" }}>{fmtScore(r.v, 3)}</span>
+                  <span className="mono" style={{ fontSize: 16, color: r.hi ? "var(--text)" : "var(--text-muted)" }}>{fmtScore(r.v, 3)}</span>
                 </div>
               ))}
             </div>
@@ -527,13 +507,13 @@ export default function Sholokhov() {
                 Книги Шолохова отделимы друг от друга (различимость&nbsp;{fmtScore(RIGOR.homSholohov, 3)}) — но{" "}
                 <strong style={{ color: "var(--text)" }}>Бунин</strong>, бесспорно один автор, ещё{" "}
                 <strong style={{ color: "var(--text)" }}>отделимее</strong> ({fmtScore(RIGOR.homCtrls[0].auc, 3)}). Высокая
-                «разнокнижность» — не подпись разных рук, а свойство автора с долгой, разнообразной
-                карьерой (плюс признаки чувствительны к жанру: даже две половины одной книги дают {fmtScore(RIGOR.homFloor, 3)}).
+                различимость книг встречается и у одного автора; признаки также чувствительны к жанру:
+                даже две половины одной книги дают {fmtScore(RIGOR.homFloor, 3)}.
               </p>
               <p className="note" style={{ margin: 0 }}>
                 Внутри «Тихого Дона» 4 тома похожи друг на друга (различимость&nbsp;<strong style={{ color: "var(--icon-blue)" }}>{fmtScore(RIGOR.homTdInternal, 3)}</strong>){" "}
                 <strong style={{ color: "var(--text)" }}>больше</strong>, чем на остальные его работы ({fmtScore(RIGOR.homSholohov, 3)}) —
-                согласуется с одной рукой на весь роман. {RIGOR.homNStay}/{RIGOR.homNWorks} работ тяготеют к самому Шолохову.
+                описывает внутреннее сходство томов романа. {RIGOR.homNStay}/{RIGOR.homNWorks} работ тяготеют к самому Шолохову.
               </p>
             </div>
           </div>
@@ -546,9 +526,10 @@ export default function Sholokhov() {
             <strong style={{ color: "var(--text)" }}>Проверено ещё одним способом</strong> — чёткостью деления книг на
             кластеры: Шолохов ({CONSISTENCY.sholokhovSil}) на высоком краю одиночек (место {CONSISTENCY.sholokhovRank}/{CONSISTENCY.nPanel},
             бесспорный Лесков ({CONSISTENCY.scale.find((x) => x.a === "Лесков").v}) разнороднее), но коллектив Прутков
-            ({CONSISTENCY.prutkov}) — в <strong style={{ color: "var(--cinnabar)" }}>×{CONSISTENCY.prutkovRatio}</strong> выше.
-            Его книги собираются в два рыхлых сгустка — и это донской и советский <em>материал</em>, а не разные руки
-            (совпадение разбиений с материалом&nbsp;{RIGOR.cxAriDonskoy}). Тот же вывод, что по разбросу и отделимости.
+            ({CONSISTENCY.prutkov}) — в <strong style={{ color: "var(--editorial-accent)" }}>×{CONSISTENCY.prutkovRatio}</strong> выше.
+            Книги образуют две слабо разделённые группы, связанные с донским и советским
+            <em>материалом</em> (совпадение разбиений&nbsp;{RIGOR.cxAriDonskoy}).
+            Эта связь не устанавливает число авторов.
           </p>
 
           {/* Может ли тест поймать подделку вообще: контроли + скрытый позитив */}
@@ -560,30 +541,30 @@ export default function Sholokhov() {
               <strong style={{ color: "var(--text)" }}>ловит</strong>: единому автору не приписался ни один кусок
               ({MULTIHANDS.fakeDifferentCaught} → «свой»), различимость {fmtScore(MULTIHANDS.fakeDifferent, 3)}. Но склейка{" "}
               <strong style={{ color: "var(--text)" }}>похожих</strong> донских авторов (Крюков+Серафимович+Севский, {MULTIHANDS.fakeSimilar})
-              <strong style={{ color: "var(--cinnabar)" }}>не отделяется от одиночек в этой проверке</strong> — она даже ниже Шолохова
+              <strong style={{ color: "var(--editorial-accent)" }}>не отделяется от одиночек в этой проверке</strong> — она даже ниже Шолохова
               ({MULTIHANDS.sholokhovSep}). Это показывает ограничение поиска соавторов со сходной манерой.
             </p>
             <div className="split" style={{ alignItems: "start" }}>
               <div>
                 <p className="eyebrow" style={{ marginBottom: 4 }}>Чувствительность к добавлению Крюкова</p>
-                <p className="muted" style={{ fontSize: 12, margin: "0 0 10px" }}>
+                <p className="muted" style={{ fontSize: 16, margin: "0 0 10px" }}>
                   подмешиваем реального Крюкова к Шолохову → порог обнаружения ~{MULTIHANDS.hiddenPositive.flagThreshold}%; куда попадают реальные работы:
                 </p>
                 {MULTIHANDS.hiddenPositive.calib.map((c) => {
                   const over = c.pct >= MULTIHANDS.hiddenPositive.flagThreshold;
                   const near = c.pct >= 25;
                   return (
-                    <div key={c.g} style={{ display: "grid", gridTemplateColumns: "16ch 1fr 6ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                      <span style={{ fontSize: 12, color: near ? "var(--gold)" : "var(--text-muted)", fontWeight: near ? 700 : 400 }}>{c.g}</span>
+                    <div key={c.g} className="data-row" style={{ display: "grid", gridTemplateColumns: "16ch 1fr 6ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                      <span style={{ fontSize: 16, color: near ? "var(--gold)" : "var(--text-muted)", fontWeight: near ? 700 : 400 }}>{c.g}</span>
                       <span style={{ height: 9, borderRadius: 4, background: "var(--surface-sunken)", overflow: "hidden", position: "relative" }}>
                         <span style={{ display: "block", height: "100%", width: `${c.pct}%`, background: over ? "var(--cinnabar)" : near ? "var(--gold)" : "var(--text-muted)" }} />
                         <span style={{ position: "absolute", left: `${MULTIHANDS.hiddenPositive.flagThreshold}%`, top: -2, bottom: -2, width: 1, background: "var(--cinnabar)", opacity: 0.6 }} />
                       </span>
-                      <span className="mono" style={{ fontSize: 10, color: over ? "var(--cinnabar)" : "var(--text-muted)" }}>~{c.pct}%</span>
+                      <span className="mono" style={{ fontSize: 16, color: over ? "var(--cinnabar)" : "var(--text-muted)" }}>~{c.pct}%</span>
                     </div>
                   );
                 })}
-                <div className="mono muted" style={{ fontSize: 10, marginTop: 6 }}>
+                <div className="mono muted" style={{ fontSize: 16, marginTop: 6 }}>
                   ┊ красная черта — порог {MULTIHANDS.hiddenPositive.flagThreshold}%. «Война» (~{warPct}%) сидит ровно под ним.
                 </div>
               </div>
@@ -592,7 +573,7 @@ export default function Sholokhov() {
                 а не собраны в одну руку (война: Крюков ≈ Бунин ≈ Достоевский; «Тихий Дон» ведёт <em>Горький</em>, не донской).
                 Карта не выделяет один устойчивый внешний профиль. Но «война» (≈{warPct}%) — у самого порога, поэтому <em>частичный</em> вклад
                 стилистически <strong style={{ color: "var(--text)" }}>похожего</strong> донского соавтора в самые расходящиеся
-                работы метод исключить не может. <span className="mono muted" style={{ fontSize: 10 }}>(доля дрожит ±{MULTIHANDS.hiddenPositive.runNoise})</span>
+                работы метод исключить не может. <span className="mono muted" style={{ fontSize: 16 }}>(доля дрожит ±{MULTIHANDS.hiddenPositive.runNoise})</span>
               </p>
             </div>
           </div>
@@ -601,7 +582,7 @@ export default function Sholokhov() {
 
         {/* 5e. Поиск чистого от темы признака → dependency */}
         <div className="reveal module">
-          <h3>Тест №5 · Как уменьшить влияние тематической лексики</h3>
+          <h3 id="sholokhov-section-6">Тест №5 · Как уменьшить влияние тематической лексики</h3>
           <p className="prose muted" style={{ maxWidth: "74ch", marginBottom: 16 }}>
             Сравниваем, насколько каждая группа признаков различает авторов и насколько
             чувствительна к жанру. Для DSP — профиля словообразовательных суффиксов —
@@ -618,17 +599,17 @@ export default function Sholokhov() {
           </TestSummary>
           <div className="split" style={{ alignItems: "start" }}>
             <div>
-              <div className="mono muted" style={{ fontSize: 11, marginBottom: 8 }}>
+              <div className="mono muted" style={{ fontSize: 16, marginBottom: 8 }}>
                 по горизонтали: ◼ различает АВТОРА (выше — лучше) · ◻ путает с жанром поперёк чужих авторов (ниже — лучше)
               </div>
               {RIGOR.fa2.map((r) => (
-                <div key={r.feat} style={{ display: "grid", gridTemplateColumns: "15ch 1fr 4ch", alignItems: "center", gap: 8, padding: "2.5px 0" }}>
-                  <span style={{ fontSize: 11.5, color: r.idi > 0.45 ? "var(--text)" : "var(--text-muted)", fontWeight: r.idi > 0.45 ? 700 : 400 }}>{r.feat}</span>
+                <div key={r.feat} className="data-row" style={{ display: "grid", gridTemplateColumns: "15ch 1fr 4ch", alignItems: "center", gap: 8, padding: "2.5px 0" }}>
+                  <span style={{ fontSize: 16, color: r.idi > 0.45 ? "var(--text)" : "var(--text-muted)", fontWeight: r.idi > 0.45 ? 700 : 400 }}>{r.feat}</span>
                   <span style={{ position: "relative", height: 13, background: "var(--surface-sunken)", borderRadius: 3 }}>
                     <span style={{ position: "absolute", left: 0, top: 1, height: 5, width: `${r.author * 100}%`, background: r.idi > 0.45 ? "var(--icon-blue)" : "var(--text-muted)", borderRadius: 2 }} title={`автор ${r.author}`} />
                     <span style={{ position: "absolute", left: 0, bottom: 1, height: 5, width: `${r.genreXA * 100}%`, background: "var(--cinnabar)", opacity: 0.55, borderRadius: 2 }} title={`жанр ${r.genreXA}`} />
                   </span>
-                  <span className="mono" style={{ fontSize: 10.5, color: r.idi > 0.45 ? "var(--icon-blue)" : "var(--text-muted)" }}>+{fmtScore(r.idi)}</span>
+                  <span className="mono" style={{ fontSize: 16, color: r.idi > 0.45 ? "var(--icon-blue)" : "var(--text-muted)" }}>+{fmtScore(r.idi)}</span>
                 </div>
               ))}
               <p className="callout">
@@ -642,7 +623,7 @@ export default function Sholokhov() {
               </p>
             </div>
             <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-              <div className="mono muted" style={{ fontSize: 11 }}>
+              <div className="mono muted" style={{ fontSize: 16 }}>
                 «Тихий Дон» по синтаксису, частям речи и связям слов; ось построена на отложенных текстах:
               </div>
               {[
@@ -651,15 +632,15 @@ export default function Sholokhov() {
                 { a: "«Тихий Дон» (спорный)", v: RIGOR.caEnsTd, kind: "td" },
                 { a: "эталон: проза Крюкова", v: RIGOR.caEnsKrRef, kind: "kr" },
               ].map((r) => (
-                <div key={r.a} style={{ display: "grid", gridTemplateColumns: "1fr 4ch", alignItems: "center", gap: 8 }}>
+                <div key={r.a} className="data-row" style={{ display: "grid", gridTemplateColumns: "1fr 4ch", alignItems: "center", gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 12, color: r.kind === "td" ? "var(--text)" : "var(--text-muted)", fontWeight: r.kind === "td" ? 700 : 400, marginBottom: 3 }}>{r.a}</div>
+                    <div style={{ fontSize: 16, color: r.kind === "td" ? "var(--text)" : "var(--text-muted)", fontWeight: r.kind === "td" ? 700 : 400, marginBottom: 3 }}>{r.a}</div>
                     <span style={{ display: "block", height: 8, borderRadius: 4, background: "var(--surface-sunken)", position: "relative", overflow: "hidden" }}>
                       <span style={{ position: "absolute", left: `${RIGOR.caEnsMid * 100}%`, top: 0, bottom: 0, width: 1, background: "var(--cinnabar)" }} title="середина оси" />
                       <span style={{ display: "block", height: "100%", width: `${r.v * 100}%`, background: r.kind === "td" ? "var(--icon-blue)" : r.kind === "kr" ? "var(--cinnabar)" : r.kind === "sh" ? "var(--gold)" : "var(--border-strong)" }} />
                     </span>
                   </div>
-                  <span className="mono" style={{ fontSize: 11, color: r.kind === "td" ? "var(--icon-blue)" : "var(--text-muted)" }}>{fmtScore(r.v)}</span>
+                  <span className="mono" style={{ fontSize: 16, color: r.kind === "td" ? "var(--icon-blue)" : "var(--text-muted)" }}>{fmtScore(r.v)}</span>
                 </div>
               ))}
               <p className="callout" style={{ margin: 0 }}>
@@ -676,16 +657,16 @@ export default function Sholokhov() {
             В этом сравнении по синтаксису (жанр&nbsp;{fmtScore(RIGOR.fa2[0].genreXA)}), на
             расширенном корпусе — «Тихий Дон» <strong style={{ color: "var(--text)" }}>склоняется к Шолохову
             отчётливее</strong>, чем на любом другом признаке ({RIGOR.caEnsTd} на оси 0.10–0.94; усреднённый профиль:{" "}
-            {fmtPct(RIGOR.caEnsCentTdFracPos, 0)} пересчётов к Шолохову). Это укрепляет «за Шолохова» и ещё
+            {fmtPct(RIGOR.caEnsCentTdFracPos, 0)} пересчётов к Шолохову). Это поддерживает сходство с выбранным профилем Шолохова и ещё
             сильнее давит «Крюкова». Но по целым книгам, а их всего {RIGOR.bcTdNbooks}, разброс правдоподобных значений всё ещё{" "}
-            <strong style={{ color: "var(--cinnabar)" }}>включает 0</strong> (от {RIGOR.caEnsCentTdCiLo} до {RIGOR.caEnsCentTdCiHi}),
+            <strong style={{ color: "var(--editorial-accent)" }}>включает 0</strong> (от {RIGOR.caEnsCentTdCiLo} до {RIGOR.caEnsCentTdCiHi}),
             кн.4 — ничья, а на одних только синтаксических связях контроль «Целины» на грани. «Склоняется» — да; «доказано» — нет.
           </p>
         </div>
 
         {/* 5f. Рукопись: глубина авторской правки (палеография через VertexAI) */}
         <div className="reveal module">
-          <h3>Рукопись · глубина авторской правки</h3>
+          <h3 id="sholokhov-section-7">Рукопись · глубина авторской правки</h3>
           <p className="prose muted" style={{ maxWidth: "76ch", marginBottom: 12 }}>
             Отдельный скептический довод — не про стиль, а про <strong style={{ color: "var(--text)" }}>почерк</strong>:
             будто бы черновики «Тихого Дона» слишком чистые, как переписанные с чужого готового текста. Проверяем на
@@ -696,19 +677,19 @@ export default function Sholokhov() {
           </p>
           <div className="split" style={{ alignItems: "center" }}>
             <div>
-              <div className="mono muted" style={{ fontSize: 11, marginBottom: 8 }}>
+              <div className="mono muted" style={{ fontSize: 16, marginBottom: 8 }}>
                 средняя глубина правки (1 — почти чисто · 5 — сплошь переписано), случайные страницы:
               </div>
               {MS.rows.map((r) => (
-                <div key={r.name} style={{ display: "grid", gridTemplateColumns: "22ch 1fr 4ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                  <span style={{ fontSize: 12, color: r.isTarget ? "var(--text)" : "var(--text-muted)", fontWeight: r.isTarget ? 700 : 400 }}>
+                <div key={r.name} className="data-row" style={{ display: "grid", gridTemplateColumns: "22ch 1fr 4ch", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                  <span style={{ fontSize: 16, color: r.isTarget ? "var(--text)" : "var(--text-muted)", fontWeight: r.isTarget ? 700 : 400 }}>
                     {r.name} <span className="mono muted" style={{ fontWeight: 400 }}>n={r.n}</span>
                   </span>
                   <MeterBar value={r.mean} max={5} accent={r.isTarget ? "var(--icon-blue)" : "var(--gold)"} />
-                  <span className="mono" style={{ fontSize: 11, color: r.isTarget ? "var(--icon-blue)" : "var(--text-muted)" }}>{r.mean}</span>
+                  <span className="mono" style={{ fontSize: 16, color: r.isTarget ? "var(--icon-blue)" : "var(--text-muted)" }}>{r.mean}</span>
                 </div>
               ))}
-              <p className="mono muted" style={{ fontSize: 10.5, marginTop: 8 }}>
+              <p className="mono muted" style={{ fontSize: 16, marginTop: 8 }}>
                 доля страниц со «структурной» переработкой: {MS.rows.map((r) => `${r.name.split(" ")[0]} ${fmtPct(r.structFrac, 0)}`).join(" · ")}
               </p>
             </div>
@@ -728,7 +709,7 @@ export default function Sholokhov() {
               </p>
             </div>
           </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 12, maxWidth: "82ch" }}>
+          <p className="muted" style={{ fontSize: 16, marginTop: 12, maxWidth: "82ch" }}>
             Оговорки: оценка 1–5 грубая и субъективная (модель зрения, не текстолог); по {msPagesMin}–{msPagesMax} страниц на
             автора, по одному-двум произведениям; наборы контролей смещены (у Достоевского взяты страницы с набросками → доля «схем»
             завышена). Это наблюдение про <em>потолок</em> правки, а не вывод об авторстве.
@@ -737,18 +718,18 @@ export default function Sholokhov() {
 
         {/* 6. Вердикт */}
         <div className="reveal module">
-          <h3>Вердикт</h3>
+          <h3 id="sholokhov-section-8">Вердикт</h3>
           <div className="split" style={{ alignItems: "start" }}>
             <div className="prose">
               <p className="callout" style={{ marginTop: 0 }}>
-                В этих сравнениях «Тихий Дон» <strong style={{ color: "var(--gold)" }}>чаще ближе к профилю Шолохова</strong>.
+                В этих сравнениях «Тихий Дон» <strong style={{ color: "var(--gold-ink)" }}>чаще ближе к профилю Шолохова</strong>.
                 Ответ зависит от опорных произведений и признаков. Данные позволяют сравнить
                 выбранные профили, но авторские метки ранних рассказов остаются предпосылкой.
               </p>
               <p className="verdict">
                 <strong style={{ color: "var(--text)" }}>Проверка с одновременным исключением целевых произведений.</strong>{" "}
                 Проверка по целым книгам, где все спорные тома и донские контроли разом вынуты из обучения (опора — лишь
-                оставшиеся работы с корпусной меткой «Шолохов»), относит <strong style={{ color: "var(--success)" }}>{RIGOR.loboTd.tdAttrib} тома → Шолохову</strong>{" "}
+                оставшиеся работы с корпусной меткой «Шолохов»), относит <strong style={{ color: "var(--editorial-positive)" }}>{RIGOR.loboTd.tdAttrib} тома → Шолохову</strong>{" "}
                 при отсутствии ложных срабатываний на проверенных донских контролях. Это исключает утечку самих проверяемых
                 произведений, но не замкнутость эталона по меткам опорных текстов. Против «много рук» — попарная проверка авторства
                 против {MULTIHANDS.avMultiHand.nPos} смесей под чужими именами: корпус Шолохова близок к контрольным одиночкам по этой оценке
@@ -758,13 +739,13 @@ export default function Sholokhov() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, margin: "6px 0 4px" }}>
                 {RIGOR.loboTd.gradient.map((g) => (
                   <div key={g.book} style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 3 }}>{g.book}</div>
+                    <div style={{ fontSize: 16, color: "var(--text-muted)", marginBottom: 3 }}>{g.book}</div>
                     <MeterBar value={g.ff} accent={g.ff < 0.1 ? "var(--success)" : g.ff < 0.3 ? "var(--gold)" : "var(--cinnabar)"} />
-                    <div className="mono" style={{ fontSize: 11, marginTop: 3, color: "var(--text)" }}>{fmtPct(g.ff, 0)}</div>
+                    <div className="mono" style={{ fontSize: 16, marginTop: 3, color: "var(--text)" }}>{fmtPct(g.ff, 0)}</div>
                   </div>
                 ))}
               </div>
-              <p className="muted" style={{ fontSize: 12.5, marginTop: 0 }}>
+              <p className="muted" style={{ fontSize: 16, marginTop: 0 }}>
                 «Чужая» доля первого тома ({RIGOR.loboTd.gradient[0].ff}) значимо выше фона (p&nbsp;{fmtP(RIGOR.loboTd.td1PermP)},
                 блоками соседних отрывков p&nbsp;{fmtP(RIGOR.tdLoboBlockP)}); донские контроли дают ноль ложных срабатываний
                 ({RIGOR.loboTd.donFpr}). Спад к четвёртому тому ({RIGOR.loboTd.gradient[0].ff}&nbsp;→&nbsp;{RIGOR.loboTd.gradient[3].ff}) —
@@ -774,35 +755,35 @@ export default function Sholokhov() {
               <p>
                 <strong style={{ color: "var(--text)" }}>Где проходит граница.</strong> По целым книгам, а их всего{" "}
                 {RIGOR.bcTdNbooks}, разброс правдоподобных значений перевеса (от {RIGOR.bcTdCiLo} до {RIGOR.bcTdCiHi}){" "}
-                <strong style={{ color: "var(--cinnabar)" }}>включает 0</strong> — формально неотличимо от ничьей
+                <strong style={{ color: "var(--editorial-accent)" }}>включает 0</strong> — формально неотличимо от ничьей
                 ({fmtPct(RIGOR.bcTdFracPos, 0)} пересчётов к Шолохову). Самая строгая проверка при выровненном жанре и вовсе
                 даёт почти ничью ({RIGOR.gmlrTdShFull} vs {RIGOR.gmlrTdKrFull}), а «Поднятую целину» относит
-                к Крюкову ({RIGOR.gmlrPcKrFull}). Доказать авторство нельзя: эталон = сам Шолохов (частично замкнутый круг),
-                а автора и редактора изнутри не разделить. Авторство <strong style={{ color: "var(--text)" }}>не доказано</strong> —
-                куда именно упираются границы, ниже.
+                к Крюкову ({RIGOR.gmlrPcKrFull}). Эти результаты зависят от авторских меток опорных произведений.
+                Внутренние сравнения также не разделяют автора и редактора; ниже перечислены
+                условия, ограничивающие исторический вывод.
               </p>
               <details style={{ margin: "8px 0 4px" }}>
-                <summary style={{ cursor: "pointer", color: "var(--icon-blue)", fontSize: 13.5, fontWeight: 600 }}>
-                  Открытые пределы и прежние работы (подробно)
+                <summary style={{ cursor: "pointer", color: "var(--icon-blue)", fontSize: 16, fontWeight: 600 }}>
+                  Условия интерпретации и исследовательский контекст
                 </summary>
               <p className="muted" style={{ marginTop: 12 }}>
                 Чего утверждать <em>нельзя</em> — открытые пределы:
               </p>
               <ul className="muted" style={{ lineHeight: 1.6, paddingLeft: "1.1em" }}>
-                <li><strong style={{ color: "var(--text)" }}>Два объяснения не разделить (зазор сужен, но не снят):</strong> «Шолохов
+                <li><strong style={{ color: "var(--text)" }}>Автор и редактор:</strong> «Шолохов
                   писал сам» и «единый редактор переработал чужой материал» внутренними тестами на цельность
                   <em>неразличимы</em>. В отдельном сравнении профиль{" "}
                   <strong style={{ color: "var(--text)" }}>Серафимовича</strong> не оказывается
                   <strong style={{ color: "var(--text)" }}>ближайшим</strong> — ТД ближе к ранним рассказам Шолохова
                   ({RIGOR.serafEdShDon}), чем к Серафимовичу ({RIGOR.serafEdSeraf}) или Крюкову ({RIGOR.serafEdKrukov}).
                   Это сравнение профилей не измеряет объём или характер редакторского участия.</li>
-                <li><strong style={{ color: "var(--text)" }}>Примесь жанра (ослаблена, не устранена):</strong> у
+                <li><strong style={{ color: "var(--text)" }}>Влияние жанра:</strong> у
                   признаков по словам военная и сельская проза различается у разных авторов с оценкой&nbsp;{RIGOR.crossGenreAuc}.
-                  На расширенном корпусе устойчивый к теме признак — это{" "}
+                  В сравнении групп признаков меньшая чувствительность к жанру наблюдается у{" "}
                   <strong style={{ color: "var(--icon-blue)" }}>синтаксические связи</strong> (Тест&nbsp;№5: автор&nbsp;{fmtScore(RIGOR.fa2[0].author)},
                   жанр&nbsp;{fmtScore(RIGOR.fa2[0].genreXA)}). На нём ТД склоняется к Шолохову. Но и он не идеален ({fmtScore(RIGOR.fa2[0].genreXA)}&nbsp;≠&nbsp;0), а{" "}
                   DSP на расширенном наборе — <em>среди худших</em>: ограничение лексических признаков снижает здесь качество.</li>
-                <li><strong style={{ color: "var(--cinnabar)" }}>Замкнутый круг с эталоном (важно):</strong> ТД ближе
+                <li><strong style={{ color: "var(--editorial-accent)" }}>Замкнутый круг с эталоном (важно):</strong> ТД ближе
                   всего к <em>ранним донским рассказам</em> Шолохова (1924–26) — но именно этот период входит в спорную зону.
                   Дополнительный вариант: обучаем на <em>поздней</em> прозе (война+ПЦ-2, 1942–69) против Крюкова и проецируем.
                   Результат <em>смешанный</em>: поздний Шолохов узнаёт ТД ({RIGOR.circTd}) <em>примерно как
@@ -839,14 +820,14 @@ export default function Sholokhov() {
               </p>
               </details>
               <p className="verdict">
-                Итог: эти сравнения <strong style={{ color: "var(--gold)" }}>совместимы</strong> с авторством Шолохова
+                Итог: эти сравнения <strong style={{ color: "var(--gold-ink)" }}>совместимы</strong> с авторством Шолохова
                 при принятых метках опорных произведений. Но превратить это в «доказано» анализ стиля
                 не может — и здесь такой вывод не делается.
               </p>
             </div>
             <div style={{ display: "grid", placeItems: "center", gap: 14 }}>
               <AnomalyGlyph kind="relation_mismatch" size={52} />
-              <span className="muted mono" style={{ fontSize: 12.5, textAlign: "center", maxWidth: "26ch" }}>
+              <span className="muted mono" style={{ fontSize: 16, textAlign: "center", maxWidth: "26ch" }}>
                 «один автор» и «один редактор»<br />изнутри неразличимы
               </span>
             </div>
@@ -859,14 +840,14 @@ export default function Sholokhov() {
             { cite: "Н. П. Великанова, Б. В. Орехов (2019). «Цифровая текстология: атрибуция текста на примере романа М. А. Шолохова “Тихий Дон”»", url: "https://publications.hse.ru/pubs/share/direct/314793949.pdf" },
             { cite: "К. А. Маслинский (2022). «Уточненная цифровая текстология: еще раз к вопросу об авторстве романа “Тихий Дон”» — повторный анализ опубликованных данных", url: "https://ruslitras.ru/index.php?dispatch=products.print_publication&format=pdf&product_id=95733&version_id=93851" },
           ]}
-          note="Эти работы дают контекст задачи и методических вопросов. Собственные показатели Stylo ниже привязаны к сохранённым артефактам проекта; результаты внешних исследований в них не подставляются."
+          note="Эти работы описывают задачу и методы сравнения. Графики Stylo используют отдельные агрегаты перечисленных ниже протоколов."
         />
         <Sources
           label="Материалы и источники графиков Stylo"
           items={[
             { cite: "Черновой автограф «Тихого Дона» — отдел рукописей ИМЛИ РАН (по материалам ФЭБ)", url: "http://feb-web.ru/feb/sholokh/" },
             { cite: "Проза кандидатов (Крюков, Серафимович и др.), военная и сельская проза — открытые публикации az.lib.ru; используется локально для расчётов и не распространяется", url: "http://az.lib.ru/" },
-            { cite: "Покнижные сравнения, тема и дополнительные проверки — docs/sholokhov_lobo.json, docs/sholokhov_thematic.json и сохранённые docs/sholokhov_rigor*.json; полная привязка полей — site/src/generated/manifest.json" },
+            { cite: "Покнижные сравнения, тема и дополнительные проверки — docs/sholokhov_lobo.json, docs/sholokhov_thematic.json и docs/sholokhov_rigor*.json; полная привязка полей — site/src/generated/manifest.json" },
             { cite: "Смеси авторов и модельная оценка рукописи — docs/sholokhov_multihand.json, docs/hidden_positive.json, docs/multiple_hands.json, docs/sholokhov_manuscript.json" },
           ]}
           note="Палеографическая оценка правки рукописи — мультимодальной моделью Gemini 3.1 Pro через VertexAI."

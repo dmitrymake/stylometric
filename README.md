@@ -4,7 +4,7 @@ Stylo сравнивает авторскую манеру русской про
 последовательности языковых признаков. Он оценивает методы на отложенных произведениях
 и строит отдельный отчёт для выбранной книги.
 
-[Статья](https://stylometry.russkiykod.com/) · [Методика](docs/runbooks/stylometry.md) · [План](research/ROADMAP.md)
+[Статья](https://stylometry.russkiykod.com/) · [Методика](docs/runbooks/stylometry.md) · [Черновик научной статьи](docs/runbooks/manuscript.md) · [План](research/ROADMAP.md)
 
 ## Установка
 
@@ -85,9 +85,13 @@ paths:
 и нормировку частот. Это качество распознавания известных авторов на данной проверке, а не результат
 атрибуции «Двенадцати стульев» или «Тихого Дона». [Источник и условия](research/evidence/topic_validity_lobo_v1/aggregate.json).
 
-Прежние расчёты на исходном корпусе сохранены как исторические: в нём были пересечения содержания,
-интервал macro-F1 отозван. [Регистрация корпуса](research/evidence/ineligible_corpus_registrations_v1.json),
-[пояснение к интервалу](docs/macro_f1_ci_withdrawal.json), [статус измерений](research/governance/status_ledger.json).
+Парные ответы и средняя полнота по авторским меткам описаны в
+[сводке результатов](research/evidence/topic_validity_lobo_v1/paired_summary.json).
+Условия оценки, первичная литература и необходимые внешние проверки — в
+[материалах для научной статьи](docs/runbooks/publication-methods.md).
+Применимость остальных артефактов определяется их составом корпуса и протоколом:
+[регистрация корпусов](research/evidence/ineligible_corpus_registrations_v1.json),
+[статус измерений](research/governance/status_ledger.json).
 
 ## Разработка
 

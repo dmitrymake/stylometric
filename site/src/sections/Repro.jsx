@@ -1,4 +1,4 @@
-import { Card, CodeBlock } from "@dmitrymake/rk-ui";
+import { EditorialPanel, CodeBlock } from "@dmitrymake/rk-ui";
 
 const NOTES = [
   {
@@ -23,12 +23,12 @@ export default function Repro() {
     <section className="section" id="repro">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Работа с программой</p>
+          <p className="eyebrow">05 / Работа с программой</p>
           <h2>Как запустить своё сравнение</h2>
           <p className="prose lead muted">
             Для собственного отчёта нужны эталонные произведения, список кандидатов и
             явно выбранный исследуемый текст. Синтетический пример позволяет проверить
-            этот путь без литературного корпуса. Повторение завершённого замера качества
+            этот путь без литературного корпуса. Повторение измерения качества
             требует отдельно восстановить его исходные данные и условия.
           </p>
         </div>
@@ -54,7 +54,7 @@ uv pip install --constraint requirements.lock -e ".[dev]"
           </CodeBlock>
           <p className="prose muted">
             Генератор создаёт оригинальные синтетические тексты вымышленных авторов и
-            исследуемые цели. Каталог должен быть новым: существующие файлы не
+            исследуемые цели. Каталог должен быть пустым: существующие файлы не
             перезаписываются. Этот запуск проверяет работу программы, а не точность на литературе.
           </p>
         </div>
@@ -88,10 +88,10 @@ paths:
 
         <div className="grid cols-3 module reveal">
           {NOTES.map((note) => (
-            <Card key={note.title} padding={22} style={{ borderTop: `3px solid ${note.accent}` }}>
+            <EditorialPanel key={note.title} style={{ borderTop: `3px solid ${note.accent}` }}>
               <h3 style={{ margin: "0 0 8px", fontSize: "1.2rem", color: note.accent }}>{note.title}</h3>
-              <p className="prose muted" style={{ margin: 0, fontSize: 14.5 }}>{note.body}</p>
-            </Card>
+              <p className="prose muted" style={{ margin: 0, fontSize: 17 }}>{note.body}</p>
+            </EditorialPanel>
           ))}
         </div>
 
@@ -104,9 +104,9 @@ paths:
             Загрузка другой подборки классики или запуск своего analyze создают другое сравнение.
           </p>
           <p className="note">
-            Исторические записи точных сверок сохранены в docs/repro_gates.json.
-            Они описывают выполненные проверки прежних расчётов, а не гарантируют
-            совпадение любого будущего запуска. Подробные команды и устройство программы — в README.
+            Артефакт docs/repro_gates.json содержит результаты точных сверок для
+            перечисленных в нём корпусов, настроек и окружений. Для другого запуска
+            совпадение требуется проверять отдельно. Подробные команды и устройство программы — в README.
           </p>
         </div>
       </div>

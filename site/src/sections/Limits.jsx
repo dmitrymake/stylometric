@@ -1,4 +1,4 @@
-import { Card, Badge } from "@dmitrymake/rk-ui";
+import { EditorialPanel, Badge } from "@dmitrymake/rk-ui";
 import MeterBar from "../components/MeterBar.jsx";
 import { fmtScore, fmtP } from "../format.js";
 import { LIMITS } from "../segdata.js";
@@ -53,10 +53,10 @@ function Row({ label, value, sub, color = "var(--text)" }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "baseline", borderTop: "1px solid color-mix(in srgb, var(--line) 40%, transparent)", paddingTop: 8 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{label}</div>
-        {sub && <div style={{ fontSize: 11.5, color: "var(--text-muted)", opacity: 0.78, marginTop: 2 }}>{sub}</div>}
+        <div style={{ fontSize: 16, color: "var(--text-muted)" }}>{label}</div>
+        {sub && <div style={{ fontSize: 16, color: "var(--text-muted)", opacity: 0.78, marginTop: 2 }}>{sub}</div>}
       </div>
-      <div className="mono" style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", color }}>{value}</div>
+      <div className="mono" style={{ fontSize: 17, fontWeight: 600, whiteSpace: "nowrap", color }}>{value}</div>
     </div>
   );
 }
@@ -69,14 +69,14 @@ function MacroHead({ value, accent }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>средняя по классам доля правильно опознанных работ</span>
-        <span className="mono" style={{ fontSize: 15, fontWeight: 700, color }}>{sc(value)} · {at ? "ровно рабочий порог" : above ? "выше рабочего порога" : "ниже рабочего порога"}</span>
+        <span style={{ fontSize: 16, color: "var(--text-muted)" }}>средняя по классам доля правильно опознанных работ</span>
+        <span className="mono" style={{ fontSize: 17, fontWeight: 700, color }}>{sc(value)} · {at ? "ровно рабочий порог" : above ? "выше рабочего порога" : "ниже рабочего порога"}</span>
       </div>
       <div style={{ position: "relative" }}>
         <MeterBar value={value} max={1} accent={accent} />
         <span title={`рабочий порог ${fmtScore(T)}`} style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
       </div>
-      <div className="mono" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>0 — ни одной правильно опознанной работы · {fmtScore(T)} — рабочий порог этой карты · 1 — все работы опознаны правильно</div>
+      <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)", marginTop: 4 }}>0 — ни одной правильно опознанной работы · {fmtScore(T)} — рабочий порог этой карты · 1 — все работы опознаны правильно</div>
     </div>
   );
 }
@@ -92,9 +92,12 @@ export default function Limits() {
           <p className="eyebrow">Границы метода</p>
           <h2>Что показывают контрольные панели</h2>
           <p className="prose lead muted">
-            У каждой контрольной панели заранее записан гейт выполнимости из двух условий: средняя по классам
-            доля правильно опознанных работ не ниже {fmtScore(T)} и проверка на случайность (перестановка ярлыков)
-            на уровне работ с p ≤ {P_GATE}. Обязательны оба. Гейт говорит о панели, а не об отдельном спорном тексте внутри неё.
+            Контрольная панель должна различать известных авторов до интерпретации
+            спорного текста. Здесь приняты два условия: средняя по авторским классам
+            доля верно распознанных произведений не ниже {fmtScore(T)} и перестановочная
+            проверка на уровне работ с p ≤ {P_GATE}. Перестановка меняет авторские метки
+            и показывает, насколько результат отличается от случайного распределения.
+            Обязательны оба условия. Карта использует собственные литературные подборки.
           </p>
         </div>
 
@@ -113,17 +116,17 @@ export default function Limits() {
           <div style={{ display: "grid", gap: 18, marginTop: "var(--beat-group)" }}>
             {LIMITS.metric.map((m) => (
               <div key={m.id} style={{ display: "grid", gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
-                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center" }}>
-                  <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>по работам · метрика гейта</span>
+                <span style={{ fontSize: 17, fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(20px, .5fr) auto", gap: 10, alignItems: "center" }}>
+                  <span style={{ fontSize: 16, color: "var(--text-muted)" }}>по работам · контрольная метрика</span>
                   <div style={{ position: "relative" }}>
                     <MeterBar value={m.work} max={1} accent={ACCENT[m.id] || "var(--icon-blue)"} />
                     <span style={{ position: "absolute", left: `${T * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--cinnabar)" }} />
                   </div>
-                  <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: m.work > T ? "var(--success)" : "var(--text)", whiteSpace: "nowrap" }}>{sc(m.work)}</span>
-                  <span style={{ fontSize: 12.5, color: "var(--text-muted)", whiteSpace: "nowrap" }}>по кускам · диагностика</span>
+                  <span className="mono" style={{ fontSize: 16, fontWeight: 700, color: m.work > T ? "var(--success)" : "var(--text)", whiteSpace: "nowrap" }}>{sc(m.work)}</span>
+                  <span style={{ fontSize: 16, color: "var(--text-muted)" }}>по кускам · диагностика</span>
                   <MeterBar value={m.chunk} max={1} accent="color-mix(in srgb, var(--text-muted) 55%, transparent)" />
-                  <span className="mono" style={{ fontSize: 13, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{sc(m.chunk)}</span>
+                  <span className="mono" style={{ fontSize: 16, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{sc(m.chunk)}</span>
                 </div>
               </div>
             ))}
@@ -131,7 +134,7 @@ export default function Limits() {
 
           {sovr && (
             <p className="callout reveal" style={{ marginTop: "var(--beat-group)" }}>
-              У «Современника» метрика гейта по работам — {sc(sovr.work)}, диагностика по кускам — {sc(sovr.chunk)}. Корпус один: расходятся единицы счёта. К условиям гейта диагностическое значение не применяется.
+              У «Современника» контрольная метрика по работам — {sc(sovr.work)}, диагностика по кускам — {sc(sovr.chunk)}. Корпус один: расходятся единицы счёта. К условиям гейта диагностическое значение не применяется.
             </p>
           )}
         </div>
@@ -140,20 +143,20 @@ export default function Limits() {
         <div className="module reveal">
           <h3>Опорные примеры протокола</h3>
           <div className="split" style={{ alignItems: "start", marginTop: "var(--beat-group)" }}>
-            <Card padding={24}>
+            <EditorialPanel>
               <div style={{ display: "grid", gap: 20 }}>
                 {[{ tag: "разные эпоха и регистр", accent: "var(--gold)", ...cal.easy }, { tag: "тот же регистр и эпоха", accent: "var(--icon-blue)", ...cal.medium }].map((r) => (
                   <div key={r.tag} style={{ display: "grid", gap: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: r.accent }}>{r.tag}</span>
-                      <span className="mono" style={{ fontSize: 13, color: "var(--success)" }}>доля {raw(r.macro)}</span>
+                      <span style={{ fontSize: 16, fontWeight: 600, color: r.accent }}>{r.tag}</span>
+                      <span className="mono" style={{ fontSize: 16, color: "var(--editorial-positive)" }}>доля {raw(r.macro)}</span>
                     </div>
                     <MeterBar value={r.macro} max={1} accent={r.accent} />
-                    <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)" }}>косинус профилей {raw(r.cos)}</div>
+                    <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)" }}>косинус профилей {raw(r.cos)}</div>
                   </div>
                 ))}
               </div>
-            </Card>
+            </EditorialPanel>
             <p className="prose muted" style={{ margin: 0 }}>
               Две пары известных авторов, прогнанные тем же протоколом, — опорные примеры этого протокола, а не
               универсальная шкала и не источник рабочего порога. Косинус показывает, насколько совпадает направление
@@ -165,10 +168,10 @@ export default function Limits() {
 
         {/* ──────────────── карта: панель проходит гейт ──────────────── */}
         <div className="reveal">
-          <h3>Где контрольная панель проходит гейт</h3>
+          <h3>Панели, различающие известных авторов</h3>
           <p className="prose muted">
             Обе панели выполняют оба условия сразу. Это значит, что панель различает заданные классы
-            на этой закрытой панели, — и ничего не говорит о спорном тексте внутри неё.
+            в заданном составе кандидатов. Интерпретация спорного текста требует отдельного сравнения.
           </p>
         </div>
         <div className="grid cols-2 reveal" style={{ marginTop: "var(--beat-group)" }}>
@@ -176,29 +179,29 @@ export default function Limits() {
             const accent = ACCENT[c.id] || "var(--text-muted)";
             const pass = gatePass(c.macro, c.perm);
             return (
-              <Card key={c.id} padding={24}>
+              <EditorialPanel key={c.id}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 22, height: 2, background: accent }} />
                     <Badge className="case-badge" tone={pass ? "success" : "warning"}>{pass ? "панель проходит проверку" : "гейт не пройден"}</Badge>
                   </div>
                   <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
-                  <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
+                  <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
                   <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
                     <MacroHead value={c.macro} accent={accent} />
                     {c.perm != null && <Row label="проверка на случайность (перестановка ярлыков)" value={pLabel(c.perm)} sub={gateNote(c.macro, c.perm)} color={permColor(c.perm)} />}
                     {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="ближе к 1 — ближе направление усреднённых профилей" />}
                   </div>
-                  <p className="note" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
+                  <p className="note" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
                 </div>
-              </Card>
+              </EditorialPanel>
             );
           })}
         </div>
 
         {/* ──────────────── карта: панель не проходит гейт ──────────────── */}
         <div className="reveal">
-          <h3>Где контрольная панель не проходит гейт</h3>
+          <h3>Панели с недостаточным разделением</h3>
           <p className="prose muted">
             Здесь нарушено хотя бы одно из двух условий. На карточках показано, какое именно и с какими
             значениями. Непройденный гейт — это состояние проверки, а не вывод об авторстве.
@@ -208,14 +211,14 @@ export default function Limits() {
           {LIMITS.limitsCases.map((c) => {
             const accent = ACCENT[c.id] || "var(--text-muted)";
             return (
-              <Card key={c.id} padding={24}>
+              <EditorialPanel key={c.id}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="case-kicker" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ width: 22, height: 2, background: accent }} />
                     <Badge className="case-badge" tone="warning">гейт не пройден · {GATE_MISS[c.id]}</Badge>
                   </div>
                   <h4 style={{ margin: 0, color: "var(--text)", fontSize: "1.12rem" }}>{c.title}</h4>
-                  <div className="mono" style={{ fontSize: 11.5, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
+                  <div className="mono" style={{ fontSize: 16, color: "var(--text-muted)", lineHeight: 1.5 }}>круг кандидатов: {c.candidates}</div>
                   <div style={{ display: "grid", gap: 8, marginTop: 2 }}>
                     {/* две группы признаков — две дорожки, вклад автора и темы не разделён */}
                     {c.fwMacro != null && <Row label="по служебным словам" value={sc(c.fwMacro)} sub="ниже рабочего порога" color="var(--cinnabar)" />}
@@ -226,9 +229,9 @@ export default function Limits() {
                     {c.perm != null && <Row label="проверка на случайность (перестановка ярлыков)" value={pLabel(c.perm)} sub={gateNote(c.macro, c.perm)} color={permColor(c.perm)} />}
                     {c.cos != null && <Row label="косинус профилей" value={fmtScore(c.cos, 3)} sub="ближе к 1 — ближе направление усреднённых профилей" />}
                   </div>
-                  <p className="note" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
+                  <p className="note" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{NOTE[c.id]}</p>
                 </div>
-              </Card>
+              </EditorialPanel>
             );
           })}
         </div>

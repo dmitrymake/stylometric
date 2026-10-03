@@ -13,7 +13,7 @@ export default function AuthorshipTimeline({ timeline, host, colorMap, segments 
         role="img"
         aria-label={`Карта авторства: ${host} и кандидаты по ходу текста`}
         style={{
-          position: "relative", height, borderRadius: "var(--radius-sm, 8px)",
+          position: "relative", height, borderRadius: 0,
           overflow: "hidden", border: "1px solid var(--border)",
           background: "var(--surface-sunken)", display: "flex",
         }}
@@ -37,19 +37,19 @@ export default function AuthorshipTimeline({ timeline, host, colorMap, segments 
             style={{
               position: "absolute", bottom: 0, height: 6,
               left: `${(start / n) * 100}%`, width: `${((end - start + 1) / n) * 100}%`,
-              background: colorOf(name), boxShadow: "0 0 8px " + colorOf(name),
+              background: colorOf(name), boxShadow: "none",
             }}
           />
         ))}
       </div>
       {/* ось */}
-      <div className="mono" style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 11, marginTop: 6 }}>
+      <div className="mono" style={{ display: "flex", justifyContent: "space-between", color: "var(--text-muted)", fontSize: 16, marginTop: 6 }}>
         <span>начало книги</span><span>середина</span><span>конец</span>
       </div>
       {/* легенда */}
       <div style={{ display: "flex", gap: 16, marginTop: 10, flexWrap: "wrap" }}>
         {Object.entries(colorMap).map(([name, color]) => (
-          <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13 }}>
+          <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 16 }}>
             <span style={{ width: 12, height: 12, borderRadius: 3, background: color, display: "inline-block" }} />
             <span style={{ color: name === host ? "var(--text)" : "var(--text-muted)" }}>
               {name}{name === host ? " · основной" : ""}
@@ -57,7 +57,7 @@ export default function AuthorshipTimeline({ timeline, host, colorMap, segments 
           </span>
         ))}
       </div>
-      {caption && <figcaption className="muted" style={{ fontSize: 13, marginTop: 8, maxWidth: "60ch" }}>{caption}</figcaption>}
+      {caption && <figcaption className="muted" style={{ fontSize: 16, marginTop: 8, maxWidth: "60ch" }}>{caption}</figcaption>}
     </figure>
   );
 }

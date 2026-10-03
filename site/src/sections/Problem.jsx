@@ -1,4 +1,4 @@
-import { Card } from "@dmitrymake/rk-ui";
+import { EditorialPanel } from "@dmitrymake/rk-ui";
 
 const TASKS = [
   {
@@ -20,7 +20,7 @@ export default function Problem() {
     <section className="section" id="problem">
       <div className="wrap flow">
         <div className="section-head reveal">
-          <p className="eyebrow">Постановка задачи</p>
+          <p className="eyebrow">01 / Постановка задачи</p>
           <h2>Целая книга и отдельный участок</h2>
           <p className="prose lead muted">
             Версия о полном авторстве и версия о небольшой вставке требуют разных
@@ -29,13 +29,13 @@ export default function Problem() {
             произведений, с которыми сравнивают текст.
           </p>
         </div>
-        <div className="grid cols-2 reveal">
+        <div className="task-comparison">
           {TASKS.map((task) => (
-            <Card key={task.title} padding={24}>
-              <h3 style={{ color: task.accent }}>{task.title}</h3>
+            <EditorialPanel key={task.title}>
+              <h3>{task.title}</h3>
               <p className="muted">{task.body}</p>
               <p className="note">{task.question}</p>
-            </Card>
+            </EditorialPanel>
           ))}
         </div>
         <p className="prose reveal">
