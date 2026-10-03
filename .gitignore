@@ -34,22 +34,6 @@ docs/*
 !docs/cases/
 !docs/cases/*.json
 !docs/.gitkeep
-# Canonical Agentic Engineering workflow paths. Keep every other docs/* path
-# closed unless an existing project-specific rule below exposes it.
-!docs/agentic/
-!docs/agentic/**
-!docs/tasks/
-!docs/tasks/**
-!docs/adr/
-!docs/adr/**
-!docs/domains/
-!docs/domains/**
-!docs/runbooks/
-!docs/runbooks/**
-!docs/handoff/
-!docs/handoff/**
-# предрегистрация кампании: публичное обязательство до прогонов
-!docs/prereg_2026Q3.md
 # внутренние рабочие материалы и process-history: НЕ для публичного репо
 research/local/
 docs/cases/HANDOFF.md
@@ -58,15 +42,13 @@ docs/cases/autoscreen2/
 docs/cases/petersburg_hardened/
 scripts/build_petersburg_chronicle_manifest.py
 scripts/build_petersburg_panel.py
-# ranking.json — генерируемый машинный индекс, публичное резюме находится в Taras README
+# ranking.json — генерируемый машинный индекс
 docs/cases/taras_hardened/reports/ranking.json
 # результаты LOBO-прогона: per-book отчёт + форматированная таблица (воспроизводимость/инспекция)
 !docs/lobo_books.txt
 !docs/final_comparison.txt
-# CI-sign erratum: corrected .txt/leaderboard derivatives are part of the release inventory
+# CI-sign erratum: corrected text derivatives remain machine-checkable inputs
 !docs/final_comparison.v2.txt
-!docs/ruaa_bench_leaderboard.md
-!docs/ruaa_bench_leaderboard_v1.0.1.md
 
 # Belt-and-suspenders: never commit pickled models / numpy dumps anywhere.
 *.pkl
@@ -129,4 +111,11 @@ docs/popular_article_outline.md
 scripts/gen-paper.mjs
 scripts/check-paper-numbers.mjs
 
-# локальные планы и handoff-история живут только под purpose-based research/local/
+
+# Local drafts, plans, handoffs, reviews and generated working artifacts.
+/local/
+
+# Markdown work artifacts stay local; only project entry instructions are versioned.
+*.md
+!/README.md
+!/AGENTS.md

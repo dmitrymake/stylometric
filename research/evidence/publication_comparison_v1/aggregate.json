@@ -1,0 +1,969 @@
+{
+  "catalog_sha256": "5240cfae8ed2872606a17840bd9b2215fa18baec677d5c076f37d4f046e51ae7",
+  "design": {
+    "arms": [
+      "stylo_A0_current",
+      "stylo_A4_current",
+      "stylo_A4_current_mass_control",
+      "stylo_A0_topic_strict",
+      "stylo_A4_topic_strict",
+      "delta_300",
+      "cosine_delta_300",
+      "char_tfidf_lr"
+    ],
+    "development": "whole-work LOBO",
+    "effective_config": {
+      "chunking": {
+        "chunk_size": 500,
+        "min_words": 200,
+        "overlap": 0.0,
+        "sentence_aware": true
+      },
+      "corpus_policy": {
+        "exclude_from_benchmark": [
+          "ilf-petrov",
+          "nikolas2",
+          "sholohov"
+        ],
+        "flag_collaborative": [
+          "ilf-petrov"
+        ],
+        "min_books_per_author": 2,
+        "min_words_per_book": 500,
+        "unknown_dir_name": "unknown"
+      },
+      "delta": {
+        "metric": "manhattan",
+        "mfw_sizes": [
+          150,
+          300,
+          500
+        ]
+      },
+      "evaluation": {
+        "bootstrap_iters": 1000,
+        "ci_level": 0.95,
+        "fast_lobo": false,
+        "fold_strategy": "lobo",
+        "groupkfold_k": 5,
+        "n_jobs": 1,
+        "stacking": {
+          "inner_folds": 2,
+          "meta_c": 1.0,
+          "svc_c": 1.0
+        },
+        "top_k_candidates": 5,
+        "training_weighting": "chunk_weighted_legacy"
+      },
+      "features": {
+        "char_ngrams": {
+          "bleach": true,
+          "enabled": true,
+          "max_features": 5000,
+          "min_df": 3,
+          "ngram_range": [
+            3,
+            5
+          ],
+          "sublinear_tf": true
+        },
+        "dependency": {
+          "enabled": true
+        },
+        "embeddings": {
+          "batch_size": 16,
+          "enabled": false,
+          "max_length": 256,
+          "model_name": "ai-forever/ruBert-base"
+        },
+        "function_words": {
+          "enabled": true,
+          "mfw_count": 300,
+          "mode": "mfw"
+        },
+        "length_dist": {
+          "enabled": true,
+          "max_word_len": 16
+        },
+        "morphology": {
+          "enabled": true
+        },
+        "pos_ngrams": {
+          "enabled": true,
+          "max_features": 2000,
+          "min_df": 3,
+          "ngram_range": [
+            2,
+            4
+          ]
+        },
+        "punctuation_ngrams": {
+          "enabled": true,
+          "max_features": 500,
+          "ngram_range": [
+            1,
+            3
+          ]
+        },
+        "syntax": {
+          "enabled": true,
+          "subblocks": {
+            "lexical_richness": true,
+            "pos_ratios": true,
+            "punctuation": true,
+            "sentence": true,
+            "speech": true,
+            "ssa": false,
+            "vre": true,
+            "word_len": true
+          }
+        }
+      },
+      "language": {
+        "code": "ru",
+        "parse_n_process": 1,
+        "pos_bleach": {
+          "ADJ": "&",
+          "NOUN": "¤",
+          "NUM": "%",
+          "PROPN": "^"
+        },
+        "spacy_fallback": "ru_core_news_md",
+        "spacy_model": "ru_core_news_lg",
+        "spacy_model_version": "3.8.0",
+        "vowels_hard": "аоуэы",
+        "vowels_soft": "иеяёю"
+      },
+      "model": {
+        "calibration": {
+          "enabled": false,
+          "method": "isotonic"
+        },
+        "classifier": {
+          "C": 1.0,
+          "class_weight": "balanced",
+          "max_iter": 2000,
+          "solver": "lbfgs",
+          "type": "logistic_regression"
+        },
+        "scaler": "maxabs"
+      },
+      "paths": {
+        "data": "research/local/publication_prose_v1/cache",
+        "doc_cache": "research/local/publication_prose_v1/doc_cache",
+        "docs": "docs",
+        "input_clean": "input_clean",
+        "input_raw": "input"
+      },
+      "seed": 42,
+      "segmentation": {
+        "balance_cap_per_author": 400,
+        "conf": 0.55,
+        "min_run": 5,
+        "window": 11
+      },
+      "topic_control": {
+        "disable_subblocks": [
+          "pos_ratios",
+          "lexical_richness"
+        ],
+        "function_words_mode": "fixed_list"
+      }
+    },
+    "loss_mass_control": "A4 C*=C0*N_train/W_train",
+    "selection": "fixed parameters; no tuning",
+    "settings": {
+      "char_max_features": 5000,
+      "char_min_df": 3,
+      "char_ngram_range": [
+        3,
+        5
+      ],
+      "delta_mfw": 300,
+      "overrides": {
+        "evaluation.n_jobs": 1,
+        "language.parse_n_process": 1,
+        "paths.data": "research/local/publication_prose_v1/cache",
+        "paths.doc_cache": "research/local/publication_prose_v1/doc_cache"
+      }
+    },
+    "test": "locked new-work same-platform test",
+    "test_fit": "development works only; one final fit per arm",
+    "work_score": {
+      "delta": "Delta of concatenated included chunks; stable top-1",
+      "stylo_and_char": "mean chunk probability; stable top-1"
+    }
+  },
+  "elapsed_seconds": 506.83762160901097,
+  "environment": {
+    "numpy": "2.3.5",
+    "python": "3.11.14",
+    "ru-core-news-lg": "3.8.0",
+    "scikit-learn": "1.7.2",
+    "scipy": "1.16.3",
+    "spacy": "3.8.11",
+    "thread_environment": {
+      "MKL_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "PYTHONHASHSEED": "0"
+    }
+  },
+  "final_fits": [
+    {
+      "C": 1.0,
+      "arm": "stylo_A0_current",
+      "locked_fit_seconds": 3.129470700005186,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": 1.0,
+      "arm": "stylo_A4_current",
+      "locked_fit_seconds": 4.030275552009698,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": 20.863636363636363,
+      "arm": "stylo_A4_current_mass_control",
+      "locked_fit_seconds": 3.0793147629883606,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": 1.0,
+      "arm": "stylo_A0_topic_strict",
+      "locked_fit_seconds": 2.6724168520013336,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": 1.0,
+      "arm": "stylo_A4_topic_strict",
+      "locked_fit_seconds": 3.6544073410041165,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": null,
+      "arm": "delta_300",
+      "locked_fit_seconds": 0.19371592000243254,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": null,
+      "arm": "cosine_delta_300",
+      "locked_fit_seconds": 0.1719361889990978,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    },
+    {
+      "C": 1.0,
+      "arm": "char_tfidf_lr",
+      "locked_fit_seconds": 2.449233641003957,
+      "locked_training_chunks": 459,
+      "locked_training_works": 22
+    }
+  ],
+  "panel": {
+    "authors": [
+      "andreev",
+      "chehov",
+      "gorky",
+      "kuprin"
+    ],
+    "chunks": 601,
+    "per_author_role": [
+      {
+        "author": "andreev",
+        "chunks": 70,
+        "included_tokens": 33604,
+        "role": "development",
+        "tokens": 33662,
+        "works": 4
+      },
+      {
+        "author": "andreev",
+        "chunks": 16,
+        "included_tokens": 7511,
+        "role": "locked_test",
+        "tokens": 7511,
+        "works": 2
+      },
+      {
+        "author": "chehov",
+        "chunks": 103,
+        "included_tokens": 50034,
+        "role": "development",
+        "tokens": 50705,
+        "works": 6
+      },
+      {
+        "author": "chehov",
+        "chunks": 57,
+        "included_tokens": 27336,
+        "role": "locked_test",
+        "tokens": 27573,
+        "works": 3
+      },
+      {
+        "author": "gorky",
+        "chunks": 112,
+        "included_tokens": 54039,
+        "role": "development",
+        "tokens": 54276,
+        "works": 6
+      },
+      {
+        "author": "gorky",
+        "chunks": 52,
+        "included_tokens": 25305,
+        "role": "locked_test",
+        "tokens": 25515,
+        "works": 3
+      },
+      {
+        "author": "kuprin",
+        "chunks": 174,
+        "included_tokens": 84230,
+        "role": "development",
+        "tokens": 84691,
+        "works": 6
+      },
+      {
+        "author": "kuprin",
+        "chunks": 17,
+        "included_tokens": 7771,
+        "role": "locked_test",
+        "tokens": 7771,
+        "works": 3
+      }
+    ],
+    "works": 33
+  },
+  "results": {
+    "development_lobo": {
+      "mass_control_against_A4_current": {
+        "both_correct": 19,
+        "both_wrong": 3,
+        "gained": 0,
+        "lost": 0
+      },
+      "metrics": {
+        "char_tfidf_lr": {
+          "accuracy": 0.8181818181818182,
+          "correct": 18,
+          "macro_author_recall": 0.7708333333333334,
+          "per_author": {
+            "andreev": {
+              "correct": 1,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 5,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "cosine_delta_300": {
+          "accuracy": 0.9545454545454546,
+          "correct": 21,
+          "macro_author_recall": 0.9375,
+          "per_author": {
+            "andreev": {
+              "correct": 3,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "delta_300": {
+          "accuracy": 0.8181818181818182,
+          "correct": 18,
+          "macro_author_recall": 0.7916666666666666,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 4,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "stylo_A0_current": {
+          "accuracy": 0.8636363636363636,
+          "correct": 19,
+          "macro_author_recall": 0.8125,
+          "per_author": {
+            "andreev": {
+              "correct": 1,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "stylo_A0_topic_strict": {
+          "accuracy": 0.8636363636363636,
+          "correct": 19,
+          "macro_author_recall": 0.8125,
+          "per_author": {
+            "andreev": {
+              "correct": 1,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "stylo_A4_current": {
+          "accuracy": 0.8636363636363636,
+          "correct": 19,
+          "macro_author_recall": 0.8125,
+          "per_author": {
+            "andreev": {
+              "correct": 1,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "stylo_A4_current_mass_control": {
+          "accuracy": 0.8636363636363636,
+          "correct": 19,
+          "macro_author_recall": 0.8125,
+          "per_author": {
+            "andreev": {
+              "correct": 1,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        },
+        "stylo_A4_topic_strict": {
+          "accuracy": 0.8636363636363636,
+          "correct": 19,
+          "macro_author_recall": 0.8125,
+          "per_author": {
+            "andreev": {
+              "correct": 1,
+              "total": 4
+            },
+            "chehov": {
+              "correct": 6,
+              "total": 6
+            },
+            "gorky": {
+              "correct": 6,
+              "total": 6
+            },
+            "kuprin": {
+              "correct": 6,
+              "total": 6
+            }
+          },
+          "total": 22
+        }
+      },
+      "paired_against_stylo_A0_current": {
+        "char_tfidf_lr": {
+          "both_correct": 18,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 1
+        },
+        "cosine_delta_300": {
+          "both_correct": 19,
+          "both_wrong": 1,
+          "gained": 2,
+          "lost": 0
+        },
+        "delta_300": {
+          "both_correct": 17,
+          "both_wrong": 2,
+          "gained": 1,
+          "lost": 2
+        },
+        "stylo_A0_topic_strict": {
+          "both_correct": 19,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A4_current": {
+          "both_correct": 19,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A4_current_mass_control": {
+          "both_correct": 19,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A4_topic_strict": {
+          "both_correct": 19,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 0
+        }
+      },
+      "topic_strict_against_A4_current": {
+        "both_correct": 19,
+        "both_wrong": 3,
+        "gained": 0,
+        "lost": 0
+      }
+    },
+    "locked_test": {
+      "mass_control_against_A4_current": {
+        "both_correct": 11,
+        "both_wrong": 0,
+        "gained": 0,
+        "lost": 0
+      },
+      "metrics": {
+        "char_tfidf_lr": {
+          "accuracy": 0.8181818181818182,
+          "correct": 9,
+          "macro_author_recall": 0.75,
+          "per_author": {
+            "andreev": {
+              "correct": 0,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "cosine_delta_300": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "delta_300": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "stylo_A0_current": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "stylo_A0_topic_strict": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "stylo_A4_current": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "stylo_A4_current_mass_control": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        },
+        "stylo_A4_topic_strict": {
+          "accuracy": 1.0,
+          "correct": 11,
+          "macro_author_recall": 1.0,
+          "per_author": {
+            "andreev": {
+              "correct": 2,
+              "total": 2
+            },
+            "chehov": {
+              "correct": 3,
+              "total": 3
+            },
+            "gorky": {
+              "correct": 3,
+              "total": 3
+            },
+            "kuprin": {
+              "correct": 3,
+              "total": 3
+            }
+          },
+          "total": 11
+        }
+      },
+      "paired_against_stylo_A0_current": {
+        "char_tfidf_lr": {
+          "both_correct": 9,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 2
+        },
+        "cosine_delta_300": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        },
+        "delta_300": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A0_topic_strict": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A4_current": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A4_current_mass_control": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        },
+        "stylo_A4_topic_strict": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        }
+      },
+      "topic_strict_against_A4_current": {
+        "both_correct": 11,
+        "both_wrong": 0,
+        "gained": 0,
+        "lost": 0
+      }
+    }
+  },
+  "schema": "stylo.publication-comparison.v1",
+  "source_hashes": {
+    "scripts/evaluation/run_publication_comparison.py": "f6e30d7a80261b8de7c62315cdf17bad3dbc8ecba939854b02722747c85e1332",
+    "src/stylo/__init__.py": "b0d7e40ff88f6d1f4298ef02050eba16b20efac00891bd0cf1d0b99c5f73e159",
+    "src/stylo/_io.py": "3e562c14b43e789e8ea283df9c534d13d82d029b793672c22bb91a9087bdf12e",
+    "src/stylo/_strict_fields.py": "a23ad0a1261cac027bc15fd4c5bb2347a4eb17362a2b88b8f93ba19ea19089d8",
+    "src/stylo/benchmarks/__init__.py": "2554d96ad4a9d6747a85e464b03bc0e2e9090626d4b506523d3c9993b51112ab",
+    "src/stylo/benchmarks/alignment.py": "9c1ac21f4797ec0c74acb3e3bef57c3d31cbf1af01196ff6cbd366f3a56641f1",
+    "src/stylo/benchmarks/artifacts.py": "dc7a3e98e54ceda3c18768f93080fdf62bfbd57cd25cb936fbbd2445fa7ac264",
+    "src/stylo/benchmarks/loader.py": "ec7927d96e7c577f7264823808f3dd6b0553c526d63ce9b7d83c13872743011a",
+    "src/stylo/benchmarks/schema.py": "c16f86a5cd28f7dc4193722cefda56f49df179c17d2018303240917586f1353c",
+    "src/stylo/benchmarks/scoring.py": "1d90057acd23c147aa1f416296aaaef4b48f2e6ea9a5b146a1d6b9a435dfe0f9",
+    "src/stylo/benchmarks/validator.py": "be4e096891b40f7e2f11803d984c8960d0250206ddabf102498af8bcd7ccc2d6",
+    "src/stylo/cases/__init__.py": "5d4c28a9579efc9b6d4b7c41f6ece5913ef41b32b274e9e445337c73caf41f64",
+    "src/stylo/cases/cli.py": "d9effb3e59aba02e72b7c00f13f358790923fcfd44af3c8f751f458ff1634810",
+    "src/stylo/cases/framework.py": "cf06d174953b7d0865bb13eba3b1ca8318799300b93ea53d3d5d950d3e79b026",
+    "src/stylo/chunking.py": "690a9cc7618409986b6238d1f1d10c57e8b1d8be711a61ccde1a634718b42942",
+    "src/stylo/claims.py": "89a242e9e8639c9c9fd0c6568852379dede257308287b2c794edac34bde142d0",
+    "src/stylo/cli.py": "7e6025fcc5e77052035e81c908cb4c9c3ff1a3722c2e8e653f283974598935e5",
+    "src/stylo/config.py": "3006098fd1a94454894e6bcf3f9a5d72191c8767a2c7ffa696a898960dc64bc9",
+    "src/stylo/corpus.py": "5b71986e29e35ad0bc9677ddc78132d5bb925890a8fa9043175d8864647ce2a2",
+    "src/stylo/corpus_tools/__init__.py": "9a4fdccc831d8474b092f508e3ccda93399291b7abaf24f0d8131bab553e8de0",
+    "src/stylo/corpus_tools/feb_vnext.py": "b7fe418513feae3cd560a36cb21c51650311c57d2575707cd60645c177c1bb1e",
+    "src/stylo/corpus_tools/fetch_classics.py": "8fee071f62bd6da2e2f9d3e8f31d47731a9412be3b6492acc037d48439f163f9",
+    "src/stylo/corpus_tools/reviewed_text_vnext.py": "1e3915d5ae52978496b16c67cfc1d940f7183bf566dd8949e75a04d9c76b9938",
+    "src/stylo/corpus_tools/ruaa_r1_acquisition.py": "cd6010b877d5aff15a4f85430fddd32018beee0b43aa13fe8c0d9c32314df97a",
+    "src/stylo/corpus_tools/ruaa_r1_disk_backed_audit.py": "5b7a51e5483ed0aceba46593b7924a8fdf3ea2648815bcdffd7cc7c5076d28db",
+    "src/stylo/corpus_tools/text_quality_vnext.py": "4e0442557639eab468fcad3372f2eb2ff7b6a0a51b041f1ea6d06d0f9bf5d7e9",
+    "src/stylo/corpus_tools/validate_corpus.py": "e0c59bef59b18a63be49971f7c63a5f5da4927a5e61098727e8141223b264b16",
+    "src/stylo/corpus_tools/wikisource_campaign.py": "94716b661901c0825ecbc185d6397237f79256dc6c545aed874900922ccf1416",
+    "src/stylo/corpus_tools/wikisource_discovery.py": "44996e5253b56ef71946fa510469b7bd0f2ba38333dd69ddb3d27ef0425b5c76",
+    "src/stylo/corpus_tools/wikisource_vnext.py": "6ced020bd691db44751773d6b81e2e68f6b66e408c4b472115f54fe1c15a4cc0",
+    "src/stylo/dataset.py": "d32fba7aba6c496c5a5d19c8982e831e0f2a5caf2648ff82cfdd83b8fd86198f",
+    "src/stylo/domain/__init__.py": "d938bcc48b1d063a9d5cf57e94b776fda2ef46218053fc908909610c1d95f35b",
+    "src/stylo/domain/corpus_identity.py": "8f6c1009f58617a7cc9cc1f92bff6fa6b0ed8df640ee9e3aa76dbda4cbba3680",
+    "src/stylo/domain/prediction_contract.py": "fa5081453cb40568b9ffc5989bcd21f21cac8476f267fca4ed6ac309d180c2ad",
+    "src/stylo/domain/segmentation.py": "e95f929d19cdc5fbff485be8edfcb00e640a755e537efbf329c473781c264456",
+    "src/stylo/domain/work_weighting.py": "8a0791b48bc56025a431d162affa89fec2a69f5b9164363e84bfc3499c6748b2",
+    "src/stylo/eval/__init__.py": "d310ac923fe19fa61b96ec357768d513f02eaf472f8af3abd35a17a2b4cf71e4",
+    "src/stylo/eval/ci_erratum.py": "7c3c748fee532ab6e8635ff624f4789c97eb7485a312a2780ef46883b2f92ab7",
+    "src/stylo/eval/dispatch.py": "3ff58b434f92053578bb2797dfd3fc8a922384cf425e51895c3d0100cc87b5ae",
+    "src/stylo/eval/ensemble.py": "0a25ed46ddd221f5b168bcc1d7b98fed185d22fd177e30b9783e9c3c38bafee2",
+    "src/stylo/eval/final.py": "0af097a6b113ae6c3209f7e38c32cf7c7eac65505b6d703be2218ae615599fb3",
+    "src/stylo/eval/groupkfold.py": "83aa80b0f2373b2d315c69ba578841192d9769a523bcbc20c3d6c5db482a75c9",
+    "src/stylo/eval/heterogeneity.py": "faaa5431ca80f2c1b9534abd39fcadfcdac947832218b804be260ee3b80a0583",
+    "src/stylo/eval/invariance.py": "ae1ab1bd4723a941efdcc4d49ee9f337c88ef61127f01e792f556b91f4119442",
+    "src/stylo/eval/lobo.py": "bac784bab401787076ed23e5eb2049fae40a9ce57a388d0bbe8e155b646427aa",
+    "src/stylo/eval/metric_contract.py": "33d6140bd8e7975bb999b97e0282fd4874d91137e44f44b43cf949e8da17d2ab",
+    "src/stylo/eval/metrics.py": "49b846ce061ef2be3792a7f270c1fc0240cff2dab54c318bcceed879efbdd3d9",
+    "src/stylo/eval/paired_audit/__init__.py": "fb8fc24794248ab20455bea2614efab6a7e0b51125c810b00ce4599e7b9623c0",
+    "src/stylo/eval/paired_audit/applicability.py": "a96b913f6687a45dcae8d04a55761d5300c73c0de964cc37ce173ff7c0e8a7de",
+    "src/stylo/eval/paired_audit/applicability_v3_2.py": "e8c35910541dd716dc7ab8eb71eb8845cae01fc0e6b0e7425a1f232de6c0559d",
+    "src/stylo/eval/paired_audit/corpus.py": "5b5acd15462ff4befef5edac55b71802e3bd0983b650c74d3a3a92dcd4360b80",
+    "src/stylo/eval/paired_audit/corrected_v3_2.py": "58bef16be6659d5e5f9f06a2dfcae1c3a1668f1417a25ce5fc8caa964c527cad",
+    "src/stylo/eval/paired_audit/evaluator_v3_2.py": "f078e289fc734c961ab7691c0db115ace1227f75981930b1b768053f15b96f31",
+    "src/stylo/eval/paired_audit/evidence_v3_2.py": "12c6d400b98ff6ccd614f08366ad2ba526f5cae3864d71bf3425754ff6505833",
+    "src/stylo/eval/paired_audit/manifest.py": "9bbac50361717d72b8acbd087e473bdae09a24c79e383c7679b58d0071fc2735",
+    "src/stylo/eval/paired_audit/references.py": "ef27c11fa9f84f4f2030ab89c2b373a120eacf445f56a63f279b13222fda2ef9",
+    "src/stylo/eval/paired_audit/run_plan.py": "e9792a9cea8aa72e6edbad4f5fccfb450592ec46d9f91e165dabe78126f2986c",
+    "src/stylo/eval/paired_audit/semantic_parity.py": "65dce8278c5b6823b7e5dfa9e85a8a14a1b7d90fdb34fa2e7313424bbc00e1da",
+    "src/stylo/eval/paired_audit/topic_validity_v1.py": "52f51874ec0b13ebd89bbaf808d25e99e9517174b587333305bc724008e265cc",
+    "src/stylo/eval/paired_audit/work_subset.py": "e65ec443353d6e13cef5a831a95bb0ce1434e36f896480ac6e94fc7ece6f2936",
+    "src/stylo/eval/provenance.py": "a1f5027abf901a9dd2310d5de4f8a465848bc0386e8409cfcbb0f256db3d4426",
+    "src/stylo/eval/screening_panel.py": "4ff900fec5c3512f238590706bc75d62ca8797bf97a82b4d0c57eb35c0a960b7",
+    "src/stylo/eval/segment.py": "1a60d58524b55ffd500a4309735054f2ebc62dad084bc79c5053fe166d2d3aa1",
+    "src/stylo/eval/segmentation.py": "2c2f0f201aa4db9539a1e9186e6ab542ed5a47b0894584009d817279a2c327ce",
+    "src/stylo/eval/significance.py": "02beb18f649f0a78394929f8d009aeebaa26293ac03e5c664335ca14f7589b79",
+    "src/stylo/eval/sweep.py": "b4f3e423aef57fd637b4e07aaab0bb9ab2b5d76a311490e9a0c87911278beb93",
+    "src/stylo/features/__init__.py": "eab2c446a64825593297fde1a056f274cce712ff01d95544e41293794c5b0a13",
+    "src/stylo/features/_textstats.py": "41561e02b39bae0276278f54135f9dc858da326f1dd44fa03b8a5aea0b2ad748",
+    "src/stylo/features/base.py": "5607c5f79cbadf8296855a45c6c1d1f7c1fea38a002325f126bfcc202a90493d",
+    "src/stylo/features/char_ngrams.py": "2f4087029ab6d0190c22ac8ebc1246a74ba8a8ce269b12a0e5b9f4fad53b72ef",
+    "src/stylo/features/dependency.py": "7368f768ddfe53d37b9d246d9850b146201e13b892dfb58603179d32d0524078",
+    "src/stylo/features/embeddings.py": "66269579dfaedb6c7060140505adbe671ec63416040422318804b7b10635d197",
+    "src/stylo/features/function_words.py": "93020ae06d3715e429c096484edfc2ac1030c1910985daecccb992eba28a6467",
+    "src/stylo/features/length_dist.py": "69f725c8b20bb7938f795e9151e88fd21d5a46e49b0ee9883e37eb32f6376671",
+    "src/stylo/features/morphology.py": "ae5cf2dd6f2035117967cb0bd93d14cf62826a786284270c0899016ba7b00b48",
+    "src/stylo/features/pos_ngrams.py": "182b441f6ff38bee400168d90e02af178eb616bcb57c889d7699892af99db430",
+    "src/stylo/features/punctuation.py": "e9a25eca493b3115a6fc6c1378d24decb176871bdad43613bbb53c5cb37490e1",
+    "src/stylo/features/registry.py": "0339ca1b0d044983e3147e8c7f170f75cd75cbfb61bf24b04664d04d841257cc",
+    "src/stylo/features/reps.py": "fd70b93840574b938252fe22906a4cb89a0643aa8b49c3099d5fd074d27e39f0",
+    "src/stylo/features/syntax.py": "ce1113bc257834547e8325495573112bd6209e2dbd21a2f2da65b2ce649761ac",
+    "src/stylo/features/work_vectorizer.py": "487c03758baffbc22edb5d49f2b22bd2c7d6eaf7f84472fcd19070067eb2a4fa",
+    "src/stylo/jsonio.py": "16effeaef9ba2feddc8070ac00ac4ad3177acb6cb9286a9114e81ba694acfd8d",
+    "src/stylo/lang.py": "4212d9e136c4e9e1bc31356ba1c15831482557044e09bbf05367d5317f2f0cd6",
+    "src/stylo/models/__init__.py": "c8f52cf81b34cdbd4281a51250c0ec9824bf368a32da14fcae53efef96b48553",
+    "src/stylo/models/baselines.py": "ff3dae0f8e2580a2f8c2ee3a64c0823e74a6d46be55803f7e9bb32503aed3c00",
+    "src/stylo/models/calibration.py": "480b48507360d5a2475c072f0747b9aba07602e2cd8892d96acb100ef222e8d6",
+    "src/stylo/models/channels.py": "50452e81d430c6bbf1176ac0f876ac1631a641efe9364f657dd64cc82be3edd8",
+    "src/stylo/models/compression.py": "69f095d954aec5333e681d282e9e212bf8833cd9b151a53a5cdef8891a2b1030",
+    "src/stylo/models/delta.py": "9899c25eaa74398c1ff93b786aefdb64efed4d3977caea765e72b9a31ebda641",
+    "src/stylo/models/equal_channel_ensemble.py": "4a50742ce93531ecfe45c6eb0f3c460e6d5eb726d14b3ec941f14461575357e8",
+    "src/stylo/models/invariant.py": "7ebf5d3047418e4073a125d5fad07518a6faf9953d8ce8cb2e942728a75545e0",
+    "src/stylo/models/lr.py": "bd6b192b86c81f1252d62ea4322186fb064653c1a36d33147e05ac593c08de43",
+    "src/stylo/models/registry.py": "9ae66a00effeceb504d1f935d609c10a405d0c34e77b2423adfd211d51af466d",
+    "src/stylo/models/stacked_clf.py": "f890e4e0b59a213efdd6e699c86b3d1895bf98972152d636231482329fac078f",
+    "src/stylo/models/work_balanced.py": "155cd342433eb1c04f74f1eb9a4aeefdc0a81560381c94fdc6c557785390ee01",
+    "src/stylo/nlp.py": "30f8c3d3cf82ea4a2a74fbc2dd03983532c303971dd510ecb3052f51070dd889",
+    "src/stylo/pipeline/__init__.py": "5bcb2599c4d7b031e986b8a8d1adf2951175562e63bf0239e12215f064db9d89",
+    "src/stylo/pipeline/_snapshot.py": "12b1f148bc1217b5b1487531244fc24820a22732b4cfe1e730a93bf7e8e26b1c",
+    "src/stylo/pipeline/bundle.py": "74a598a7db1ef9db0ae97225eb09af429efdf10c469c1d51d1fb81f30b0d283a",
+    "src/stylo/pipeline/clean.py": "338432a2eb2e0155858f10fc765b418d5fa4701d9ae04fda979ea07ac7415814",
+    "src/stylo/pipeline/predict.py": "71b73ba1936f6232ea4aad5c94b2684f58b7bbaed5bd115e80e3fe299c7cc076",
+    "src/stylo/pipeline/split.py": "160a47e38f8cfc69fd51b0d7beb60826130e437d63cd3272683acce16036808d",
+    "src/stylo/pipeline/train.py": "ac0a101b55e0e4d463cdef4d60618e78f5d8e99d98d002b82bcb1d5dc8a1b97d",
+    "src/stylo/release/__init__.py": "758d9b9b08c3d23cc5de63df3d061ef64637774a03819dec345aefd38a6fc505",
+    "src/stylo/release/hygiene.py": "e33293abcbc2a665acdbd307aa544afd41c1f0f5709f395a8ea260835b701d5c",
+    "src/stylo/release/source_inventory.py": "64f218d7ca5a4d87afcd813e602165d0a319983f9857c4a7dc5046bb54f124ff",
+    "src/stylo/report/__init__.py": "221d8173d3ab144140cafbd76d55c342dea314b1d99941b0f71c742501b74fb8",
+    "src/stylo/report/build.py": "bb3e9189e03a001b017fa35b433837e220d3e0278fc58dc3ed60c69ce597203b",
+    "src/stylo/report/evidence.py": "1d63b9f96be342fc3723ecbc51dbff782d5295aec9ebc68b7ee187d73575a182",
+    "src/stylo/resources/__init__.py": "0095d064034e79ff6e211642f1474e2ce92c32f394b1e9ef514955124a0b260f",
+    "src/stylo/vectorizer.py": "d0d417239e1a498e1a0b1ae550c32290730f9db27ca2c2bb50e3999764e869e3",
+    "src/stylo/workdoc.py": "c6f8ddb938332d8c8098f0c3d68c4fa82fffd16848ba800c32141a6e31103547"
+  },
+  "source_sha256": "55acd64b9d7bec2059062a458775ada5ff8daa94d49037527dee4dff603fc584",
+  "warnings": []
+}

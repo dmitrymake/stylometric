@@ -61,7 +61,7 @@
     },
     "topic_validity_execution": {
       "status": "completed_bounded_exploratory",
-      "claim": "All 992 fits completed on 2026-10-03: 248 held-out works, A0/A4 weighting and current/topic_strict features. A0 classified 216 and 218 works correctly; A4 classified 225 correctly with either feature set. The aggregate and checkpoint reduction were verified and the temporary VM/disk removed. This measures known-author benchmark accuracy; it does not establish new authorship results for disputed novels or a confirmatory generalisation claim.",
+      "claim": "The historical 992-fit calculation classified 216/218 versus 225/225 of 248 held-out input files. The arithmetic and source identities remain recorded, but edition/author provenance is not established. A subsequent byte-bound audit found one nominal work with 624 word tokens, 9 unique words and 13 unique word-five shingles; it cannot represent the full literary work. These counts are diagnostic file-classification results, not validated literary-corpus accuracy or new authorship evidence.",
       "bindings": [
         {
           "path": "src/stylo/eval/paired_audit/topic_validity_v1.py",
@@ -129,6 +129,16 @@
       "publication_authorized": false,
       "headline_authorized": false,
       "claim": "This bounded exploratory run does not complete or replace the paired audit, is not confirmatory evidence or an external replication, and authorizes no publication or headline."
+    },
+    "publication_prose_v1": {
+      "status": "completed_reconstructed_digital_witness_pilot",
+      "catalog": "research/corpora/publication_prose_v1.json",
+      "catalog_sha256": "5240cfae8ed2872606a17840bd9b2215fa18baec677d5c076f37d4f046e51ae7",
+      "comparison": "research/evidence/publication_comparison_v1/aggregate.json",
+      "comparison_sha256": "92bd5d2d6dea14ca7c8a17970fcc0735b2ed97f836d670cef3abda318862f81d",
+      "sensitivity": "research/evidence/publication_comparison_v1/length_check.json",
+      "sensitivity_sha256": "70abf7684f5d76e824f6f93cc32693e39a2d45d1885f6a48dbd9b599efddcee0",
+      "claim": "33 reconstructed digital witnesses, 22 development works and 11 locked new works of four contemporary author labels. Eight fixed arms and a separate post-hoc development-only initial-chunk check are reproducible. A4 has no observed advantage; source/edition, theme, unknown-author and historical-attribution transfer are not established."
     }
   }
 }

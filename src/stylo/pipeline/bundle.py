@@ -9,7 +9,6 @@ external dir). This module publishes into an **immutable, content+meta-addressed
 chain (root, versions, version dir, pointer, files) is required to be a real, non-symlink object
 contained within the bundle root before any rmtree/replace. The bundle is a strict THREE-file
 contract (model.pkl, delta.pkl, authors.json) with a mandatory attestation schema.
-See “Output and artifact isolation” in research/work_balanced/estimand.md.
 """
 from __future__ import annotations
 

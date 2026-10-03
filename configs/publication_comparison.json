@@ -1,0 +1,12 @@
+{
+  "delta_mfw": 300,
+  "char_ngram_range": [3, 5],
+  "char_max_features": 5000,
+  "char_min_df": 3,
+  "overrides": {
+    "language.parse_n_process": 1,
+    "paths.data": "research/local/publication_prose_v1/cache",
+    "paths.doc_cache": "research/local/publication_prose_v1/doc_cache",
+    "evaluation.n_jobs": 1
+  }
+}

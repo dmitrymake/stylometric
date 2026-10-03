@@ -6,8 +6,8 @@ accuracy, macro-F1, McNemar and the ``significant`` flag are unaffected; only th
 is wrong. The exact fix is the algebraic reversal ``[lo, hi] → [-hi, -lo]``.
 
 Design invariants (see the CI-sign erratum blocker):
-  * the historical ``docs/final_comparison.{csv,txt}`` and ``docs/ruaa_bench_v1.json`` +
-    ``docs/ruaa_bench_leaderboard.md`` are **immutable**: their SHA256 are pinned here and re-checked
+  * the historical ``docs/final_comparison.{csv,txt}`` and ``docs/ruaa_bench_v1.json``
+    are **immutable**: their SHA256 are pinned here and re-checked
     before AND after every run — a drift fails closed and nothing is written;
   * the correction only ever reads the FROZEN v1 inputs, so a double flip is structurally
     impossible; a value-level guard additionally rejects an already-corrected (non-positive) CI;
@@ -31,6 +31,10 @@ FROZEN_SHA256 = {
     "final_comparison.csv": "31bba7af930685fc9862fe6b1806b3f2ba5ba21b6726e66757e4dd756a3ded6f",
     "final_comparison.txt": "5b2e6f6b6f18c87ce13183413cdec9e136b873be6674856f5780656dcda92d96",
     "ruaa_bench_v1.json": "c7228c5019e211afe6c3ee323bcf82ec3dd7a71c472e84ef0cd3bf51fb83ffc6",
+}
+# The prose leaderboard is archived locally. Preserve its historical identity and
+# write protection without requiring or regenerating that redundant presentation.
+ARCHIVED_PROSE_SHA256 = {
     "ruaa_bench_leaderboard.md": "dcf9993b0f3a0057487a331a3c54305f1a5dc70342e86739976f37feeb760c2a",
 }
 # Frozen v1 → corrected versioned name. Correction NEVER writes a key of FROZEN_SHA256.
@@ -38,7 +42,6 @@ CORRECTED_OF = {
     "final_comparison.csv": "final_comparison.v2.csv",
     "final_comparison.txt": "final_comparison.v2.txt",
     "ruaa_bench_v1.json": "ruaa_bench_v1.0.1.json",
-    "ruaa_bench_leaderboard.md": "ruaa_bench_leaderboard_v1.0.1.md",
 }
 
 # a signed interval token: BOTH bounds carry an explicit +/- sign (the un-signed book acc CI
@@ -105,10 +108,10 @@ def assert_publish_target_not_frozen(path) -> None:
     A frozen artifact is the canonical ``docs/<name>`` (parent dir literally named ``docs``); a
     corrected/exploratory copy under ``docs/exploratory/…`` or a versioned ``*.v2.*`` name is fine."""
     p = pathlib.Path(path)
-    if p.name in FROZEN_SHA256 and p.parent.name == "docs":
+    if p.name in {*FROZEN_SHA256, *ARCHIVED_PROSE_SHA256} and p.parent.name == "docs":
         raise CiErratumError(
-            f"refusing to write frozen v1 CI artifact {p.name!r}; corrected output is "
-            f"{CORRECTED_OF[p.name]!r} (produced by the CI-sign erratum from the frozen snapshot)")
+            f"refusing to write frozen v1 CI artifact {p.name!r}; "
+            "use versioned machine-readable corrected output")
 
 
 def verify_frozen(docs: pathlib.Path) -> None:
@@ -122,7 +125,7 @@ def verify_frozen(docs: pathlib.Path) -> None:
             raise CiErratumError(f"frozen input docs/{name} SHA256 {got} != pinned {want}")
 
 
-# ── the four corrections ──────────────────────────────────────────────────────
+# ── machine-readable corrections ──────────────────────────────────────────────
 def _correct_text(docs: pathlib.Path, src_name: str, expect_flips: int) -> dict:
     src = docs / src_name
     corrected, n = flip_signed_tokens(src.read_text(encoding="utf-8"))
@@ -168,16 +171,7 @@ def apply_erratum(root: pathlib.Path, dumps_strict: Callable, loads_strict: Call
         _correct_text(docs, "final_comparison.csv", expect_flips=9),
         _correct_text(docs, "final_comparison.txt", expect_flips=9),
         _correct_ruaa_json(docs, dumps_strict, loads_strict),
-        _correct_text(docs, "ruaa_bench_leaderboard.md", expect_flips=6),
     ]
-    # bump the corrected leaderboard's version label (content-identical bytes otherwise)
-    lb = docs / CORRECTED_OF["ruaa_bench_leaderboard.md"]
-    lb_text = lb.read_text(encoding="utf-8").replace("RuAA-Bench v1.0 —", "RuAA-Bench v1.0.1 —")
-    lb.write_text(lb_text, encoding="utf-8")
-    for a in artifacts:
-        if a["corrected"] == CORRECTED_OF["ruaa_bench_leaderboard.md"]:
-            a["corrected_sha256"] = sha256_bytes(lb_text.encode("utf-8"))
-
     verify_frozen(docs)                                   # frozen inputs must be byte-unchanged
 
     erratum = {

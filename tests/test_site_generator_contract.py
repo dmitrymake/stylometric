@@ -246,3 +246,31 @@ def test_provenance_rejects_forged_reader_download_with_updated_file_digest(tmp_
                              '--root', str(tmp_path), '--skip-tracked'], text=True, capture_output=True)
     assert result.returncode != 0
     assert 'reader download differs from displayed chapter data' in result.stderr
+
+
+def test_publication_site_data_matches_reconstructed_panel_and_measured_results():
+    data = json.loads((ROOT / 'site/src/generated/site-data.json').read_text())['publication']
+    measured = json.loads((ROOT / data['source']).read_text())
+    catalog = json.loads((ROOT / data['catalogSource']).read_text())
+    assert data['panel']['works'] == len(catalog['works']) == 33
+    assert data['results'] == measured['results']
+    assert data['fits'] == 184
+    assert (ROOT / 'site/public' / data['publicArtifact']).read_bytes() == (ROOT / data['source']).read_bytes()
+    sensitivity = data['sensitivity']
+    assert sensitivity['results'] == json.loads((ROOT / sensitivity['source']).read_text())['results']
+
+
+def test_publication_projection_cannot_forge_results_with_an_updated_output_digest(tmp_path):
+    import hashlib
+
+    registry = _copy_site_provenance_tree(tmp_path)
+    path = tmp_path / 'site/src/generated/site-data.json'
+    data = json.loads(path.read_text())
+    data['publication']['results']['locked_test']['metrics']['char_tfidf_lr']['correct'] = 11
+    path.write_text(json.dumps(data))
+    next(row for row in registry['outputs'] if row['path'] == 'site/src/generated/site-data.json')['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (tmp_path / 'site/src/generated/manifest.json').write_text(json.dumps(registry))
+    result = subprocess.run(['node', str(tmp_path / 'scripts/check-provenance.mjs'),
+                             '--root', str(tmp_path), '--skip-tracked'], text=True, capture_output=True)
+    assert result.returncode != 0
+    assert 'publication projection differs' in result.stderr

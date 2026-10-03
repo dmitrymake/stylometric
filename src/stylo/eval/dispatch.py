@@ -3,7 +3,7 @@
 A spec's estimand lives *inside* the estimator that ``make_factory`` builds from the resolved
 ``training_weighting`` enum; this helper is pure, uniform group-routing so the same spec cannot
 fit with different estimands across evaluation engines (GKF previously fit ``needs_groups``
-models without groups). See “Single fit dispatch” in research/work_balanced/estimand.md.
+models without groups).
 """
 from __future__ import annotations
 

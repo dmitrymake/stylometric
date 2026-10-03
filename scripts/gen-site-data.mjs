@@ -306,6 +306,32 @@ const authorRegistrySource = "src/stylo/resources/authors.json";
 measurement.pairedAnalysis = pairedMeasurement(loadRepositoryJson(pairedSource), pairedSource, measurementArtifact,
   pairedScript, loadRepositoryJson(authorRegistrySource));
 track("measurement.pairedAnalysis", [pairedSource, pairedScript, authorRegistrySource], "author recall and paired decisions across four settings from validated saved predictions");
+const publicationSource = "research/evidence/publication_comparison_v1/aggregate.json";
+const publicationCatalog = "research/corpora/publication_prose_v1.json";
+const publicationArtifact = loadRepositoryJson(publicationSource);
+const publicationCorpus = loadRepositoryJson(publicationCatalog);
+if (publicationArtifact.schema !== "stylo.publication-comparison.v1" ||
+    publicationArtifact.catalog_sha256 !== sha256(readFileSync(join(ROOT, publicationCatalog))) ||
+    publicationArtifact.panel.works !== publicationCorpus.works.length) {
+  throw new Error("publication comparison does not match its corpus catalogue");
+}
+const publication = {
+  source: publicationSource, catalogSource: publicationCatalog,
+  publicArtifact: "measurement/prose-panel-comparison.json",
+  catalogArtifact: "measurement/prose-panel-catalog.json",
+  panel: publicationArtifact.panel, results: publicationArtifact.results,
+  arms: publicationArtifact.design.arms,
+  fits: publicationArtifact.design.arms.length * (publicationArtifact.results.development_lobo.metrics.stylo_A0_current.total + 1),
+};
+track("publication", [publicationSource, publicationCatalog], "fixed-parameter comparison on reconstructed digital witnesses; development LOBO and locked new-work test");
+const sensitivitySource = "research/evidence/publication_comparison_v1/length_check.json";
+const sensitivityArtifact = loadRepositoryJson(sensitivitySource);
+publication.sensitivity = {
+  source: sensitivitySource, publicArtifact: "measurement/prose-panel-length-check.json",
+  results: sensitivityArtifact.results, prefixTokens: sensitivityArtifact.prefix_tokens_per_work,
+  works: sensitivityArtifact.works, fits: sensitivityArtifact.fits,
+};
+track("publication.sensitivity", [sensitivitySource, publicationCatalog], "post-hoc development-only sensitivity to two initial included chunks per work; no locked scoring");
 for (const name of ["validation.json", "validation_pd.json"]) {
   const relativePath = `docs/${name}`;
   const registered = historicalSnapshot?.artifacts?.sha256?.[relativePath];
@@ -1250,7 +1276,7 @@ const repro = {
 };
 track("repro", ["docs/repro_gates.json"], "перепрогон gate-кейсов бит-в-бит + самый долгий gate");
 
-const data = { corpus, headline, models, channels, authorRecall, confusions, segment, loboStrict, ccat50, disputed, tomsk, benchPd, sholokhovThematic, ilfHeterogeneity, dynastyPanel, scribe, accession, sholokhovManuscript, nikolaiCrossreg, consistency, prozaBench, multihands, ilfPetrov, cases, rigor, nikolaiCase, nikolaiCats, limits, tarasCase, repro, measurement };
+const data = { corpus, headline, models, channels, authorRecall, confusions, segment, loboStrict, ccat50, disputed, tomsk, benchPd, sholokhovThematic, ilfHeterogeneity, dynastyPanel, scribe, accession, sholokhovManuscript, nikolaiCrossreg, consistency, prozaBench, multihands, ilfPetrov, cases, rigor, nikolaiCase, nikolaiCats, limits, tarasCase, repro, measurement, publication };
 // Reader downloads contain only the aggregates already selected for the site.
 // Raw report files and corpus texts are never copied into public/.
 const caseDefinitions = {
@@ -1331,6 +1357,12 @@ const measurementBytes = readFileSync(join(ROOT, measurement.source));
 writeFileSync(measurementPublicPath, measurementBytes);
 const pairedBytes = readFileSync(join(ROOT, pairedSource));
 writeFileSync(join(ROOT, "site", "public", measurement.pairedAnalysis.publicArtifact), pairedBytes);
+const publicationBytes = readFileSync(join(ROOT, publication.source));
+const publicationCatalogBytes = readFileSync(join(ROOT, publication.catalogSource));
+writeFileSync(join(ROOT, "site", "public", publication.publicArtifact), publicationBytes);
+writeFileSync(join(ROOT, "site", "public", publication.catalogArtifact), publicationCatalogBytes);
+const sensitivityBytes = readFileSync(join(ROOT, publication.sensitivity.source));
+writeFileSync(join(ROOT, "site", "public", publication.sensitivity.publicArtifact), sensitivityBytes);
 const caseOutputs = Object.entries(data.caseDownloads).map(([chapter, descriptor]) => {
   const payload = {
     schema: "stylo.reader-data.v1", chapter, title: descriptor.title,
@@ -1364,6 +1396,15 @@ const provenance = {
   }, {
     path: `site/public/${measurement.pairedAnalysis.publicArtifact}`,
     sha256: sha256(pairedBytes),
+  }, {
+    path: `site/public/${publication.publicArtifact}`,
+    sha256: sha256(publicationBytes),
+  }, {
+    path: `site/public/${publication.catalogArtifact}`,
+    sha256: sha256(publicationCatalogBytes),
+  }, {
+    path: `site/public/${publication.sensitivity.publicArtifact}`,
+    sha256: sha256(sensitivityBytes),
   }, ...caseOutputs],
   entries: manifest,
 };

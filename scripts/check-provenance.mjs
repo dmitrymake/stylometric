@@ -175,6 +175,42 @@ const authorRegistrySource = "src/stylo/resources/authors.json";
 const pairedOutput = "site/public/measurement/topic-validity-paired-summary.json";
 const hasPaired = sourcePathSet.has(pairedSource) || siteData.measurement?.pairedAnalysis !== undefined;
 const readerOutputPaths = [];
+const publicationOutputPaths = [];
+if (siteData.publication !== undefined) {
+  const p = siteData.publication;
+  exactKeys(p, ["source", "catalogSource", "publicArtifact", "catalogArtifact", "panel", "results", "arms", "fits", "sensitivity"], "publication");
+  const artifact = JSON.parse(readFileSync(resolve(root, p.source), "utf-8"));
+  const catalog = JSON.parse(readFileSync(resolve(root, p.catalogSource), "utf-8"));
+  if (p.source !== "research/evidence/publication_comparison_v1/aggregate.json" ||
+      p.catalogSource !== "research/corpora/publication_prose_v1.json" ||
+      artifact.schema !== "stylo.publication-comparison.v1" ||
+      artifact.catalog_sha256 !== digest(readFileSync(resolve(root, p.catalogSource))) ||
+      artifact.panel.works !== catalog.works.length ||
+      JSON.stringify(p.panel) !== JSON.stringify(artifact.panel) ||
+      JSON.stringify(p.results) !== JSON.stringify(artifact.results) ||
+      JSON.stringify(p.arms) !== JSON.stringify(artifact.design.arms) ||
+      p.fits !== artifact.design.arms.length * (artifact.results.development_lobo.metrics.stylo_A0_current.total + 1)) {
+    fail("publication projection differs from its measured source and corpus");
+  }
+  const s = p.sensitivity;
+  exactKeys(s, ["source", "publicArtifact", "results", "prefixTokens", "works", "fits"], "publication.sensitivity");
+  const sensitivity = JSON.parse(readFileSync(resolve(root, s.source), "utf-8"));
+  if (s.source !== "research/evidence/publication_comparison_v1/length_check.json" ||
+      sensitivity.catalog_sha256 !== artifact.catalog_sha256 ||
+      JSON.stringify(s.results) !== JSON.stringify(sensitivity.results) ||
+      JSON.stringify(s.prefixTokens) !== JSON.stringify(sensitivity.prefix_tokens_per_work) ||
+      s.works !== sensitivity.works || s.fits !== sensitivity.fits) {
+    fail("publication sensitivity differs from its measured source");
+  }
+  for (const [source, publicArtifact] of [[p.source, p.publicArtifact], [p.catalogSource, p.catalogArtifact], [s.source, s.publicArtifact]]) {
+    const output = `site/public/${publicArtifact}`;
+    if (!sourcePathSet.has(source) || !outputPaths.includes(output) ||
+        !readFileSync(resolve(root, source)).equals(readFileSync(resolve(root, output)))) {
+      fail("publication download must be bound and byte-identical to its source");
+    }
+    publicationOutputPaths.push(output);
+  }
+}
 if (siteData.caseDownloads !== undefined) {
   if (siteData.caseDownloads === null || typeof siteData.caseDownloads !== "object" || Array.isArray(siteData.caseDownloads)) {
     fail("caseDownloads must be a chapter catalogue");
@@ -207,7 +243,7 @@ if (siteData.caseDownloads !== undefined) {
 }
 if (sourcePathSet.has(topicSource) || siteData.measurement !== undefined) {
   if (JSON.stringify([...outputPaths].sort()) !== JSON.stringify(
-    ["site/src/generated/site-data.json", measurementOutput, ...(hasPaired ? [pairedOutput] : []), ...readerOutputPaths].sort())) {
+    ["site/src/generated/site-data.json", measurementOutput, ...(hasPaired ? [pairedOutput] : []), ...readerOutputPaths, ...publicationOutputPaths].sort())) {
     fail("measurement outputs must bind exactly site-data and the downloadable sources");
   }
   if (!sourcePathSet.has(topicSource) || !outputPaths.includes(measurementOutput)) {

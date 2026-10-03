@@ -1,7 +1,7 @@
 """Confirmatory legacy-versus-work-balanced paired audit control plane.
 
-Purpose-named modules implementing the confirmatory audit of
-``research/work_balanced/paired_audit_protocol.md`` (v3.1). Estimator-axis routing and the narrow
+Purpose-named modules implementing the historical v3.1 confirmatory audit.
+Estimator-axis routing and the narrow
 stylo LOBO validation live elsewhere; this package owns only the confirmatory control plane:
 
 - :mod:`semantic_parity` — the loader-agnostic semantic-row digest, the frozen legacy anchor, and

@@ -2,7 +2,7 @@
   "schema": "stylo.site_generation_provenance.v2",
   "generator": {
     "path": "scripts/gen-site-data.mjs",
-    "sha256": "d626d61cde24cca72b3d10fa78a95896bea154d5cc60e910f6623232ac4f7f20"
+    "sha256": "fdb661a21b09eeee9592090c614b2b40e03d9c290fd244861e0bcb51bcf8bf75"
   },
   "sources": [
     {
@@ -374,8 +374,20 @@
       "sha256": "a615b2ec0c1b926415cf9e5ca2bd5616c930e463689dd1458632ea8b7157ceb9"
     },
     {
+      "path": "research/corpora/publication_prose_v1.json",
+      "sha256": "5240cfae8ed2872606a17840bd9b2215fa18baec677d5c076f37d4f046e51ae7"
+    },
+    {
       "path": "research/evidence/ineligible_corpus_registrations_v1.json",
       "sha256": "87074d041fc6171d9bea1e863ca729576462aeffb4c1af185afcbaf2960b4424"
+    },
+    {
+      "path": "research/evidence/publication_comparison_v1/aggregate.json",
+      "sha256": "92bd5d2d6dea14ca7c8a17970fcc0735b2ed97f836d670cef3abda318862f81d"
+    },
+    {
+      "path": "research/evidence/publication_comparison_v1/length_check.json",
+      "sha256": "70abf7684f5d76e824f6f93cc32693e39a2d45d1885f6a48dbd9b599efddcee0"
     },
     {
       "path": "research/evidence/topic_validity_lobo_v1/aggregate.json",
@@ -397,7 +409,7 @@
   "outputs": [
     {
       "path": "site/src/generated/site-data.json",
-      "sha256": "218c4d69c12b27cc4d8dd233254c910c70e24c547b6221d2eaf283ef039aeb3e"
+      "sha256": "cfc5ab794ebc0b20d37a1f0614982a3683db7c9e4dd728a971b3d2bf76f99e60"
     },
     {
       "path": "site/public/measurement/topic-validity-aggregate.json",
@@ -406,6 +418,18 @@
     {
       "path": "site/public/measurement/topic-validity-paired-summary.json",
       "sha256": "8857e364375d021d7613815c77bbdd1a9e82df2462ecc839bced8503c6c7755b"
+    },
+    {
+      "path": "site/public/measurement/prose-panel-comparison.json",
+      "sha256": "92bd5d2d6dea14ca7c8a17970fcc0735b2ed97f836d670cef3abda318862f81d"
+    },
+    {
+      "path": "site/public/measurement/prose-panel-catalog.json",
+      "sha256": "5240cfae8ed2872606a17840bd9b2215fa18baec677d5c076f37d4f046e51ae7"
+    },
+    {
+      "path": "site/public/measurement/prose-panel-length-check.json",
+      "sha256": "70abf7684f5d76e824f6f93cc32693e39a2d45d1885f6a48dbd9b599efddcee0"
     },
     {
       "path": "site/public/evidence/sholokhov.json",
@@ -444,6 +468,22 @@
         "src/stylo/resources/authors.json"
       ],
       "note": "author recall and paired decisions across four settings from validated saved predictions"
+    },
+    {
+      "key": "publication",
+      "sources": [
+        "research/corpora/publication_prose_v1.json",
+        "research/evidence/publication_comparison_v1/aggregate.json"
+      ],
+      "note": "fixed-parameter comparison on reconstructed digital witnesses; development LOBO and locked new-work test"
+    },
+    {
+      "key": "publication.sensitivity",
+      "sources": [
+        "research/corpora/publication_prose_v1.json",
+        "research/evidence/publication_comparison_v1/length_check.json"
+      ],
+      "note": "post-hoc development-only sensitivity to two initial included chunks per work; no locked scoring"
     },
     {
       "key": "corpus.research",

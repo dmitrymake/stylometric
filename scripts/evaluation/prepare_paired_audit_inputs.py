@@ -25,6 +25,9 @@ from stylo.jsonio import dump_strict, dumps_strict, load_strict
 from stylo.pipeline.bundle import _verify_real_dir_chain
 
 SCHEMA = "paired_audit.freeze_candidate.v1"
+# Historical protocol identity, preserved after archiving working Markdown.
+# This is the exact former tracked document, not the v3.2 design-freeze pin.
+HISTORICAL_PROTOCOL_SHA256 = "4efcc7b752eedb39a478380d884f302b714a4e58b26807e4cc7dffb551958147"
 _KNOWN_RUAA_PROTOCOL_DRIFT = {
     "name": "protocol.md",
     "expected": "4a58c00ada1bf3748ab74c80e7dd9d3089e2b100ff748f9895a8f476ef825b4a",
@@ -87,12 +90,11 @@ def _git_head(repo: pathlib.Path) -> str | None:
 
 
 def _assert_clean_committed_preparation(repo: pathlib.Path) -> tuple[str, dict[str, str]]:
-    """Bind preparation to a clean commit containing the protocol, builder, and this command."""
+    """Bind preparation to a clean commit containing the builder and this command."""
     info = run_plan.git_commit_info(repo)
     if not info.get("git_commit") or info.get("git_dirty"):
         raise RuntimeError("real paired-audit preparation requires a clean committed checkout")
     paths = (
-        "research/work_balanced/paired_audit_protocol.md",
         "scripts/evaluation/prepare_paired_audit_inputs.py",
         "src/stylo/eval/paired_audit/corpus.py",
     )
@@ -219,7 +221,6 @@ def prepare(repo: pathlib.Path, *, data_root: pathlib.Path | None = None,
     from stylo.pipeline.split import resolve_fragment_snapshot
 
     source_fragments = resolve_fragment_snapshot(data).train_root
-    protocol = repo / "research" / "work_balanced" / "paired_audit_protocol.md"
     git_head, preparation_digests = _assert_clean_committed_preparation(repo)
 
     root = audit_corpus.build_audit_corpus(
@@ -277,7 +278,11 @@ def prepare(repo: pathlib.Path, *, data_root: pathlib.Path | None = None,
         "git_dirty": False,
         "preparation_file_sha256": preparation_digests,
         "execution_source_sha256": run_plan.execution_source_sha256(repo / "src"),
-        "protocol_sha256": _sha256_file(protocol),
+        "historical_protocol": {
+            "former_path": "research/work_balanced/paired_audit_protocol.md",
+            "recorded_sha256": HISTORICAL_PROTOCOL_SHA256,
+            "status": "archived_history_not_verified_current_input",
+        },
         "config_id": config_digest,
         "audit_corpus": {
             "relative_root": str(root.relative_to(output_data)),

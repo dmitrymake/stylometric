@@ -5,8 +5,7 @@ corpus policy, chunker/normalization hash) with a **versioned, length-prefixed c
 over `texts + y + groups + authors + row identities`. Length-prefixing removes every field-
 boundary/encoding ambiguity; `authors` is inside the digest because permuting authors reassigns
 every `y`. The guard recomputes the digest over the *current* arrays, so a hand-built or mutated
-Dataset cannot pose as manifest-validated. See “Dataset identity, provenance, and atomic subsets”
-in research/work_balanced/estimand.md.
+Dataset cannot pose as manifest-validated.
 """
 from __future__ import annotations
 

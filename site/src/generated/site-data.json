@@ -9306,6 +9306,705 @@
       ]
     }
   },
+  "publication": {
+    "source": "research/evidence/publication_comparison_v1/aggregate.json",
+    "catalogSource": "research/corpora/publication_prose_v1.json",
+    "publicArtifact": "measurement/prose-panel-comparison.json",
+    "catalogArtifact": "measurement/prose-panel-catalog.json",
+    "panel": {
+      "authors": [
+        "andreev",
+        "chehov",
+        "gorky",
+        "kuprin"
+      ],
+      "chunks": 601,
+      "per_author_role": [
+        {
+          "author": "andreev",
+          "chunks": 70,
+          "included_tokens": 33604,
+          "role": "development",
+          "tokens": 33662,
+          "works": 4
+        },
+        {
+          "author": "andreev",
+          "chunks": 16,
+          "included_tokens": 7511,
+          "role": "locked_test",
+          "tokens": 7511,
+          "works": 2
+        },
+        {
+          "author": "chehov",
+          "chunks": 103,
+          "included_tokens": 50034,
+          "role": "development",
+          "tokens": 50705,
+          "works": 6
+        },
+        {
+          "author": "chehov",
+          "chunks": 57,
+          "included_tokens": 27336,
+          "role": "locked_test",
+          "tokens": 27573,
+          "works": 3
+        },
+        {
+          "author": "gorky",
+          "chunks": 112,
+          "included_tokens": 54039,
+          "role": "development",
+          "tokens": 54276,
+          "works": 6
+        },
+        {
+          "author": "gorky",
+          "chunks": 52,
+          "included_tokens": 25305,
+          "role": "locked_test",
+          "tokens": 25515,
+          "works": 3
+        },
+        {
+          "author": "kuprin",
+          "chunks": 174,
+          "included_tokens": 84230,
+          "role": "development",
+          "tokens": 84691,
+          "works": 6
+        },
+        {
+          "author": "kuprin",
+          "chunks": 17,
+          "included_tokens": 7771,
+          "role": "locked_test",
+          "tokens": 7771,
+          "works": 3
+        }
+      ],
+      "works": 33
+    },
+    "results": {
+      "development_lobo": {
+        "mass_control_against_A4_current": {
+          "both_correct": 19,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 0
+        },
+        "metrics": {
+          "char_tfidf_lr": {
+            "accuracy": 0.8181818181818182,
+            "correct": 18,
+            "macro_author_recall": 0.7708333333333334,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 5,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "cosine_delta_300": {
+            "accuracy": 0.9545454545454546,
+            "correct": 21,
+            "macro_author_recall": 0.9375,
+            "per_author": {
+              "andreev": {
+                "correct": 3,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "delta_300": {
+            "accuracy": 0.8181818181818182,
+            "correct": 18,
+            "macro_author_recall": 0.7916666666666666,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 4,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A0_current": {
+            "accuracy": 0.8636363636363636,
+            "correct": 19,
+            "macro_author_recall": 0.8125,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A0_topic_strict": {
+            "accuracy": 0.8636363636363636,
+            "correct": 19,
+            "macro_author_recall": 0.8125,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A4_current": {
+            "accuracy": 0.8636363636363636,
+            "correct": 19,
+            "macro_author_recall": 0.8125,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A4_current_mass_control": {
+            "accuracy": 0.8636363636363636,
+            "correct": 19,
+            "macro_author_recall": 0.8125,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A4_topic_strict": {
+            "accuracy": 0.8636363636363636,
+            "correct": 19,
+            "macro_author_recall": 0.8125,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 6,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 6,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 6,
+                "total": 6
+              }
+            },
+            "total": 22
+          }
+        },
+        "paired_against_stylo_A0_current": {
+          "char_tfidf_lr": {
+            "both_correct": 18,
+            "both_wrong": 3,
+            "gained": 0,
+            "lost": 1
+          },
+          "cosine_delta_300": {
+            "both_correct": 19,
+            "both_wrong": 1,
+            "gained": 2,
+            "lost": 0
+          },
+          "delta_300": {
+            "both_correct": 17,
+            "both_wrong": 2,
+            "gained": 1,
+            "lost": 2
+          },
+          "stylo_A0_topic_strict": {
+            "both_correct": 19,
+            "both_wrong": 3,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A4_current": {
+            "both_correct": 19,
+            "both_wrong": 3,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A4_current_mass_control": {
+            "both_correct": 19,
+            "both_wrong": 3,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A4_topic_strict": {
+            "both_correct": 19,
+            "both_wrong": 3,
+            "gained": 0,
+            "lost": 0
+          }
+        },
+        "topic_strict_against_A4_current": {
+          "both_correct": 19,
+          "both_wrong": 3,
+          "gained": 0,
+          "lost": 0
+        }
+      },
+      "locked_test": {
+        "mass_control_against_A4_current": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        },
+        "metrics": {
+          "char_tfidf_lr": {
+            "accuracy": 0.8181818181818182,
+            "correct": 9,
+            "macro_author_recall": 0.75,
+            "per_author": {
+              "andreev": {
+                "correct": 0,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "cosine_delta_300": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "delta_300": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "stylo_A0_current": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "stylo_A0_topic_strict": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "stylo_A4_current": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "stylo_A4_current_mass_control": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          },
+          "stylo_A4_topic_strict": {
+            "accuracy": 1,
+            "correct": 11,
+            "macro_author_recall": 1,
+            "per_author": {
+              "andreev": {
+                "correct": 2,
+                "total": 2
+              },
+              "chehov": {
+                "correct": 3,
+                "total": 3
+              },
+              "gorky": {
+                "correct": 3,
+                "total": 3
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 3
+              }
+            },
+            "total": 11
+          }
+        },
+        "paired_against_stylo_A0_current": {
+          "char_tfidf_lr": {
+            "both_correct": 9,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 2
+          },
+          "cosine_delta_300": {
+            "both_correct": 11,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 0
+          },
+          "delta_300": {
+            "both_correct": 11,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A0_topic_strict": {
+            "both_correct": 11,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A4_current": {
+            "both_correct": 11,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A4_current_mass_control": {
+            "both_correct": 11,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 0
+          },
+          "stylo_A4_topic_strict": {
+            "both_correct": 11,
+            "both_wrong": 0,
+            "gained": 0,
+            "lost": 0
+          }
+        },
+        "topic_strict_against_A4_current": {
+          "both_correct": 11,
+          "both_wrong": 0,
+          "gained": 0,
+          "lost": 0
+        }
+      }
+    },
+    "arms": [
+      "stylo_A0_current",
+      "stylo_A4_current",
+      "stylo_A4_current_mass_control",
+      "stylo_A0_topic_strict",
+      "stylo_A4_topic_strict",
+      "delta_300",
+      "cosine_delta_300",
+      "char_tfidf_lr"
+    ],
+    "fits": 184,
+    "sensitivity": {
+      "source": "research/evidence/publication_comparison_v1/length_check.json",
+      "publicArtifact": "measurement/prose-panel-length-check.json",
+      "results": {
+        "metrics": {
+          "cosine_delta_300": {
+            "accuracy": 0.6363636363636364,
+            "correct": 14,
+            "macro_author_recall": 0.6041666666666666,
+            "per_author": {
+              "andreev": {
+                "correct": 1,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 5,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 4,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 4,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A0_current": {
+            "accuracy": 0.5909090909090909,
+            "correct": 13,
+            "macro_author_recall": 0.5416666666666667,
+            "per_author": {
+              "andreev": {
+                "correct": 0,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 5,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 5,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 6
+              }
+            },
+            "total": 22
+          },
+          "stylo_A4_current": {
+            "accuracy": 0.5909090909090909,
+            "correct": 13,
+            "macro_author_recall": 0.5416666666666667,
+            "per_author": {
+              "andreev": {
+                "correct": 0,
+                "total": 4
+              },
+              "chehov": {
+                "correct": 5,
+                "total": 6
+              },
+              "gorky": {
+                "correct": 5,
+                "total": 6
+              },
+              "kuprin": {
+                "correct": 3,
+                "total": 6
+              }
+            },
+            "total": 22
+          }
+        },
+        "paired_against_stylo_A0_current": {
+          "cosine_delta_300": {
+            "both_correct": 12,
+            "both_wrong": 7,
+            "gained": 2,
+            "lost": 1
+          },
+          "stylo_A4_current": {
+            "both_correct": 13,
+            "both_wrong": 9,
+            "gained": 0,
+            "lost": 0
+          }
+        }
+      },
+      "prefixTokens": {
+        "max": 998,
+        "min": 937
+      },
+      "works": 22,
+      "fits": 66
+    }
+  },
   "caseDownloads": {
     "sholokhov": {
       "title": "«Тихий Дон»: данные графиков и контрольных сравнений",

@@ -94,6 +94,12 @@ img,svg,canvas { max-width:100%; }
 .site-article .rk-editorial-metric p { margin-bottom:0; }
 .site-article .note { max-width:var(--measure); border-left:2px solid var(--border-strong); padding-left:1.1rem; margin:1.5rem 0; color:var(--text-muted); font:1.0625rem/1.65 var(--font-text); }
 .site-article .callout,.site-article .verdict { max-width:var(--measure); border-left:2px solid var(--editorial-accent); padding:.25rem 0 .25rem 1.25rem; margin:2rem 0; font:1.2rem/1.65 var(--font-text); }
+.verdict-layout { display:grid; grid-template-columns:minmax(0,1fr) 12rem; gap:0 2rem; align-items:start; }
+.verdict-layout > * { grid-column:1 / -1; min-width:0; }
+.site-article .verdict-layout > .callout,.site-article .verdict-layout > .verdict { max-width:none; }
+.verdict-layout > .callout:first-child { grid-column:1; }
+.verdict-layout > .verdict-aside { grid-column:2; grid-row:1; display:grid; justify-items:center; gap:.75rem; padding-top:1rem; }
+@media(max-width:700px) { .verdict-layout { grid-template-columns:1fr; } .verdict-layout > .verdict-aside { grid-column:1; grid-row:2; justify-items:start; margin-bottom:1.5rem; } }
 .site-article .chip { display:inline-flex; gap:.4rem; align-items:center; padding:0; font:1rem/1.5 var(--font-text); color:var(--text-muted); }
 .site-article .chip.hot { color:var(--editorial-accent); }
 .site-article .chip.good { color:var(--icon-blue); }
@@ -101,12 +107,12 @@ img,svg,canvas { max-width:100%; }
 .site-article .bignum sup { font-size:.5em; }
 .meter { display:block; overflow:hidden; background:var(--surface-sunken); }
 .meter-fill { display:block; height:100%; }
-.site-article .sources { margin-top:2rem; max-width:var(--measure); }
+.site-article .sources { margin-top:2rem; }
 .site-article .sources-list { list-style:none; margin:0; padding:0; display:grid; gap:.85rem; }
 .site-article .sources-list li { margin:0; padding:0; }
 .site-article .sources-list a,.site-article .sources-list span { font:1rem/1.6 var(--font-text); overflow-wrap:anywhere; }
 .site-article .sources-list .source-format { color:var(--text-muted); }
-.site-article .sources-note { font-size:1rem; color:var(--text-muted); margin-top:1rem; max-width:var(--measure); }
+.site-article .sources-note { font-size:1rem; color:var(--text-muted); margin-top:1rem; }
 .site-article details { padding-block:.5rem; font-size:1.125rem; }
 .site-article details > summary { cursor:pointer; font:500 1.125rem/1.6 var(--font-text); color:var(--text)!important; text-transform:none!important; letter-spacing:normal!important; }
 .site-article details[open] > summary { margin-bottom:1rem; }

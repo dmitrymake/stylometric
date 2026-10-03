@@ -1,0 +1,1517 @@
+{
+  "schema": "stylo.publication_prose.v1",
+  "created_utc": "2026-10-03",
+  "baseline_commit": "8520e14a2fa00b473abb3dee32d6cf030a61b41c",
+  "scope": "A convenience panel of four contemporary Russian prose authors, writing dates 1890–1904, explicit digital witnesses. It is not a representative sample of Russian literature.",
+  "selection": {
+    "authors": [
+      "andreev",
+      "chehov",
+      "gorky",
+      "kuprin"
+    ],
+    "year_min": 1890,
+    "year_max": 1904,
+    "genre": "Russian narrative fiction: stories and short novellas; no plays, verse, essays, composite collections or the Chekhov little trilogy",
+    "minimum_words": 1000,
+    "selection_basis": "Public source/date availability and length before any model fit. Quotas reflect available contemporary works; no selection by recognition results.",
+    "development_counts": {
+      "andreev": 4,
+      "chehov": 6,
+      "gorky": 6,
+      "kuprin": 6
+    },
+    "locked_test_counts": {
+      "andreev": 2,
+      "chehov": 3,
+      "gorky": 3,
+      "kuprin": 3
+    },
+    "locked_test_rule": "All locked-test title identities are absent from the historical 252-work corrected panel. Roles are fixed before new development or locked-test fits.",
+    "model_results_seen_during_selection": false
+  },
+  "source_limitations": [
+    "Print edition labels and writing dates are declarations of the public digital provider. No scan collation or archival authentication was performed.",
+    "HTML and extracted UTF-8 hashes attest the freshly acquired digital witnesses only. They do not authenticate the historical corpus bytes or establish disputed literary authorship.",
+    "All witnesses come from one digital provider. Print source editions are substantially associated with author; this panel cannot isolate author style from edition/source effects.",
+    "New held-out works provide independent work-level evaluation in this declared panel, not transfer across providers, new periods, genres, or absent authors.",
+    "One provider is not a license to redistribute text. Only bibliography, acquisition recipes, hashes and aggregates are committed; raw HTML and extracted texts remain ignored local inputs.",
+    "Historical content comparisons reuse retained local inputs, not independently sourced historical editions. One historical input is below the 20-shingle minimum and is explicitly excluded from ordinary near-copy assurance."
+  ],
+  "extraction": {
+    "script": "scripts/fetch_publication_prose.py",
+    "encoding": "windows-1251 HTML -> UTF-8 NFC text",
+    "paragraph_rule": "Direct-child <z> paragraphs of div#text, preserving inline prose; separate headers, author/title labels, chapter headings, navigation, dates and notes omitted; superscript note markers omitted.",
+    "whitespace_rule": "Collapse whitespace within each paragraph, join nonempty paragraphs and chapters with two LF, append one final LF.",
+    "additional_normalization": "None. Model-side normalisation is applied subsequently by the comparison runner.",
+    "word_count_method": "Unicode letter runs, optionally joined by internal -, ’, or ' (Python regex [^\\W\\d_]+(?:[-’'][^\\W\\d_]+)*). This is not a spaCy token count.",
+    "html_sha256_semantics": "Hashes record acquired HTML renderings. The provider changes service markup on refetch; reconstruction verifies the exact processed body hash, exact declared edition/date labels and complete chapter URL inventory. Actual rendering hashes and drift are recorded separately.",
+    "reconstruction_command": ".venv/bin/python scripts/fetch_publication_prose.py --fresh --output research/local/publication_prose_v1/reconstruction",
+    "script_sha256": "c64c1f7574a30ddc66a6cc02de2e56a30fa8953aac2b954a92f2272e33f937d4"
+  },
+  "historical_exposure_check": {
+    "historical_n_works": 252,
+    "corrected_manifest_sha256": "cd3bf5e37b6ca12295d7a86bf3bb1d19427993cae118b59db106280740e40468",
+    "historical_work_ids_sha256": "6e30aaa65c141b3c6421818e0c40d57a4d48eb809ee96b68dde448c98900dadf",
+    "author_aliases": {
+      "chekhov": "chehov",
+      "landreev": "andreev"
+    },
+    "review_policy": "Full author-level historical work-ID lists were inspected. Cyrillic/transliterated title aliases were matched manually; differing spelling, punctuation, and ё/е are not evidence of a new work. No new edition of a known title is counted as novel.",
+    "historical_work_ids_for_panel_authors": [
+      "andreev/бездна",
+      "andreev/жизнь_василия_фивейского",
+      "andreev/иуда_искариот",
+      "andreev/красный_смех",
+      "andreev/рассказ_о_семи_повешенных",
+      "chehov/анна_на_шее",
+      "chehov/дама_с_собачкой",
+      "chehov/дом_с_мезонином",
+      "chehov/душечка",
+      "chehov/дуэль",
+      "chehov/ионыч",
+      "chehov/крыжовник",
+      "chehov/палата_6",
+      "chehov/скрипка_ротшильда",
+      "chehov/скучная_история",
+      "chehov/степь",
+      "chehov/человек_в_футляре",
+      "chehov/чёрный_монах",
+      "gorky/delo_artamonovih",
+      "gorky/detstrvo",
+      "gorky/moi_universiteti",
+      "gorky/tovarischi",
+      "gorky/zhizn_klima_samgina_1",
+      "gorky/zhizn_klima_samgina_2",
+      "kuprin/гамбринус",
+      "kuprin/гранатовый_браслет",
+      "kuprin/молох",
+      "kuprin/олеся",
+      "kuprin/поединок",
+      "kuprin/суламифь",
+      "kuprin/яма"
+    ]
+  },
+  "works": [
+    {
+      "work_id": "andreev/angelochek",
+      "author_id": "andreev",
+      "author_name": "Леонид Николаевич Андреев",
+      "title": "Ангелочек",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1899 г..",
+      "date_year_min": 1899,
+      "date_year_max": 1899,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "Л. Н. Андреев. Собрание сочинений. В 6-ти т. Т. 1. — М.: Художественная литература, 1990.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/2157/index.html",
+      "metadata_html_sha256": "3267c3a0b3ed1d73a68b69ac641867787ba72fcc3cfc483a6e1dfd9cd65deee9",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/2157/p.1/index.html",
+          "html_sha256": "22890f3a60b4d64549bd5667493df892dcc49a47ae242b84805c75a17e552fa7"
+        },
+        {
+          "url": "https://ilibrary.ru/text/2157/p.2/index.html",
+          "html_sha256": "edb4dbd5cee14e26156a2a2aa54cb68782916c9fa2ea720c63549b510eaa8f6d"
+        },
+        {
+          "url": "https://ilibrary.ru/text/2157/p.3/index.html",
+          "html_sha256": "bd9b9e019b3a1a83c43bb1c22d1c2ddaf073d25e3a870576a388395ca49560cb"
+        }
+      ],
+      "text_sha256": "ae30aa42503105fb4a5347d36732d93c3b7d39c75aede6e4e2be0073e3a021e6",
+      "word_count": 3780,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1990,
+      "edition_volume": 1
+    },
+    {
+      "work_id": "andreev/bargamot_i_garaska",
+      "author_id": "andreev",
+      "author_name": "Леонид Николаевич Андреев",
+      "title": "Баргамот и Гараська",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1898 г..",
+      "date_year_min": 1898,
+      "date_year_max": 1898,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "Л. Н. Андреев. Собрание сочинений. В 6-ти т. Т. 1. — М.: Художественная литература, 1990.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/2154/index.html",
+      "metadata_html_sha256": "2c1e61e04e957530a56b2f96c92fa20272d8bbf7dce2cecacc794be36bffdae1",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/2154/p.1/index.html",
+          "html_sha256": "842c1ea94d4dd87e0a1d1d6ee42a1d54b960381d7575c6ed2e15cc1dc32e3cb6"
+        }
+      ],
+      "text_sha256": "cae8fe599c1d1442870d71bda3bec62f2abcc31a9864a37cf07493f079fc9f06",
+      "word_count": 2509,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1990,
+      "edition_volume": 1
+    },
+    {
+      "work_id": "andreev/bolshoy_shlem",
+      "author_id": "andreev",
+      "author_name": "Леонид Николаевич Андреев",
+      "title": "Большой шлем",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1899 г..",
+      "date_year_min": 1899,
+      "date_year_max": 1899,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "Л. Н. Андреев. Собрание сочинений. В 6-ти т. Т. 1. — М.: Художественная литература, 1990.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/2156/index.html",
+      "metadata_html_sha256": "4caca83de46ba165ec9ed9a6b7507bb2da1deae82dca8cfb5ef839e1a71f2a39",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/2156/p.1/index.html",
+          "html_sha256": "de6899cc6b31ff1783c9eaaa2f47bf725223581ced93d3c845d52f975f97fb3b"
+        }
+      ],
+      "text_sha256": "3a620301584b6882f1c100e55a9d9f075b42487b14138868ad5b5eea2b981424",
+      "word_count": 2930,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1990,
+      "edition_volume": 1
+    },
+    {
+      "work_id": "andreev/krasnyy_smekh",
+      "author_id": "andreev",
+      "author_name": "Леонид Николаевич Андреев",
+      "title": "Красный смех",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction in the form of fragments of a found manuscript; the provider labels it a story. This formal difference is retained as a limitation.",
+      "date_label": "1904 г..",
+      "date_year_min": 1904,
+      "date_year_max": 1904,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "Л. Н. Андреев. Собрание сочинений. В 6-т т. Т. 2. — М.: Художественная литература, 1990.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1646/index.html",
+      "metadata_html_sha256": "1e34aff5b3365e51e8bef520b19972b7a26e730f866ed9e061f1023fda1a43de",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1646/p.1/index.html",
+          "html_sha256": "513ae82a702adb74281b2eee8cbf7cd6af51d2d191ca628fe1cba52d2f476e08"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1646/p.2/index.html",
+          "html_sha256": "778529c1474e33a0dd4a1fe6fce2370cb36b320080ba077c7b00339cafa4bffa"
+        }
+      ],
+      "text_sha256": "d5ddb87feb48ac021cdd9bc4f18507e0db8c28554ea98fc76e7994164711070e",
+      "word_count": 17776,
+      "prior_historical_exposure": true,
+      "historical_work_id": "andreev/красный_смех",
+      "edition_year": 1990,
+      "edition_volume": 2
+    },
+    {
+      "work_id": "andreev/kusaka",
+      "author_id": "andreev",
+      "author_name": "Леонид Николаевич Андреев",
+      "title": "Кусака",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1901 г..",
+      "date_year_min": 1901,
+      "date_year_max": 1901,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "Л. Н. Андреев. Собрание сочинений. В 6-ти т. Т. 1. — М.: Художественная литература, 1990.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/2158/index.html",
+      "metadata_html_sha256": "5ecec9c7105baceb936d67e57df10451511f173708c8d1ae1b2652289ffe6054",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/2158/p.1/index.html",
+          "html_sha256": "1b8799448ccc3a18d37b9ef28106a8b4e66c2a4fc25297ebcf8487e7031aa992"
+        },
+        {
+          "url": "https://ilibrary.ru/text/2158/p.2/index.html",
+          "html_sha256": "752e06942f921ba6bfe64a9b24043c67f05166273eb4c6c7a69e85d089a580a4"
+        },
+        {
+          "url": "https://ilibrary.ru/text/2158/p.3/index.html",
+          "html_sha256": "f1e435ea93882ca2b6aa2a2f3f163c3aaa8fed8d8068781513fd2c32a416d5cc"
+        },
+        {
+          "url": "https://ilibrary.ru/text/2158/p.4/index.html",
+          "html_sha256": "76071db0ec378cb0841690eb522d445818765726de811ed5cf14eb71e6f235f1"
+        },
+        {
+          "url": "https://ilibrary.ru/text/2158/p.5/index.html",
+          "html_sha256": "ed1234c61164cd19b5e6fb50d40330923ca27fc35e9e424aad300e4885e1b6a4"
+        }
+      ],
+      "text_sha256": "f4836128665acf6647fd73882f9188c397117580faad013a45c322686456b96a",
+      "word_count": 2120,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1990,
+      "edition_volume": 1
+    },
+    {
+      "work_id": "andreev/petka_na_dache",
+      "author_id": "andreev",
+      "author_name": "Леонид Николаевич Андреев",
+      "title": "Петька на даче",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1899 г..",
+      "date_year_min": 1899,
+      "date_year_max": 1899,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "Л. Н. Андреев. Собрание сочинений. В 6-ти т. Т. 1. — М.: Художественная литература, 1990.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/2155/index.html",
+      "metadata_html_sha256": "c5f20813c191aeddb43779b5a072ef9b2f2c3c6ec17574aa6093945347424c9b",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/2155/p.1/index.html",
+          "html_sha256": "4be9cc0fc71dd427f6062f5154dcc327f7b1070bc59904d36f356d55dd53b972"
+        }
+      ],
+      "text_sha256": "62e338c7fa023391bc4d1f26c65b053f4cbe2ca43f12217c142bed12b46482da",
+      "word_count": 2950,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1990,
+      "edition_volume": 1
+    },
+    {
+      "work_id": "chehov/anna_na_shee",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Анна на шее",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1895 г..",
+      "date_year_min": 1895,
+      "date_year_max": 1895,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 9. М., \"Наука\", 1985.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/452/index.html",
+      "metadata_html_sha256": "800782fc0736aaddccd122c999b07bcc63f3ee169d4ae9f2137f2d09b4496b42",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/452/p.1/index.html",
+          "html_sha256": "618ae01f999c124a40bcc94d836ee4425b11aa2c1b05a92efed34f945e0c4064"
+        },
+        {
+          "url": "https://ilibrary.ru/text/452/p.2/index.html",
+          "html_sha256": "1179239827c58c2a6f312859b9088484f70bafc59928c246f0a47556c8b0ca3a"
+        }
+      ],
+      "text_sha256": "c048f22038b4ce48bc09d9d5db789be5a0d2575e1ee7f97a95cca04c22325d75",
+      "word_count": 3939,
+      "prior_historical_exposure": true,
+      "historical_work_id": "chehov/анна_на_шее",
+      "edition_year": 1985,
+      "edition_volume": 9
+    },
+    {
+      "work_id": "chehov/ariadna",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Ариадна",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1895 г..",
+      "date_year_min": 1895,
+      "date_year_max": 1895,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 9. М., \"Наука\", 1985.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1190/index.html",
+      "metadata_html_sha256": "a2c0ce523c1d57d86d812fc926b3039a19a16008c1ae1aa360753ec5987bf692",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1190/p.1/index.html",
+          "html_sha256": "2ce9edfd6a71266de31504765f4825b2fd9cb294db9a3dd2fe74c0fd07157ffd"
+        }
+      ],
+      "text_sha256": "114b88d7d127ddb948e7571c95fe90a65ed901bba2453e6048c6e09c6ac7c239",
+      "word_count": 8256,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1985,
+      "edition_volume": 9
+    },
+    {
+      "work_id": "chehov/dama_s_sobachkoy",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Дама с собачкой",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1899 г..",
+      "date_year_min": 1899,
+      "date_year_max": 1899,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 10. М., \"Наука\", 1986.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/976/index.html",
+      "metadata_html_sha256": "56f7577fde2f852cd286f747fdcd043f8133abb7510432e066472d7c83daa7c7",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/976/p.1/index.html",
+          "html_sha256": "b37dd11677c556310183b953847210dda0e4e8316ec636c4c63a6fbc0c0fdcc8"
+        },
+        {
+          "url": "https://ilibrary.ru/text/976/p.2/index.html",
+          "html_sha256": "fd905935d87bc73d7a662c586cb464396216457f5a1577a56c6a99e9d32440ba"
+        },
+        {
+          "url": "https://ilibrary.ru/text/976/p.3/index.html",
+          "html_sha256": "fd3c364764332d0045284e0874a0ce83da10a158f2c0fae7371943907b073730"
+        },
+        {
+          "url": "https://ilibrary.ru/text/976/p.4/index.html",
+          "html_sha256": "91c65cbdf18d9d6acbd216068490bb1ddbea3cf8e440a0a4e2ddc5244a85534e"
+        }
+      ],
+      "text_sha256": "57e8916621799d6a05afb86e0068d7c040ffb1015c7e9cc4d19da9b1e430c2af",
+      "word_count": 5109,
+      "prior_historical_exposure": true,
+      "historical_work_id": "chehov/дама_с_собачкой",
+      "edition_year": 1986,
+      "edition_volume": 10
+    },
+    {
+      "work_id": "chehov/dom_s_mezoninom",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Дом с мезонином",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1896 г..",
+      "date_year_min": 1896,
+      "date_year_max": 1896,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 9. М., \"Наука\", 1985.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1050/index.html",
+      "metadata_html_sha256": "ebfa6763879f129d7e1201839a3484d44484adc72c40c425b46d13c24560cd48",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1050/p.1/index.html",
+          "html_sha256": "c6af8c43228c064631d8dbced6311fa655b847b72e8fc756f96ff9ec6046940e"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1050/p.2/index.html",
+          "html_sha256": "e37d03819c7a0ed770800dc3674b4d1136fca3a87157833009f6241611ed8d6d"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1050/p.3/index.html",
+          "html_sha256": "97e2082247febf22e0786d81238d7c673c7ae43f6d45736aa221cb663b80bfa9"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1050/p.4/index.html",
+          "html_sha256": "e4236e3f1f097eab75be0840e417a94cf043b685fe0f1003c4c9d6719898b772"
+        }
+      ],
+      "text_sha256": "02172511e94b0e19d214b4429a77d202bc91e863e631f4ebc224dc3ab1254ddf",
+      "word_count": 5605,
+      "prior_historical_exposure": true,
+      "historical_work_id": "chehov/дом_с_мезонином",
+      "edition_year": 1985,
+      "edition_volume": 9
+    },
+    {
+      "work_id": "chehov/dushechka",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Душечка",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1898 г..",
+      "date_year_min": 1898,
+      "date_year_max": 1898,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 10. М., \"Наука\", 1986.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/995/index.html",
+      "metadata_html_sha256": "e15dc84639d666c1dfb83138d00bac1657bcf095230bff985e0377c2a2e1569f",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/995/p.1/index.html",
+          "html_sha256": "6b451721e3de6ce94eb87411b77750684a001fddb08c2fa3969c6958d42fdd37"
+        }
+      ],
+      "text_sha256": "7b529dec222d333cf6daaea9fa369cfece6c6ea593ed020b88aa1ab3e70b9815",
+      "word_count": 3850,
+      "prior_historical_exposure": true,
+      "historical_work_id": "chehov/душечка",
+      "edition_year": 1986,
+      "edition_volume": 10
+    },
+    {
+      "work_id": "chehov/ionych",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Ионыч",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1897—1898 гг..",
+      "date_year_min": 1897,
+      "date_year_max": 1898,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 10. М., \"Наука\", 1986.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/437/index.html",
+      "metadata_html_sha256": "39ea39fb952d943ddbe68d0a5b8acee8ce24dd795f0eeda8a6201179072a4969",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/437/p.1/index.html",
+          "html_sha256": "e67a19af1a37fa483e3441f19fe65a52daf824b35de04b8ebef3a4746c1aaf1f"
+        },
+        {
+          "url": "https://ilibrary.ru/text/437/p.2/index.html",
+          "html_sha256": "10e7ffeed90b1134af1c092130fed46e3b60efa4d07fc109b47b02a5dd2ac6f7"
+        },
+        {
+          "url": "https://ilibrary.ru/text/437/p.3/index.html",
+          "html_sha256": "c31ff9ee1e0337390e9947f10fc8b8596b69cd27f5928ebd6070b8419a115d79"
+        },
+        {
+          "url": "https://ilibrary.ru/text/437/p.4/index.html",
+          "html_sha256": "b21e1e2b3b984618adcfef25e948d37a92bb83d7c8573e85889e3cd95e5f37ec"
+        },
+        {
+          "url": "https://ilibrary.ru/text/437/p.5/index.html",
+          "html_sha256": "5f8896debf08e5096e6ee1b925722f08a009b32241b7f3b8f73571b834fba5c8"
+        }
+      ],
+      "text_sha256": "e7e012551f63b2cb7010baa40d9480dea362fa9fbbffae2995e9595d5eb63833",
+      "word_count": 5373,
+      "prior_historical_exposure": true,
+      "historical_work_id": "chehov/ионыч",
+      "edition_year": 1986,
+      "edition_volume": 10
+    },
+    {
+      "work_id": "chehov/nevesta",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Невеста",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1902—1903 гг..",
+      "date_year_min": 1902,
+      "date_year_max": 1903,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 10. М., \"Наука\", 1986.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1184/index.html",
+      "metadata_html_sha256": "3d80cc665134b85b3d8fed4d9ee9cb7497bc0ea2ed1066b1fa1a113fd4774cd8",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1184/p.1/index.html",
+          "html_sha256": "b91bc13a28e5fd6bc9be405e3425045f65dc7d334a12f65dd1b261826900eb53"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1184/p.2/index.html",
+          "html_sha256": "80fb53b89369dc632a4463a19974d94b211934a72c3bcc57618716438471f7aa"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1184/p.3/index.html",
+          "html_sha256": "a6bb7b757ca79986fffebe4620a8b4fdd93984bf252274e0da8175fd1acb4c17"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1184/p.4/index.html",
+          "html_sha256": "08b3c0e5e1974c3721a0d8d21e95dca4d232281220b1cf99c910cc19e62d0e0c"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1184/p.5/index.html",
+          "html_sha256": "e7a1498daeb781354746b2cbcb6172cce329a804dd6c8bcdac37f667eb7ac4ba"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1184/p.6/index.html",
+          "html_sha256": "b548dd338ae8a9b551a52e09555e855519ef46ab57ea94c12666d8722320e7af"
+        }
+      ],
+      "text_sha256": "c226a2e442fe8438b2112b221581a522e18554a0b420d56d2ecd03ca3b5de377",
+      "word_count": 5623,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1986,
+      "edition_volume": 10
+    },
+    {
+      "work_id": "chehov/palata_6",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Палата № 6",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Novella within the declared broad narrative-fiction scope; length and genre remain possible author confounds.",
+      "date_label": "1892 г..",
+      "date_year_min": 1892,
+      "date_year_max": 1892,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 8. М., \"Наука\", 1986.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/989/index.html",
+      "metadata_html_sha256": "c7fb675cb4b5fef0fbf270cd8a2e9b274bef722a3feffe893e9100a24d2763f5",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/989/p.1/index.html",
+          "html_sha256": "b0e45ca1a488cb277a2f243e8bb0dc07b413e36f639bcbf8bbfbb02a67e4a12b"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.2/index.html",
+          "html_sha256": "018f60a2bb1478b6138e98e6c4d333609200e2fa591135b612ecdee03fe961c7"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.3/index.html",
+          "html_sha256": "2fc6caffc8d747e82f74fb2a9de2f729b7280434a14c1a1176cdf41431778367"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.4/index.html",
+          "html_sha256": "cfd59d2c569a2c7bfac17528a1f2957e301f94d3e5b88d43992f53ca80edba7c"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.5/index.html",
+          "html_sha256": "5858b7b4d562834933a59a356c25997d7e7a41814121b5a84193102833be7bac"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.6/index.html",
+          "html_sha256": "cdbda1db4bf08ed9b3762cdfc6fc4d8854e3bcaad5a2a95ce9ba0642263a47c8"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.7/index.html",
+          "html_sha256": "6552a49d0c8996395dde5cc2c999a890bd442d73b4ffa726c13147560ce0f734"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.8/index.html",
+          "html_sha256": "e7c42dc732dfdfbb4729c70e7ce6a4e1daefd91f69990688780806779a21f145"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.9/index.html",
+          "html_sha256": "8b5fba4b9168cbe7a683a27e70d34f3b2addea52471ff93725ed2d1ba655f4ec"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.10/index.html",
+          "html_sha256": "9f0b6815a3af43bd9cfa7774558d7fac3ca5d20e8b7caa71f819cc97c28a1c78"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.11/index.html",
+          "html_sha256": "6c614fda3e7fc3a11f6aafbfc63b69548602467071f20a942a9c0bbe73162493"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.12/index.html",
+          "html_sha256": "6ac2b77f7d5f6f0bddd47cea665da0e60496cdcb7125769586ccc02219e74fc6"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.13/index.html",
+          "html_sha256": "a18ba520419092f775b48f30f749dfeedee3fc30e75f084c25770b4c584d3e09"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.14/index.html",
+          "html_sha256": "d89cbbebc146ee41b97707c97b76162394c994bd2f4b280390a1ec9b13ca3d28"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.15/index.html",
+          "html_sha256": "ca0853e17fcbc997bc927de436fe16300f5eca78cd8387e691a9c364c9099707"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.16/index.html",
+          "html_sha256": "c078884b4bb192ed80615c772e028503eb02ac9e980c3408d93eb1e0263cdaac"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.17/index.html",
+          "html_sha256": "5c1164febc46965162a2abae65116136f7bb5ced38fc43bebbcfaf71b7dbad15"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.18/index.html",
+          "html_sha256": "7a0c9ef9a9cd62d84542cd5d9c8ff68e0a4c52fa105b9e6663866ca059cb3dd4"
+        },
+        {
+          "url": "https://ilibrary.ru/text/989/p.19/index.html",
+          "html_sha256": "9d874074f3192fee9bf182d7c35f131892fe4b2d7a31cc9ac84dcbc7a16ae579"
+        }
+      ],
+      "text_sha256": "80aca3b1834517a110e5e8761170e290a00965335beb1635314fa456ff493cdb",
+      "word_count": 16046,
+      "prior_historical_exposure": true,
+      "historical_work_id": "chehov/палата_6",
+      "edition_year": 1986,
+      "edition_volume": 8
+    },
+    {
+      "work_id": "chehov/poprygunya",
+      "author_id": "chehov",
+      "author_name": "Антон Павлович Чехов",
+      "title": "Попрыгунья",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1891 г..",
+      "date_year_min": 1891,
+      "date_year_max": 1891,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. П. Чехов. Полное собрание сочинений и писем в 30-ти томах. Сочинения. Том 8. М., \"Наука\", 1986.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/706/index.html",
+      "metadata_html_sha256": "5869e66c90b783ca63bea379da366c92d6575504d13ec483eb7dcb747a03b285",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/706/p.1/index.html",
+          "html_sha256": "4789372f300954503a48d9694e0f89b581d84398200b83014ebbeea24779674c"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.2/index.html",
+          "html_sha256": "352a9119df5f158bcbb9345fa4505e9bea9e489fd73835d94d5ba6c48a77e8f5"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.3/index.html",
+          "html_sha256": "48c664c8bc021695a8d802b370edd1230bde72c52ed35ea2b6a91657aca33a02"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.4/index.html",
+          "html_sha256": "5c6a88eec5a780ca7845143d0532e5c55b4aa700bcc2168da97c81158b606384"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.5/index.html",
+          "html_sha256": "25db3089a4a963d5847102f12c93865a45b787a778aa68ac1249b2ea3f49f649"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.6/index.html",
+          "html_sha256": "7b2da5575b8ec660301f735023232e98b48882d0bce3d96a7bf35907c077b2e7"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.7/index.html",
+          "html_sha256": "b972db90233a73b62f3a502d56ea42551cc77e76778c321c4b1b25053c4d7fd9"
+        },
+        {
+          "url": "https://ilibrary.ru/text/706/p.8/index.html",
+          "html_sha256": "44a75cfc7a6e551a0d4a48ea2c506b3aa42b5e8f7070fb78a6cc120574705675"
+        }
+      ],
+      "text_sha256": "9905bae7932eb962e30dfc84376864c52c1548a9669e46de91b20aca59252c46",
+      "word_count": 7527,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1986,
+      "edition_volume": 8
+    },
+    {
+      "work_id": "gorky/chelkash",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Челкаш",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1894 г..",
+      "date_year_min": 1894,
+      "date_year_max": 1894,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/487/index.html",
+      "metadata_html_sha256": "a61d8bf89b48cb900e8c3ad9a910e72d447977b632bb3204f89dd530c3e7c90d",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/487/p.1/index.html",
+          "html_sha256": "1d5372ba778ae6943713dcaab337e09df9257fc6a97c64b62bedf86127e1cba8"
+        },
+        {
+          "url": "https://ilibrary.ru/text/487/p.2/index.html",
+          "html_sha256": "d9f2f2c8f776cdb7aa68172d4403a8d514de84c6f96a5d05928ce06ad0f91aed"
+        },
+        {
+          "url": "https://ilibrary.ru/text/487/p.3/index.html",
+          "html_sha256": "17915eb82d79ffc792fbd591c99ce1f100e1fa6e6aef7887def25c1936e572e5"
+        },
+        {
+          "url": "https://ilibrary.ru/text/487/p.4/index.html",
+          "html_sha256": "060d67af9756562b5cc6ee871cdf8deba5a066089a15fdaaec8e89b7569c3f3c"
+        }
+      ],
+      "text_sha256": "9ea55ac4c6e4260c6ad5ce3a36e4a716d73b3b6382849539b136b72b910baf00",
+      "word_count": 9210,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/dvadtsat_shest_i_odna",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Двадцать шесть и одна",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1899 г..",
+      "date_year_min": 1899,
+      "date_year_max": 1899,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/494/index.html",
+      "metadata_html_sha256": "30cd6d59bfcfd118907a0b9afb84d07ac57a76e5d66fc56118537cbffc429b08",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/494/p.1/index.html",
+          "html_sha256": "41a1609fece28497d6d3580cbc6b76147e5fbf9595abbff8316e0741423ceda8"
+        }
+      ],
+      "text_sha256": "8456f477c449be8bb878d434c42f02d20f7c282615465439f5c5200af7ad3367",
+      "word_count": 4319,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/emelyan_pilyay",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Емельян Пиляй",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1893 г..",
+      "date_year_min": 1893,
+      "date_year_max": 1893,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/485/index.html",
+      "metadata_html_sha256": "630470741f9a44b73fd482082ecca30fecc41c9c4fd0d033affbcf308bff1bf5",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/485/p.1/index.html",
+          "html_sha256": "c4b64e6935fb3116ac6a2d7224be913bfe593c36df7de9268ab8aa967e1af42f"
+        }
+      ],
+      "text_sha256": "be95396c75ac6528bc92979e718271908bbdb13fb9fb6bffd697e4fae713a02f",
+      "word_count": 3602,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/konovalov",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Коновалов",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1896 г..",
+      "date_year_min": 1896,
+      "date_year_max": 1896,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/502/index.html",
+      "metadata_html_sha256": "ffdf875c38dc2a6103c4ed4a27eb944c7c6e1480865e48bd8158404fb3505b05",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/502/p.1/index.html",
+          "html_sha256": "a37674a74ad25e44306e273f7ee90906e6c358fecb3a8ba277b94fb675f3f839"
+        }
+      ],
+      "text_sha256": "b67760fd90b14e0ae85289edbb6c7f73537d12743e1f1c8026fe166d709d23b9",
+      "word_count": 14929,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/makar_chudra",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Макар Чудра",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1892 г..",
+      "date_year_min": 1892,
+      "date_year_max": 1892,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/484/index.html",
+      "metadata_html_sha256": "c88cc51fa9999574452810bf876059e570bd0734b45d3537ba41073bda51f35a",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/484/p.1/index.html",
+          "html_sha256": "348edb8127d62b2032299b704732e09f2ae54313592a97a9858214126b1f3f4b"
+        }
+      ],
+      "text_sha256": "e9ce54dab61f6506771f2e08ab1f2f70c66ffa06b1091668888da965341baf38",
+      "word_count": 4009,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/na_plotakh",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "На плотах",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1895 г..",
+      "date_year_min": 1895,
+      "date_year_max": 1895,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/501/index.html",
+      "metadata_html_sha256": "78742bebe9d1d9ad7ad28048d83239c074d4a9eaff4475e688b2114f1c33a6ea",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/501/p.1/index.html",
+          "html_sha256": "fdc7982d74009d8df2aa113c3892f02947541b76a87293eb3dbc875fe736d06a"
+        }
+      ],
+      "text_sha256": "12fd2fadebc684ec7e177513122c845fe140769921b0037dde28791da22331de",
+      "word_count": 3622,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/prokhodimets",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Проходимец",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1898 г..",
+      "date_year_min": 1898,
+      "date_year_max": 1898,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/493/index.html",
+      "metadata_html_sha256": "68641ab8561a3009f23081a31d32e40ec9bd766d4ce6cbf4f14b4d35a8f92874",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/493/p.1/index.html",
+          "html_sha256": "43cf541786b6d2cc0a41f606b82d6aa1075a4d4dc879e5848edc30a7f0b6138f"
+        },
+        {
+          "url": "https://ilibrary.ru/text/493/p.2/index.html",
+          "html_sha256": "174421d6023575c657433c65c82b9d9fd8106329b26a4bf63a06c9d04ada31d7"
+        }
+      ],
+      "text_sha256": "768b0c64bf4277e443836bf5b00870d5ecab349dab0ef4a2437cea3908b06b10",
+      "word_count": 10744,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/skuki_radi",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Скуки ради",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1897 г..",
+      "date_year_min": 1897,
+      "date_year_max": 1897,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/492/index.html",
+      "metadata_html_sha256": "6a7b49ad31f1ab0df149476e9bfe53a049147b3dd9df9df2c3ba3bb901913d55",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/492/p.1/index.html",
+          "html_sha256": "1b78278f200365ea3a2d87d0fdb45510021e59de4d24ca2aa33ed5c195f83b6a"
+        }
+      ],
+      "text_sha256": "5b9ac73f7ece6f8c98f392f93587c184e94dd4f3937e815fdb58b7663d35cc42",
+      "word_count": 4425,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "gorky/starukha_izergil",
+      "author_id": "gorky",
+      "author_name": "Максим Горький",
+      "title": "Старуха Изергиль",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1894 г..",
+      "date_year_min": 1894,
+      "date_year_max": 1894,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "М. Горький. Рассказы. Очерки. Воспоминания. Пьесы. \"Библиотека Всемирной литературы\", М.: Художественная литература, 1975.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/486/index.html",
+      "metadata_html_sha256": "7b8eb9ba080c6c7a3c2e1f280c68f78a9ae45cca0039f2f69996097229a1a011",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/486/p.1/index.html",
+          "html_sha256": "2df77b8094c1b271e5c005c430094ee198fd0c45e6c3390d13f645ba93dfd48b"
+        },
+        {
+          "url": "https://ilibrary.ru/text/486/p.2/index.html",
+          "html_sha256": "05e7b26e60b96b5f61be8b3e23339e9e3bd4f9416ba1e862c48e3624592d00d5"
+        },
+        {
+          "url": "https://ilibrary.ru/text/486/p.3/index.html",
+          "html_sha256": "adb336a91cebe8e9f422cdd1c4f6760a59d8cc0da07c69b42a775c6be9c81d2b"
+        }
+      ],
+      "text_sha256": "305bcc294994efc85874b9a95bb45f87f78bff27a79a89db786e165acda0613e",
+      "word_count": 4271,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1975,
+      "edition_volume": null
+    },
+    {
+      "work_id": "kuprin/allez",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Allez!",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1897 г..",
+      "date_year_min": 1897,
+      "date_year_max": 1897,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 2. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/4262/index.html",
+      "metadata_html_sha256": "6bfad6e3c66d3fc25cbe3df13450d06a23c5f773d6a466d217e517953b1c71ed",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/4262/p.1/index.html",
+          "html_sha256": "5e96f42050ef5637cfce4cff7ae7ddb8274df848e162f9a6166d43442a72f5fa"
+        }
+      ],
+      "text_sha256": "4d69985fcce711d5dfdf6ad17e3f2e6e09d8a13c5f34972ac86a0cae0f5f30d6",
+      "word_count": 1461,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 2
+    },
+    {
+      "work_id": "kuprin/belyy_pudel",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Белый пудель",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1903 г..",
+      "date_year_min": 1903,
+      "date_year_max": 1903,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 3. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1545/index.html",
+      "metadata_html_sha256": "daaa28316648b3434dbc764abeff2f22bb9ceb630fbd5c9399286dc4c42d91e7",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1545/p.1/index.html",
+          "html_sha256": "bfecf01f1f34cadd3971ea7250390f3f248c4ea45735f036891c9ca9661640d1"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1545/p.2/index.html",
+          "html_sha256": "b5ac2e478d7f7a1156e1c8d601326bd202b74fab632e42fc7cdb8247c61f8404"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1545/p.3/index.html",
+          "html_sha256": "b5e12d3c680cda00e27742f50167bfb3dc916614958a0b264bf22f37381923e2"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1545/p.4/index.html",
+          "html_sha256": "a95b0e8f0181a0afe7d30fa3dabcc16f9ddbdecfdcd6bc3d16108f9c04a9b92f"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1545/p.5/index.html",
+          "html_sha256": "f6d0a00ea58efc393a48e7454c928441eb8c2516f936632b7426ae71f568cb81"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1545/p.6/index.html",
+          "html_sha256": "37b6c79ac92433a768b05f268745c39fcae63b2a55e329e68a78dbfc1e16e25e"
+        }
+      ],
+      "text_sha256": "7c91c336f3634f24e01fc8e31d9efeb93357429801268b542c303eee246a5a2b",
+      "word_count": 9065,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 3
+    },
+    {
+      "work_id": "kuprin/boloto",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Болото",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1902 г..",
+      "date_year_min": 1902,
+      "date_year_max": 1902,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 3. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1525/index.html",
+      "metadata_html_sha256": "13bcf82b6461a2b5c0bec504e363e8e882a1847932e6b7e5cd13602647e89c4f",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1525/p.1/index.html",
+          "html_sha256": "452792397f914e8a66ae25c9b4ede9b984c2a00c61132481342546fad8dd2858"
+        }
+      ],
+      "text_sha256": "51cbea893ebd6721f9391baf9a88274cdd51ff18ca695b24852e8bff4fb22488",
+      "word_count": 5411,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 3
+    },
+    {
+      "work_id": "kuprin/chudesnyy_doktor",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Чудесный доктор",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1897 г..",
+      "date_year_min": 1897,
+      "date_year_max": 1897,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 2. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1759/index.html",
+      "metadata_html_sha256": "321ea5db2c5ac7722199f38523a120a3492b8cc53c7736229636fc8593e1b3a1",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1759/p.1/index.html",
+          "html_sha256": "0ba8ca0566ca5a60d8b46b7461969c613e924faf1ebd8891b5f93d21ff78d405"
+        }
+      ],
+      "text_sha256": "952bb61780d9ef9287d12374c49ba1f278fd3cd546e6c06323112d06a3577e71",
+      "word_count": 2428,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 2
+    },
+    {
+      "work_id": "kuprin/molokh",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Молох",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Novella within the declared broad narrative-fiction scope; length and genre remain possible author confounds.",
+      "date_label": "1896 г..",
+      "date_year_min": 1896,
+      "date_year_max": 1896,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 2. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1377/index.html",
+      "metadata_html_sha256": "a095e47a6535106da4474e9c041c36538eb82d867b3ce961089065ae0c6e79fd",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1377/p.1/index.html",
+          "html_sha256": "6d0359fa4ab607099d4665a78e9be9e9c92cf64cc04e3a9a3b92f700fa982eed"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.2/index.html",
+          "html_sha256": "f14e23721e3980acc75f31d7904208384bd98813e6ffbbb1d748279b5a11c6e1"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.3/index.html",
+          "html_sha256": "a777ddcf0d338c158dd2d028ac83eb6b83b0e48bc7bfd108ec82b46999a394fa"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.4/index.html",
+          "html_sha256": "059c9e546249ab3a5c67ea071e64f9b15af3a567f7e33bf5fa30b1b26b5d9842"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.5/index.html",
+          "html_sha256": "68fa3556f70280f6be80969d799dfcbdb87d912826f421e14b948458f9cac859"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.6/index.html",
+          "html_sha256": "f6586dff16adb10503fc2f6bab6124bafd2efe213d6b0271c96e06ce9a118393"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.7/index.html",
+          "html_sha256": "bd05f23788d494d4d4a10e2cd193ffca82d201199680740c776a2ca6a9f1b275"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.8/index.html",
+          "html_sha256": "679d7bf8ed53f9ad7cf20919e07b2da30e745d3cf8ac557344c16d1b726cb125"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.9/index.html",
+          "html_sha256": "2faf97a8ee46a841e779e646d731f0350a71cb04f2ed3f257eaa86dfea5db772"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.10/index.html",
+          "html_sha256": "2cf50fe4cd5745ed2fff2d02d755e0874821cece53fb4cc8e7a83563e98ad59d"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1377/p.11/index.html",
+          "html_sha256": "b98b680901c3fbf5df75bdbc21c52b8776a66da869da6ca50e98cd9bbe9ca08e"
+        }
+      ],
+      "text_sha256": "ae66571d212d58eaea21b4744b233589bcbebfe89993102bca60ceb820819efe",
+      "word_count": 22311,
+      "prior_historical_exposure": true,
+      "historical_work_id": "kuprin/молох",
+      "edition_year": 1957,
+      "edition_volume": 2
+    },
+    {
+      "work_id": "kuprin/olesya",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Олеся",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Novella within the declared broad narrative-fiction scope; length and genre remain possible author confounds.",
+      "date_label": "1898 г..",
+      "date_year_min": 1898,
+      "date_year_max": 1898,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 2. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1180/index.html",
+      "metadata_html_sha256": "21ca80a5f493bce0df697621b49f6680d9d452ac7d696fbdf52ca72e8c4bf990",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1180/p.1/index.html",
+          "html_sha256": "99cf60c3568a1a15e67cffd53b6fce57b2448d91814e2b78cf5609243f9e08e1"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.2/index.html",
+          "html_sha256": "c9525844778b4e5d45002276cfdd184af764f52f1f44755eee25de907cfa0e4a"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.3/index.html",
+          "html_sha256": "41a159d5a0ee2ac23a938aea53e06f6413cd46abf8411359cb92fb5fdac6c4b8"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.4/index.html",
+          "html_sha256": "c43523d7e5063bd1b2cd22e92946b1d6daac0bf323d979c0a70298a30c510bdc"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.5/index.html",
+          "html_sha256": "66a4bed8f20a86a2d506c00544dc5d1dfc59364b180af3f7ef0ffce79309aa83"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.6/index.html",
+          "html_sha256": "cbc94a151ff39896cca5c7389fa5f34ae029ecf59c68dab935a9cf6c8aa7408b"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.7/index.html",
+          "html_sha256": "48036cec53797a3ac0e8c3dc0beb13b760eb41840efccde4b8154bf1390c24d9"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.8/index.html",
+          "html_sha256": "6d944bcde10853ecb99884b57e123699051b9ac4bde1970d170fee1ff96a040f"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.9/index.html",
+          "html_sha256": "77391f920d7615aaef09084d3c1f6613b7ff2187e4a5c65d0c9d0c14b06306aa"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.10/index.html",
+          "html_sha256": "b4a6984e6752e7a0282b1e0a89b1fb3eaec909d9bea87c3e4c618d66531b43c5"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.11/index.html",
+          "html_sha256": "087186c5507a4ea8f36b9b9cb8b1477debe5fc9e46121c1ace151d6b2ea1d035"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.12/index.html",
+          "html_sha256": "c556e379eac125a90763fb8c5c9a1548088f8f79c5ae822be06d3bac42ebc7be"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.13/index.html",
+          "html_sha256": "b74d22821a597be944eb227f9df1d3ded0c51a123fe78b08f3304a4912a9055a"
+        },
+        {
+          "url": "https://ilibrary.ru/text/1180/p.14/index.html",
+          "html_sha256": "b02fe8b925aa8380af1ad7d12cad845003d9e63be0a6aa5d18081b10cc5d2b49"
+        }
+      ],
+      "text_sha256": "9ce29227908bd7daf6da796f94acbd110c645e1834a89f80588599301b302d4f",
+      "word_count": 22078,
+      "prior_historical_exposure": true,
+      "historical_work_id": "kuprin/олеся",
+      "edition_year": 1957,
+      "edition_volume": 2
+    },
+    {
+      "work_id": "kuprin/putanitsa",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Путаница",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1897 г..",
+      "date_year_min": 1897,
+      "date_year_max": 1897,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 2. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/4264/index.html",
+      "metadata_html_sha256": "0756affc5dfd444136f7542ec46da08d6c8b2641008a4ee07951a1b18aff507d",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/4264/p.1/index.html",
+          "html_sha256": "b1a99baaaa750a4e335d46dcbe5391af2e36768769deb9491364dc81e2841c09"
+        }
+      ],
+      "text_sha256": "778bd5a59cb489473349e58e25d510b63fae56974e8f01cd843c5e79239ff422",
+      "word_count": 2510,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 2
+    },
+    {
+      "work_id": "kuprin/sobache_schastye",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Собачье счастье",
+      "role": "locked_test",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1896 г..",
+      "date_year_min": 1896,
+      "date_year_max": 1896,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 1. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/4267/index.html",
+      "metadata_html_sha256": "b3a9d79eda622f64165f95127740691ac5ba75a685f2b3a81df545f2b57669d4",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/4267/p.1/index.html",
+          "html_sha256": "a143485185c78cbd046e5d7add020c78d7682e9c0526174bd9e452c02f3e7e30"
+        }
+      ],
+      "text_sha256": "4d3e83118794b1b3633696e6d26a88294514b677147634292f8178213dcaf5d3",
+      "word_count": 2104,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 1
+    },
+    {
+      "work_id": "kuprin/taper",
+      "author_id": "kuprin",
+      "author_name": "Александр Иванович Куприн",
+      "title": "Тапер",
+      "role": "development",
+      "genre": "narrative_prose",
+      "genre_note": "Narrative fiction; provider labels not uniformly fine-grained. Stories and short novellas are included.",
+      "date_label": "1900 г..",
+      "date_year_min": 1900,
+      "date_year_max": 1900,
+      "date_basis": "provider writing-date declaration, not first-publication date",
+      "edition_label": "А. И. Куприн. Собрание сочинений в 6 т. Том 2. М.: Гослитиздат, 1957.",
+      "bibliographic_status": "provider_declared_print_source_not_independently_collated",
+      "source_provider": "Internet Library of Alexey Komarov (iLibrary.ru)",
+      "source_url": "https://ilibrary.ru/text/1760/index.html",
+      "metadata_html_sha256": "5ae91627ed70828ad7b9913a0f93ecaff3e952b3d9d49ac3ace2d4151f8e2e9f",
+      "pages": [
+        {
+          "url": "https://ilibrary.ru/text/1760/p.1/index.html",
+          "html_sha256": "7116e4ae49a8be07a31d6ebbcb2c668fce208331cb2add1b16a3bc07c805f364"
+        }
+      ],
+      "text_sha256": "75e76ffa60db0cd24355e78f2a460b971b5cfb9b326b3418a9afe54b3aad460d",
+      "word_count": 3557,
+      "prior_historical_exposure": false,
+      "historical_work_id": null,
+      "edition_year": 1957,
+      "edition_volume": 2
+    }
+  ],
+  "content_overlap_audit": {
+    "method": "stylo.domain.corpus_identity._word_shingles; exact word-5 set intersection / smaller set",
+    "method_source_sha256": "8f6c1009f58617a7cc9cc1f92bff6fa6b0ed8df640ee9e3aa76dbda4cbba3680",
+    "threshold": 0.9,
+    "minimum_shingles": 20,
+    "interpretation": "No >=0.90 containment means no near-copy found by this lexical check; it does not prove thematic, stylistic, editorial or archival independence.",
+    "within_panel": {
+      "n_pairs": 528,
+      "max_containment": 0.0012581781580271766,
+      "development_locked_pairs": 242,
+      "development_locked_max_containment": 0.0011838989739542227,
+      "flags": []
+    },
+    "locked_vs_historical": {
+      "historical_manifest_sha256": "cd3bf5e37b6ca12295d7a86bf3bb1d19427993cae118b59db106280740e40468",
+      "n_historical_inputs_verified": 252,
+      "n_historical_inputs_eligible": 251,
+      "n_locked_works": 11,
+      "n_pairs": 2772,
+      "n_eligible_pairs": 2761,
+      "historical_inputs_below_minimum": [
+        {
+          "historical_work_id": "tolstoy/война_и_мир",
+          "n_unique_word5_shingles": 13
+        }
+      ],
+      "n_pairs_below_minimum": 11,
+      "below_minimum_interpretation": "Exact intersections are computed, but inputs below 20 unique shingles cannot support the ordinary near-copy absence claim for a literary work.",
+      "per_locked_max": [
+        {
+          "work_id": "andreev/angelochek",
+          "historical_work_id": "tolstoy/анна_каренина",
+          "max_containment": 0.001579778830963665
+        },
+        {
+          "work_id": "andreev/kusaka",
+          "historical_work_id": "saltykov/история_одного_города",
+          "max_containment": 0.001405152224824356
+        },
+        {
+          "work_id": "chehov/ariadna",
+          "historical_work_id": "dostoevsky/братья_карамазовы",
+          "max_containment": 0.0014374700527072352
+        },
+        {
+          "work_id": "chehov/nevesta",
+          "historical_work_id": "dostoevsky/униженные_и_оскорблённые",
+          "max_containment": 0.001229796205200281
+        },
+        {
+          "work_id": "chehov/poprygunya",
+          "historical_work_id": "dostoevsky/бесы",
+          "max_containment": 0.0013156163662675965
+        },
+        {
+          "work_id": "gorky/na_plotakh",
+          "historical_work_id": "gogol/мёртвые_души",
+          "max_containment": 0.0005382131324004305
+        },
+        {
+          "work_id": "gorky/prokhodimets",
+          "historical_work_id": "tolstoy/анна_каренина",
+          "max_containment": 0.0006456373362848183
+        },
+        {
+          "work_id": "gorky/skuki_radi",
+          "historical_work_id": "dostoevsky/униженные_и_оскорблённые",
+          "max_containment": 0.0004459308807134894
+        },
+        {
+          "work_id": "kuprin/allez",
+          "historical_work_id": "akunun/azazel",
+          "max_containment": 0.0013623978201634877
+        },
+        {
+          "work_id": "kuprin/putanitsa",
+          "historical_work_id": "dostoevsky/идиот",
+          "max_containment": 0.0023677979479084454
+        },
+        {
+          "work_id": "kuprin/sobache_schastye",
+          "historical_work_id": "uspensky/разоренье",
+          "max_containment": 0.0009380863039399625
+        }
+      ],
+      "flags": []
+    },
+    "receipt_sha256": "b23b4b998b0c808b5fcbbeb35e254ee4328996c224a52b558598a75b1415dc2d",
+    "recipe": ".venv/bin/python scripts/fetch_publication_prose.py --audit-historical-manifest <retained-corrected-corpus-manifest.json>"
+  },
+  "fresh_network_reconstruction": {
+    "n_works_verified": 33,
+    "n_prose_pages": 115,
+    "n_metadata_pages": 33,
+    "n_html_renderings_changed": 148,
+    "bibliographic_labels_and_complete_chapter_inventories": "All 33 match acquired declarations and chapter URL lists.",
+    "processed_body_hashes": "All 33 exactly match this manifest.",
+    "receipt_sha256": "c69d189fa8062ec40e8d1b23ea8507c5a37fd6567bb459b71dff8dfd63149e62",
+    "recipe_manifest_sha256": "469be5a7657482e22e292dbf90135868b4e0fa25a9466a8b819fc197bd14f308",
+    "identity_binding": "Fresh receipt IDs and processed hashes are identical to this manifest; receipt precedes the addition of audit summaries and explicit edition-year fields.",
+    "network_warnings": "An initial attempt timed out; complete fresh retry passed. Provider rendering HTML changed on all pages while bibliographic labels and processed bodies remained stable."
+  }
+}

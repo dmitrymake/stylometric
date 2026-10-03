@@ -8,7 +8,7 @@ algebraic reversal ``[lo, hi] → [-hi, -lo]``.
 
 This runner does NOT regenerate or overwrite the historical artifacts. It re-checks their pinned
 SHA256, emits versioned derivatives (``docs/final_comparison.v2.{csv,txt}``,
-``docs/ruaa_bench_v1.0.1.json``, ``docs/ruaa_bench_leaderboard_v1.0.1.md``) and a machine-readable
+``docs/ruaa_bench_v1.0.1.json``) and a machine-readable
 erratum + corrected-SHA inventory (``docs/ci_sign_erratum.json``). All logic (SHA pins, fail-closed
 validation, the frozen-path guard) lives in ``stylo.eval.ci_erratum``. Run from the repo root.
 """
@@ -26,7 +26,7 @@ from stylo.jsonio import dumps_strict, loads_strict  # noqa: E402  (strict JSON 
 def main() -> int:
     apply_erratum(ROOT, dumps_strict, loads_strict)
     print("wrote docs/final_comparison.v2.{csv,txt}, docs/ruaa_bench_v1.0.1.json, "
-          "docs/ruaa_bench_leaderboard_v1.0.1.md, docs/ci_sign_erratum.json")
+          "docs/ci_sign_erratum.json")
     return 0
 
 

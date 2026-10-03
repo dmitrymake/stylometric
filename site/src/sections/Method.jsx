@@ -164,8 +164,9 @@ export default function Method() {
               слов; <strong style={{ color: "var(--text)" }}>POS</strong> — часть речи; <strong style={{ color: "var(--text)" }}>TTR</strong> —
               доля неповторяющихся слов; <strong style={{ color: "var(--text)" }}>Hapax</strong> — слова, встреченные ровно
               один раз; <strong style={{ color: "var(--text)" }}>Yule</strong> — мера богатства словаря;{" "}
-              <strong style={{ color: "var(--text)" }}>topic-bleaching</strong> — оставляем скелет из частей речи,
-              чтобы уменьшить влияние темы; <strong style={{ color: "var(--text)" }}>синтаксические связи</strong> —
+              <strong style={{ color: "var(--text)" }}>Замена слов структурными признаками</strong> — оставляем скелет из частей речи,
+              вместо самих слов. Тематическую устойчивость такого представления проверяют отдельно;
+              <strong style={{ color: "var(--text)" }}>синтаксические связи</strong> —
               кто с кем в предложении связан и как глубоко ветвится дерево разбора; <strong style={{ color: "var(--text)" }}>морфология</strong> —
               грамматические пометы слов (падеж, время, вид), взятые разбором spaCy (программой грамматического разбора).
             </p>

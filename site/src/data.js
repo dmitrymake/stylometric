@@ -9,6 +9,7 @@ import { CORPUS } from "./corpus.js";
 
 // Completed whole-work measurement; historical HEADLINE remains unchanged below.
 export const MEASUREMENT = D.measurement;
+export const PUBLICATION = D.publication;
 export const CASE_DOWNLOADS = D.caseDownloads;
 
 const REQUIRED_HISTORICAL_CLAIM_STATUS = "exploratory_internal";

@@ -194,12 +194,28 @@ def test_corpus_exclusion_arithmetic_is_mechanically_accounted():
     assert excluded <= lobo_ids and excluded <= ruaa_ids
     assert len(lobo_ids - excluded) == 248
     assert len(ruaa_ids - excluded) == 134
-    # The tracked independent audit fixes the immutable historical parent count at 255.
-    historical_audit = (
-        ROOT / "research" / "evidence" / "stylo_lobo_validation_v1" / "independent_audit.md"
-    ).read_text(encoding="utf-8")
-    assert "47 classes, 255 works, and 251 tested works" in historical_audit
-    assert 255 - len(excluded) == 252
+    # Count the machine-readable historical inventory, not a sentence in an audit.
+    from stylo.eval.paired_audit.corrected_v3_2 import LOBO_SINGLETON_AUTHORS
+
+    historical = _strict_json(ROOT / "docs" / "corpus_manifest.json")
+    tested_authors = {row["work_id"].split("/", 1)[0] for row in lobo["works"]}
+    singletons = set(LOBO_SINGLETON_AUTHORS)
+    assert not tested_authors & singletons
+    parent_authors = tested_authors | singletons
+    assert len(parent_authors) == 47
+    for author in parent_authors:
+        record = historical["authors"][author]
+        assert record["n_books"] == len(record["books"])
+    assert all(historical["authors"][author]["n_books"] == 1 for author in singletons)
+    tested_inventory = {
+        f"{author}/{book['book']}"
+        for author in tested_authors
+        for book in historical["authors"][author]["books"]
+    }
+    assert tested_inventory == lobo_ids
+    parent_work_count = sum(historical["authors"][author]["n_books"] for author in parent_authors)
+    assert parent_work_count == 255
+    assert parent_work_count - len(excluded) == 252
 
     assert ledger["paired_audit"]["protocol_v3_1"]["status"] == (
         "superseded_ineligible_corpus"
@@ -519,4 +535,3 @@ def test_active_taras_masking_consumer_imports_without_running_retired_cleaner()
         check=False,
     )
     assert result.returncode == 0, result.stderr
-
