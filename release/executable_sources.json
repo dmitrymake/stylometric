@@ -58,7 +58,7 @@
     ".github/workflows/ci.yml": "66ce920780ae465923076ea6ea45ae4ba33417f5c55c0d3e81bc2a49a0309ae1",
     ".github/workflows/deploy-pages.yml": "88a6731ad599a8bf642f91787fbc0aa7ce565a3be1124135dcc74368ef2b1590",
     "research/evidence/stack_class_coverage_repair_smoke_v1/source_manifest.json": "f5b3eda337dce7b7bf2c691b92c72c8445331b53c3716cf53349061764423bc5",
-    "research/governance/contracts.json": "3705d669c30eb7a09b6854f17285090a24cc3999bda565530d51d8dd054566ed",
+    "research/governance/contracts.json": "2682dc5246e9f3fcf35681bc1b79f5f699bd28c7e59132a66dda5b2258c08de7",
     "research/governance/status_ledger.json": "565dc3cdae4edc0a898c9d05b98d8f803910fd5fa2dc6f19e6fc0845fe644958",
     "scripts/check-provenance.mjs": "2669ffd34eec6a3ee233864120c3d6ea04b483946c86e315fffff36a7b5f643c",
     "scripts/check_release_hygiene.py": "69534811b444999cedfbebb840f66fc9b72ad0609dc5cf3c4ccbea2d2d2284e5",

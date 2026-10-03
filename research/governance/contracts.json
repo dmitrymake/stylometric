@@ -321,6 +321,17 @@
           "tests/test_paired_audit_topic_validity_v1.py::test_worker_failure_propagates_instead_of_writing_a_partial_aggregate",
           "tests/test_paired_audit_topic_validity_v1.py::test_time_limit_stops_and_keeps_completed_work"
         ]
+      },
+      {
+        "path": "scripts/evaluation/summarize_topic_validity.py",
+        "status": "saved_prediction_summary",
+        "claim_scope": "Descriptive whole-work and author-label metrics from the retained topic-validity predictions; empirical author reweighting measures sensitivity of those fixed predictions.",
+        "output_contract": "Separate strict aggregate with four arms, six paired comparisons and input hashes; source inputs remain unchanged.",
+        "required_nodeids": [
+          "tests/test_topic_summary.py::test_unequal_book_counts_change_author_recall_estimand",
+          "tests/test_topic_summary.py::test_pairs_keep_losses_and_wrong_prediction_changes",
+          "tests/test_topic_summary.py::test_modified_manifest_fails_self_hash_before_reduction"
+        ]
       }
     ]
   },
