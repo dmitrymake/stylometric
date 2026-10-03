@@ -13,7 +13,7 @@
 
 Owner authorised the product/methodology/editorial hardening on 2026-10-03 and requested a final
 cold Astra review. Implementation commits: `70be5c5`, `c96c6f7`; final editorial corrections:
-`786b3df`. These commits are ready for the local fast-forward into main; verify HEAD and tree.
+`786b3df`. These commits have been fast-forwarded into local main; verify HEAD and tree.
 There is no push/publication authorisation.
 
 The first cold review found target/reference leakage, overwritten result versions and unnecessary
