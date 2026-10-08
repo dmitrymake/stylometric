@@ -43,8 +43,24 @@ export default function App({ initialChapter, chapterComponent } = {}) {
   const [loadError, setLoadError] = useState(false);
   const Chapter = loadedChapters[chapter];
   const activeChapterRef = useRef(null);
+  const chapterRequests = useRef(Object.create(null));
   const chapterIndex = CHAPTER_IDS.indexOf(chapter);
-  const nextChapter = CHAPTERS[(chapterIndex + 1) % CHAPTERS.length];
+  const nextChapter = chapterIndex + 1 < CHAPTERS.length ? CHAPTERS[chapterIndex + 1] : null;
+  const requestChapter = (id) => {
+    if (id === "framework") return Promise.resolve(null);
+    const pending = chapterRequests.current[id];
+    if (pending) return pending;
+    const request = loadChapterForRender(id).then((component) => {
+      setLoadedChapters((current) => (current[id] ? current : { ...current, [id]: component }));
+      return component;
+    }).catch((error) => {
+      if (chapterRequests.current[id] === request) delete chapterRequests.current[id];
+      throw error;
+    });
+    chapterRequests.current[id] = request;
+    return request;
+  };
+  const preloadChapter = (id) => { requestChapter(id).catch(() => {}); };
 
   useEffect(() => {
     const handleHash = () => {
@@ -58,13 +74,22 @@ export default function App({ initialChapter, chapterComponent } = {}) {
     setLoadError(false);
     if (chapter === "framework" || loadedChapters[chapter]) return;
     let active = true;
-    loadChapterForRender(chapter).then((component) => {
-      if (active) setLoadedChapters((current) => ({ ...current, [chapter]: component }));
-    }).catch(() => { if (active) setLoadError(true); });
+    requestChapter(chapter).catch(() => { if (active) setLoadError(true); });
     return () => { active = false; };
   }, [chapter, loadedChapters]);
   useEffect(() => {
-    if (chapter !== "framework" && !Chapter) return;
+    const preload = () => { for (const id of CHAPTER_IDS) preloadChapter(id); };
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(preload, { timeout: 3000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(preload, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    // Без якоря сбрасываем скролл сразу: иначе короткая заглушка обрезает
+    // позицию чтения, и после загрузки глава прыгает второй раз.
+    if (anchor && chapter !== "framework" && !Chapter) return;
     const centerActiveChapter = () => {
       const activeLink = activeChapterRef.current;
       if (activeLink) {
@@ -107,7 +132,7 @@ export default function App({ initialChapter, chapterComponent } = {}) {
         <span className="masthead-edition">Stylo <span aria-hidden> / </span> Русский код</span>
       </div>
       <nav className="chapter-navigation" aria-label="Главы исследования">
-        <div className="chapters wrap">{CHAPTERS.map(([id, label], index) => <a ref={chapter === id ? activeChapterRef : undefined} key={id} href={`#${id}`} className={`chapter-btn${chapter === id ? " active" : ""}`} aria-current={chapter === id ? "page" : undefined}><span className="chapter-number" aria-hidden>{String(index + 1).padStart(2, "0")}</span>{label}</a>)}</div>
+        <div className="chapters wrap">{CHAPTERS.map(([id, label], index) => <a ref={chapter === id ? activeChapterRef : undefined} key={id} href={`#${id}`} onMouseEnter={() => preloadChapter(id)} onFocus={() => preloadChapter(id)} className={`chapter-btn${chapter === id ? " active" : ""}`} aria-current={chapter === id ? "page" : undefined}><span className="chapter-number" aria-hidden>{String(index + 1).padStart(2, "0")}</span>{label}</a>)}</div>
       </nav>
     </header>
     <main id="main" tabIndex={-1}>
@@ -121,7 +146,9 @@ export default function App({ initialChapter, chapterComponent } = {}) {
           <Repro />
           <details className="article-appendix wrap"><summary>Границы метода и дополнительные проверки</summary><Limits /></details>
         </> : Chapter ? <Chapter /> : <ChapterState title={CHAPTERS[chapterIndex][1]} failed={loadError} />}
-        <nav className="chapter-next wrap" aria-label="Продолжить чтение"><span>Следующая глава</span><a href={`#${nextChapter[0]}`}>{nextChapter[1]} <span aria-hidden>→</span></a></nav>
+        {nextChapter
+          ? <nav className="chapter-next wrap" aria-label="Продолжить чтение"><span>Следующая глава</span><a href={`#${nextChapter[0]}`}>{nextChapter[1]} <span aria-hidden>→</span></a></nav>
+          : <nav className="chapter-next wrap" aria-label="Вернуться к началу"><span>В начало</span><a href="#framework">{CHAPTERS[0][1]} <span aria-hidden>↑</span></a></nav>}
       </EditorialArticle>
     </main>
     <footer className="foot"><div className="wrap"><span>Дмитрий Пуртов × Русский код</span><a href="https://github.com/dmitrymake/stylometric" target="_blank" rel="noopener noreferrer">Исходный код ↗</a><span>2026</span></div></footer>

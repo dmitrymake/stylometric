@@ -137,6 +137,11 @@ img,svg,canvas { max-width:100%; }
 .protocol-list li::before { content:counter(protocol,decimal-leading-zero); position:absolute; left:0; top:1.2rem; font:.875rem/1.5 var(--font-mono); color:var(--editorial-accent); }
 .protocol-list strong { display:block; margin-bottom:.35rem; font:600 1.125rem/1.5 var(--font-text); }
 .protocol-list p { margin:0; font-size:1.125rem; }
+/* Смена главы монтирует статью заново (key={chapter}): вход главой, а не миганием. */
+@media (prefers-reduced-motion: no-preference) {
+  .site-article { animation: chapter-enter var(--dur-trans) var(--ease-out) both; }
+}
+@keyframes chapter-enter { from { opacity:0; transform:translateY(.6rem); } to { opacity:1; transform:none; } }
 .chapter-state { padding-block:2rem 3rem; min-height:18rem; }
 .chapter-state .prose { max-width:var(--measure); }
 .timeline-selection { display:grid; grid-template-columns:auto minmax(5rem,1fr); gap:.4rem 1rem; margin-top:1rem; font:1rem/1.6 var(--font-text); }
