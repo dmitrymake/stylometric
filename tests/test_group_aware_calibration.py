@@ -36,12 +36,6 @@ class TestCompatibilityClassifierFactory:
         with pytest.raises(UngroupedCalibrationError, match="work-group"):
             make_classifier(cfg, **kwargs)
 
-    def test_unsafe_sklearn_calibration_wrapper_is_absent(self):
-        import inspect
-        import stylo.models.lr as lr
-
-        assert "CalibratedClassifierCV" not in inspect.getsource(lr)
-
 
 def _separable(works_per_class):
     """OOF scores + y + work groups: class-separable, ``works_per_class`` works (2 chunks) per class."""
@@ -83,20 +77,23 @@ class TestGroupAwareCalibration:
         assert not p.get("calibration_disabled")
 
     def test_pooled_equal_work_nll_matches_independent_reference(self):
-        # HIGH-1: the reported score is the POOLED equal-work NLL (sum of per-work loss / total works),
-        # not a fold-averaged mean — reproduced independently with the same folds.
-        from sklearn.model_selection import StratifiedGroupKFold
-        from stylo.models.calibration import _fit_method, _work_loss_sum
-        oof, y, g = _separable([5, 5])                      # 10 works, uneven fold sizes at k=3
-        _, p = choose_calibrator(oof, y, groups=g, n_splits=3, seed=7)
-        sgkf = StratifiedGroupKFold(3, shuffle=True, random_state=7)
-        total, works = 0.0, 0
-        for fit_i, val_i in sgkf.split(oof, y, g):
-            cal, _ = _fit_method("identity", oof[fit_i], y[fit_i], 7)
-            total += _work_loss_sum(cal(oof[val_i]), y[val_i], g[val_i])
-            works += len({str(w) for w in g[val_i]})
-        assert works == 10                                 # every work held out exactly once == W
-        assert p["heldout_work_nll"]["identity"] == round(total / works, 4)
+        import math
+        # Identity calibration maps these log-probabilities back to the supplied
+        # probabilities. Work sizes and losses differ, so chunk pooling is observable.
+        probabilities = [0.5, 0.75, 0.9, 0.6, 0.8, 0.95]
+        counts = [1, 3, 2, 2, 1, 3]
+        rows, labels, groups = [], [], []
+        for work, (probability, count) in enumerate(zip(probabilities, counts)):
+            label = work // 3
+            row = [math.log(probability), math.log(1 - probability)]
+            rows.extend([row if label == 0 else row[::-1]] * count)
+            labels.extend([label] * count)
+            groups.extend([f"author{label}/work{work}"] * count)
+        _, passport = choose_calibrator(np.array(rows), np.array(labels),
+                                        groups=np.array(groups), methods=("identity",),
+                                        n_splits=2, seed=7)
+        expected = sum(-math.log(p) for p in probabilities) / len(probabilities)
+        assert passport["heldout_work_nll"]["identity"] == pytest.approx(expected, abs=5e-5)
 
     def test_class_absent_from_validation_side_disables(self, monkeypatch):
         # HIGH-3: a class missing from a fold's VALIDATION side (not only train) must disable.
@@ -260,11 +257,6 @@ class TestWorkBalancedStackUnblocked:
         assert make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)() is not None
         assert _variant_role("stylo_stack", WORK_BALANCED) == "primary"
 
-    def test_run_final_preflight_no_longer_blocks_stack(self):
-        import inspect
-        from stylo.eval import final
-        src = inspect.getsource(final.run_final)
-        assert "stylo_stack under work_balanced is blocked" not in src
 
     def test_wb_stack_fits_predicts_with_group_aware_calibration(self, _hashing_only):
         t, y, g = _toy()

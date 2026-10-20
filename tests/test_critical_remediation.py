@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import ast
-import dataclasses
 import hashlib
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -124,44 +120,29 @@ def test_aud002_substitution_is_rejected_before_joblib(monkeypatch, tmp_path):
     assert calls == []
 
 
-def test_aud002_release_has_no_loose_executable_deserializers():
-    root = Path(__file__).resolve().parents[1]
-    executable_loads: list[tuple[str, str]] = []
-    object_numpy_loads: list[tuple[str, str]] = []
-    for source_root in (root / "src", root / "scripts"):
-        for path in sorted(source_root.rglob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            relative = path.relative_to(root).as_posix()
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call) or not isinstance(
-                    node.func, ast.Attribute
-                ):
-                    continue
-                owner = node.func.value
-                if (
-                    isinstance(owner, ast.Name)
-                    and owner.id in {"joblib", "pickle"}
-                    and node.func.attr in {"load", "loads"}
-                ):
-                    executable_loads.append((relative, ast.unparse(node.args[0])))
-                if (
-                    isinstance(owner, ast.Name)
-                    and owner.id in {"np", "numpy"}
-                    and node.func.attr == "load"
-                    and any(
-                        keyword.arg == "allow_pickle"
-                        and isinstance(keyword.value, ast.Constant)
-                        and keyword.value.value is True
-                        for keyword in node.keywords
-                    )
-                ):
-                    object_numpy_loads.append((relative, ast.unparse(node)))
-
-    assert object_numpy_loads == []
-    assert executable_loads == [
-        ("src/stylo/pipeline/predict.py", "io.BytesIO(payloads['model.pkl'])"),
-        ("src/stylo/pipeline/predict.py", "io.BytesIO(payloads['delta.pkl'])"),
-    ]
+@pytest.mark.parametrize("changed", ["model.pkl", "delta.pkl"])
+def test_aud002_tampered_bundle_is_rejected_before_executable_payload(tmp_path, changed):
+    import pickle
+    from stylo.pipeline.bundle import load_bundle
+    marker = tmp_path / "deserialized"
+    class Probe:
+        def __reduce__(self):
+            return Path.touch, (marker,)
+    payload = pickle.dumps(Probe())
+    data = tmp_path / "data"
+    root = data / "deployment/chunk_weighted_legacy"
+    receipt = publish_bundle(root, {
+        "model.pkl": lambda path: path.write_bytes(payload),
+        "delta.pkl": lambda path: path.write_bytes(payload),
+        "authors.json": lambda path: path.write_text('["a","b"]'),
+    }, _bundle_meta())
+    _, files = load_bundle(root, expected_token=receipt["bundle_token"])
+    files[changed].write_bytes(payload + b"tampered")
+    cfg = _Cfg({"evaluation.training_weighting": "chunk_weighted_legacy", "paths.data": str(data),
+                "paths.docs": str(tmp_path / "docs")})
+    with pytest.raises(BundleError):
+        predict.run(cfg, expected_bundle_token=receipt["bundle_token"])
+    assert not marker.exists()
 
 
 def _clean_cfg(tmp_path):

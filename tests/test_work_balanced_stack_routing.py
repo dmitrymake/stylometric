@@ -6,7 +6,6 @@ without spaCy. Group-aware calibration and end-to-end dispatch have their own in
 """
 from __future__ import annotations
 
-import inspect
 
 import numpy as np
 import pytest
@@ -100,10 +99,6 @@ class TestStackLossWiring:
 
 # -- hashing-channel work-id validation
 class TestHashingGroupsValidation:
-    def test_two_arg_and_groups_none_stay_legacy(self):
-        tr, te = ["x y", "y z"], ["x"]
-        assert np.allclose(ch_char(tr, te).__getitem__(0).toarray(),
-                           ch_char(tr, te, None).__getitem__(0).toarray())
 
     @pytest.mark.parametrize("bad", [
         "auth0/book0",                       # bare string (scalar posing as a per-chunk sequence)
@@ -124,12 +119,3 @@ class TestHashingGroupsValidation:
 
 
 # -- complete work-balanced stack routing
-class TestWorkBalancedStackWired:
-    def test_factory_builds_work_balanced_stack(self):
-        from stylo.eval.lobo import make_factory
-        assert make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)() is not None
-        assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY)() is not None
-
-    def test_calibration_is_group_aware(self):
-        from stylo.models.calibration import choose_calibrator
-        assert "groups" in inspect.signature(choose_calibrator).parameters

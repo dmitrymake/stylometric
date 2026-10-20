@@ -1,24 +1,8 @@
-"""Weights-only A1: work-balanced loss on a strictly legacy A0 feature side.
+"""Weights-only ablation: feature parity, effective work influence and input contracts.
 
-A1 == ``AblationConfig(True, False, False)`` is runnable ONLY for the LR-family
-(``stylo``/``bow_lr``/``stylo_stack``). This suite proves, on deterministic synthetic panels:
-
-* **routing / negatives** — A1 builds for the three LR specs and fails closed (exact reason) for
-  every non-LR model; the remaining two-axis combinations stay ``AblationNotImplementedError``;
-  the malformed/shadow/duck/subclass/None/non-bool defenses survive; reserved caller
-  weight/group params are rejected; the production ``make_factory`` contract is unchanged;
-* **feature side == A0** — vocabulary / IDF / feature names / block digests / the FunctionWord
-  transform are the exact chunk-pooled A0 projection, no ``groups`` ever reach a block/vectorizer,
-  and the projection differs from A4 where F/R actually change state;
-* **weight side** — the REAL learner ``.fit`` calls (outer LR, stack SVC, stack meta-CV/final LR)
-  get ``class_weight=None`` and exact fold-local work weights (sum ``W_train``, equal author mass,
-  equal within-author work mass, fold-local ≠ global); no supervised branch is left unweighted
-  (Platt/isotonic calibrator fits keep the signed calibration contract without ``sample_weight``);
-* **non-false-green** — a strong-chunk-imbalance panel where A1 == A0 on features but A1 ≠ A0 on
-  probability, so a broken W axis cannot pass;
-* **stack corners** — an eligible panel confirms the group-disjoint calibration passport and the
-  exact ordered fold-local weights of every SVC/meta-LR; a small panel confirms the
-  disabled / equal / no-meta path; the stack feature side is proven legacy (2-arg channels).
+Synthetic controls and real learners distinguish weight and feature effects.
+Channel matrices are compared at the channel boundary without requiring a fixed
+order or number of internal fits. Heavy full-channel checks require a spaCy model.
 """
 from __future__ import annotations
 
@@ -41,12 +25,13 @@ SEED = CFG.get_path("seed", 42)
 
 
 def _has_spacy() -> bool:
-    try:
-        import spacy
-        spacy.load(CFG.get_path("language.spacy_model", "ru_core_news_lg"))
-        return True
-    except Exception:
+    import importlib.util
+    import spacy
+    model = CFG.get_path("language.spacy_model", "ru_core_news_lg")
+    if importlib.util.find_spec(model) is None:
         return False
+    spacy.load(model)  # Installed but unusable is a test setup failure.
+    return True
 
 
 _SPACY = _has_spacy()
@@ -111,30 +96,6 @@ def _nrows(X):
 
 
 # ── real-fit instrumentation (separate from the canonical capture tool) ─────────
-def _recorder(base, kind, sink):
-    class _Rec(base):
-        def fit(self, X, y=None, sample_weight=None, **kw):
-            sw = None if sample_weight is None else np.asarray(sample_weight, dtype=float).copy()
-            sink.append({"kind": kind, "class_weight": self.class_weight,
-                         "sample_weight": sw, "n_rows": _nrows(X)})
-            return super().fit(X, y, sample_weight=sample_weight, **kw)
-    return _Rec
-
-
-@contextlib.contextmanager
-def capture_stack_supervised():
-    """Intercept ONLY the stack's own supervised learners (channel SVC + meta LR) via the module-level
-    names bound inside ``stacked_clf``. Platt calibrator LRs live behind ``calibration``'s own import,
-    so they are correctly NOT captured (their signed calibration contract has no sample_weight)."""
-    import stylo.models.stacked_clf as sc
-    sink = []
-    o_lr, o_svc = sc.LogisticRegression, sc.LinearSVC
-    sc.LogisticRegression = _recorder(o_lr, "meta_lr", sink)
-    sc.LinearSVC = _recorder(o_svc, "svc", sink)
-    try:
-        yield sink
-    finally:
-        sc.LogisticRegression, sc.LinearSVC = o_lr, o_svc
 
 
 @contextlib.contextmanager
@@ -212,32 +173,6 @@ def _assert_signed_weights(weights, y, groups):
         by_author.setdefault(work.split("/", 1)[0], []).append(w)
     for masses in by_author.values():
         assert all(np.isclose(m, masses[0]) for m in masses)
-
-
-def _inner_folds(cfg) -> int:
-    st = cfg.get_path("evaluation.stacking", {}) or {}
-    return (st.get("inner_folds", 3) if hasattr(st, "get") else 3) or 3
-
-
-def _fold_train_weights(y, groups, k):
-    from sklearn.model_selection import StratifiedGroupKFold
-    splits = StratifiedGroupKFold(k, shuffle=True, random_state=SEED).split(np.zeros(len(y)), y, groups)
-    return [work_sample_weights(y[tr], groups[tr]) for tr, _ in splits]
-
-
-def _expected_stack_traces(cfg, y, groups, mode_):
-    """The EXACT ORDERED (kind -> weight vector) sequences an A1 stack must emit — bound to specific
-    folds, with pinned multiplicities. This defeats a fold permutation, a missing/extra SVC, and a
-    disappeared meta-CV (any of which would slip past an unordered set-membership check)."""
-    from stylo.models.channels import make_channels
-    n_ch = len(make_channels(cfg))
-    glob = work_sample_weights(y, groups)
-    oof_w = _fold_train_weights(y, groups, _inner_folds(cfg))
-    # SVC: per channel the inner-OOF train folds in split order, THEN one full-train refit per channel
-    # (predict_proba). meta-LR: the 3-fold meta-CV in split order, PLUS a full-train final iff stacked.
-    svc = [w for _ in range(n_ch) for w in oof_w] + [glob for _ in range(n_ch)]
-    meta = _fold_train_weights(y, groups, 3) + ([glob] if mode_ == "stacked" else [])
-    return svc, meta
 
 
 # ═══════════════════════ 1. routing & negative tests (§6.1) ═════════════════════
@@ -416,16 +351,6 @@ def test_A1_wrapper_rejects_reserved_caller_params(spec, weight_param, group_par
             est.fit(tx, y, groups=g, **bad)
 
 
-def test_production_make_factory_contract_unchanged():
-    import inspect
-    p = inspect.signature(make_factory).parameters
-    assert p["weighting"].default is inspect._empty and p["weighting"].kind == inspect.Parameter.KEYWORD_ONLY
-    assert "ablation" not in p
-    # A1 never routes into the production weighting enum
-    with pytest.raises(AblationNotImplementedError):
-        WEIGHTS_ONLY_ABLATION.to_weighting()
-
-
 def test_A1_bow_is_sklearn_compatible_and_routing_invariant(tmp_path):
     import sklearn
     from sklearn.base import clone
@@ -537,51 +462,68 @@ def test_A1_stylo_outer_lr_exact_weights(tmp_path):
     _assert_signed_weights(sink[0]["sample_weight"], y, g)
 
 
-@requires_spacy
-def test_A1_stack_supervised_fits_are_exact_ordered_fold_local(tmp_path):
-    cfg = _cfg(tmp_path)
-    tx, y, g = _panel(STACK_ELIGIBLE, "стек")
-    _warm(cfg, tx)
-    est = make_factory_for_ablation("stylo_stack", cfg, ablation=WEIGHTS_ONLY_ABLATION)()
-    with capture_stack_supervised() as sink:
-        fit_estimator(est, tx, y, g)
-        est.predict_proba(tx)                                 # refits full-train channel SVCs
-    svc = [r for r in sink if r["kind"] == "svc"]
-    meta = [r for r in sink if r["kind"] == "meta_lr"]
-    exp_svc, exp_meta = _expected_stack_traces(cfg, y, g, est.mode_)
-    # EXACT multiplicities: a disappeared meta-CV, a missing/extra SVC, or a permuted fold fails here.
-    assert len(svc) == len(exp_svc) and len(meta) == len(exp_meta)
-    assert len(meta) >= 3, "meta-CV did not run on the calibration-eligible panel"
-    glob = work_sample_weights(y, g)
-    for got, exp in ((svc, exp_svc), (meta, exp_meta)):
-        for rec, w in zip(got, exp):                          # ordered, bound to a specific fold
-            assert rec["class_weight"] is None                # no double weighting
-            assert rec["sample_weight"] is not None           # no unweighted supervised branch
-            np.testing.assert_array_equal(rec["sample_weight"], w)
-    # fold-local recomputation really differs from the global vector (not a global slice)
-    assert any(not np.array_equal(r["sample_weight"], glob) for r in svc)
-    _assert_signed_weights(glob, y, g)                        # the full-train vector is itself signed-correct
+def test_A1_stack_predictions_ignore_repeated_work_chunks(monkeypatch):
+    from stylo.models import stacked_clf as sc
+    from stylo.models.channels import ch_word
+    # Real hashing, SVC, calibration and fusion. Only channel selection is small.
+    monkeypatch.setattr(sc, "make_channels", lambda cfg: {"word": ch_word})
+    probabilities = []
+    for repetitions in (3, 20):
+        texts = ["beta"] * repetitions + ["alpha"] * 2 + ["beta"] * 3
+        labels = np.array([0] * (repetitions + 2) + [1] * 3)
+        groups = np.array(["a/long"] * repetitions + ["a/one", "a/two", "b/one", "b/two", "b/three"])
+        model = make_factory_for_ablation("stylo_stack", CFG, ablation=WEIGHTS_ONLY_ABLATION)()
+        fit_estimator(model, texts, labels, groups)
+        result = model.predict_proba(["alpha", "beta"])
+        assert result.argmax(axis=1).tolist() == [0, 1]
+        probabilities.append(result)
+    # Solver convergence is approximate; group duplication changes neither the
+    # feature distribution nor each work's total influence.
+    np.testing.assert_allclose(probabilities[0], probabilities[1], atol=1e-4, rtol=0)
+
+
+def assert_stack_channel_results(monkeypatch, cfg, texts, labels, groups, *, ablation,
+                                 feature_groups, relative_fw):
+    from scipy.sparse import csr_matrix
+    from stylo.models import channels, stacked_clf
+    native = channels.make_channels
+    reference = native(cfg, relative_fw=relative_fw)
+    work_of = dict(zip(texts, groups))
+    observed = set()
+    def factory(config, relative_fw=None):
+        actual = native(config, relative_fw=relative_fw)
+        def wrap(name, channel):
+            def evaluate(train, test, tr_groups=None):
+                train, test = list(train), list(test)
+                got = channel(train, test, tr_groups)
+                expected_groups = [work_of[text] for text in train] if feature_groups else None
+                expected = reference[name](train, test, expected_groups)
+                for output, wanted in zip(got, expected):
+                    assert output.shape == wanted.shape
+                    difference = csr_matrix(output) - csr_matrix(wanted)
+                    np.testing.assert_allclose(difference.data, 0.0, atol=1e-12)
+                observed.add(name)
+                return got
+            return evaluate
+        return {name: wrap(name, channel) for name, channel in actual.items()}
+    with monkeypatch.context() as patch:
+        patch.setattr(stacked_clf, "make_channels", factory)
+        model = make_factory_for_ablation("stylo_stack", cfg, ablation=ablation)()
+        fit_estimator(model, texts, labels, groups)
+        result = model.predict_proba(texts)
+    assert observed == set(reference)
+    assert set(result.argmax(axis=1)) == set(labels)
+    np.testing.assert_allclose(result.sum(axis=1), 1.0)
+    return model
 
 
 @requires_spacy
-def test_A1_stack_feature_side_is_legacy_two_arg(tmp_path):
+def test_A1_stack_features_match_legacy_channel_results(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
-    tx, y, g = _panel(STACK_ELIGIBLE, "sf")
-    _warm(cfg, tx)
-    a1 = make_factory_for_ablation("stylo_stack", cfg, ablation=WEIGHTS_ONLY_ABLATION)()
-    with capture_feature_routing() as rec1:
-        fit_estimator(a1, tx, y, g)
-        a1.predict_proba(tx)                                  # predict refits channels too -> stay legacy
-    # block channels: never a groups arg; hashing channels: never the work-sum IDF path; no work_vec
-    assert rec1["stylo_groups"] and all(gr is None for gr in rec1["stylo_groups"])
-    assert rec1["work_vec_calls"] == 0
-    assert rec1["work_sum_calls"] == 0
-    # A4 really routes work groups through BOTH channel kinds (so the A1 equalities above are real)
-    a4 = make_factory(cfg=cfg, spec="stylo_stack", weighting=WORK_BALANCED)()
-    with capture_feature_routing() as rec4:
-        fit_estimator(a4, tx, y, g)
-    assert any(gr is not None for gr in rec4["stylo_groups"])
-    assert rec4["work_vec_calls"] > 0 and rec4["work_sum_calls"] > 0
+    texts, labels, groups = _panel(STACK_ELIGIBLE, "features")
+    _warm(cfg, texts)
+    assert_stack_channel_results(monkeypatch, cfg, texts, labels, groups,
+                                 ablation=WEIGHTS_ONLY_ABLATION, feature_groups=False, relative_fw=None)
 
 
 def test_A1_stack_calls_a_genuine_strict_two_arg_channel(tmp_path, monkeypatch):

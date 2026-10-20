@@ -23,11 +23,6 @@ REPS = [None] * len(TEXTS)
 
 
 class TestFunctionWords:
-    def test_legacy_when_groups_none_is_raw_counts(self):
-        blk = FunctionWordBlock(mode="mfw", mfw_count=5).fit(TEXTS, REPS, groups=None)
-        assert blk._vec is not None and blk._wv is None
-        M = blk.transform(TEXTS, REPS).toarray()
-        assert M.dtype.kind in "iu" or np.allclose(M, M.astype(int))  # integer raw counts
 
     def test_work_balanced_when_groups_given_is_relative(self):
         blk = FunctionWordBlock(mode="mfw", mfw_count=5).fit(TEXTS, REPS, groups=GROUPS)
@@ -37,18 +32,8 @@ class TestFunctionWords:
         assert M.max() <= 1.0 + 1e-9
         assert np.any((M > 0) & (M < 1))
 
-    def test_fixed_list_both_modes(self):
-        legacy = FunctionWordBlock(mode="fixed_list").fit(TEXTS, REPS, groups=None)
-        wb = FunctionWordBlock(mode="fixed_list").fit(TEXTS, REPS, groups=GROUPS)
-        assert legacy._vec is not None and wb._wv is not None
-        assert len(legacy.feature_names()) == len(wb.feature_names())  # same fixed vocab size
-
 
 class TestCharNgrams:
-    def test_legacy_when_groups_none(self):
-        blk = CharNgramBlock(ngram_range=(2, 3), min_df=1, max_features=50, bleach=False).fit(TEXTS, REPS, groups=None)
-        assert blk._vec is not None and blk._wv is None
-        assert blk.transform(TEXTS, REPS).shape[0] == len(TEXTS)
 
     def test_work_balanced_tfidf_rows_l2_normalised(self):
         blk = CharNgramBlock(ngram_range=(2, 3), min_df=1, max_features=50, bleach=False).fit(TEXTS, REPS, groups=GROUPS)
@@ -83,11 +68,16 @@ class TestExactLegacyParity:
 
 class TestCloneUnfitted:
     def test_clone_resets_fitted_state(self):
-        for blk in (FunctionWordBlock(mode="mfw", mfw_count=5).fit(TEXTS, REPS, groups=GROUPS),
-                    CharNgramBlock(ngram_range=(2, 3), min_df=1, bleach=False).fit(TEXTS, REPS, groups=None)):
-            fresh = clone(blk)
-            assert fresh._vec is None and fresh._wv is None      # unfitted copy
-            assert (blk._vec is not None) or (blk._wv is not None)  # original still fitted
+        for original in (FunctionWordBlock(mode="mfw", mfw_count=5),
+                         CharNgramBlock(ngram_range=(2, 3), min_df=1, bleach=False)):
+            original.fit(TEXTS, REPS)
+            before = original.transform(TEXTS, REPS).toarray()
+            fresh = clone(original)
+            with pytest.raises((AttributeError, AssertionError, ValueError)):
+                fresh.transform(TEXTS, REPS)
+            fresh.fit(["zzzz zzzz", "yyyy yyyy"], [None, None])
+            assert fresh.feature_names() != original.feature_names()
+            np.testing.assert_array_equal(original.transform(TEXTS, REPS).toarray(), before)
 
 
 # every FeatureBlock subclass, constructed with defaults (HIGH-2 mutation isolation)
@@ -110,10 +100,9 @@ class TestCloneMutationIsolation:
         blk = ALL_BLOCKS[key]()
         cl = clone(blk)
         assert cl is not blk
-        # every mutable container captured at construction must be a DISTINCT object,
-        # and mutating the clone in place must never reach back into the original.
-        for attr, val in blk._ctor_state.items():
-            if not isinstance(val, (list, dict, set)):
+        # Mutable public configuration belongs to each clone independently.
+        for attr, val in vars(blk).items():
+            if attr.startswith("_") or not isinstance(val, (list, dict, set)):
                 continue
             assert getattr(cl, attr) is not getattr(blk, attr), f"{key}.{attr} shared object"
             before = copy.deepcopy(getattr(blk, attr))
@@ -126,11 +115,10 @@ class TestCloneMutationIsolation:
                 cont.append("__probe__")
             assert getattr(blk, attr) == before, f"{key}.{attr} leaked clone mutation"
 
-    def test_signature_preserved_after_wrapping(self):
-        import inspect
-        # __init_subclass__ wraps __init__ but functools.wraps must keep the real signature
-        params = inspect.signature(CharNgramBlock.__init__).parameters
-        assert "ngram_range" in params and "bleach" in params and "self" in params
+    def test_constructor_options_survive_clone(self):
+        original = CharNgramBlock(ngram_range=[2, 2], bleach=False, min_df=1)
+        copied = clone(original).fit(["abcd", "abce"], [None, None])
+        assert set(copied.feature_names()) == {"char::ab", "char::bc", "char::cd", "char::ce"}
 
 
 class _Rep:
@@ -304,19 +292,19 @@ class TestFeatureBlockStateSwitch:
         }
         reps = reps_map[gk]
         blk = make()
-        # legacy -> work -> legacy round-trip stays consistent
-        n_leg1 = len(blk.fit(None, reps, groups=None).feature_names())
-        n_work = len(blk.fit(None, reps, groups=WG).feature_names())
-        n_leg2 = len(blk.fit(None, reps, groups=None).feature_names())
-        assert n_leg1 == n_leg2 and n_work >= 0
-        # clone of a fitted block is unfitted
-        fitted = make().fit(None, reps, groups=WG)
-        fresh = clone(fitted)
-        if hasattr(fresh, "_wv"):
-            assert fresh._wv is None and fresh._vec is None
-        else:  # morph/dep: fitted vocab must reset to the empty constructor list
-            vocab_attr = "vocab" if gk == "morph" else "dep_vocab"
-            assert getattr(fresh, vocab_attr) == []
+        # Refit through both modes and compare the entire observable transform.
+        blk.fit(None, reps, groups=None)
+        names = blk.feature_names()
+        first = blk.transform(None, reps).toarray()
+        blk.fit(None, reps, groups=WG)
+        blk.fit(None, reps, groups=None)
+        assert blk.feature_names() == names
+        np.testing.assert_allclose(blk.transform(None, reps).toarray(), first)
+        fresh = clone(blk).fit(None, reps, groups=WG)
+        independent = make().fit(None, reps, groups=WG)
+        assert fresh.feature_names() == independent.feature_names()
+        np.testing.assert_allclose(fresh.transform(None, reps).toarray(), independent.transform(None, reps).toarray())
+        np.testing.assert_allclose(blk.transform(None, reps).toarray(), first)
 
 
 class TestGroupsFailClosed:

@@ -5,6 +5,8 @@ toy work-balanced corpus in a tmp dir; none touches the real closed corpus.
 """
 from __future__ import annotations
 
+from stylo.eval.provenance import ProvenanceError
+
 import pathlib
 
 import pytest
@@ -475,7 +477,8 @@ class TestWorkSubset:
         child = ws.derive_work_subset(parent, ["alpha/a1", "alpha/a2", "beta/b1"])
         child.provenance = dataclasses.replace(child.provenance, selection_manifest_digest="0" * 64)
         cfg = with_overrides(CFG, {"paths.input_clean": str(pathlib.Path(ic).resolve())})
-        with pytest.raises(Exception):  # ProvenanceError: selection_manifest_digest mismatch
+        with pytest.raises(ProvenanceError, match="selection"):
+
             verify_dataset_against_disk(cfg, child, WORK_BALANCED, RunContract.build(frags, (), "unknown"))
 
     def test_forged_parent_digest_rejected_at_disk_verify(self, tmp_path):
@@ -484,5 +487,6 @@ class TestWorkSubset:
         child = ws.derive_work_subset(parent, ["alpha/a1", "alpha/a2", "beta/b1"])
         child.provenance = dataclasses.replace(child.provenance, parent_rows_digest="0" * 64)
         cfg = with_overrides(CFG, {"paths.input_clean": str(pathlib.Path(ic).resolve())})
-        with pytest.raises(Exception):  # ProvenanceError: parent_rows_digest != disk parent digest
+        with pytest.raises(ProvenanceError, match="parent"):
+
             verify_dataset_against_disk(cfg, child, WORK_BALANCED, RunContract.build(frags, (), "unknown"))

@@ -67,8 +67,14 @@ def test_single_book_author_skipped():
 
 
 def test_function_word_vocab_is_train_only():
-    block = FunctionWordBlock(mode="mfw", mfw_count=5)
-    train = ["и в на и в на", "и в на и в на"]
+    block = FunctionWordBlock(mode="mfw", mfw_count=3)
+    train = ["alpha alpha beta", "beta gamma"]
     block.fit(train, [None, None])
     names = block.feature_names()
-    assert not any("zzz" in n for n in names)
+    assert set(names) == {"fw::alpha", "fw::beta", "fw::gamma"}
+    before = block.transform(train, [None, None]).toarray()
+    heldout = block.transform(["zzz zzz alpha"], [None]).toarray()
+    assert heldout[0, names.index("fw::alpha")] == 1
+    assert heldout.sum() == 1
+    assert block.feature_names() == names
+    np.testing.assert_array_equal(block.transform(train, [None, None]).toarray(), before)

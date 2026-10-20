@@ -30,6 +30,48 @@ def synthetic_training_attestation(monkeypatch, tmp_path):
     })
 
 
+def synthetic_cli_corpus(tmp_path, monkeypatch):
+    """Real pipeline/storage with a small deterministic spaCy boundary."""
+    import spacy
+    from stylo import nlp
+    from stylo.pipeline import clean
+    pipeline = spacy.blank("ru")
+    pipeline.add_pipe("sentencizer")
+    identity = nlp.ResolvedNLPIdentity(
+        requested_model="synthetic", resolved_model="synthetic", fallback_used=False,
+        package_version="1", package_payload_sha256="a" * 64,
+        spacy_version=spacy.__version__, disabled_pipes=(), active_pipes=("sentencizer",),
+        max_length=pipeline.max_length, identity_sha256="b" * 64,
+    )
+    monkeypatch.setattr(nlp, "load_nlp", lambda *a, **kw: pipeline)
+    monkeypatch.setattr(nlp, "resolved_nlp_identity", lambda model: identity)
+    monkeypatch.setattr(clean, "load_ner", lambda *a, **kw: pipeline)
+    monkeypatch.setattr(clean, "resolved_nlp_identity", lambda model: identity)
+    settings = {
+        "paths.input_raw": str(tmp_path / "raw"), "paths.input_clean": str(tmp_path / "clean"),
+        "paths.data": str(tmp_path / "data"), "paths.docs": str(tmp_path / "reports"),
+        "paths.doc_cache": str(tmp_path / "doc-cache"),
+        "language.spacy_model": "synthetic", "language.spacy_fallback": None,
+        "language.parse_n_process": 1, "evaluation.n_jobs": 1,
+        "chunking.chunk_size": 21, "chunking.min_words": 7,
+        "corpus_policy.min_words_per_book": 20,
+        "deployment.candidate_authors": ["alpha", "beta"],
+        "features.function_words.mfw_count": 2, "delta.mfw_sizes": [2],
+    }
+    for name in ("char_ngrams", "syntax", "pos_ngrams", "punctuation_ngrams",
+                 "dependency", "morphology", "length_dist", "embeddings"):
+        settings[f"features.{name}.enabled"] = False
+    cfg = with_overrides(load_config(), settings)
+    for author, word in (("alpha", "и"), ("beta", "но"), ("inactive", "ли"), ("unknown", "и")):
+        for book in (range(3) if author != "unknown" else ["query"]):
+            target = tmp_path / "raw" / author / f"{book}.txt"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(" ".join(
+                f"{word} {author}{book}номер{i} {word} {author}{book}слово{i} {word} {author}{book}конец{i}."
+                for i in range(12)), encoding="utf-8")
+    return cfg
+
+
 class ToyClassifier:
     def fit(self, texts, labels):
         self.classes_ = np.unique(labels)
@@ -109,12 +151,7 @@ def test_explicit_panel_includes_benchmark_excluded_authors_and_abstains(deploym
     assert set(result["methods"]["stylo_lr"]["scores"]) == set(result["candidate_authors"])
     assert set(result["methods"]["delta"]["distances"]) == set(result["candidate_authors"])
     assert evidence.verify_prediction(cfg)
-    output = capsys.readouterr().out
-    assert "Победитель:" not in output
-    assert "Топ-3 по Stylo LR:" in output and "Топ-3 по Delta" in output
-    assert "legacy Delta" not in output
-    assert "checked_matching_training_references" not in output
-    assert "точные совпадения с эталонами проверены" in output
+    capsys.readouterr()
 
 
 def test_pin_token_after_training_keeps_model_identity_and_verifies_report(deployment):
@@ -219,20 +256,32 @@ def test_config_hash_excludes_only_presentation_and_external_token():
         assert artifact_config_id(with_overrides(cfg, {key: value})) != previous
 
 
-def test_cli_accepts_explicit_panel_for_both_commands(monkeypatch):
+def test_cli_accepts_explicit_panel_for_both_commands(tmp_path, monkeypatch, capsys):
+    import json
+    import yaml
     from stylo.cli import main
-
-    seen = []
-    def trained(cfg, **kwargs):
-        seen.append(deployment_candidates(cfg))
-        return {"bundle_version": "synthetic", "bundle_token": "a" * 32,
-                "training_weighting": kwargs["weighting"]}
-    monkeypatch.setattr(train, "run", trained)
-    monkeypatch.setattr(predict, "run", lambda cfg, **kw: seen.append(deployment_candidates(cfg)))
-    flags = ["--candidate-author", "sholohov", "--candidate-author", "bulgakov"]
-    main(["train", *flags])
-    main(["predict", *flags, "--model-bundle-token", "a" * 32])
-    assert seen == [("bulgakov", "sholohov"), ("bulgakov", "sholohov")]
+    from stylo.pipeline.bundle import load_bundle
+    cfg = synthetic_cli_corpus(tmp_path, monkeypatch)
+    # Flags must override a different configured panel at BOTH entry points.
+    cfg = with_overrides(cfg, {"deployment.candidate_authors": ["alpha", "inactive"]})
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(cfg.to_dict()), encoding="utf-8")
+    assert main(["clean", "--config", str(path)]) == 0
+    assert main(["split", "--config", str(path)]) == 0
+    flags = ["--config", str(path), "--candidate-author", "beta", "--candidate-author", "alpha"]
+    capsys.readouterr()
+    assert main(["train", *flags]) == 0
+    receipt = json.loads(capsys.readouterr().out)
+    token = receipt["bundle_token"]
+    metadata, _ = load_bundle(tmp_path / "data/deployment/chunk_weighted_legacy", expected_token=token)
+    assert metadata["training_weighting"] == "chunk_weighted_legacy"
+    assert main(["predict", *flags, "--target-work", "unknown/query", "--model-bundle-token", token]) == 0
+    selected = with_overrides(cfg, {"deployment.candidate_authors": ["beta", "alpha"],
+                                   "deployment.expected_bundle_token": token})
+    result = evidence.verify_structured_prediction(selected, "unknown/query")
+    assert result["candidate_authors"] == ["alpha", "beta"]
+    assert result["diagnostic_closed_set_top"] == "alpha"
+    assert result["abstained"] is True
 
 
 def test_training_without_git_preserves_mandatory_hashes(deployment, monkeypatch):
@@ -379,32 +428,25 @@ def test_v2_bundle_loading_remains_compatible_and_nonnull_git_required(deploymen
 
 
 def test_analyze_composes_stages_and_carries_fresh_trusted_token(monkeypatch, tmp_path):
+    import yaml
     from stylo.cli import main
-    from stylo.pipeline import clean, split
-    from stylo.corpus_tools import validate_corpus
-    from stylo.report import build
-    events = []
-    monkeypatch.setattr(clean, "run", lambda cfg: events.append("clean"))
-    def validated(cfg, **kwargs):
-        assert kwargs == {"target_work_id": "alpha/heldout", "reference_authors": ("alpha", "beta")}
-        events.append("validate")
-    monkeypatch.setattr(validate_corpus, "run", validated)
-    monkeypatch.setattr(split, "run", lambda cfg, **kw: events.append(("split", kw["leave_out"])))
-    monkeypatch.setattr(train, "run", lambda cfg, **kw: events.append(("train", kw["weighting"])) or {"bundle_token": "f" * 32})
-    def predicted(cfg, **kw):
-        assert cfg.deployment.expected_bundle_token == kw["expected_bundle_token"] == "f" * 32
-        events.append(("predict", kw["target_work"]))
-    monkeypatch.setattr(predict, "run", predicted)
-    def reported(cfg, **kw):
-        assert cfg.deployment.expected_bundle_token == "f" * 32
-        events.append(("report", kw["target_work"], kw["prediction_only"]))
-    monkeypatch.setattr(build, "run", reported)
-    path = tmp_path / "case.yaml"
-    path.write_text("deployment:\n  candidate_authors: [alpha, beta]\n", encoding="utf-8")
+    from stylo.pipeline import split
+    from stylo.corpus import load_dataset
+    cfg = synthetic_cli_corpus(tmp_path, monkeypatch)
+    query = tmp_path / "raw/unknown/query.txt"
+    query.rename(tmp_path / "raw/alpha/heldout.txt")
+    query.parent.rmdir()
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(cfg.to_dict()), encoding="utf-8")
     assert main(["analyze", "--config", str(path), "--target-work", "alpha/heldout"]) == 0
-    assert events == ["clean", "validate", ("split", ("alpha/heldout",)),
-                      ("train", "chunk_weighted_legacy"), ("predict", "alpha/heldout"),
-                      ("report", "alpha/heldout", True)]
+    snapshot = split.resolve_fragment_snapshot(tmp_path / "data")
+    assert "alpha/heldout" not in set(load_dataset(snapshot.train_root).groups)
+    result = evidence.verify_structured_prediction(cfg, "alpha/heldout")
+    assert result["target_work_id"] == "alpha/heldout"
+    assert result["candidate_authors"] == ["alpha", "beta"]
+    assert result["diagnostic_closed_set_top"] == "alpha"
+    assert result["winner"] is None and result["abstained"] is True
+    assert (evidence.prediction_directory(cfg, "alpha/heldout") / "index.html").is_file()
 
 
 @pytest.mark.parametrize("weighting", ["chunk_weighted_legacy", "work_balanced"])

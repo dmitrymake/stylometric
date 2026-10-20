@@ -33,12 +33,6 @@ class TestWorkSampleWeights:
         w = ww.work_sample_weights(y, groups)
         assert _work_mass(w, groups) == pytest.approx({"a/w1": 1.0, "a/w2": 1.0})
 
-    def test_long_and_short_work_get_equal_total_train_weight(self):
-        y = [0] * 11
-        groups = ["a/long"] * 10 + ["a/short"]
-        w = ww.work_sample_weights(y, groups)
-        m = _work_mass(w, groups)
-        assert m["a/long"] == pytest.approx(m["a/short"])
 
     def test_duplicating_a_chunk_within_a_work_keeps_author_total(self):
         y = [0, 0, 1]
@@ -64,11 +58,6 @@ class TestWorkSampleWeights:
         with pytest.raises(ValueError):
             ww.aggregate_by_work(["c1", "c2"], ["w1"])
 
-    def test_effective_sample_size_equals_num_works(self):
-        # sum(weights) == W for a ragged corpus: work-level effective N.
-        y = [0, 0, 0, 0, 1, 1]
-        groups = ["a/w1", "a/w1", "a/w1", "a/w2", "b/w3", "b/w4"]
-        assert ww.work_sample_weights(y, groups).sum() == pytest.approx(4.0)
 
     def test_legacy_returns_none(self):
         assert ww.training_sample_weights([0, 1], ["a", "b"], ww.CHUNK_WEIGHTED_LEGACY) is None

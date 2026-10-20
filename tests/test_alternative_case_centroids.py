@@ -31,19 +31,12 @@ def test_alternative_runner_retains_equal_work_directions():
 
 
 def test_alternative_runner_loo_holds_out_whole_works():
-    docvecs = {
-        "A": runner.WorkVectors(
-            [np.array([1.0, 0.0])] * 9
-            + [np.array([0.0, 1.0]), np.array([0.6, 0.8])],
-            ["A-long"] * 9 + ["A-short", "A-test"],
-        ),
-        "B": runner.WorkVectors(
-            [np.array([0.0, 1.0]), np.array([0.0, 1.0])],
-            ["B0", "B1"],
-        ),
-    }
-
-    report = runner.loo(docvecs)
-
-    assert report["total"] == 5
-    assert 0 <= report["correct"] <= report["total"]
+    # Each A work points away from the other A work and loses to B when held out.
+    # Leaking the other chunks of A/outlier would make that work classify as A.
+    for repetitions in (1, 10):
+        docvecs = {
+            "A": runner.WorkVectors([np.array([0., 1.])] * repetitions + [np.array([1., 0.])],
+                                     ["A/outlier"] * repetitions + ["A/other"]),
+            "B": runner.WorkVectors([np.array([0.4, 0.9]), np.array([0.4, 0.9])], ["B/one", "B/two"]),
+        }
+        assert runner.loo(docvecs) == {"correct": 2, "total": 4, "accuracy": 0.5}

@@ -223,7 +223,10 @@ def test_all_16_applied_factory_routes_fit_and_predict_toy_data(monkeypatch):
         )
         assert (receipt["model"], receipt["cell"]) == (model, cell)
         assert receipt["test"]["n_rows"] == 2
-        assert len(receipt["whole_work_probabilities"]) == 3
+        probabilities = np.asarray(receipt["whole_work_probabilities"])
+        assert probabilities.shape == (3,)
+        assert int(probabilities.argmax()) == (1 if model == "majority" else 0)
+        assert probabilities.max() > 1 / 3
         validate_receipt_v3_2(receipt, expected=expected)
 
 

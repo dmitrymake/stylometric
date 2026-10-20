@@ -1,50 +1,46 @@
-"""CI must exercise the same release surfaces users receive."""
-from __future__ import annotations
+"""Pages may consume only the current successful main push."""
+import ast
+from pathlib import Path
+from types import SimpleNamespace
 
-import pathlib
+import pytest
+import yaml
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-WORKFLOW = ROOT / ".github/workflows/ci.yml"
-
-
-def test_ci_runs_the_full_suite_and_every_gate_under_lock_constraints():
-    text = WORKFLOW.read_text(encoding="utf-8")
-    assert "python -m pytest tests -q -p no:cacheprovider" in text
-    assert text.count("--constraint requirements.lock") >= 2
-    assert text.count("--no-build-isolation --constraint requirements.lock") >= 2
-    assert "pip install --quiet numpy scipy" not in text
-    assert "scripts/check_executable_source_inventory.py" in text
-    assert "scripts/check_release_hygiene.py --publish-ref HEAD" in text
-    assert "Verify canonical portable environment binding" in text
-    assert text.count("verify_installed_environment") >= 3
-    assert "node scripts/gen-site-data.mjs" in text
-    assert "node scripts/check-provenance.mjs" in text
-    assert "git diff --exit-code -- site/src/generated" in text
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_ci_builds_wheel_and_tests_git_free_archive():
-    text = WORKFLOW.read_text(encoding="utf-8")
-    assert "python -m build --no-isolation" in text
-    assert "dist/stylo-*.whl" in text
-    assert "working-directory: /tmp" in text
-    assert "git archive HEAD | tar -x -C /tmp/stylo-archive" in text
-    assert "check_release_hygiene.py --archive" in text
-    assert "check_executable_source_inventory.py --archive" in text
-    assert "check-provenance.mjs --archive" in text
-    assert "working-directory: /tmp/stylo-archive" in text
+def _expression(expression, github):
+    source = expression.strip().removeprefix("${{").removesuffix("}}").strip()
+    source = source.replace("&&", " and ").replace("||", " or ")
+    tree = ast.parse("(" + source + ")", mode="eval")
+    allowed = (ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.UnaryOp, ast.Not,
+               ast.Compare, ast.Eq, ast.NotEq, ast.Attribute, ast.Name, ast.Load, ast.Constant)
+    if any(not isinstance(node, allowed) for node in ast.walk(tree)):
+        raise ValueError("unsupported deploy condition expression")
+    return eval(compile(tree, "<workflow policy>", "eval"), {"__builtins__": {}}, {"github": github})
 
 
-def test_pages_deploys_only_the_exact_green_release_ci_main_tip():
-    workflow = (
-        ROOT / ".github" / "workflows" / "deploy-pages.yml"
-    ).read_text(encoding="utf-8")
-    assert "workflow_run:" in workflow
-    assert 'workflows: ["CI (release integrity)"]' in workflow
-    assert "types: [completed]" in workflow
-    assert "github.event.workflow_run.conclusion == 'success'" in workflow
-    assert "github.event.workflow_run.event == 'push'" in workflow
-    assert "github.event.workflow_run.head_branch == 'main'" in workflow
-    assert "github.event.workflow_run.head_sha == github.sha" in workflow
-    assert "ref: ${{ github.event.workflow_run.head_sha }}" in workflow
-    assert "\n  push:" not in workflow
-    assert "workflow_dispatch:" not in workflow
+@pytest.mark.parametrize("change,allowed", [
+    ({}, True), ({"conclusion": "failure"}, False), ({"conclusion": "cancelled"}, False),
+    ({"event": "pull_request"}, False), ({"head_branch": "release"}, False),
+    ({"head_sha": "stale"}, False),
+])
+def test_pages_deploys_only_the_exact_green_release_ci_main_tip(change, allowed):
+    workflow = yaml.load((ROOT / ".github/workflows/deploy-pages.yml").read_text(), Loader=yaml.BaseLoader)
+    ci = yaml.load((ROOT / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    assert set(workflow["on"]) == {"workflow_run"}
+    trigger = workflow["on"]["workflow_run"]
+    assert trigger["workflows"] == [ci["name"]]
+    assert trigger["types"] == ["completed"]
+    build_id, build = next((key, job) for key, job in workflow["jobs"].items()
+                          if any(step.get("uses", "").startswith("actions/upload-pages-artifact@")
+                                 for step in job.get("steps", [])))
+    run = SimpleNamespace(**dict({"conclusion": "success", "event": "push", "head_branch": "main", "head_sha": "current"}, **change))
+    github = SimpleNamespace(event=SimpleNamespace(workflow_run=run), sha="current")
+    assert _expression(build["if"], github) is allowed
+    checkout = next(step for step in build["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    assert _expression(checkout["with"]["ref"], github) == run.head_sha
+    deploy = next(job for job in workflow["jobs"].values()
+                  if any(step.get("uses", "").startswith("actions/deploy-pages@") for step in job.get("steps", [])))
+    needs = deploy["needs"]
+    assert build_id in ([needs] if isinstance(needs, str) else needs)

@@ -472,19 +472,23 @@ def test_runner_atomic_output_is_create_once(tmp_path):
         runner._write_new_json(path, {"schema": "synthetic", "value": 2})
 
 
-def test_runner_warms_only_existing_regenerable_rep_cache(monkeypatch, capsys):
+def test_runner_warms_only_existing_regenerable_rep_cache(monkeypatch, tmp_path):
+    from test_deployment_decisions import synthetic_cli_corpus
+    from stylo.features import reps
+    cfg = synthetic_cli_corpus(tmp_path, monkeypatch)
     runner = _runner_module()
-    calls = []
-    cache = SimpleNamespace(warm=lambda texts, **kwargs: calls.append((texts, kwargs)) or len(texts))
-    monkeypatch.setattr(runner, "make_rep_cache", lambda cfg: cache)
-    cfg = SimpleNamespace(get_path=lambda path, default=None: 12 if path == "language.parse_n_process" else default)
-    study = SimpleNamespace(
-        cfg=cfg,
-        parent=SimpleNamespace(lobo_dataset=SimpleNamespace(texts=np.asarray(["a", "b", "c"]))),
-    )
+    texts = ["Первый синтетический текст.", "Второй учебный образец."]
+    study = SimpleNamespace(cfg=cfg, parent=SimpleNamespace(lobo_dataset=SimpleNamespace(texts=np.asarray(texts, dtype=object))))
     runner._warm_representations(study)
-    assert calls == [(["a", "b", "c"], {"n_process": 8, "batch_size": 32})]
-    assert "representation_warm=ok rows=3 created=3 workers=8" in capsys.readouterr().out
+    # Drop process memory: warming must have populated the real SQLite cache.
+    monkeypatch.setattr(reps, "_MEM_REPS", {})
+    cached = reps.make_rep_cache(cfg)
+    def unexpected_parse(*args, **kwargs):
+        pytest.fail("persisted representations must be reusable without parsing")
+    monkeypatch.setattr(cached.doc_cache, "get_docs", unexpected_parse)
+    monkeypatch.setattr(cached.doc_cache, "warm", unexpected_parse)
+    assert cached.warm(texts, n_process=1) == 0
+    assert [rep.text for rep in cached.get_reps(texts)] == texts
 
 
 def test_runner_summarises_partial_arms_with_real_prediction_decisions(capsys):
@@ -509,19 +513,16 @@ def test_runner_summarises_partial_arms_with_real_prediction_decisions(capsys):
         {"fold_index": 1, "whole_work_probabilities": [0.2, 0.8]},
     ]
 
-    runner._summarise(study, records)
-
-    assert capsys.readouterr().out.splitlines() == [
-        "partial cell=A0 arm=current top1=1/2 (0.5000)",
-        "partial cell=A0 arm=topic_strict top1=1/1 (1.0000)",
-    ]
+    summary = runner._summarise(study, records)
+    assert summary == {"scores": {("A0", "current"): (1, 2), ("A0", "topic_strict"): (1, 1)},
+                       "deltas": {}}
 
 
-def test_runner_summarises_all_992_completed_records_before_aggregate(capsys):
+def test_runner_summarises_completed_cells_before_aggregate():
     runner = _runner_module()
     study = SimpleNamespace(
-        probability_order=tuple(f"a{i}" for i in range(47)),
-        folds=tuple(SimpleNamespace(fold_index=i, true_label=i % 47) for i in range(248)),
+        probability_order=tuple(f"a{i}" for i in range(3)),
+        folds=tuple(SimpleNamespace(fold_index=i, true_label=i % 3) for i in range(8)),
     )
     records = runner._empty_records()
     for cell in runner.TOPIC_CELLS_V1:
@@ -530,24 +531,19 @@ def test_runner_summarises_all_992_completed_records_before_aggregate(capsys):
                 correct = cell == "A4" or (
                     fold.fold_index % 2 == 0 if arm == "current" else fold.fold_index % 4 != 0
                 )
-                winner = fold.true_label if correct else (fold.true_label + 1) % 47
-                probabilities = [0.0] * 47
+                winner = fold.true_label if correct else (fold.true_label + 1) % 3
+                probabilities = [0.0] * 3
                 probabilities[winner] = 1.0
                 records[cell][arm].append({
                     "fold_index": fold.fold_index, "whole_work_probabilities": probabilities,
                 })
 
-    assert sum(len(rows) for arms in records.values() for rows in arms.values()) == 992
-    runner._summarise(study, records)
-
-    assert capsys.readouterr().out.splitlines() == [
-        "partial cell=A0 arm=current top1=124/248 (0.5000)",
-        "partial cell=A0 arm=topic_strict top1=186/248 (0.7500)",
-        "partial cell=A4 arm=current top1=248/248 (1.0000)",
-        "partial cell=A4 arm=topic_strict top1=248/248 (1.0000)",
-        "partial cell=A0 delta_topic_strict_minus_current=+0.2500",
-        "partial cell=A4 delta_topic_strict_minus_current=+0.0000",
-    ]
+    summary = runner._summarise(study, records)
+    assert summary == {
+        "scores": {("A0", "current"): (4, 8), ("A0", "topic_strict"): (6, 8),
+                   ("A4", "current"): (8, 8), ("A4", "topic_strict"): (8, 8)},
+        "deltas": {"A0": 0.25, "A4": 0.0},
+    }
 
 
 def _collect_all(runner, study, *, workers=1, deadline=None, save=None):

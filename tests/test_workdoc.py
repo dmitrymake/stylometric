@@ -1,7 +1,6 @@
 """Canonical work documents, strict manifests, and the manifest-driven corpus loader."""
 from __future__ import annotations
 
-import os
 import pathlib
 
 import pytest
@@ -186,10 +185,24 @@ class TestFrozenConfigHash:
         b = wd.chunker_config_hash(load_config(overrides=parse_set_overrides(["chunking.chunk_size=999"])))
         assert a != b and len(a) == 64
 
-    def test_split_and_hash_use_same_config(self):
-        cfg = load_config()
-        cc = wd.frozen_chunker_config(cfg)
-        assert isinstance(cc.chunk_size, int) and isinstance(cc.min_words, int)
+    def test_split_and_hash_use_same_config(self, tmp_path, monkeypatch):
+        from test_deployment_decisions import synthetic_cli_corpus
+        from stylo.config import with_overrides
+        from stylo.pipeline import clean, split
+        cfg = synthetic_cli_corpus(tmp_path, monkeypatch)
+        source = tmp_path / "raw/alpha/0.txt"
+        sentences = ["Первое слово здесь.", "Второе слово тут.", "Третье слово там."]
+        source.write_text(" ".join(sentences), encoding="utf-8")
+        clean.run(cfg)
+        for size, expected in [(4, sentences), (8, [" ".join(sentences[:2]), sentences[2]])]:
+            changed = with_overrides(cfg, {"chunking.chunk_size": size, "chunking.min_words": 1})
+            split.run(changed)
+            snapshot = split.resolve_fragment_snapshot(tmp_path / "data")
+            manifest, texts = wd.load_work_manifest(snapshot.train_root / "alpha/0",
+                                                    input_clean_root=split.resolve_directory_snapshot(tmp_path / "clean"),
+                                                expected_chunker_config_hash=wd.chunker_config_hash(changed))
+            assert texts == expected
+            assert manifest.chunker_config_hash == wd.chunker_config_hash(changed)
 
     def test_fallback_model_changes_hash(self):
         a = wd.chunker_config_hash(load_config())

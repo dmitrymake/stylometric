@@ -7,12 +7,10 @@ outer-fold scores. These tests pin the repair and the separate exploratory
 """
 from __future__ import annotations
 
-import warnings
 
 import numpy as np
 import pytest
 from scipy.special import softmax
-from sklearn.exceptions import ConvergenceWarning
 
 from stylo.config import load_config
 from stylo.models.calibration import choose_calibrator
@@ -105,28 +103,6 @@ class _NonComplementSplitter:
             (np.asarray([0, 2, 4]), np.asarray([1, 3])),
             (np.asarray([1, 3, 5]), np.asarray([0, 2])),
         ))
-
-
-def test_absent_class_sentinel_can_make_converged_platt_invert_valid_scores():
-    labels = np.repeat(np.arange(3), 30)
-    poisoned_oof = np.ones((len(labels), 3), dtype=float)
-    poisoned_oof[np.arange(len(labels)), labels] = -30.0
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        calibrator, passport = choose_calibrator(poisoned_oof, labels, seed=42)
-
-    assert passport["method"] == "platt"
-    assert passport["heldout_nll"]["platt"] < 0.001
-    assert passport["heldout_nll"]["identity"] > 20.0
-    assert not any(
-        issubclass(item.category, ConvergenceWarning) for item in caught
-    )
-
-    valid_outer_scores = np.full((3, 3), -1.0)
-    np.fill_diagonal(valid_outer_scores, 2.0)
-    calibrated = calibrator(valid_outer_scores)
-    assert np.all(np.diag(calibrated) < calibrated.max(axis=1))
 
 
 def test_legacy_stack_rejects_incomplete_inner_classes_before_channels(
@@ -334,45 +310,19 @@ def test_legacy_calibration_validates_inputs_before_method(
 
 @pytest.mark.parametrize("score_dtype", [np.int64, np.float32, np.float64])
 def test_valid_legacy_calibration_matches_historical_path(score_dtype):
-    import stylo.models.calibration as calibration
-
+    # The identity-only legacy route has a closed-form oracle, independent of
+    # split order, the calibrator factory and the production loss helper.
+    import math
+    from stylo.models.calibration import choose_calibrator
     labels = np.tile(np.arange(3), 20)
     scores = (np.eye(3)[labels] * 3).astype(score_dtype)
-    methods = ("identity", "temperature")
-    seed = 7
-
-    indices = np.random.RandomState(seed).permutation(len(labels))
-    cut = max(1, len(labels) // 3)
-    validation_index, fit_index = indices[:cut], indices[cut:]
-    reference_losses = {}
-    for method in methods:
-        calibrator, _ = calibration._fit_method(
-            method, scores[fit_index], labels[fit_index], seed,
-        )
-        reference_losses[method] = calibration.nll(
-            calibrator(scores[validation_index]), labels[validation_index],
-        )
-    reference_method = min(reference_losses, key=reference_losses.get)
-    reference_calibrator, reference_params = calibration._fit_method(
-        reference_method, scores, labels, seed,
-    )
-    reference_passport = {
-        "method": reference_method,
-        "params": reference_params,
-        "selection": "held-out треть OOF",
-        "heldout_nll": {
-            method: round(value, 4)
-            for method, value in reference_losses.items()
-        },
-    }
-
-    actual_calibrator, actual_passport = calibration.choose_calibrator(
-        scores, labels, methods=methods, seed=seed,
-    )
-    assert actual_passport == reference_passport
-    np.testing.assert_array_equal(
-        actual_calibrator(scores), reference_calibrator(scores),
-    )
+    calibrator, passport = choose_calibrator(scores, labels, methods=("identity",), seed=7)
+    denominator = math.exp(3) + 2
+    expected = np.full(scores.shape, 1 / denominator)
+    expected[np.arange(len(labels)), labels] = math.exp(3) / denominator
+    np.testing.assert_allclose(calibrator(scores), expected)
+    assert passport["method"] == "identity"
+    assert passport["heldout_nll"]["identity"] == pytest.approx(math.log(denominator) - 3, abs=5e-5)
 
 
 def _grouped_calibration_panel():

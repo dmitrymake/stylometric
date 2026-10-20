@@ -6,8 +6,8 @@ import pytest
 from stylo.cli import main
 from stylo.config import load_config, with_overrides
 from stylo.corpus_tools import validate_corpus as validation
-from stylo.pipeline import clean, split, train, predict
-from stylo.report import build, evidence
+from stylo.pipeline import clean, split, train
+from stylo.report import evidence
 
 
 def _text(prefix):
@@ -62,17 +62,23 @@ def test_same_author_edition_is_rejected_before_split_warm_or_fit(tmp_path, monk
 
 
 def test_independent_target_allows_train_only_warnings_and_inactive_duplicates(tmp_path, monkeypatch):
-    _cfg, captured = _analyze_fixture(tmp_path, monkeypatch, overlap=False)
-    stages = []
-    monkeypatch.setattr(split, "run", lambda *_a, **_kw: stages.append("split"))
-    monkeypatch.setattr(train, "run", lambda *_a, **_kw: stages.append("fit") or {"bundle_token": "f" * 32})
-    monkeypatch.setattr(predict, "run", lambda *_a, **_kw: stages.append("predict"))
-    monkeypatch.setattr(build, "run", lambda *_a, **_kw: stages.append("report"))
-    assert main(["analyze", "--target-work", "periodic/target"]) == 0
-    assert stages == ["split", "fit", "predict", "report"]
-    findings = captured["structured"]["findings"]
-    assert any(row["severity"] == "warn" and row["code"] == "near_dup" for row in findings)
-    assert not any(row["severity"] == "error" for row in findings)
+    import yaml
+    from test_deployment_decisions import synthetic_cli_corpus
+    cfg = synthetic_cli_corpus(tmp_path, monkeypatch)
+    raw = tmp_path / "raw"
+    original = (raw / "alpha/0.txt").read_text()
+    (raw / "alpha/1.txt").write_text("Предисловие. " + original.replace(".", ";"))
+    (raw / "inactive/0.txt").write_text((raw / "unknown/query.txt").read_text())
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(cfg.to_dict()), encoding="utf-8")
+    assert main(["analyze", "--config", str(config_path), "--target-work", "unknown/query"]) == 0
+    report = validation.run(cfg, target_work_id="unknown/query", reference_authors=("alpha", "beta"))
+    assert any(row.severity == "warn" and row.code == "near_dup" for row in report.findings)
+    assert not report.errors
+    result = evidence.verify_structured_prediction(cfg, "unknown/query")
+    assert result["candidate_authors"] == ["alpha", "beta"]
+    assert result["diagnostic_closed_set_top"] == "alpha"
+    assert (evidence.prediction_directory(cfg, "unknown/query") / "index.html").is_file()
 
 
 def test_target_book_count_is_not_treated_as_reference_count(tmp_path, monkeypatch):

@@ -27,9 +27,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from stylo.config import load_config, with_overrides
 from stylo.eval.dispatch import fit_estimator
 from stylo.eval.lobo import make_factory, make_factory_for_ablation
-from stylo.domain.work_weighting import (AblationConfig, FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION,
-                                       LEGACY_ABLATION, RELATIVE_FW_ONLY_ABLATION, WORK_BALANCED,
-                                       CHUNK_WEIGHTED_LEGACY)
+from stylo.domain.work_weighting import FEATURE_STATE_ONLY_ABLATION, FULL_WB_ABLATION, LEGACY_ABLATION, RELATIVE_FW_ONLY_ABLATION, WORK_BALANCED, CHUNK_WEIGHTED_LEGACY
 from stylo.features.function_words import _ANALYZER, FunctionWordBlock
 from stylo.features.work_vectorizer import analyzer_event_counts
 
@@ -38,12 +36,13 @@ _TP = r"(?u)\b\w+\b"
 
 
 def _has_spacy() -> bool:
-    try:
-        import spacy
-        spacy.load(CFG.get_path("language.spacy_model", "ru_core_news_lg"))
-        return True
-    except Exception:
+    import importlib.util
+    import spacy
+    model = CFG.get_path("language.spacy_model", "ru_core_news_lg")
+    if importlib.util.find_spec(model) is None:
         return False
+    spacy.load(model)  # Installed but unusable is a test setup failure.
+    return True
 
 
 requires_spacy = pytest.mark.skipif(not _has_spacy(), reason="spaCy ru model not installed")
@@ -503,23 +502,6 @@ def test_stylo_A2_A3_reject_class_weight_tampering(tmp_path):
 
 
 # ═══════════════════════ 4. stack A2/A3 (spaCy) ═════════════════════════════════
-@contextlib.contextmanager
-def _capture_fw_relative_fw():
-    """Record the ``relative_fw`` policy every FunctionWordBlock is constructed with (via the name used
-    inside the registry) — proves the R axis is threaded to the sole FW channel at fit AND predict."""
-    import stylo.features.registry as reg
-    orig = reg.FunctionWordBlock
-    seen = []
-
-    class _Rec(orig):
-        def __init__(self, *a, relative_fw=None, **kw):
-            seen.append(relative_fw)
-            super().__init__(*a, relative_fw=relative_fw, **kw)
-    reg.FunctionWordBlock = _Rec
-    try:
-        yield seen
-    finally:
-        reg.FunctionWordBlock = orig
 def _recorder(base, kind, sink):
     class _Rec(base):
         def fit(self, X, y=None, sample_weight=None, **kw):
@@ -542,90 +524,22 @@ def _capture_stack():
         sc.LogisticRegression, sc.LinearSVC = o_lr, o_svc
 
 
-@contextlib.contextmanager
-def _capture_calibrator_groups():
-    # directly record the ``groups`` kwarg the stack passes to choose_calibrator (None iff W off)
-    import stylo.models.stacked_clf as sc
-    seen = []
-    orig = sc.choose_calibrator
-
-    def rec(oof, y, *a, groups=None, **kw):
-        seen.append(groups)
-        return orig(oof, y, *a, groups=groups, **kw)
-    sc.choose_calibrator = rec
-    try:
-        yield seen
-    finally:
-        sc.choose_calibrator = orig
-
-
-@contextlib.contextmanager
-def _capture_fw_channel_matrices():
-    # record every FunctionWord CHANNEL transform (raw R0 vs fractional R1), proving real matrices
-    from stylo.features.function_words import FunctionWordBlock
-    seen = []
-    orig = FunctionWordBlock.transform
-
-    def t(self, texts, reps):
-        out = orig(self, texts, reps)
-        seen.append(out.toarray())
-        return out
-    FunctionWordBlock.transform = t
-    try:
-        yield seen
-    finally:
-        FunctionWordBlock.transform = orig
-
-
-def _inner_splits(cfg, y, g):
-    from sklearn.model_selection import StratifiedGroupKFold
-    k = (cfg.get_path("evaluation.stacking", {}) or {}).get("inner_folds", 3) or 3
-    seed = cfg.get_path("seed", 42)
-    return list(StratifiedGroupKFold(k, shuffle=True, random_state=seed)
-                .split(np.zeros(len(y)), np.asarray(y), np.asarray(g, dtype=object)))
-
-
 def _stack_panel():
     # 3 works/author (>=3 for the inner 3-fold CV), shared function words survive work-DF
     return _make_panel([(0, 1, 3), (0, 2, 2), (0, 3, 2), (1, 4, 3), (1, 5, 2), (1, 6, 2)], "стек")
 
 
 @requires_spacy
-def test_stack_A2_exact_group_and_R_routing_A3_strict_two_arg(tmp_path):
+@pytest.mark.parametrize("ablation,feature_groups,relative_fw", [
+    (FEATURE_STATE_ONLY_ABLATION, True, False), (RELATIVE_FW_ONLY_ABLATION, False, True),
+])
+def test_stack_A2_A3_channel_results_match_the_selected_axes(tmp_path, monkeypatch, ablation, feature_groups, relative_fw):
+    from test_work_balanced_weights_only import assert_stack_channel_results
     cfg = _cfg(tmp_path)
-    tx, y, g = _stack_panel()
-    _warm(cfg, tx)
-    splits = _inner_splits(cfg, y, g)
-    g_arr = np.asarray(g, dtype=object)
-    fold_tuples = {tuple(g_arr[tr].tolist()) for tr, _ in splits}       # EXACT ordered fold-train arrays
-    full_tuple = tuple(g_arr.tolist())                                  # EXACT ordered full-train array
-    # -- A2 (F on): block AND hashing channels get EXACT ORDERED groups; fit sees fold-train arrays,
-    #    predict the full-train array; FW channel emits raw (R0) matrices; R policy on fit AND predict.
-    est2 = make_factory_for_ablation("stylo_stack", cfg, ablation=FEATURE_STATE_ONLY_ABLATION)()
-    assert est2._feature_on and not est2._relative_fw_on and est2.ablation_ == FEATURE_STATE_ONLY_ABLATION
-    with _capture_block_routing() as fit2, _capture_fw_channel_matrices() as fwm2fit, \
-            _capture_fw_relative_fw() as fwr2:
-        fit_estimator(est2, tx, y, g)                                   # FIT trace only
-    with _capture_block_routing() as pred2, _capture_fw_channel_matrices() as fwm2pred:
-        est2.predict_proba(tx)                                         # PREDICT trace only
-    for cap, expect in ((fit2, fold_tuples), (pred2, {full_tuple})):
-        block = [gr for gr in cap["groups"] if gr is not None]
-        assert block and all(gr in expect for gr in block)             # exact ORDERED arrays (order+repeats)
-        assert cap["hashing_groups"] and all(gr in expect for gr in cap["hashing_groups"])  # hashing too
-    assert set(g for g in fit2["groups"] if g) == fold_tuples          # every fold-train array appears
-    assert set(pred2["groups"] if pred2["groups"] else []) == {full_tuple}
-    assert (fwm2fit + fwm2pred) and all(np.array_equal(m, np.round(m)) for m in fwm2fit + fwm2pred)  # R0
-    assert fwr2 and all(v is False for v in fwr2)
-    # -- A3 (F off): genuine strict 2-arg, no groups/work_vec/work_sum; FW channel emits relative (R1)
-    est3 = make_factory_for_ablation("stylo_stack", cfg, ablation=RELATIVE_FW_ONLY_ABLATION)()
-    assert not est3._feature_on and est3._relative_fw_on
-    with _capture_block_routing() as rec3, _capture_fw_channel_matrices() as fw3, \
-            _capture_fw_relative_fw() as fwr3:
-        fit_estimator(est3, tx, y, g)
-        est3.predict_proba(tx)
-    assert all(gr is None for gr in rec3["groups"]) and rec3["work_vec"] == 0 and rec3["work_sum"] == 0
-    assert fw3 and any(not np.array_equal(m, np.round(m)) for m in fw3)            # FW channel relative (R1)
-    assert fwr3 and all(v is True for v in fwr3)
+    texts, labels, groups = _stack_panel()
+    _warm(cfg, texts)
+    assert_stack_channel_results(monkeypatch, cfg, texts, labels, groups,
+                                 ablation=ablation, feature_groups=feature_groups, relative_fw=relative_fw)
 
 
 @requires_spacy
@@ -655,30 +569,20 @@ def test_stack_A3_uses_a_genuine_strict_two_arg_channel(tmp_path, monkeypatch):
 
 
 @requires_spacy
-def test_stack_A2_A3_supervised_fits_have_A0_loss_and_calibrator_groups_none(tmp_path):
+@pytest.mark.parametrize("ablation", [FEATURE_STATE_ONLY_ABLATION, RELATIVE_FW_ONLY_ABLATION])
+def test_stack_A2_A3_preserve_legacy_loss_and_calibration(tmp_path, ablation):
     cfg = _cfg(tmp_path)
-    tx, y, g = _stack_panel()
-    _warm(cfg, tx)
-    for ab in (FEATURE_STATE_ONLY_ABLATION, RELATIVE_FW_ONLY_ABLATION):
-        from stylo.models.channels import make_channels
-        n_ch = len(make_channels(cfg))
-        n_folds = len(_inner_splits(cfg, y, g))
-        est = make_factory_for_ablation("stylo_stack", cfg, ablation=ab)()
-        with _capture_stack() as sink, _capture_calibrator_groups() as cal_g:
-            fit_estimator(est, tx, y, g)
-            est.predict_proba(tx)
-        assert sink
-        for rec in sink:                                        # A0 loss on EVERY supervised fit
-            assert rec["class_weight"] == "balanced"            # legacy, NOT None
-            assert rec["sample_weight"] is None                 # W off: no work weights
-        # EXACT ordering/multiplicity: OOF svc = n_ch*n_folds, full-train svc = n_ch (predict);
-        # meta-CV = 3, plus a final meta-LR iff mode_ == "stacked". A disappeared meta-CV fails here.
-        n_svc = sum(r["kind"] == "svc" for r in sink)
-        n_meta = sum(r["kind"] == "meta_lr" for r in sink)
-        assert n_svc == n_ch * n_folds + n_ch
-        assert n_meta == (4 if est.mode_ == "stacked" else 3)
-        # calibrator groups=None captured DIRECTLY for every channel (W off -> chunk-level selection)
-        assert cal_g and all(gr is None for gr in cal_g)
+    texts, labels, groups = _stack_panel()
+    _warm(cfg, texts)
+    model = make_factory_for_ablation("stylo_stack", cfg, ablation=ablation)()
+    with _capture_stack() as fits:
+        fit_estimator(model, texts, labels, groups)
+        probabilities = model.predict_proba(texts)
+    assert fits
+    assert all(row["class_weight"] == "balanced" and row["sample_weight"] is None for row in fits)
+    assert set(probabilities.argmax(axis=1)) == set(labels)
+    np.testing.assert_allclose(probabilities.sum(axis=1), 1.0)
+    assert all(not report.get("group_aware", False) for report in model.passport_["calibration"].values())
 
 
 @requires_spacy

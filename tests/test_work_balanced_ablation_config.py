@@ -116,13 +116,14 @@ def test_ablation_routing_equals_the_matching_weighting():
 
 
 def test_make_factory_weighting_contract_unchanged():
-    # Ablation routing must not weaken the production contract: weighting stays a required keyword.
-    import inspect
-    p = inspect.signature(make_factory).parameters
-    assert p["weighting"].default is inspect._empty and p["weighting"].kind == inspect.Parameter.KEYWORD_ONLY
-    assert "ablation" not in p                                  # routing lives in make_factory_for_ablation
-    a = inspect.signature(make_factory_for_ablation).parameters["ablation"]
-    assert a.kind == inspect.Parameter.KEYWORD_ONLY             # ablation is keyword-only
+    with pytest.raises(TypeError):
+        make_factory("bow_lr", CFG)
+    with pytest.raises((TypeError, ValueError)):
+        make_factory("bow_lr", CFG, weighting=None)
+    with pytest.raises(ValueError):
+        make_factory("bow_lr", CFG, weighting="unknown")
+    with pytest.raises(TypeError):
+        make_factory_for_ablation("bow_lr", CFG)
 
 
 # ── the frozen goldens are preserved through the ablation path (spaCy-free models) ──

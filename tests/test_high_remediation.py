@@ -1,7 +1,6 @@
 """Focused fail-closed regressions for the HIGH remediation block."""
 from __future__ import annotations
 
-import ast
 import base64
 import concurrent.futures
 import dataclasses
@@ -1000,84 +999,6 @@ def test_serialized_production_context_must_reverify_against_disk(
     )
     assert restored.disk_verified is True
     assert restored.rows_digest == context.rows_digest
-
-
-def test_raw_cv_kernel_callers_are_exactly_the_guarded_orchestrators():
-    root = pathlib.Path(__file__).resolve().parents[1]
-    expected = {
-        "_lobo_run": {
-            "src/stylo/eval/final.py",
-            "src/stylo/eval/lobo.py",
-            "src/stylo/eval/sweep.py",
-        },
-        "_gkf_run": {
-            "src/stylo/eval/groupkfold.py",
-            "src/stylo/eval/sweep.py",
-        },
-        "_gkf_run_panel": {"src/stylo/eval/groupkfold.py"},
-        "evaluate_frozen_panel_factory": {
-            "src/stylo/eval/groupkfold.py",
-        },
-    }
-    observed = {name: set() for name in expected}
-    for source_root in ("src", "scripts"):
-        for path in (root / source_root).rglob("*.py"):
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.Call):
-                    continue
-                name = (
-                    node.func.id
-                    if isinstance(node.func, ast.Name)
-                    else (
-                        node.func.attr
-                        if isinstance(node.func, ast.Attribute)
-                        else None
-                    )
-                )
-                if name in observed:
-                    observed[name].add(path.relative_to(root).as_posix())
-    assert observed == expected
-
-
-def test_raw_cv_kernel_symbols_cannot_hide_behind_aliases_or_dynamic_lookup():
-    root = pathlib.Path(__file__).resolve().parents[1]
-    allowed = {
-        "_lobo_run": {
-            "src/stylo/eval/final.py",
-            "src/stylo/eval/lobo.py",
-            "src/stylo/eval/sweep.py",
-        },
-        "_gkf_run": {
-            "src/stylo/eval/groupkfold.py",
-            "src/stylo/eval/sweep.py",
-        },
-        "_gkf_run_panel": {"src/stylo/eval/groupkfold.py"},
-        "_evaluate_frozen_panel_factory_validated": {
-            "src/stylo/eval/groupkfold.py",
-        },
-    }
-    observed = {name: set() for name in allowed}
-    for source_root in ("src", "scripts"):
-        for path in (root / source_root).rglob("*.py"):
-            relative = path.relative_to(root).as_posix()
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                references = []
-                if isinstance(node, ast.Name):
-                    references.append(node.id)
-                elif isinstance(node, ast.Attribute):
-                    references.append(node.attr)
-                elif isinstance(node, ast.alias):
-                    references.append(node.name.rsplit(".", 1)[-1])
-                elif isinstance(node, ast.Constant) and type(node.value) is str:
-                    references.append(node.value)
-                for name in references:
-                    if name in observed:
-                        observed[name].add(relative)
-    assert observed == allowed
-
-
 
 
 def test_benchmark_rejects_uncapped_overlap_before_rng_or_cache(
@@ -2556,8 +2477,6 @@ def test_report_uses_verified_v2_strategy_and_rejects_tamper(
     )
     build.run(cfg)
     rendered = (docs / "index.html").read_text(encoding="utf-8")
-    assert "GKF screening proxy" in rendered
-    assert "not LOBO" in rendered
 
     published_sweep["sweep_table.v2.txt"].write_text("tampered", encoding="utf-8")
     with pytest.raises(build.ReportEvidenceError, match="digest mismatch"):

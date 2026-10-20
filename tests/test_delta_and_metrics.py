@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 import numpy as np
+import pytest
 
 from stylo.eval.metrics import accuracy, macro_f1, bootstrap_ci, expected_calibration_error
 from stylo.eval.significance import mcnemar, paired_bootstrap_diff, paired_bootstrap_diff_clustered
@@ -118,42 +119,66 @@ def test_char_cosine_two_argument_fit_preserves_legacy_row_weighting():
 
 
 def test_metrics_basic():
-    y_true = np.array([0, 1, 2, 0, 1])
-    y_pred = np.array([0, 1, 2, 1, 1])
-    assert accuracy(y_true, y_pred) == 0.8
-    assert 0 <= macro_f1(y_true, y_pred, [0, 1, 2]) <= 1
+    truth = np.array([0, 1, 2, 0, 1])
+    predicted = np.array([0, 1, 2, 1, 1])
+    assert accuracy(truth, predicted) == pytest.approx(4 / 5)
+    # Class F1 scores: 2/3, 4/5, 1. The fixed label universe includes absent classes.
+    assert macro_f1(truth, predicted, [0, 1, 2]) == pytest.approx(37 / 45)
+    assert macro_f1(truth, predicted, [0, 1, 2, 3]) == pytest.approx(37 / 60)
 
 
-def test_bootstrap_ci_bounds():
-    y_true = np.array([0, 1] * 20)
-    y_pred = y_true.copy()
-    ci = bootstrap_ci(lambda ix: accuracy(y_true[ix], y_pred[ix]), len(y_true),
-                      iters=200, seed=1)
-    assert ci.point == 1.0 and ci.lo <= ci.point <= ci.hi
+@pytest.mark.parametrize("values,point,low,high", [
+    ([0.0, 1.0], 0.5, 0.0, 1.0),
+    ([2.0, 6.0], 4.0, 2.0, 6.0),
+    ([7.0, 7.0], 7.0, 7.0, 7.0),
+])
+def test_bootstrap_ci_bounds(values, point, low, high):
+    # The four equally likely draws are (a,a), (a,b), (b,a), (b,b).
+    values = np.asarray(values)
+    result = bootstrap_ci(lambda ix: values[ix].mean(), 2, iters=1000, seed=1)
+    assert (result.point, result.lo, result.hi) == pytest.approx((point, low, high))
 
 
 def test_mcnemar_and_diff():
-    ca = np.array([1, 1, 1, 0, 0], dtype=bool)
-    cb = np.array([1, 0, 0, 0, 0], dtype=bool)
-    r = mcnemar(ca, cb)
-    assert r.b == 2 and r.c == 0
-    diff = paired_bootstrap_diff(lambda ix: ca[ix].mean(), lambda ix: cb[ix].mean(),
-                                 len(ca), iters=200, seed=1)
-    assert diff.diff > 0
+    a = np.ones(6, dtype=bool)
+    b = np.zeros(6, dtype=bool)
+    exact = mcnemar(a, b)
+    assert (exact.b, exact.c, exact.p_value) == pytest.approx((6, 0, 2 / 2**6))
+    assert mcnemar(b, a).p_value == exact.p_value
+    assert mcnemar(a, a).p_value == 1.0
+    different = paired_bootstrap_diff(lambda ix: a[ix].mean(), lambda ix: b[ix].mean(),
+                                     6, iters=100, seed=1)
+    assert (different.diff, different.lo, different.hi) == (1.0, 1.0, 1.0)
+    assert different.significant is True
+    varied = np.array([0.0, 1.0])
+    paired = paired_bootstrap_diff(lambda ix: varied[ix].mean(), lambda ix: varied[ix].mean(),
+                                  2, iters=100, seed=1)
+    assert (paired.diff, paired.lo, paired.hi) == (0.0, 0.0, 0.0)
+    assert paired.significant is False
 
 
 def test_clustered_bootstrap_by_author():
-    """Кластерный bootstrap ресэмплит АВТОРОВ (группы), не отдельные книги; точка внутри CI."""
-    ca = np.array([1, 1, 1, 1, 0, 0], dtype=bool)   # stylo
-    cb = np.array([0, 0, 0, 0, 0, 0], dtype=bool)   # baseline
-    groups = np.array(["a", "a", "a", "b", "b", "b"])
-    d = paired_bootstrap_diff_clustered(lambda ix: ca[ix].mean(), lambda ix: cb[ix].mean(),
-                                        groups, iters=300, seed=1)
-    assert d.diff > 0                       # stylo не хуже baseline на каждой книге
-    assert d.lo <= d.diff <= d.hi
+    # Two authors: eight correct books and two wrong books. Drawing whole authors
+    # gives means 0, .8, 1; row resampling cannot reproduce this 95% interval.
+    scores = np.array([1.0] * 8 + [0.0] * 2)
+    groups = np.array(["a"] * 8 + ["b"] * 2)
+    result = paired_bootstrap_diff_clustered(lambda ix: scores[ix].mean(), lambda ix: 0.0,
+                                            groups, iters=1000, seed=1)
+    assert (result.diff, result.lo, result.hi) == pytest.approx((0.8, 0.0, 1.0))
+    assert result.significant is False
+    row_result = paired_bootstrap_diff(lambda ix: scores[ix].mean(), lambda ix: 0.0,
+                                      len(scores), iters=1000, seed=1)
+    assert row_result.lo > result.lo
 
 
 def test_ece_perfect_vs_overconfident():
-    probs = np.array([[0.9, 0.1], [0.1, 0.9]])
-    y = np.array([0, 1])
-    assert expected_calibration_error(probs, y) >= 0.0
+    truth = np.array([0, 1])
+    perfect = np.eye(2)
+    confident_wrong = perfect[::-1] * 0.8 + 0.1
+    underconfident = perfect * 0.8 + 0.1
+    assert expected_calibration_error(perfect, truth) == 0.0
+    assert expected_calibration_error(confident_wrong, truth) == pytest.approx(0.9)
+    assert expected_calibration_error(underconfident, truth) == pytest.approx(0.1)
+    # Different bins must contribute in proportion to their sample counts.
+    mixed = np.array([[0.6, 0.4], [0.9, 0.1], [0.9, 0.1], [0.9, 0.1]])
+    assert expected_calibration_error(mixed, [0, 0, 0, 1]) == pytest.approx(0.275)

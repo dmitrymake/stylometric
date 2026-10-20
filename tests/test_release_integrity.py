@@ -91,11 +91,24 @@ class TestStrictJson:
         payload = {"m": [1, 2.5, "t", True, None], "n": {"k": 0.1}}
         assert jsonio.loads_strict(jsonio.dumps_strict(payload)) == payload
 
-    def test_dump_strict_writes_atomically(self, tmp_path):
-        target = tmp_path / "sub" / "out.json"
-        jsonio.dump_strict({"v": float("nan"), "w": 3}, target)
-        assert jsonio.load_strict(target) == {"v": None, "w": 3}
-        assert target.read_text(encoding="utf-8").endswith("\n")
+    def test_dump_strict_writes_atomically(self, tmp_path, monkeypatch):
+        import os
+        target = tmp_path / "out.json"
+        jsonio.dump_strict({"old": [1, 2]}, target)
+        before = target.read_bytes()
+        original = os.replace
+        def fail_commit(source, destination):
+            if Path(destination) == target:
+                raise OSError("injected commit failure")
+            return original(source, destination)
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "replace", fail_commit)
+            with pytest.raises(OSError, match="injected commit failure"):
+                jsonio.dump_strict({"new": [3, 4]}, target)
+        assert target.read_bytes() == before
+        assert set(tmp_path.iterdir()) == {target}
+        jsonio.dump_strict({"new": [3, 4]}, target)
+        assert jsonio.load_strict(target) == {"new": [3, 4]}
 
     def test_dump_strict_file_mode_respects_umask(self, tmp_path):
         import os
@@ -155,51 +168,18 @@ def _versioned_json_files() -> list[str]:
     )
 
 
-def _non_strict_json_dump_calls(tree: "ast.Module") -> list[int]:
-    """Line numbers of json.dump/json.dumps calls, alias-aware (import json as j,
-    from json import dumps, dotted or bare, multiline)."""
-    import ast
-    module_aliases = set()   # names bound to the json module
-    bound_dumpers = set()    # names bound directly to json.dump / json.dumps
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "json":
-                    module_aliases.add(alias.asname or "json")
-        elif isinstance(node, ast.ImportFrom) and node.module == "json":
-            for alias in node.names:
-                if alias.name in ("dump", "dumps"):
-                    bound_dumpers.add(alias.asname or alias.name)
-    hits = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        if any(keyword.arg == "allow_nan" and isinstance(keyword.value, ast.Constant)
-               and keyword.value.value is False for keyword in node.keywords):
-            continue
-        func = node.func
-        if (isinstance(func, ast.Attribute) and func.attr in ("dump", "dumps")
-                and isinstance(func.value, ast.Name) and func.value.id in module_aliases):
-            hits.append(func.lineno)
-        elif isinstance(func, ast.Name) and func.id in bound_dumpers:
-            hits.append(func.lineno)
-    return hits
-
-
-def test_json_writers_reject_non_finite_numbers():
-    # Shared strict JSON or explicit allow_nan=False both reject invalid numeric
-    # literals. Standalone stdlib tools need not import the application package.
-    import ast
-    offenders = []
-    for root in ("src", "scripts"):
-        for path in (REPO_ROOT / root).rglob("*.py"):
-            if path.name == "jsonio.py":
-                continue
-            relative = path.relative_to(REPO_ROOT).as_posix()
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for line in _non_strict_json_dump_calls(tree):
-                offenders.append(f"{relative}:{line}")
-    assert not offenders, "JSON writer without explicit finite-number policy:\n" + "\n".join(offenders)
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_json_writers_reject_non_finite_numbers(tmp_path, value):
+    import runpy
+    # Exercise a real result producer and its two published JSON artifacts.
+    runner = runpy.run_path(str(REPO_ROOT / "scripts/run_benchmark.py"))
+    outputs = runner["publish_benchmark_result"](
+        {"dataset_identity": {}, "attestation": {}, "score": value},
+        docs=tmp_path, pd_only=False, fast=True,
+    )
+    artifacts = [jsonio.load_strict(path) for path in outputs.values()]
+    candidate = next(record for record in artifacts if "score" in record)
+    assert candidate["score"] is None
 
 
 def test_all_versioned_json_is_strict():
@@ -394,26 +374,41 @@ class TestReleaseHygiene:
         (docs / "escape").unlink()
         assert hygiene.check_archive_content(archive) == []
 
-    def test_release_archive_export_excludes_internal_path_bearing_evidence(self):
-        attributes = {
-            line.strip()
-            for line in (REPO_ROOT / ".gitattributes").read_text(
-                encoding="utf-8"
-            ).splitlines()
-            if line.strip() and not line.lstrip().startswith("#")
-        }
-        assert {
-            "/docs/cases/work_balanced_audit/passports/ export-ignore",
-            "/log export-ignore",
-        }.issubset(attributes)
+    def test_release_archive_export_excludes_internal_path_bearing_evidence(self, tmp_path):
+        import io
+        import tarfile
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        _init_repo(repo)
+        (repo / ".gitattributes").write_bytes((REPO_ROOT / ".gitattributes").read_bytes())
+        excluded = ["docs/cases/work_balanced_audit/passports/synthetic.json", "log/synthetic.txt"]
+        for relative in [*excluded, "docs/public.json"]:
+            target = repo / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("synthetic fixture")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-qm", "archive fixture")
+        payload = subprocess.check_output(["git", "-C", str(repo), "archive", "HEAD"])
+        with tarfile.open(fileobj=io.BytesIO(payload)) as archive:
+            names = set(archive.getnames())
+        assert not names.intersection(excluded)
+        assert "docs/public.json" in names
 
-    def test_archive_hygiene_disables_bytecode_before_local_import(self):
-        script = (
-            REPO_ROOT / "scripts" / "check_release_hygiene.py"
-        ).read_text(encoding="utf-8")
-        assert script.index("sys.dont_write_bytecode = True") < script.index(
-            "from stylo.release.hygiene import"
-        )
+    def test_archive_hygiene_disables_bytecode_before_local_import(self, tmp_path):
+        import os
+        import shutil
+        import sys
+        archive = tmp_path / "archive"
+        shutil.copytree(REPO_ROOT / "src/stylo", archive / "src/stylo", ignore=shutil.ignore_patterns("__pycache__"))
+        (archive / "scripts").mkdir()
+        shutil.copyfile(REPO_ROOT / "scripts/check_release_hygiene.py", archive / "scripts/check_release_hygiene.py")
+        env = dict(os.environ)
+        env.pop("PYTHONDONTWRITEBYTECODE", None)
+        env.pop("PYTHONPYCACHEPREFIX", None)
+        result = subprocess.run([sys.executable, str(archive / "scripts/check_release_hygiene.py"), "--archive"],
+                                cwd=archive, env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr + result.stdout
+        assert not list(archive.rglob("*.pyc"))
 
     def test_publish_gate_flags_private_paths_in_tree(self, tmp_path):
         repo = tmp_path / "r"
@@ -739,17 +734,7 @@ class TestReleaseHygiene:
 
 
 def test_default_ruaa_specs_reproduce_committed_rows():
-    # a default rerun must not silently drop a committed leaderboard model.
-    # Parse DEFAULT_SPECS via AST rather than importing the heavy RuAA pipeline,
-    # so this test runs on a CI runner without spaCy/torch installed.
-    import ast
-    tree = ast.parse((REPO_ROOT / "scripts" / "run_ruaa_baselines.py").read_text(encoding="utf-8"))
-    default_specs = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == "DEFAULT_SPECS" for t in node.targets
-        ):
-            default_specs = [ast.literal_eval(elt) for elt in node.value.elts]
-    assert default_specs is not None, "DEFAULT_SPECS not found"
-    committed = {row["model"] for row in jsonio.load_strict(REPO_ROOT / "docs" / "ruaa_bench_v1.json")["leaderboard"]}
-    assert committed.issubset(set(default_specs))
+    import runpy
+    runner = runpy.run_path(str(REPO_ROOT / "scripts/run_ruaa_baselines.py"))
+    committed = {row["model"] for row in jsonio.load_strict(REPO_ROOT / "docs/ruaa_bench_v1.json")["leaderboard"]}
+    assert committed <= set(runner["DEFAULT_SPECS"])

@@ -1,139 +1,68 @@
-"""Repo-wide gate: no production writer overwrites a frozen artifact or reintroduces the withdrawn
-macro-F1 CI. Scans ALL production code (src/, scripts/, log/), not just the gen-*.mjs generators —
-any fast/legacy recompute must route to the exploratory/versioned namespace or fail closed, never
-to the frozen docs/ headline sources.
-"""
-from __future__ import annotations
-
-import ast
+"""Active result writers preserve frozen inputs and publish separate candidates."""
+import json
 import pathlib
+import runpy
+
+import pandas as pd
+import pytest
+
+from stylo.config import load_config, with_overrides
+from stylo.jsonio import load_strict
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-
-# frozen CI artifacts (immutable baseline and CI-sign-erratum sources), by canonical docs/ basename
-FROZEN = {"final_comparison.csv", "final_comparison.txt", "ruaa_bench_v1.json", "ruaa_bench_leaderboard.md"}
 FROZEN_VALIDATION = {"validation.json", "validation_pd.json"}
-HEADLINE_JSON = "stylo_lobo_authorci.json"
-GUARD = "assert_publish_target_not_frozen"
-WITHDRAWN_MARKER = "macro_f1_authorclustered_interval_status"
-BANNED_WORDING = "интервал консервативен"
-_WRITE_ATTRS = {"write_text", "write_bytes", "to_csv"}
-_DUMP_FUNCS = {"dump", "dumps", "dump_strict", "dumps_strict"}
+FROZEN = {"final_comparison.csv", "final_comparison.txt", "ruaa_bench_v1.json",
+          "ruaa_bench_leaderboard.md", "stylo_lobo_authorci.json", *FROZEN_VALIDATION}
 
 
-def _py_files():
-    for d in ("src", "scripts", "log"):
-        base = ROOT / d
-        if base.exists():
-            yield from base.rglob("*.py")
+def _sentinels(docs):
+    docs.mkdir()
+    expected = {name: ("historical fixture: " + name).encode() for name in FROZEN}
+    for name, value in expected.items():
+        (docs / name).write_bytes(value)
+    return expected
 
 
-def _tainted_path_vars(tree, needle):
-    """Names assigned a path expression whose source mentions ``needle`` (e.g. a frozen basename)."""
-    tainted = set()
-    for n in ast.walk(tree):
-        if isinstance(n, ast.Assign) and needle in ast.unparse(n.value):
-            for t in n.targets:
-                if isinstance(t, ast.Name):
-                    tainted.add(t.id)
-    return tainted
+def test_final_cli_preserves_frozen_inputs(tmp_path, monkeypatch):
+    import yaml
+    from stylo.cli import main
+    from stylo import dataset
+    from stylo.eval import final
+    docs = tmp_path / "docs"
+    prior = _sentinels(docs)
+    cfg = with_overrides(load_config(), {"paths.docs": str(docs), "paths.data": str(tmp_path / "data")})
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(cfg.to_dict()))
+    table = pd.DataFrame([dict(model="stylo", accuracy=0.5, acc_ci="[0,1]", macro_f1=0.5,
+                              top2=1.0, vs_stylo_mcnemar_p=1.0, vs_stylo_dacc=0.0, ece=None)])
+    books = pd.DataFrame([dict(test_author="alpha", test_book="one", correct=True, rank=1,
+                              top_candidates=[("alpha", 0.8), ("beta", 0.2)])])
+    result = {"table": table, "results": {"stylo": {"df": books, "summary": {"per_author_recall": {"alpha": 1.0}}}}}
+    # Only scientific computation is supplied; CLI routing, formatting and writes are real.
+    monkeypatch.setattr(dataset, "resolve_dataset", lambda *a, **kw: object())
+    monkeypatch.setattr(final, "run_final", lambda *a, **kw: result)
+    assert main(["evaluate", "--config", str(config_path)]) == 0
+    assert {name: (docs / name).read_bytes() for name in prior} == prior
+    generated = pd.read_csv(docs / "exploratory/legacy_recompute/final_comparison.csv")
+    assert generated["model"].tolist() == ["stylo"]
+    assert generated["accuracy"].tolist() == [0.5]
 
 
-def _writes_path(tree, needle):
-    """True iff the module has a write to a path that resolves to ``needle`` (literal or tainted var)."""
-    tainted = _tainted_path_vars(tree, needle)
-    for n in ast.walk(tree):
-        if not isinstance(n, ast.Call):
-            continue
-        fn = n.func
-        if isinstance(fn, ast.Attribute) and fn.attr in _WRITE_ATTRS:
-            recv = fn.value
-            if (isinstance(recv, ast.Name) and recv.id in tainted) or needle in ast.unparse(n):
-                return True
-        fname = fn.attr if isinstance(fn, ast.Attribute) else (fn.id if isinstance(fn, ast.Name) else "")
-        if fname in _DUMP_FUNCS:
-            for a in n.args:
-                if (isinstance(a, ast.Name) and a.id in tainted) or needle in ast.unparse(a):
-                    return True
-    return False
-
-
-def _contains_exact_string(node, value):
-    return any(
-        isinstance(item, ast.Constant) and item.value == value
-        for item in ast.walk(node)
-    )
-
-
-def _writes_exact_path(tree, filename):
-    tainted = set()
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Assign)
-            and _contains_exact_string(node.value, filename)
-        ):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    tainted.add(target.id)
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        function = node.func
-        if isinstance(function, ast.Attribute) and function.attr in _WRITE_ATTRS:
-            receiver = function.value
-            if (
-                isinstance(receiver, ast.Name)
-                and receiver.id in tainted
-            ) or _contains_exact_string(receiver, filename):
-                return True
-        function_name = (
-            function.attr
-            if isinstance(function, ast.Attribute)
-            else (
-                function.id if isinstance(function, ast.Name) else ""
-            )
-        )
-        if function_name in _DUMP_FUNCS:
-            for argument in node.args:
-                if (
-                    isinstance(argument, ast.Name)
-                    and argument.id in tainted
-                ) or _contains_exact_string(argument, filename):
-                    return True
-    return False
-
-
-def test_no_production_writer_targets_a_frozen_ci_artifact_without_the_guard():
-    offenders = []
-    for p in _py_files():
-        if p.name == "ci_erratum.py":              # defines the guard; writes only versioned/corrected paths
-            continue
-        src = p.read_text(encoding="utf-8")
-        tree = ast.parse(src)
-        uses_guard = GUARD in src
-        for name in FROZEN:
-            if _writes_path(tree, name) and not uses_guard:
-                offenders.append(f"{p.relative_to(ROOT)} -> {name}")
-    assert not offenders, "production writer targets a frozen CI artifact without the guard:\n" + "\n".join(offenders)
-
-
-def test_no_production_writer_targets_historical_validation_inputs():
-    import warnings
-
-    offenders = []
-    with warnings.catch_warnings():
-        # Two legacy invalid-escape warnings are already tracked by the older
-        # AST scans; this additional writer inventory must not multiply them.
-        warnings.simplefilter("ignore", DeprecationWarning)
-        for path in _py_files():
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for name in FROZEN_VALIDATION:
-                if _writes_exact_path(tree, name):
-                    offenders.append(f"{path.relative_to(ROOT)} -> {name}")
-    assert not offenders, (
-        "production writer targets a frozen historical validation input:\n"
-        + "\n".join(offenders)
-    )
+@pytest.mark.parametrize("pd_only,fast", [(False, False), (False, True), (True, False), (True, True)])
+def test_benchmark_writer_preserves_historical_inputs(tmp_path, pd_only, fast):
+    runner = runpy.run_path(str(ROOT / "scripts/run_benchmark.py"))
+    docs = tmp_path / "docs"
+    prior = _sentinels(docs)
+    result = {"claim_status": "exploratory_internal", "dataset_identity": {"synthetic": True},
+              "attestation": {"synthetic": True}, "macro_f1_authorclustered_CI": None,
+              "macro_f1_authorclustered_interval_status": "withdrawn_invalid_resampling_labels_not_remapped"}
+    outputs = runner["publish_benchmark_result"](result, docs=docs, pd_only=pd_only, fast=fast)
+    provenance = load_strict(outputs["run_provenance.json"])
+    candidate = load_strict(outputs[provenance["candidate_file"]])
+    assert candidate == result
+    assert provenance["public_headline_authorized"] is False
+    assert provenance["supersedes"] is None
+    assert {name: (docs / name).read_bytes() for name in prior} == prior
 
 
 def test_historical_validation_inputs_match_the_p0_snapshot():
@@ -151,19 +80,29 @@ def test_historical_validation_inputs_match_the_p0_snapshot():
         assert actual == snapshot["artifacts"]["sha256"][relative]
 
 
-def test_headline_json_writers_carry_the_withdrawal_marker():
-    offenders = []
-    for p in _py_files():
-        src = p.read_text(encoding="utf-8")
-        if _writes_path(ast.parse(src), HEADLINE_JSON) and WITHDRAWN_MARKER not in src:
-            offenders.append(str(p.relative_to(ROOT)))
-    assert not offenders, f"stylo_lobo_authorci.json writer missing the withdrawal marker: {offenders}"
-
-
-def test_no_production_code_has_the_conservative_wording():
-    hits = []
-    files = list(_py_files()) + list((ROOT / "scripts").glob("*.mjs"))
-    for p in files:
-        if BANNED_WORDING in p.read_text(encoding="utf-8"):
-            hits.append(str(p.relative_to(ROOT)))
-    assert not hits, f"banned 'conservative interval' wording present in: {hits}"
+def test_canonical_ruaa_runner_refuses_to_replace_frozen_results(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from stylo.eval.ci_erratum import CiErratumError
+    runner = runpy.run_path(str(ROOT / "scripts/run_ruaa_baselines.py"))
+    namespace = runner["main"].__globals__
+    docs = tmp_path / "docs"
+    prior = _sentinels(docs)
+    bench = tmp_path / "bench.json"
+    bench.write_text("{}")
+    fake_dataset = SimpleNamespace(n_authors=2, groups=pd.Series(["a/one", "b/one"]))
+    class Rows:
+        n_authors = fake_dataset.n_authors
+        groups = fake_dataset.groups
+        def __len__(self):
+            return 2
+    monkeypatch.setattr("sys.argv", ["run_ruaa_baselines.py"])
+    for key, value in {
+        "BENCH_DOC": bench, "ROOT": tmp_path, "OUT_JSON": docs / "ruaa_bench_v1.json",
+        "OUT_MD": docs / "ruaa_bench_leaderboard.md",
+        "resolve_fragment_snapshot": lambda *_: SimpleNamespace(train_root=tmp_path),
+        "load_dataset": lambda *_: Rows(), "bench_subset": lambda *a: (Rows(), []),
+    }.items():
+        monkeypatch.setitem(namespace, key, value)
+    with pytest.raises(CiErratumError):
+        runner["main"]()
+    assert {name: (docs / name).read_bytes() for name in prior} == prior

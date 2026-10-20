@@ -244,10 +244,11 @@ def _pending(records: dict, study, cells: tuple[str, ...], arms: tuple[str, ...]
     return tasks
 
 
-def _summarise(study, records: dict) -> None:
+def _summarise(study, records: dict) -> dict:
     """Report available arm accuracy; emit a cell delta only after both arms finish."""
     width = len(study.probability_order)
     scores = {}
+    deltas = {}
     for cell in TOPIC_CELLS_V1:
         for arm in TOPIC_ARMS_V1:
             rows = records[cell][arm]
@@ -271,7 +272,9 @@ def _summarise(study, records: dict) -> None:
         current, strict = scores.get((cell, "current")), scores.get((cell, "topic_strict"))
         if current and strict and current[1] == strict[1] == len(study.folds):
             delta = (strict[0] - current[0]) / len(study.folds)
+            deltas[cell] = delta
             print(f"partial cell={cell} delta_topic_strict_minus_current={delta:+.4f}", flush=True)
+    return {"scores": scores, "deltas": deltas}
 
 
 def _warm_representations(study) -> None:

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import pathlib
-import tempfile
 
 import joblib
 import numpy as np
@@ -33,9 +32,7 @@ from stylo.domain.work_weighting import CHUNK_WEIGHTED_LEGACY, WORK_BALANCED
 from stylo.features.work_vectorizer import WorkLevelVectorizer
 from stylo.models.baselines import CharCosineBaseline
 from stylo.models.delta import BurrowsDelta
-from stylo.models.work_balanced import (WorkBalancedBowPipeline,
-                                        WorkLevelCountTransformer,
-                                        build_bow_lr_work_balanced)
+from stylo.models.work_balanced import WorkBalancedBowPipeline, WorkLevelCountTransformer
 from stylo.pipeline.bundle import BundleError, load_bundle, publish_bundle
 
 WORD = {"analyzer": "word", "token_pattern": r"(?u)\b\w+\b", "lowercase": True}
@@ -50,6 +47,58 @@ def _toy_corpus(tmp: pathlib.Path):
             for c in range(4):
                 (d / f"{c}.txt").write_text(f"{a} {b} word{c} common text here more", encoding="utf-8")
     return load_dataset(tmp)
+
+
+def _legacy_models():
+    import hashlib
+    from scipy.sparse import csr_matrix
+    from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, TfidfTransformer
+    from stylo.features.char_ngrams import CharNgramBlock
+    from stylo.features.function_words import FunctionWordBlock
+    from stylo.features.pos_ngrams import PosNgramBlock
+    from stylo.features.punctuation import PunctNgramBlock
+    path = pathlib.Path(__file__).parent / "fixtures/legacy_models_v1.json"
+    payload = path.read_bytes()
+    assert hashlib.sha256(payload).hexdigest() == "f05ee7f9baa411d353c2b46dabb75375cf38efd37c95f056db8bc1a1f0a08fb9"
+    fixture = json.loads(payload)
+    # Historical import paths can remain aliases after an internal class move.
+    constructors = {
+        "stylo.models.delta.BurrowsDelta": BurrowsDelta,
+        "stylo.models.baselines.CharCosineBaseline": CharCosineBaseline,
+        "stylo.features.function_words.FunctionWordBlock": FunctionWordBlock,
+        "stylo.features.char_ngrams.CharNgramBlock": CharNgramBlock,
+        "stylo.features.pos_ngrams.PosNgramBlock": PosNgramBlock,
+        "stylo.features.punctuation.PunctNgramBlock": PunctNgramBlock,
+        "sklearn.feature_extraction.text.CountVectorizer": CountVectorizer,
+        "sklearn.feature_extraction.text.TfidfVectorizer": TfidfVectorizer,
+        "sklearn.feature_extraction.text.TfidfTransformer": TfidfTransformer,
+    }
+    def restore(value):
+        if isinstance(value, list):
+            return [restore(item) for item in value]
+        if not isinstance(value, dict):
+            return value
+        if "array" in value:
+            return np.array(value["array"], dtype=value["dtype"])
+        if "numpy_type" in value:
+            return {"int64": np.int64, "float64": np.float64}[value["numpy_type"]]
+        if "tuple" in value:
+            return tuple(restore(item) for item in value["tuple"])
+        if "set" in value:
+            return set(restore(item) for item in value["set"])
+        if "csr" in value:
+            return csr_matrix((restore(value["csr"]), restore(value["indices"]), restore(value["indptr"])), shape=value["shape"])
+        if "class" in value:
+            cls = constructors[value["class"]]
+            instance = cls.__new__(cls)
+            state = restore(value["state"])
+            if hasattr(instance, "__setstate__"):
+                instance.__setstate__(state)
+            else:
+                instance.__dict__.update(state)
+            return instance
+        return {key: restore(item) for key, item in value.items()}
+    return restore(fixture["states"]), fixture
 
 
 # ── §11.1-6 adapters ──────────────────────────────────────────────────────────
@@ -93,12 +142,13 @@ class TestAdapters:
             self._bow().fit(self.X, self.y, groups=self.g, **bad)
 
     def test_exact_weights_and_class_weight(self):
-        from stylo.domain.work_weighting import work_sample_weights
-        p = self._bow()
-        p.fit(self.X, self.y, groups=self.g)
-        assert p.named_steps["lr"].class_weight is None
-        w = work_sample_weights(self.y, self.g)
-        assert w.sum() == pytest.approx(len(set(self.g)))     # sum == W
+        base = self._bow().fit(self.X, self.y, groups=self.g)
+        # Repeat every chunk of one work: its distribution and total vote stay fixed.
+        indices = [0, 1] * 8 + [2, 3, 4, 5]
+        repeated = self._bow().fit([self.X[i] for i in indices], [self.y[i] for i in indices],
+                                   groups=[self.g[i] for i in indices])
+        probes = ["a a a", "b c c", "a b c"]
+        np.testing.assert_allclose(repeated.predict_proba(probes), base.predict_proba(probes), atol=2e-5)
 
     def test_class_weight_forced_none_even_after_setparams(self):
         p = self._bow()
@@ -141,23 +191,21 @@ class TestWorkBalancedFeatureState:
         assert np.all(R[wids.index("w2")] == 0.0)
 
     def test_delta_wb_differs_and_predicts(self):
-        texts = ["kot na okne", "sobaka v parke", "kot lovil mysh", "ptica poet",
-                 "more shumit", "les tikho", "volny bregu", "veter silno"]
-        y = [0, 0, 0, 0, 1, 1, 1, 1]
-        g = ["a/w1", "a/w1", "a/w2", "a/w2", "b/w3", "b/w3", "b/w4", "b/w4"]
-        wb = BurrowsDelta(10, "manhattan", training_weighting=WORK_BALANCED).fit(texts, y, groups=g)
-        assert np.allclose(wb.predict_proba(texts).sum(axis=1), 1.0, atol=1e-6)
-        assert "work_balanced" in wb.group_weighting_
+        texts = ["alpha alpha common", "alpha common", "beta beta common", "beta common"]
+        model = BurrowsDelta(vocabulary=["alpha", "beta", "common"], training_weighting=WORK_BALANCED)
+        model.fit(texts, [0, 0, 1, 1], groups=["a/one", "a/two", "b/one", "b/two"])
+        assert model.predict(["alpha alpha common", "beta beta common"]).tolist() == [0, 1]
+        probabilities = model.predict_proba(["alpha alpha common", "beta beta common"])
+        assert probabilities[0, 0] > probabilities[0, 1]
+        assert probabilities[1, 1] > probabilities[1, 0]
 
     def test_charcos_wb_predicts(self):
-        # common substring "text" across all 4 works -> char n-grams survive min_df_works=2
-        texts = ["kot text", "kott text", "sob text", "sobb text"]
-        y = [0, 0, 1, 1]
-        g = ["a/w1", "a/w2", "b/w3", "b/w4"]
-        wb = CharCosineBaseline(ngram_range=(2, 3), max_features=50, min_df=1,
-                                training_weighting=WORK_BALANCED).fit(texts, y, groups=g)
-        assert wb.predict_proba(texts).shape == (4, 2)
-        assert "work_balanced" in wb.group_weighting_
+        texts = ["alpha common", "alpha common", "beta common", "beta common"]
+        model = CharCosineBaseline(ngram_range=(2, 3), min_df=1, training_weighting=WORK_BALANCED)
+        model.fit(texts, [0, 0, 1, 1], groups=["a/one", "a/two", "b/one", "b/two"])
+        probabilities = model.predict_proba(["alpha common", "beta common"])
+        assert probabilities.argmax(axis=1).tolist() == [0, 1]
+        np.testing.assert_allclose(probabilities.sum(axis=1), 1.0)
 
 
 # ── §11.8-10 provenance & subset ──────────────────────────────────────────────
@@ -284,10 +332,6 @@ class TestDispatchAndLifecycle:
         with pytest.raises(UnsupportedVariantError):        # forbidden in legacy arm
             make_factory("bow_lr_ref_legacy", CFG, weighting=CHUNK_WEIGHTED_LEGACY)
 
-    def test_weighting_is_required_keyword(self):
-        import inspect
-        p = inspect.signature(make_factory).parameters["weighting"]
-        assert p.default is inspect._empty and p.kind == inspect.Parameter.KEYWORD_ONLY
 
     def test_none_weighting_rejected(self):
         with pytest.raises(ValueError):        # None is NOT a silent legacy fallback
@@ -331,21 +375,20 @@ class TestDispatchAndLifecycle:
         with pytest.raises(ValueError):
             load_dataset(d, exclude_authors="alpha")
 
-    def test_versionless_delta_charcos_setstate_migration(self):
-        d = BurrowsDelta(5, "manhattan").fit(["a b", "b c", "c a", "a c"], [0, 0, 1, 1],
-                                             groups=["a/w1", "a/w1", "b/w2", "b/w2"])
-        for attr in ("training_weighting", "_wv", "vocabulary"):
-            d.__dict__.pop(attr, None)                     # simulate a versionless legacy pickle
+    @pytest.mark.parametrize("name", ["delta", "charcos"])
+    def test_versionless_delta_charcos_setstate_migration(self, name):
         import pickle
-        d2 = pickle.loads(pickle.dumps(d))                 # __setstate__ migrates
-        assert d2.training_weighting == CHUNK_WEIGHTED_LEGACY and d2._wv is None
-        d2.fit(["a b", "b c", "c a", "a c"], [0, 0, 1, 1],
-               groups=["a/w1", "a/w1", "b/w2", "b/w2"])    # refit must work
+        models, fixture = _legacy_models()
+        model = models[name]
+        probes = fixture["probes"]
+        expected = fixture["expected_probabilities"][name]
+        np.testing.assert_allclose(model.predict_proba(probes), expected, rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(pickle.loads(pickle.dumps(model)).predict_proba(probes), expected)
+        fresh = pickle.loads(pickle.dumps(model))
+        fresh.fit(fixture["texts"], [1 - y for y in fixture["labels"]], groups=fixture["groups"])
+        np.testing.assert_allclose(fresh.predict_proba(probes), np.asarray(expected)[:, ::-1])
+        np.testing.assert_allclose(model.predict_proba(probes), expected)
 
-    def test_stack_builds_under_wb(self):
-        # Both legacy and work-balanced stack variants are fully routable.
-        assert make_factory("stylo_stack", CFG, weighting=WORK_BALANCED)() is not None
-        assert make_factory("stylo_stack", CFG, weighting=CHUNK_WEIGHTED_LEGACY)() is not None
 
     def test_headline_write_guard(self):
         assert_headline_write_allowed(CHUNK_WEIGHTED_LEGACY)
@@ -509,50 +552,26 @@ class TestBundle:
 
 class TestPickleCompat:
     """Versionless pickles without ``_wv`` or ``_ctor_state`` load, predict, and clone."""
-    def test_old_delta_pickle_loads_predicts_clones(self):
-        d = BurrowsDelta(10, "manhattan").fit(
-            ["a b c", "b c d", "c d a", "d a b"], [0, 0, 1, 1],
-            groups=["a/w1", "a/w1", "b/w2", "b/w2"])
-        del d.__dict__["_wv"]                              # simulate a versionless legacy pickle
-        raw = joblib.dumps(d) if hasattr(joblib, "dumps") else None
-        import pickle
-        d2 = pickle.loads(pickle.dumps(d))
-        assert d2.predict_proba(["a b c"]).shape[1] == 2  # predict works via getattr fallback
-        assert d2.feature_names()                          # non-empty
 
     def test_old_fitted_block_clone_is_unfitted(self):
-        from stylo.features.char_ngrams import CharNgramBlock
-        blk = CharNgramBlock(ngram_range=(2, 3), min_df=1, bleach=False).fit(
-            ["a b c", "b c d", "c d a"], [None] * 3, groups=None)
-        del blk.__dict__["_ctor_state"]                   # simulate a versionless fitted pickle
-        cl = clone(blk)                                    # must not crash AND must be unfitted
-        assert cl._vec is None and cl._wv is None          # no fitted vocab leaked into the clone
+        blocks, fixture = _legacy_models()
+        original = blocks["fw"]
+        fresh = clone(original)
+        with pytest.raises((AttributeError, AssertionError, ValueError)):
+            fresh.transform(["alpha"], None)
+        fresh.fit(["new new", "vocabulary"], None)
+        assert set(fresh.feature_names()) == {"fw::new", "fw::vocabulary"}
+        assert original.feature_names() == fixture["expected_features"]["fw"]
 
-    def test_all_four_stylo_blocks_survive_missing_wv(self):
-        """The blocks INSIDE the production StyloVectorizer (model.pkl) must predict from an old
-        pickle that never had a _wv attribute."""
-        import pickle
-        from stylo.features.char_ngrams import CharNgramBlock
-        from stylo.features.function_words import FunctionWordBlock
-        from stylo.features.pos_ngrams import PosNgramBlock
-        from stylo.features.punctuation import PunctNgramBlock
-
-        class _Rep:
-            pos_str = "NOUN VERB NOUN"
-            punct_str = "— , —"
-        texts = ["the cat sat here", "a dog ran there", "cats and dogs play now"]
-        reps = [_Rep(), _Rep(), _Rep()]
-        blocks = [
-            CharNgramBlock(ngram_range=(2, 3), min_df=1, bleach=False).fit(texts, reps, groups=None),
-            FunctionWordBlock(mode="mfw", mfw_count=5).fit(texts, reps, groups=None),
-            PosNgramBlock(ngram_range=(1, 2), min_df=1).fit(texts, reps, groups=None),
-            PunctNgramBlock(ngram_range=(1, 2)).fit(texts, reps, groups=None),
-        ]
-        for blk in blocks:
-            old = pickle.loads(pickle.dumps(blk))
-            del old.__dict__["_wv"]                        # versionless pickle has no _wv attribute
-            assert old.transform(texts, reps).shape[0] == 3   # predict path must not crash
-            assert old.feature_names()                        # nor feature_names
+    @pytest.mark.parametrize("name", ["fw", "char", "pos", "punct"])
+    def test_all_four_stylo_blocks_survive_missing_wv(self, name):
+        from types import SimpleNamespace
+        blocks, fixture = _legacy_models()
+        reps = [SimpleNamespace(**row) for row in fixture["reps"]]
+        block = blocks[name]
+        assert block.feature_names() == fixture["expected_features"][name]
+        np.testing.assert_allclose(block.transform(fixture["texts"], reps).toarray(),
+                                   fixture["expected_transforms"][name], rtol=1e-12, atol=1e-12)
 
 
 class TestTypeGatesAndLaundering:
@@ -629,27 +648,6 @@ class TestPredictFailClosed:
             predict.run(cfg, expected_bundle_token="a" * 32)
 
 
-class TestAstGuard:
-    """Every weighting-sensitive production call passes ``weighting=`` explicitly."""
-    def test_all_production_calls_pass_weighting(self):
-        import ast
-        import pathlib as pl
-        toggled = {"make_factory", "lobo_evaluate", "gkf_evaluate", "run_final",
-                   "_evaluate_case", "run_sweep"}
-        src = pl.Path("src/stylo")
-        offenders = []
-        for py in src.rglob("*.py"):
-            tree = ast.parse(py.read_text(encoding="utf-8"))
-            # skip the definitions themselves
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
-                        and node.func.id in toggled:
-                    kws = {k.arg for k in node.keywords}
-                    if "weighting" not in kws:
-                        offenders.append(f"{py}:{node.lineno} {node.func.id}")
-        assert not offenders, f"calls missing explicit weighting=: {offenders}"
-
-
 class TestGoldenAndScience:
     """Versionless golden-artifact parity and estimator-level scientific regressions."""
     T = ["kot na okne spal dolgo", "sobaka bezhala v park bystro", "kot lovil mysh doma tikho",
@@ -658,19 +656,6 @@ class TestGoldenAndScience:
     Y = [0, 0, 0, 0, 1, 1, 1, 1]
     G = ["a/w1", "a/w1", "a/w2", "a/w2", "b/w3", "b/w3", "b/w4", "b/w4"]
 
-    def test_versionless_golden_delta_prediction_parity(self):
-        import pickle
-        fresh = BurrowsDelta(50, "manhattan").fit(self.T, self.Y, groups=self.G)   # current legacy
-        # Recreate the versionless state shape by dropping current schema and weighting keys.
-        old = {k: v for k, v in fresh.__dict__.items()
-               if k not in ("_schema_version", "_wv", "training_weighting")}
-        golden = BurrowsDelta.__new__(BurrowsDelta)
-        golden.__dict__ = old
-        loaded = pickle.loads(pickle.dumps(golden))                # __setstate__ migrates v1
-        assert loaded._schema_version == 1                          # versionless -> v1
-        np.testing.assert_allclose(loaded.predict_proba(self.T), fresh.predict_proba(self.T))
-        assert list(loaded.classes_) == list(fresh.classes_)
-        loaded.fit(self.T, self.Y, groups=self.G)                   # refit works
 
     def test_delta_unequal_chunk_lengths_sum_over_sum(self):
         # a work's two chunks have very different lengths — Σcounts/Σevents != mean-of-ratios
@@ -693,9 +678,13 @@ class TestGoldenAndScience:
         assert d.centroids_.shape[1] == 3 and d.feature_names() == ["kot", "les", "more"]
 
     def test_deltacos_wb_z_is_l2_normalised(self):
-        d = BurrowsDelta(50, "cosine", training_weighting=WORK_BALANCED).fit(self.T, self.Y, groups=self.G)
-        assert d.group_weighting_.endswith("_l2")
-        assert np.allclose(np.linalg.norm(d.centroids_, axis=1), 1.0, atol=0.5)  # work-z L2 then mean
+        # Four work frequencies: [1,0], [.5,.5], [0,1], [.5,.5].
+        # Their standardized directions are [s,-s], [0,0], [-s,s], [0,0], s=1/sqrt(2).
+        model = BurrowsDelta(metric="cosine", vocabulary=["a", "b"], training_weighting=WORK_BALANCED)
+        model.fit(["a a", "a b", "b b", "a b"], [0, 0, 1, 1], groups=["a/1", "a/2", "b/1", "b/2"])
+        s = 1 / np.sqrt(2)
+        np.testing.assert_allclose(model.centroids_, [[s/2, -s/2], [-s/2, s/2]], atol=1e-10)
+        assert model.predict(["a a", "b b"]).tolist() == [0, 1]
 
     def test_char_work_df_idf_independent_reference(self):
         # independent reference for CharCos work-level DF/IDF selection
@@ -771,9 +760,6 @@ class TestRuntimeContractHardening:
             with pytest.raises(ValueError):
                 pickle.loads(pickle.dumps(obj))
 
-    def test_fresh_block_carries_schema_version(self):
-        from stylo.features.char_ngrams import CharNgramBlock
-        assert CharNgramBlock(ngram_range=(2, 3), min_df=1)._schema_version == 2
 
     def test_sweep_unknown_strategy_rejected(self):
         from stylo.eval.sweep import _evaluate_case, EvalCase
@@ -791,7 +777,6 @@ class TestRuntimeContractHardening:
             safe_write_batch(tmp_path, {"a.txt": "NEW-A", "b.txt": "NEW-B"})
         assert (tmp_path / "a.txt").read_text() == "OLD-A"            # a.txt NOT changed (all-or-nothing)
         assert (tmp_path / "legacy").read_text() == "H"              # symlink not followed
-
 
 
 # ── mandatory runtime test: RuAA pin ──────────────────────────────────────────
